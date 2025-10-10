@@ -19,6 +19,7 @@ import { ImageGenerateModal } from "../modals/image-generate-modal";
 import { ResourceManager } from "src/assets/resource-manager";
 
 import { $t } from "src/lang/i18n";
+import { validateAndConvertImage } from "src/utils/image-utils";
 
 export class MPArticleHeader {
 	updateDraftDraftId(media_id: any) {
@@ -397,8 +398,10 @@ export class MPArticleHeader {
 				return;
 			}
 
+			// 验证并转换图片格式
+			const validatedBlob = await validateAndConvertImage(blob);
 			const res = await WechatClient.getInstance(this.plugin).uploadMaterial(
-				blob,
+				validatedBlob,
 				"banner-cover.png",
 				"image"
 			);

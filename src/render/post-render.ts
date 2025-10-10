@@ -7,6 +7,7 @@ import { fetchImageBlob } from 'src/utils/utils';
 import { WechatClient } from './../wechat-api/wechat-client';
 import WeWritePlugin from 'src/main';
 import { log } from 'console';
+import { validateAndConvertImage } from 'src/utils/image-utils';
 function imageFileName(mime:string){
     const type = mime.split('/')[1]
     return `image-${new Date().getTime()}.${type}`
@@ -82,7 +83,9 @@ export async function uploadSVGs(root: HTMLElement, wechatClient: WechatClient){
             return
         }
         await svgToPng(svgString).then(async blob => {
-            await wechatClient.uploadMaterial(blob, imageFileName(blob.type)).then(res => {
+            // 验证并转换图片格式
+            const validatedBlob = await validateAndConvertImage(blob);
+            await wechatClient.uploadMaterial(validatedBlob, imageFileName(validatedBlob.type)).then(res => {
                 if (res){
                     svg.outerHTML = `<img src="${res.url}" />`
                 }else{
@@ -103,7 +106,9 @@ export async function uploadCanvas(root:HTMLElement, wechatClient:WechatClient):
     
     const uploadPromises = canvases.map(async (canvas) => {
         const blob = getCanvasBlob(canvas);
-        await wechatClient.uploadMaterial(blob, imageFileName(blob.type)).then(res => {
+        // 验证并转换图片格式
+        const validatedBlob = await validateAndConvertImage(blob);
+        await wechatClient.uploadMaterial(validatedBlob, imageFileName(validatedBlob.type)).then(res => {
             if (res){
                 canvas.outerHTML = `<img src="${res.url}" />`
             }else{
@@ -147,8 +152,9 @@ export async function uploadURLImage(root:HTMLElement, wechatClient:WechatClient
             return
             
         }else{
-
-            await wechatClient.uploadMaterial(blob, imageFileName(blob.type)).then(res => {
+            // 验证并转换图片格式
+            const validatedBlob = await validateAndConvertImage(blob);
+            await wechatClient.uploadMaterial(validatedBlob, imageFileName(validatedBlob.type)).then(res => {
                 if (res){
                     img.src = res.url
                 }else{
@@ -231,10 +237,11 @@ export async function uploadURLVideo(root:HTMLElement, wechatClient:WechatClient
             
         }else{
 			
+            // 注意：视频文件不进行图片格式转换
             await wechatClient.uploadMaterial(blob, imageFileName(blob.type), 'video').then(async res => {
                 if (res){
-					const video_info = await wechatClient.getMaterialById(res.media_id)
-					video.src = video_info.url
+                    const video_info = await wechatClient.getMaterialById(res.media_id)
+                    video.src = video_info.url
                 }else{
                     console.error(`upload video failed.`);
                     
