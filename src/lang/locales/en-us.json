@@ -178,7 +178,8 @@
       "only-fans-can-comment-description": "Everyone can comment by default.",
       "open-comments": "Open comments",
       "testing-button": "Testing button",
-      "title": "Draft header"
+      "title": "Draft header",
+      "upload-cover-image-error": "Failed to upload cover image"
     },
     "delete-draft": "Delete draft",
     "delete-image": "Delete image",
@@ -210,8 +211,10 @@
       "send-article-to-draft-box": "Send article to draft box",
       "testing-button": "Testing button",
       "to-verify-the-images-in-article": "Verify images in the article",
-      "wewrite-previewer": "WeWrite previewer"
-    },
+      "wewrite-previewer": "WeWrite previewer",
+      "convert-links-to-strong-tags": "Convert links to strong tags",
+      "links-converted-to-strong-tags-successfully": "Links converted to strong tags successfully"
+     },
     "send-mass-message": "Send mass message",
     "theme-manager": {
       "default-theme": "Default theme",

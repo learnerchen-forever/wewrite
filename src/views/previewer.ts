@@ -20,6 +20,7 @@ import {
 import { $t } from "src/lang/i18n";
 import WeWritePlugin from "src/main";
 import { PreviewRender } from "src/render/marked-extensions/extension";
+import { LinkToStrong } from "src/render/marked-extensions/link-to-strong";
 import {
 	uploadCanvas,
 	uploadSVGs,
@@ -227,7 +228,24 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 							$t("views.previewer.article-copied-to-clipboard")
 						);
 					});
-			});
+			})
+			.addExtraButton((button) => {
+				button
+					.setIcon("bold")
+					.setTooltip($t("views.previewer.convert-links-to-strong-tags"))
+					.onClick(async () => {
+						await this.convertLinksToStrongTags();
+					});
+			})
+			// 调试时打开注释
+			// .addExtraButton((button) => {
+			// 	button
+			// 		.setIcon("view")
+			// 		.setTooltip("查看草稿数据")
+			// 		.onClick(async () => {
+			// 			this.showDraftData();
+			// 		});
+			// });
 
 		this.draftHeader = new MPArticleHeader(this.plugin, mainDiv);
 
@@ -284,8 +302,44 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 			}
 		}
 	}
+	/**
+	 * Compress HTML by removing unnecessary whitespace while preserving content in pre, code, and textarea tags
+	 */
+	private compressHTML(html: string): string {
+		// Store protected elements temporarily
+		const protectedElements: string[] = [];
+		
+		// Extract and store pre, code, textarea elements, with content escaping
+		html = html.replace(/<(pre|code|textarea)([^>]*?)>([\s\S]*?)<\/\1>/gi, (match, tag, attrs, content) => {
+			// Escape content for protected elements: tab to 4 non-breaking spaces, space to non-breaking space, newline to <br>
+			const escapedContent = content
+				.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;') // 制表符转为4个不间断空格
+				.replace(/\n/g, '<br>'); // 换行符转为br标签
+			
+			const escapedElement = `<${tag}${attrs}>${escapedContent}</${tag}>`;
+			protectedElements.push(escapedElement);
+			return `<!--PROTECTED_ELEMENT_${protectedElements.length - 1}-->`;
+		});
+		
+		// Compress the remaining HTML (outside protected elements)
+		html = html
+			// Replace multiple whitespaces with single space
+			.replace(/\s+/g, ' ')
+			// Remove whitespaces around HTML tags
+			.replace(/\s*(<[^>]+>)\s*/g, '$1')
+			// Trim the entire string
+			.trim();
+		
+		// Restore protected elements
+		html = html.replace(/<!--PROTECTED_ELEMENT_(\d+)-->/g, (match, index) => {
+			return protectedElements[parseInt(index)];
+		});
+		
+		return html;
+	}
+
 	public getArticleContent() {
-		return this.articleDiv.innerHTML;
+		return this.compressHTML(this.articleDiv.innerHTML);
 	}
 	// async getCSS() {
 	// 	return await ThemeManager.getInstance(this.plugin).getCSS();
@@ -296,6 +350,150 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 		this.stopListen();
 	}
 
+	/**
+	 * Converts all <a> tags to <strong> tags in the rendered article content, preserving styles
+	 */
+	async convertLinksToStrongTags() {
+		const currentContent = this.articleDiv.innerHTML;
+		const updatedContent = LinkToStrong.convertATagsToStrongTags(currentContent);
+		this.articleDiv.innerHTML = updatedContent;
+		new Notice($t("views.previewer.links-converted-to-strong-tags-successfully"));
+	}
+
+	private async showDraftData() {
+		// 获取两个方法的值
+		const draftData = this.draftHeader.getActiveLocalDraft();
+		const articleContent = this.getArticleContent();
+		
+		// 安全的字符串化函数，处理循环引用
+		const safeStringify = (obj: any): string => {
+			const seen = new WeakSet();
+			return JSON.stringify(obj, (key, val) => {
+				if (val != null && typeof val === "object") {
+					if (seen.has(val)) return "[Circular]";
+					seen.add(val);
+				}
+				return val;
+			}, 2);
+		};
+		
+		// 创建弹窗显示内容
+		const modalContent = `
+			<h3>草稿数据</h3>
+			<div style="margin-bottom: 20px;">
+				<h4>Active Local Draft:</h4>
+				<pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow: auto; max-height: 200px; white-space: pre-wrap; word-wrap: break-word;">${safeStringify(draftData)}</pre>
+			</div>
+			<div style="margin-bottom: 20px;">
+				<h4>Article Content:</h4>
+				<pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow: auto; max-height: 200px; white-space: pre-wrap; word-wrap: break-word;">${articleContent}</pre>
+			</div>
+		`;
+		
+		// 创建自定义模态框
+		const modal = document.createElement('div');
+		modal.className = 'modal-container';
+		modal.style.position = 'fixed';
+		modal.style.top = '0';
+		modal.style.left = '0';
+		modal.style.width = '100%';
+		modal.style.height = '100%';
+		modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+		modal.style.display = 'flex';
+		modal.style.justifyContent = 'center';
+		modal.style.alignItems = 'center';
+		modal.style.zIndex = '9999';
+		modal.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+		
+		const modalContentDiv = document.createElement('div');
+		modalContentDiv.className = 'modal-content';
+		modalContentDiv.style.backgroundColor = 'white';
+		modalContentDiv.style.padding = '20px';
+		modalContentDiv.style.borderRadius = '8px';
+		modalContentDiv.style.maxWidth = '80%';
+		modalContentDiv.style.maxHeight = '80%';
+		modalContentDiv.style.overflow = 'auto';
+		modalContentDiv.innerHTML = modalContent;
+		
+		// 添加复制按钮
+		const copyButton = document.createElement('button');
+		copyButton.textContent = '复制所有数据';
+		copyButton.style.marginTop = '10px';
+		copyButton.style.padding = '8px 16px';
+		copyButton.style.backgroundColor = '#007acc';
+		copyButton.style.color = 'white';
+		copyButton.style.border = 'none';
+		copyButton.style.borderRadius = '4px';
+		copyButton.style.cursor = 'pointer';
+		copyButton.style.marginRight = '10px';
+		
+		copyButton.onclick = async () => {
+			const fullData = `草稿数据:\n${safeStringify(draftData)}\n\n文章内容:\n${articleContent}`;
+			await navigator.clipboard.writeText(fullData);
+			new Notice('数据已复制到剪贴板');
+		};
+		
+		modalContentDiv.appendChild(copyButton);
+		
+		// 添加复制草稿数据按钮
+		const copyDraftButton = document.createElement('button');
+		copyDraftButton.textContent = '仅复制草稿数据';
+		copyDraftButton.style.marginTop = '10px';
+		copyDraftButton.style.padding = '8px 16px';
+		copyDraftButton.style.backgroundColor = '#28a745';
+		copyDraftButton.style.color = 'white';
+		copyDraftButton.style.border = 'none';
+		copyDraftButton.style.borderRadius = '4px';
+		copyDraftButton.style.cursor = 'pointer';
+		copyDraftButton.style.marginRight = '10px';
+		
+		copyDraftButton.onclick = async () => {
+			const draftDataStr = safeStringify(draftData);
+			await navigator.clipboard.writeText(draftDataStr);
+			new Notice('草稿数据已复制到剪贴板');
+		};
+		
+		modalContentDiv.appendChild(copyDraftButton);
+		
+		// 添加复制文章内容按钮
+		const copyContentButton = document.createElement('button');
+		copyContentButton.textContent = '仅复制文章内容';
+		copyContentButton.style.marginTop = '10px';
+		copyContentButton.style.padding = '8px 16px';
+		copyContentButton.style.backgroundColor = '#17a2b8';
+		copyContentButton.style.color = 'white';
+		copyContentButton.style.border = 'none';
+		copyContentButton.style.borderRadius = '4px';
+		copyContentButton.style.cursor = 'pointer';
+		copyContentButton.style.marginRight = '10px';
+		
+		copyContentButton.onclick = async () => {
+			await navigator.clipboard.writeText(articleContent);
+			new Notice('文章内容已复制到剪贴板');
+		};
+		
+		modalContentDiv.appendChild(copyContentButton);
+		
+		// 添加关闭按钮
+		const closeButton = document.createElement('button');
+		closeButton.textContent = '关闭';
+		closeButton.style.marginTop = '10px';
+		closeButton.style.padding = '8px 16px';
+		closeButton.style.backgroundColor = '#6c757d';
+		closeButton.style.color = 'white';
+		closeButton.style.border = 'none';
+		closeButton.style.borderRadius = '4px';
+		closeButton.style.cursor = 'pointer';
+		
+		closeButton.onclick = () => {
+			document.body.removeChild(modal);
+		};
+		
+		modalContentDiv.appendChild(closeButton);
+		modal.appendChild(modalContentDiv);
+		document.body.appendChild(modal);
+	}
+	
 	async parseActiveMarkdown() {
 		// get properties
 		const prop = this.getArticleProperties();

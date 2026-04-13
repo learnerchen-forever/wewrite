@@ -41,19 +41,14 @@ export class CodeRenderer extends WeWriteMarkedExtension {
 
 	codeRenderer(code: string, infostring: string | undefined): string {
 		const lang = (infostring || '').match(/^\S*/)?.[0];
-		// 保留原始代码格式，将空格和制表符转换为HTML实体
-		const originalCode = code;
-		code = code
-			.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;') // 制表符转为4个不间断空格
-			.replace(/ /g, '&nbsp;') // 普通空格转为不间断空格
-			.replace(/\n/g, '<br>'); // 换行符转为br标签
+		code = code.replace(/\n$/, '') + '\n';
 
 		let codeSection = '<section class="code-container"><section class="code-section-banner"></section><section class="code-section">';
 
 		const codeLineNumber = this.previewRender.articleProperties.get('show-code-line-number')
 
 		if (codeLineNumber === 'true' || codeLineNumber === 'yes' || codeLineNumber === '1') {
-			const lines = originalCode.split('\n');
+			const lines = code.split('\n');
 
 			let liItems = '';
 			let count = 1;
@@ -64,9 +59,11 @@ export class CodeRenderer extends WeWriteMarkedExtension {
 			codeSection += `<ul>${liItems}</ul>`;
 		}
 
+
 		if (!lang) {
 			codeSection += `<pre><code>${code}</code></pre>`;
 		} else {
+
 			codeSection += `<pre><code class="hljs language-${lang}" >${code}</code></pre>`
 		}
 
@@ -140,7 +137,7 @@ export class CodeRenderer extends WeWriteMarkedExtension {
 		this.mermaidIndex++;
 
 		const renderer = ObsidianMarkdownRenderer.getInstance(this.plugin.app);
-
+		
 		const root = renderer.queryElement(index, '.mermaid')
 		if (!root) {
 			return
@@ -251,7 +248,7 @@ export class CodeRenderer extends WeWriteMarkedExtension {
 
 					token.html = await this.renderAdmonitionAsync(token, type);
 				}
-
+				
 			}
 		}
 	}

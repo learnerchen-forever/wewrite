@@ -178,7 +178,8 @@
       "only-fans-can-comment-description": "默认所有人都可评论",
       "open-comments": "开启评论",
       "testing-button": "测试按钮",
-      "title": "文章属性"
+      "title": "文章属性",
+      "upload-cover-image-error": "上传封面图片失败"
     },
     "delete-draft": "删除草稿",
     "delete-image": "删除图片",
@@ -210,8 +211,10 @@
       "send-article-to-draft-box": "发送文章到草稿箱",
       "testing-button": "测试按钮",
       "to-verify-the-images-in-article": "验证文章中的图片",
-      "wewrite-previewer": "WeWrite预览器"
-    },
+      "wewrite-previewer": "WeWrite预览器",
+      "convert-links-to-strong-tags": "将链接转换为粗体标签",
+      "links-converted-to-strong-tags-successfully": "链接已成功转换为粗体标签"
+     },
     "send-mass-message": "群发消息",
     "theme-manager": {
       "default-theme": "默认主题",

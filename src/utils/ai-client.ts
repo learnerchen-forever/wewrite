@@ -39,10 +39,19 @@ export class AiClient {
 			throw new Error($t("utils.no-ai-server-url-given"));
 		}
 		
-		if (account.baseUrl.startsWith("https://")) {
-			return this.openaiClient
-		} else {
+		// 根据API路径特点判断是Ollama还是OpenAI服务
+		// Ollama API路径通常包含 /api/chat，OpenAI API路径通常包含 /v1/chat/completions
+		if (account.baseUrl.includes("/api/chat")) {
 			return this.ollamaClient;
+		} else if (account.baseUrl.includes("/v1")) {
+			return this.openaiClient;
+		} else {
+			// 默认情况下，如果包含11434端口则认为是Ollama
+			if (account.baseUrl.includes(":11434")) {
+				return this.ollamaClient;
+			} else {
+				return this.openaiClient;
+			}
 		}
 	}
 	public async getModelList(account:string|undefined = undefined): Promise<string[]> {
