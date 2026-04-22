@@ -8,9 +8,11 @@ import {
 	Editor,
 	EventRef,
 	MarkdownView,
+	Menu,
 	MenuItem,
 	Notice,
 	Plugin,
+	TAbstractFile,
 	TFile,
 	WorkspaceLeaf,
 } from "obsidian";
@@ -27,7 +29,7 @@ import {
 	getWeWriteSetting,
 	saveWeWriteSetting,
 	WeWriteSetting,
-	initWeWriteDB
+	initWeWriteDB,
 } from "./settings/wewrite-setting";
 import { initAssetsDB } from "./assets/assets-manager";
 import { initDraftDB } from "./assets/draft-manager";
@@ -42,6 +44,7 @@ import { MaterialView, VIEW_TYPE_MP_MATERIAL } from "./views/material-view";
 import { PreviewPanel, VIEW_TYPE_WEWRITE_PREVIEW } from "./views/previewer";
 import { WechatClient } from "./wechat-api/wechat-client";
 import { Spinner } from "./views/spinner";
+import { VIEW_TYPE_WEWRITE, WeWriteView } from "./views/WeWriteView";
 
 const DEFAULT_SETTINGS: WeWriteSetting = {
 	mpAccounts: [],
@@ -108,15 +111,21 @@ export default class WeWritePlugin extends Plugin {
 			account.taskUrl = account.taskUrl.trim();
 			account.apiKey = account.apiKey.trim();
 			account.model = account.model.trim();
-		})
+		});
 		this.settings.ipAddress = this.settings.ipAddress?.trim();
-		this.settings.selectedMPAccount = this.settings.selectedMPAccount?.trim();
-		this.settings.selectedChatAccount = this.settings.selectedChatAccount?.trim();
-		this.settings.selectedDrawAccount = this.settings.selectedDrawAccount?.trim();
+		this.settings.selectedMPAccount =
+			this.settings.selectedMPAccount?.trim();
+		this.settings.selectedChatAccount =
+			this.settings.selectedChatAccount?.trim();
+		this.settings.selectedDrawAccount =
+			this.settings.selectedDrawAccount?.trim();
 		this.settings.accountDataPath = this.settings.accountDataPath?.trim();
-		this.settings.chatSetting.chatSelected = this.settings.chatSetting.chatSelected?.trim();
-		this.settings.chatSetting.modelSelected = this.settings.chatSetting.modelSelected?.trim();
-		this.settings.css_styles_folder = this.settings.css_styles_folder?.trim();
+		this.settings.chatSetting.chatSelected =
+			this.settings.chatSetting.chatSelected?.trim();
+		this.settings.chatSetting.modelSelected =
+			this.settings.chatSetting.modelSelected?.trim();
+		this.settings.css_styles_folder =
+			this.settings.css_styles_folder?.trim();
 	}
 	saveSettings: Function = debounce(async () => {
 		delete this.settings._id;
@@ -160,7 +169,7 @@ export default class WeWritePlugin extends Plugin {
 				} else {
 					editor.replaceSelection(`![[${url}]]`);
 				}
-			}
+			},
 		);
 		this.registerEvent(
 			this.app.workspace.on("editor-menu", (menu, editor) => {
@@ -188,14 +197,13 @@ export default class WeWritePlugin extends Plugin {
 								.onClick(async () => {
 									const content = editor.getSelection();
 
-									const polished = await this.polishContent(
-										content
-									);
+									const polished =
+										await this.polishContent(content);
 
 									if (polished) {
 										editor.replaceSelection(
 											polished,
-											content
+											content,
 										);
 									}
 								});
@@ -246,15 +254,14 @@ export default class WeWritePlugin extends Plugin {
 								.setIcon("book-a")
 								.onClick(async () => {
 									const content = editor.getSelection();
-									const synonym = await this.getSynonyms(
-										content
-									);
+									const synonym =
+										await this.getSynonyms(content);
 									this.hideSpinner();
 
 									if (synonym) {
 										editor.replaceSelection(
 											synonym,
-											content
+											content,
 										);
 									}
 								});
@@ -271,7 +278,7 @@ export default class WeWritePlugin extends Plugin {
 									if (translated) {
 										editor.replaceSelection(
 											translated,
-											content
+											content,
 										);
 									}
 								});
@@ -288,7 +295,7 @@ export default class WeWritePlugin extends Plugin {
 									if (translated) {
 										editor.replaceSelection(
 											translated,
-											content
+											content,
 										);
 									}
 								});
@@ -299,14 +306,13 @@ export default class WeWritePlugin extends Plugin {
 								.setIcon("git-compare-arrows")
 								.onClick(async () => {
 									const content = editor.getSelection();
-									const mermaid = await this.generateMermaid(
-										content
-									);
+									const mermaid =
+										await this.generateMermaid(content);
 
 									if (mermaid) {
 										editor.replaceSelection(
 											mermaid,
-											content
+											content,
 										);
 									}
 								});
@@ -317,9 +323,8 @@ export default class WeWritePlugin extends Plugin {
 								.setIcon("square-radical")
 								.onClick(async () => {
 									const content = editor.getSelection();
-									let latex = await this.generateLaTex(
-										content
-									);
+									let latex =
+										await this.generateLaTex(content);
 
 									if (latex) {
 										latex = latex
@@ -344,16 +349,14 @@ export default class WeWritePlugin extends Plugin {
 								.setTitle($t("main.polish"))
 								.setIcon("user-pen")
 								.onClick(async () => {
-									const content = await this.app.vault.read(
-										file
-									);
-									const polished = await this.polishContent(
-										content
-									);
+									const content =
+										await this.app.vault.read(file);
+									const polished =
+										await this.polishContent(content);
 									if (polished) {
 										await this.app.vault.modify(
 											file,
-											polished
+											polished,
 										);
 									}
 								});
@@ -389,7 +392,7 @@ export default class WeWritePlugin extends Plugin {
 						// });
 					}
 				});
-			})
+			}),
 		);
 	}
 	showLeftView() {
@@ -414,12 +417,10 @@ export default class WeWritePlugin extends Plugin {
 	}
 
 	createSpinner() {
-
 		this.spinner = new Spinner(this.addStatusBarItem());
 	}
 	showSpinner(text: string = "") {
 		this.spinner.showSpinner(text);
-
 	}
 	isSpinning() {
 		return this.spinner.isSpinning();
@@ -433,22 +434,24 @@ export default class WeWritePlugin extends Plugin {
 		this.settings = await Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			await getWeWriteSetting()
+			await getWeWriteSetting(),
 		);
 		await this.loadThemeFolder();
 	}
 	async updateIpAddress(): Promise<string> {
 		return new Promise((resolve, reject) => {
-			getPublicIpAddress().then(async (ip) => {
-				if (ip !== undefined && ip) {
-					this.settings.ipAddress = ip;
-					await this.saveSettings();
-					resolve(ip);
-				}
-			}).catch((error) => {
-				console.error("Error fetching public IP address:", error);
-				reject("Failed to fetch public IP address: " + error);
-			})
+			getPublicIpAddress()
+				.then(async (ip) => {
+					if (ip !== undefined && ip) {
+						this.settings.ipAddress = ip;
+						await this.saveSettings();
+						resolve(ip);
+					}
+				})
+				.catch((error) => {
+					console.error("Error fetching public IP address:", error);
+					reject("Failed to fetch public IP address: " + error);
+				});
 		});
 	}
 
@@ -507,13 +510,13 @@ export default class WeWritePlugin extends Plugin {
 			}
 			const token = await this.wechatClient.getAccessToken(
 				account.appId,
-				account.appSecret
+				account.appSecret,
 			);
 			if (token) {
 				this.setAccessToken(
 					accountName,
 					token.access_token,
-					token.expires_in
+					token.expires_in,
 				);
 				return token.access_token;
 			}
@@ -550,13 +553,13 @@ export default class WeWritePlugin extends Plugin {
 		if (accessToken === undefined || accessToken === "") {
 			const token = await this.wechatClient.getAccessToken(
 				appId,
-				appSecret
+				appSecret,
 			);
 			if (token) {
 				this.setAccessToken(
 					accountName,
 					token.access_token,
-					token.expires_in
+					token.expires_in,
 				);
 				return token.access_token;
 			}
@@ -566,13 +569,13 @@ export default class WeWritePlugin extends Plugin {
 		) {
 			const token = await this.wechatClient.getAccessToken(
 				appId,
-				appSecret
+				appSecret,
 			);
 			if (token) {
 				this.setAccessToken(
 					accountName,
 					token.access_token,
-					token.expires_in
+					token.expires_in,
 				);
 				return token.access_token;
 			}
@@ -583,7 +586,7 @@ export default class WeWritePlugin extends Plugin {
 	}
 	getMPAccountByName(accountName: string | undefined) {
 		return this.settings.mpAccounts.find(
-			(account) => account.accountName === accountName
+			(account) => account.accountName === accountName,
 		);
 	}
 	public getChatAIAccount(accountName: string | undefined = undefined) {
@@ -591,7 +594,7 @@ export default class WeWritePlugin extends Plugin {
 			accountName = this.settings.selectedChatAccount;
 		}
 		return this.settings.chatAccounts.find(
-			(account) => account.accountName === accountName
+			(account) => account.accountName === accountName,
 		);
 	}
 	public getDrawAIAccount(accountName: string | undefined = undefined) {
@@ -600,7 +603,7 @@ export default class WeWritePlugin extends Plugin {
 		}
 		return this.settings.drawAccounts.find(
 			(account) =>
-				account.accountName === this.settings.selectedDrawAccount
+				account.accountName === this.settings.selectedDrawAccount,
 		);
 	}
 	getSelectedMPAccount() {
@@ -609,7 +612,7 @@ export default class WeWritePlugin extends Plugin {
 	setAccessToken(
 		accountName: string,
 		accessToken: string,
-		expires_in: number
+		expires_in: number,
 	) {
 		const account = this.getMPAccountByName(accountName);
 		if (account === undefined) {
@@ -651,7 +654,7 @@ export default class WeWritePlugin extends Plugin {
 			const result = await this.aiClient.translateText(
 				content,
 				"Chinese",
-				"English"
+				"English",
 			);
 			this.hideSpinner();
 			return result;
@@ -693,7 +696,7 @@ export default class WeWritePlugin extends Plugin {
 				const selectedWord = await new Promise<string | null>(
 					(resolve) => {
 						new SynonymsModal(this.app, synonyms, resolve).open();
-					}
+					},
 				);
 				return selectedWord ? selectedWord : null;
 			}
@@ -715,7 +718,7 @@ export default class WeWritePlugin extends Plugin {
 			const result = await this.aiClient.generateMermaid(content);
 			if (result) {
 				const mermaidMatch = result.match(
-					/```mermaid\n([\s\S]*?)\n```/
+					/```mermaid\n([\s\S]*?)\n```/,
 				);
 				if (mermaidMatch && mermaidMatch[1]) {
 					return `\n\`\`\`mermaid\n${mermaidMatch[1].trim()}\n\`\`\`\n`;
@@ -744,7 +747,7 @@ export default class WeWritePlugin extends Plugin {
 					return latexMatch[0].trim();
 				}
 				const codeBlockMatch = result.match(
-					/```latex\n([\s\S]*?)\n```/
+					/```latex\n([\s\S]*?)\n```/,
 				);
 				if (codeBlockMatch && codeBlockMatch[1]) {
 					const innerLatexMatch =
@@ -810,15 +813,16 @@ export default class WeWritePlugin extends Plugin {
 					if (url === undefined || url === null || url === "") {
 						new Notice($t("main.image-generation-failed"));
 					}
-					const fullPath = await ResourceManager.getInstance(
-						this
-					).saveImageFromUrl(url);
+					const fullPath =
+						await ResourceManager.getInstance(
+							this,
+						).saveImageFromUrl(url);
 
 					this.messageService.sendMessage(
 						"image-generated",
-						fullPath ? fullPath : url
+						fullPath ? fullPath : url,
 					);
-				}
+				},
 			);
 		}
 		this.imageGenerateModal.prompt = editor.getSelection();
@@ -828,14 +832,14 @@ export default class WeWritePlugin extends Plugin {
 
 	async prompt(
 		message: string,
-		defaultValue?: string
+		defaultValue?: string,
 	): Promise<string | null> {
 		return new Promise((resolve) => {
 			const modal = new PromptModal(
 				this.app,
 				message,
 				defaultValue,
-				resolve
+				resolve,
 			);
 			modal.open();
 		});
@@ -852,7 +856,113 @@ export default class WeWritePlugin extends Plugin {
 		initAssetsDB();
 		initDraftDB();
 	}
+	initWewriteMenu() {
+		this.registerView(VIEW_TYPE_WEWRITE, (leaf) => new WeWriteView(leaf));
+		console.info("Initializing WeWrite menu...");
+		// 命令名称常量
+		const OPEN_WITH_WEWRITE_COMMAND_ID = "open-with-wewrite";
+
+		// 1. 注册命令
+		this.addCommand({
+			id: OPEN_WITH_WEWRITE_COMMAND_ID,
+			name: "Open with WeWrite",
+			// 使用 editorCallback 以便仅在编辑器可用时启用
+			editorCallback: (editor, view) => {
+				const file = view.file;
+				if (file && file.extension === "md") {
+					this.openWithWeWrite(file);
+				}
+			},
+		});
+
+		// 2. 监听文件菜单事件，将命令添加到菜单
+		this.registerEvent(
+			this.app.workspace.on(
+				"file-menu",
+				(menu: Menu, file: TAbstractFile) => {
+					// 仅对 .md 文件显示菜单项
+					if (file instanceof TFile && file.extension === "md") {
+						// 添加菜单分隔线（可选，使菜单更美观）
+						menu.addSeparator();
+						// 添加菜单项
+						menu.addItem((item) => {
+							item.setTitle("Open with WeWrite")
+								.setIcon("document") // 使用合适的图标
+								.onClick(async () => {
+									await this.openWithWeWrite(file);
+								});
+						});
+					}
+				},
+			),
+		);
+	}
+
+	private waitForViewReady(leaf: WorkspaceLeaf, timeout = 2000): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const start = Date.now();
+        const interval = setInterval(() => {
+            const view = leaf.view;
+            if (view && view.getViewType() === VIEW_TYPE_WEWRITE) {
+                clearInterval(interval);
+                resolve();
+            } else if (Date.now() - start > timeout) {
+                clearInterval(interval);
+                reject(new Error("等待视图超时"));
+            }
+        }, 50);
+    });
+}
+	/**
+	 * 使用系统默认程序打开 .md 文件
+	 * @param file 要打开的 TFile 对象
+	 */
+	private async openWithWeWrite(file: TFile) {
+		const { workspace } = this.app;
+
+		// 总是新建，不复用
+		const leaf = workspace.getLeaf(true);
+		if (!leaf) {
+			new Notice("无法创建新的视图区域。");
+			return;
+		}
+		await leaf.setViewState({ type: VIEW_TYPE_WEWRITE, active: true });
+		await this.waitForViewReady(leaf);
+		workspace.revealLeaf(leaf);
+		if (leaf.view.getViewType() === VIEW_TYPE_WEWRITE) {
+			await (leaf.view as WeWriteView).setFile(file);
+		}
+
+		// 查找是否已存在我们自定义视图类型的leaf（窗口/标签页）
+		// let leaf: WorkspaceLeaf | null = null;
+		// const existingLeaves = workspace.getLeavesOfType(VIEW_TYPE_WEWRITE);
+
+		// if (existingLeaves.length > 0) {
+		//     // 如果已经存在，则复用第一个找到的leaf
+		//     leaf = existingLeaves[0];
+		// } else {
+		//     // 如果不存在，则在右侧边栏创建一个新的leaf
+		//     leaf = workspace.getRightLeaf(false);
+		//     if (!leaf) {
+		//         new Notice("无法创建新的视图区域。");
+		//         return;
+		//     }
+		//     // 设置这个leaf的状态，将其显示为我们自定义的视图
+		//     await leaf.setViewState({ type: VIEW_TYPE_WEWRITE, active: true });
+		// }
+
+		// // 将leaf显示出来（如果它处于折叠的侧边栏中）
+		// workspace.revealLeaf(leaf);
+
+		// // 获取视图实例，并调用我们自定义的setFile方法来加载文件
+		// if (leaf.view instanceof WeWriteView) {
+		//     await leaf.view.setFile(file);
+		// } else {
+		//     new Notice("无法获取自定义视图实例。");
+		// }
+	}
 	async onload() {
+		console.error("Loading WeWrite plugin...");
 		this.initDB();
 		this.messageService = new MessageService();
 		await this.loadSettings();
@@ -861,6 +971,7 @@ export default class WeWritePlugin extends Plugin {
 		this.aiClient = AiClient.getInstance(this);
 
 		this.registerViews();
+		this.initWewriteMenu();
 
 		this.addCommand({
 			id: "open-previewer",
@@ -892,20 +1003,25 @@ export default class WeWritePlugin extends Plugin {
 		// 		await proofreadText(editor, view);
 		// 	},
 		// });
-		this.messageService.registerListener('show-spinner', (msg: string) => {
+		this.messageService.registerListener("show-spinner", (msg: string) => {
 			this.showSpinner(msg);
-		})
-		this.messageService.registerListener('hide-spinner', () => {
+		});
+		this.messageService.registerListener("hide-spinner", () => {
 			this.hideSpinner();
-		})
+		});
 	}
 	registerViewOnce(viewType: string) {
 		if (this.app.workspace.getLeavesOfType(viewType).length === 0) {
 			if (viewType === VIEW_TYPE_WEWRITE_PREVIEW) {
-				
-				this.registerView(viewType, (leaf) => new PreviewPanel(leaf, this))
-			}else if (viewType === VIEW_TYPE_MP_MATERIAL) {
-				this.registerView(viewType, (leaf) => new MaterialView(leaf, this))
+				this.registerView(
+					viewType,
+					(leaf) => new PreviewPanel(leaf, this),
+				);
+			} else if (viewType === VIEW_TYPE_MP_MATERIAL) {
+				this.registerView(
+					viewType,
+					(leaf) => new MaterialView(leaf, this),
+				);
 			}
 		}
 	}
@@ -928,11 +1044,11 @@ export default class WeWritePlugin extends Plugin {
 				leaf.detach();
 			}
 		});
-		this.app.workspace.getLeavesOfType(VIEW_TYPE_WEWRITE_PREVIEW).forEach((leaf) => leaf.detach());
-		this.app.workspace.getLeavesOfType(VIEW_TYPE_MP_MATERIAL).forEach((leaf) => leaf.detach());
+		this.app.workspace
+			.getLeavesOfType(VIEW_TYPE_WEWRITE_PREVIEW)
+			.forEach((leaf) => leaf.detach());
+		this.app.workspace
+			.getLeavesOfType(VIEW_TYPE_MP_MATERIAL)
+			.forEach((leaf) => leaf.detach());
 	}
-
-
-
-
 }

@@ -843,3 +843,50 @@ proofreed
 .wewrite-render-preview {
 	display:  none;
 }
+
+/* --------------- end of spinner ----------------- */
+
+/* 顶部参数区域样式 */
+.wewrite-view-header {
+    padding: 12px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    background-color: var(--background-secondary);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.wewrite-param-input {
+    flex: 2;
+    min-width: 150px;
+}
+
+.wewrite-param-button {
+    flex-shrink: 0;
+}
+
+.wewrite-param-display {
+    flex: 1;
+    font-size: 0.9em;
+    color: var(--text-muted);
+    word-break: break-word;
+}
+
+/* Markdown 内容区域 */
+.wewrite-view-content {
+    padding: 16px;
+    overflow-y: auto;
+    height: calc(100% - 60px); /* 减去头部高度，移动端可能需要调整 */
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .wewrite-view-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .wewrite-view-content {
+        height: calc(100% - 100px);
+    }
+}
