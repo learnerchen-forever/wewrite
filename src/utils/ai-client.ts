@@ -11,7 +11,7 @@ import { QwenImageClient } from "./qwen-image-client";
 export class AiClient {
 	private static instance: AiClient;
 	private plugin: WeWritePlugin;
-	private settings: WeWriteSetting;
+	private settings: WeWriteSetting | undefined;
 	private openaiClient: OpenAIClient;
 	private ollamaClient: OllamaClient;
 	private imageClient: QwenImageClient;

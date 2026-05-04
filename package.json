@@ -40,20 +40,18 @@
 		"@codemirror/state": "^6.4.1",
 		"@codemirror/view": "^6.35.0",
 		"@popperjs/core": "^2.11.8",
-		"@types/pouchdb": "^6.4.2",
 		"css": "^3.0.0",
 		"css-select": "^5.1.0",
 		"gray-matter": "^4.0.3",
 		"highlight.js": "^11.10.0",
 		"i18next": "^24.2.0",
 		"jsdom": "^26.1.0",
+		"localforage": "^1.10.0",
 		"marked": "^15.0.0",
 		"marked-highlight": "^2.2.1",
 		"ollama": "^0.5.12",
 		"openai": "^4.98.0",
 		"postcss": "^8.5.3",
-		"postcss-custom-properties": "^14.0.4",
-		"pouchdb": "^9.0.0",
-		"pouchdb-find": "^9.0.0"
+		"postcss-custom-properties": "^14.0.4"
 	}
 }

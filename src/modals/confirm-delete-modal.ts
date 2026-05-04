@@ -11,15 +11,15 @@ import { MaterialItem } from '../wechat-api/wechat-types';
 export class ConfirmDeleteModal extends Modal {
     plugin: WeWritePlugin;
     item: MaterialItem;
-    callback: (item: MaterialItem) => void
-    constructor(plugin: WeWritePlugin, item: MaterialItem, callback: (item: MaterialItem) => void) {
+    callback: (item: MaterialItem) => Promise<boolean | undefined>
+    constructor(plugin: WeWritePlugin, item: MaterialItem, callback: (item: MaterialItem) => Promise<boolean | undefined>) {
         super(plugin.app);
         this.plugin = plugin;
         this.item = item
         this.callback = callback
     }
 
-    update(item: MaterialItem, callback: (item: MaterialItem) => void) {
+    update(item: MaterialItem, callback: (item: MaterialItem) => Promise<boolean | undefined>) {
         this.item = item
         this.callback = callback
     }
@@ -42,8 +42,8 @@ export class ConfirmDeleteModal extends Modal {
             text: $t('modals.cancel')
         });
 
-        confirmButton.addEventListener('click', () => {
-            this.delete();
+        confirmButton.addEventListener('click', async () => {
+            await this.delete();
             this.close();
         });
 
@@ -56,9 +56,9 @@ export class ConfirmDeleteModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
     }
-    delete() {
+    async delete() {
         if (this.callback) {
-            this.callback(this.item)
+            await this.callback(this.item)
         }
     }
 }

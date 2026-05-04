@@ -23,3 +23,6 @@ data.json
 
 # exclue test
 test/
+
+# claude 
+.claude/

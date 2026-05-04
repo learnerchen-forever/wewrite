@@ -28,8 +28,7 @@ import { WeWriteSettingTab } from "./settings/setting-tab";
 import {
 	getWeWriteSetting,
 	saveWeWriteSetting,
-	WeWriteSetting,
-	initWeWriteDB,
+	WeWriteSetting
 } from "./settings/wewrite-setting";
 import { initAssetsDB } from "./assets/assets-manager";
 import { initDraftDB } from "./assets/draft-manager";
@@ -66,72 +65,72 @@ const DEFAULT_SETTINGS: WeWriteSetting = {
 };
 
 export default class WeWritePlugin extends Plugin {
-	settings: WeWriteSetting;
-	wechatClient: WechatClient;
-	assetsManager: AssetsManager;
-	aiClient: AiClient | null = null;
-	private editorChangeListener: EventRef | null = null;
+	settings: WeWriteSetting | undefined ;
+	wechatClient: WechatClient | undefined;
+	assetsManager: AssetsManager | undefined;
+	aiClient: AiClient | undefined;
+	private editorChangeListener: EventRef | undefined;
 	private imageGenerateModal: ImageGenerateModal | undefined;
-	matierialView: MaterialView;
-	messageService: MessageService;
+	matierialView: MaterialView | undefined;
+	messageService: MessageService | undefined;
 	resourceManager = ResourceManager.getInstance(this);
 	active: boolean = false;
-	spinner: Spinner;
+	spinner: Spinner | undefined;
 
 	async saveThemeFolder() {
 		const config = {
-			custom_theme_folder: this.settings.css_styles_folder,
+			custom_theme_folder: this.settings?.css_styles_folder,
 		};
 		await this.saveData(config);
-		this.messageService.sendMessage("custom-theme-folder-changed", null);
+		this.messageService?.sendMessage("custom-theme-folder-changed", null);
 	}
 	async loadThemeFolder() {
 		const config = await this.loadData();
 		if (config && config.custom_theme_folder) {
-			this.settings.css_styles_folder = config.custom_theme_folder;
+			this.settings!.css_styles_folder = config.custom_theme_folder;
 		}
 	}
 	// private spinnerEl: HTMLElement;
 	// spinnerText: HTMLDivElement;
 	trimSettings() {
-		this.settings.mpAccounts.forEach((account) => {
+		this.settings!.mpAccounts.forEach((account) => {
 			account.accountName = account.accountName.trim();
 			account.appId = account.appId.trim();
 			account.appSecret = account.appSecret.trim();
 		});
-		this.settings.chatAccounts.forEach((account) => {
+		this.settings!.chatAccounts.forEach((account) => {
 			account.accountName = account.accountName.trim();
 			account.baseUrl = account.baseUrl.trim();
 			account.apiKey = account.apiKey.trim();
 			account.model = account.model.trim();
 		});
-		this.settings.drawAccounts.forEach((account) => {
+		this.settings!.drawAccounts.forEach((account) => {
 			account.accountName = account.accountName.trim();
 			account.baseUrl = account.baseUrl.trim();
 			account.taskUrl = account.taskUrl.trim();
 			account.apiKey = account.apiKey.trim();
 			account.model = account.model.trim();
 		});
-		this.settings.ipAddress = this.settings.ipAddress?.trim();
-		this.settings.selectedMPAccount =
-			this.settings.selectedMPAccount?.trim();
-		this.settings.selectedChatAccount =
-			this.settings.selectedChatAccount?.trim();
-		this.settings.selectedDrawAccount =
-			this.settings.selectedDrawAccount?.trim();
-		this.settings.accountDataPath = this.settings.accountDataPath?.trim();
-		this.settings.chatSetting.chatSelected =
-			this.settings.chatSetting.chatSelected?.trim();
-		this.settings.chatSetting.modelSelected =
-			this.settings.chatSetting.modelSelected?.trim();
-		this.settings.css_styles_folder =
-			this.settings.css_styles_folder?.trim();
+		this.settings!.ipAddress = this.settings!.ipAddress?.trim();
+		this.settings!.selectedMPAccount =
+			this.settings!.selectedMPAccount?.trim();
+		this.settings!.selectedChatAccount =
+			this.settings!.selectedChatAccount?.trim();
+		this.settings!.selectedDrawAccount =
+			this.settings!.selectedDrawAccount?.trim();
+		this.settings!.accountDataPath = this.settings!.accountDataPath?.trim();
+		this.settings!.chatSetting.chatSelected =
+			this.settings!.chatSetting.chatSelected?.trim();
+		this.settings!.chatSetting.modelSelected =
+			this.settings!.chatSetting.modelSelected?.trim();
+		this.settings!.css_styles_folder =
+			this.settings!.css_styles_folder?.trim();
 	}
 	saveSettings: Function = debounce(async () => {
-		delete this.settings._id;
-		delete this.settings._rev;
+		delete this.settings!._id;
+		delete this.settings!._rev;
 		this.trimSettings();
-		await saveWeWriteSetting(this.settings);
+		await saveWeWriteSetting(this.settings!);
 		await this.saveThemeFolder();
 	}, 3000);
 	saveThemeFolderDebounce: Function = debounce(async () => {
@@ -154,7 +153,7 @@ export default class WeWritePlugin extends Plugin {
 		return null;
 	}
 	async addEditorMenu() {
-		this.messageService.registerListener(
+		this.messageService?.registerListener(
 			"image-generated",
 			(url: string) => {
 				if (!url) {
@@ -399,35 +398,37 @@ export default class WeWritePlugin extends Plugin {
 		this.activateMaterialView();
 	}
 	pullAllWeChatMPMaterial() {
-		if (this.settings.selectedMPAccount === undefined) {
+		if (this.settings!.selectedMPAccount === undefined) {
 			new Notice($t("main.no-wechat-mp-account-selected"));
 			return;
 		}
-		this.assetsManager.pullAllMaterial(this.settings.selectedMPAccount);
+		this.assetsManager?.pullAllMaterial(this.settings!.selectedMPAccount);
 	}
 	assetsUpdated() {
-		this.messageService.sendMessage("material-updated", null);
+		this.messageService?.sendMessage("material-updated", null);
 	}
 	onWeChantMPAccountChange(value: string) {
 		if (value === undefined || !value) {
 			return;
 		}
-		this.settings.selectedMPAccount = value;
-		this.assetsManager.loadMaterial(value);
+		this.settings!.selectedMPAccount = value;
+		this.assetsManager?.loadMaterial(value);
 	}
 
 	createSpinner() {
+
 		this.spinner = new Spinner(this.addStatusBarItem());
 	}
 	showSpinner(text: string = "") {
-		this.spinner.showSpinner(text);
+		this.spinner?.showSpinner(text);
+
 	}
 	isSpinning() {
-		return this.spinner.isSpinning();
+		return this.spinner?.isSpinning() || false;
 	}
 
 	hideSpinner() {
-		this.spinner.hideSpinner();
+		this.spinner?.hideSpinner();
 	}
 
 	async loadSettings() {
@@ -443,7 +444,7 @@ export default class WeWritePlugin extends Plugin {
 			getPublicIpAddress()
 				.then(async (ip) => {
 					if (ip !== undefined && ip) {
-						this.settings.ipAddress = ip;
+						this.settings!.ipAddress = ip;
 						await this.saveSettings();
 						resolve(ip);
 					}
@@ -500,15 +501,15 @@ export default class WeWritePlugin extends Plugin {
 		return account.access_token;
 	}
 	async TestAccessToken(accountName: string) {
-		if (this.settings.useCenterToken) {
-			return this.wechatClient.requestToken();
+		if (this.settings!.useCenterToken) {
+			return this.wechatClient!.requestToken();
 		} else {
 			const account = this.getMPAccountByName(accountName);
 			if (account === undefined) {
 				new Notice($t("main.no-wechat-mp-account-selected"));
 				return false;
 			}
-			const token = await this.wechatClient.getAccessToken(
+			const token = await this.wechatClient!.getAccessToken(
 				account.appId,
 				account.appSecret,
 			);
@@ -524,8 +525,8 @@ export default class WeWritePlugin extends Plugin {
 		return false;
 	}
 	async refreshAccessToken(accountName: string | undefined) {
-		if (this.settings.useCenterToken) {
-			return this.wechatClient.requestToken();
+		if (this.settings!.useCenterToken) {
+			return this.wechatClient!.requestToken();
 		}
 		if (accountName === undefined) {
 			return false;
@@ -551,7 +552,7 @@ export default class WeWritePlugin extends Plugin {
 			lastRefreshTime,
 		} = account;
 		if (accessToken === undefined || accessToken === "") {
-			const token = await this.wechatClient.getAccessToken(
+			const token = await this.wechatClient!.getAccessToken(
 				appId,
 				appSecret,
 			);
@@ -567,7 +568,7 @@ export default class WeWritePlugin extends Plugin {
 			lastRefreshTime! + expiresIn! * 1000 <
 			new Date().getTime()
 		) {
-			const token = await this.wechatClient.getAccessToken(
+			const token = await this.wechatClient!.getAccessToken(
 				appId,
 				appSecret,
 			);
@@ -585,29 +586,29 @@ export default class WeWritePlugin extends Plugin {
 		return false;
 	}
 	getMPAccountByName(accountName: string | undefined) {
-		return this.settings.mpAccounts.find(
+		return this.settings!.mpAccounts.find(
 			(account) => account.accountName === accountName,
 		);
 	}
 	public getChatAIAccount(accountName: string | undefined = undefined) {
 		if (accountName === undefined) {
-			accountName = this.settings.selectedChatAccount;
+			accountName = this.settings!.selectedChatAccount;
 		}
-		return this.settings.chatAccounts.find(
+		return this.settings!.chatAccounts.find(
 			(account) => account.accountName === accountName,
 		);
 	}
 	public getDrawAIAccount(accountName: string | undefined = undefined) {
 		if (accountName === undefined) {
-			accountName = this.settings.selectedDrawAccount;
+			accountName = this.settings!.selectedDrawAccount;
 		}
-		return this.settings.drawAccounts.find(
+		return this.settings!.drawAccounts.find(
 			(account) =>
-				account.accountName === this.settings.selectedDrawAccount,
+				account.accountName === this.settings!.selectedDrawAccount,
 		);
 	}
 	getSelectedMPAccount() {
-		return this.getMPAccountByName(this.settings.selectedMPAccount);
+		return this.getMPAccountByName(this.settings!.selectedMPAccount);
 	}
 	setAccessToken(
 		accountName: string,
@@ -624,7 +625,7 @@ export default class WeWritePlugin extends Plugin {
 		this.saveSettings();
 	}
 	findImageMediaId(url: string) {
-		return this.assetsManager.findMediaIdOfUrl("image", url);
+		return this.assetsManager?.findMediaIdOfUrl("image", url);
 	}
 
 	async generateSummary(content: string): Promise<string | null> {
@@ -818,10 +819,10 @@ export default class WeWritePlugin extends Plugin {
 							this,
 						).saveImageFromUrl(url);
 
-					this.messageService.sendMessage(
-						"image-generated",
-						fullPath ? fullPath : url,
-					);
+					this.messageService?.sendMessage(
+					"image-generated",
+					fullPath ? fullPath : url
+				);
 				},
 			);
 		}
@@ -852,9 +853,8 @@ export default class WeWritePlugin extends Plugin {
 		});
 	}
 	initDB() {
-		initWeWriteDB();
-		initAssetsDB();
-		initDraftDB();
+		// Storage is initialized automatically when imported
+		// No need to call init functions
 	}
 	initWewriteMenu() {
 		this.registerView(VIEW_TYPE_WEWRITE, (leaf) => new WeWriteView(leaf));
@@ -1035,7 +1035,7 @@ export default class WeWritePlugin extends Plugin {
 			this.app.workspace.offref(this.editorChangeListener);
 		}
 		// this.spinnerEl.remove();
-		this.spinner.unload();
+		this.spinner?.unload();
 		this.app.workspace.iterateAllLeaves((leaf) => {
 			if (leaf.view instanceof PreviewPanel) {
 				leaf.detach();

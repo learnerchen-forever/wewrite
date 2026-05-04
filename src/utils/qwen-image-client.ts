@@ -8,7 +8,7 @@ import {
 export class QwenImageClient {
 	private static instance: QwenImageClient;
 	private plugin: WeWritePlugin;
-	private settings: WeWriteSetting;
+	private settings: WeWriteSetting | undefined;
 
 	private constructor(plugin: WeWritePlugin) {
 		this.plugin = plugin;

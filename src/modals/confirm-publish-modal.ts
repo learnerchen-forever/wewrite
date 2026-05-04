@@ -53,7 +53,7 @@ export class ConfirmPublishModal extends Modal {
     publish() {
         const id = this.draftItem.media_id
         if (id !== undefined && id) {
-            this.plugin.wechatClient.publishDraft(id)
+            this.plugin.wechatClient!.publishDraft(id)
                 .then(() => {
                     new Notice($t('modals.publish.success'));
                 })

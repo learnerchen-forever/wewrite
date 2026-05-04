@@ -212,9 +212,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			.addSearch((cb) => {
 				new FolderSuggest(this.app, cb.inputEl);
 				cb.setPlaceholder($t("settings.themes-folder-path"))
-					.setValue(this.plugin.settings.css_styles_folder)
+					.setValue(this.plugin.settings!.css_styles_folder)
 					.onChange((new_folder) => {
-						this.plugin.settings.css_styles_folder = new_folder;
+						this.plugin.settings!.css_styles_folder = new_folder;
 						this.plugin.saveThemeFolderDebounce();
 					});
 			})
@@ -233,7 +233,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
 		let n = 0;
 		let newName = $t("settings.new-account");
 		while (true) {
-			const account = this.plugin.settings.mpAccounts.find(
+			const account = this.plugin.settings!.mpAccounts.find(
 				(account: WeChatAccountInfo) => account.accountName === newName
 			);
 			if (account === undefined || account === null) {
@@ -248,16 +248,16 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			appId: "",
 			appSecret: "",
 		};
-		this.plugin.settings.mpAccounts.push(newAccount);
+		this.plugin.settings!.mpAccounts.push(newAccount);
 		// this.mpAccountDropdown.addOption(newName, newName);
 		this.mpAccountDropdown.selectEl.options.length = 0;
-		this.plugin.settings.mpAccounts.forEach((account) => {
+		this.plugin.settings!.mpAccounts.forEach((account) => {
 			this.mpAccountDropdown.addOption(
 				account.accountName,
 				account.accountName
 			);
 		});
-		this.plugin.settings.selectedMPAccount = newAccount.accountName;
+		this.plugin.settings!.selectedMPAccount = newAccount.accountName;
 		this.mpAccountDropdown.setValue(newName);
 		
 		this.updateMPAccountSettings(newName, this.mpAccountContainer);
@@ -283,7 +283,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			.addText((text) =>
 				text.setValue(account.accountName).onChange(async (value) => {
 					account.accountName = value;
-					this.plugin.settings.selectedMPAccount = value;
+					this.plugin.settings!.selectedMPAccount = value;
 					await this.plugin.saveSettings();
 					this.updateMPAccountOptions();
 				})
@@ -348,15 +348,15 @@ export class WeWriteSettingTab extends PluginSettingTab {
 					.setIcon("trash-2");
 				button.onClick(async () => {
 					const accountToDelete =
-						this.plugin.settings.selectedMPAccount;
-					this.plugin.settings.mpAccounts =
-						this.plugin.settings.mpAccounts.filter(
+						this.plugin.settings!.selectedMPAccount;
+					this.plugin.settings!.mpAccounts =
+						this.plugin.settings!.mpAccounts.filter(
 							(account) => account.accountName !== accountToDelete
 						);
-					const account = this.plugin.settings.mpAccounts[0];
+					const account = this.plugin.settings!.mpAccounts[0];
 					
 					if (account !== undefined) {
-						this.plugin.settings.selectedMPAccount =
+						this.plugin.settings!.selectedMPAccount =
 							account.accountName;
 						this.updateMPAccountOptions();
 						this.updateMPAccountSettings(
@@ -372,14 +372,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
 	}
 	updateMPAccountOptions() {
 		this.mpAccountDropdown.selectEl.options.length = 0;
-		this.plugin.settings.mpAccounts.forEach((account) => {
+		this.plugin.settings!.mpAccounts.forEach((account) => {
 			this.mpAccountDropdown.addOption(
 				account.accountName,
 				account.accountName
 			);
 		});
 		this.mpAccountDropdown.setValue(
-			this.plugin.settings.selectedMPAccount ?? ""
+			this.plugin.settings!.selectedMPAccount ?? ""
 		);
 	}
 	
@@ -399,16 +399,16 @@ export class WeWriteSettingTab extends PluginSettingTab {
 		selectAiChatSetting.addDropdown((dropdown) => {
 			this.aiChatAccountDropdown = dropdown;
 			dropdown.selectEl.empty();
-			this.plugin.settings.chatAccounts.forEach((account) => {
+			this.plugin.settings!.chatAccounts.forEach((account) => {
 				dropdown.addOption(
 					account.accountName,
 					account.accountName
 				);
 			});
 			dropdown
-				.setValue(this.plugin.settings.selectedChatAccount || "")
+				.setValue(this.plugin.settings!.selectedChatAccount || "")
 				.onChange(async (value) => {
-					this.plugin.settings.selectedChatAccount = value;
+					this.plugin.settings!.selectedChatAccount = value;
 					this.updateAIChatSettings(
 						value,
 						this.aiChatAccountContainer
@@ -425,7 +425,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
 				});
 		});
 		this.updateAIChatSettings(
-			this.plugin.settings.selectedChatAccount,
+			this.plugin.settings!.selectedChatAccount,
 			this.aiChatAccountContainer
 		);
 	}
@@ -448,7 +448,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
 					value = value.trim();
 					if (value !== account.accountName) {
 						account.accountName = value;
-						this.plugin.settings.selectedChatAccount = value;
+						this.plugin.settings!.selectedChatAccount = value;
 						await this.plugin.saveSettings();
 						this.updateAIChatOptions();
 					}
@@ -482,15 +482,15 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			.addExtraButton((button) => {
 				button.setIcon("trash-2").onClick(async () => {
 					const accountToDelete =
-						this.plugin.settings.selectedChatAccount;
-					this.plugin.settings.chatAccounts =
-						this.plugin.settings.chatAccounts.filter(
+						this.plugin.settings!.selectedChatAccount;
+					this.plugin.settings!.chatAccounts =
+						this.plugin.settings!.chatAccounts.filter(
 							(a) => a.accountName !== accountToDelete
 						);
-					const account = this.plugin.settings.chatAccounts[0];
+					const account = this.plugin.settings!.chatAccounts[0];
 					await this.plugin.saveSettings();
 					if (account !== undefined) {
-						this.plugin.settings.selectedChatAccount =
+						this.plugin.settings!.selectedChatAccount =
 						account.accountName;
 						this.updateAIChatOptions();
 						this.updateAIChatSettings(
@@ -506,34 +506,34 @@ export class WeWriteSettingTab extends PluginSettingTab {
 	}
 	updateAIChatOptions() {
 		this.aiChatAccountDropdown.selectEl.options.length = 0;
-		this.plugin.settings.chatAccounts.forEach((account) => {
+		this.plugin.settings!.chatAccounts.forEach((account) => {
 			this.aiChatAccountDropdown.addOption(
 				account.accountName,
 				account.accountName
 			);
 		});
 		this.aiChatAccountDropdown.setValue(
-			this.plugin.settings.selectedChatAccount ?? ""
+			this.plugin.settings!.selectedChatAccount ?? ""
 		);
 	}
 	updateAIDrawOptions() {
 		this.aiDrawAccountDropdown.selectEl.options.length = 0;
-		this.plugin.settings.drawAccounts.forEach((account) => {
+		this.plugin.settings!.drawAccounts.forEach((account) => {
 			this.aiDrawAccountDropdown.addOption(
 				account.accountName,
 				account.accountName
 			);
 		});
 		this.aiDrawAccountDropdown.setValue(
-			this.plugin.settings.selectedDrawAccount ?? ""
+			this.plugin.settings!.selectedDrawAccount ?? ""
 		);
 	}
 
 	newAIChatAccount() {
-		let n = this.plugin.settings.chatAccounts.length + 1;
+		let n = this.plugin.settings!.chatAccounts.length + 1;
 		let newName = $t("settings.new-chat-llm-account");
 		while (true) {
-			const account = this.plugin.settings.chatAccounts.find(
+			const account = this.plugin.settings!.chatAccounts.find(
 				(account: AIChatAccountInfo) => account.accountName === newName
 			);
 			if (account === undefined || account === null) {
@@ -548,26 +548,26 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			apiKey: "",
 			model: "",
 		};
-		this.plugin.settings.chatAccounts.push(newAccount);
+		this.plugin.settings!.chatAccounts.push(newAccount);
 		// this.aiChatAccountDropdown.addOption(newName, newName);
 		this.aiChatAccountDropdown.selectEl.options.length = 0;
-		this.plugin.settings.chatAccounts.forEach((account) => {
+		this.plugin.settings!.chatAccounts.forEach((account) => {
 			this.aiChatAccountDropdown.addOption(
 				account.accountName,
 				account.accountName
 			);
 		});
 		this.aiChatAccountDropdown.setValue(newName);
-		this.plugin.settings.selectedChatAccount = newAccount.accountName;
+		this.plugin.settings!.selectedChatAccount = newAccount.accountName;
 		this.updateAIChatSettings(newName, this.aiChatAccountContainer);
 	}
 
 	// 新增 createAiDrawAccount 方法
 	newAiDrawAccount() {
-		let n = this.plugin.settings.drawAccounts.length + 1;
+		let n = this.plugin.settings!.drawAccounts.length + 1;
 		let newName = $t("settings.new-draw-llm-account");
 		while (true) {
-			const account = this.plugin.settings.drawAccounts.find(
+			const account = this.plugin.settings!.drawAccounts.find(
 				(account: AITaskAccountInfo) => account.accountName === newName
 			);
 			if (account === undefined || account === null) {
@@ -584,17 +584,17 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			model: "",
 		};
 		// Add to settings but don't save yet
-		this.plugin.settings.drawAccounts.push(newAccount);
+		this.plugin.settings!.drawAccounts.push(newAccount);
 		// this.aiDrawAccountDropdown.addOption(newName, newName);
 		this.aiDrawAccountDropdown.selectEl.options.length = 0;
-		this.plugin.settings.drawAccounts.forEach((account) => {
+		this.plugin.settings!.drawAccounts.forEach((account) => {
 			this.aiDrawAccountDropdown.addOption(
 				account.accountName,
 				account.accountName
 			);
 		});
 		this.aiDrawAccountDropdown.setValue(newName);
-		this.plugin.settings.selectedDrawAccount = newAccount.accountName;
+		this.plugin.settings!.selectedDrawAccount = newAccount.accountName;
 		this.updateAiDrawSettings(newName, this.aiDrawAccountContainer);
 	}
 
@@ -613,16 +613,16 @@ export class WeWriteSettingTab extends PluginSettingTab {
 		selectAIDrawSetting.addDropdown((dropdown) => {
 			this.aiDrawAccountDropdown = dropdown;
 			dropdown.selectEl.empty();
-			this.plugin.settings.drawAccounts.forEach((account) => {
+			this.plugin.settings!.drawAccounts.forEach((account) => {
 				dropdown.addOption(
 					account.accountName,
 					account.accountName
 				);
 			});
 			dropdown
-				.setValue(this.plugin.settings.selectedDrawAccount || "")
+				.setValue(this.plugin.settings!.selectedDrawAccount || "")
 				.onChange(async (value) => {
-					this.plugin.settings.selectedDrawAccount = value;
+					this.plugin.settings!.selectedDrawAccount = value;
 					this.updateAiDrawSettings(
 						value,
 						this.aiDrawAccountContainer
@@ -639,7 +639,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
 				});
 		});
 		this.updateAiDrawSettings(
-			this.plugin.settings.selectedDrawAccount,
+			this.plugin.settings!.selectedDrawAccount,
 			this.aiDrawAccountContainer
 		);
 
@@ -664,7 +664,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
 					value = value.trim();
 					if (value.trim() !== account.accountName) {
 						account.accountName = value.trim();
-						this.plugin.settings.selectedDrawAccount = value;
+						this.plugin.settings!.selectedDrawAccount = value;
 						await this.plugin.saveSettings();
 						this.updateAIDrawOptions();
 					}
@@ -712,15 +712,15 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			.addExtraButton((button) => {
 				button.setIcon("trash-2").onClick(async () => {
 					const accountToDelete =
-						this.plugin.settings.selectedDrawAccount;
-					this.plugin.settings.drawAccounts =
-						this.plugin.settings.drawAccounts.filter(
+						this.plugin.settings!.selectedDrawAccount;
+					this.plugin.settings!.drawAccounts =
+						this.plugin.settings!.drawAccounts.filter(
 							(a) => a.accountName !== accountToDelete
 						);
-					const account = this.plugin.settings.drawAccounts[0];
+					const account = this.plugin.settings!.drawAccounts[0];
 					await this.plugin.saveSettings();
 					if (account !== undefined) {
-						this.plugin.settings.selectedDrawAccount =
+						this.plugin.settings!.selectedDrawAccount =
 							account.accountName;
 						this.updateAIDrawOptions();
 						this.updateAiDrawSettings(
@@ -745,7 +745,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			.setName(
 				$t("settings.public-ip-address") +
 					": " +
-					// this.plugin.settings.ipAddress
+					// this.plugin.settings!.ipAddress
 					$t('settings.fetching')
 			)
 			.setHeading()
@@ -764,7 +764,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
 				.setTooltip($t("settings.copy-ip-to-clipboard"))
 				.onClick(async () => {
 					await navigator.clipboard.writeText(
-						this.plugin.settings.ipAddress ?? ""
+						this.plugin.settings!.ipAddress ?? ""
 					);
 					new Notice($t("settings.ip-copied-to-clipboard"));
 				});
@@ -775,9 +775,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			.setDesc($t("settings.if-your-device-cannot-get-static-pubic-i"))
 			.addToggle((toggle) => {
 				toggle
-					.setValue(this.plugin.settings.useCenterToken)
+					.setValue(this.plugin.settings!.useCenterToken)
 					.onChange(async (value) => {
-						this.plugin.settings.useCenterToken = value;
+						this.plugin.settings!.useCenterToken = value;
 						await this.plugin.saveSettings();
 					});
 			});
@@ -786,9 +786,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			.setDesc($t("settings.enable-real-time-rendering"))
 			.addToggle((toggle) => {
 				toggle
-					.setValue(this.plugin.settings.realTimeRender)
+					.setValue(this.plugin.settings!.realTimeRender)
 					.onChange(async (value) => {
-						this.plugin.settings.realTimeRender = value;
+						this.plugin.settings!.realTimeRender = value;
 						await this.plugin.saveSettings();
 					});
 			});
@@ -826,9 +826,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			.setDesc($t("settings.draft-only-visible-for-the-wechat-user-o"))
 			.addText((text) =>
 				text
-					.setValue(this.plugin.settings.previewer_wxname || "")
+					.setValue(this.plugin.settings!.previewer_wxname || "")
 					.onChange(async (value) => {
-						this.plugin.settings.previewer_wxname = value;
+						this.plugin.settings!.previewer_wxname = value;
 						await this.plugin.saveSettings();
 					})
 			);
@@ -841,10 +841,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
 			.addDropdown((dropdown) => {
 				dropdown.selectEl.empty();
 				this.mpAccountDropdown = dropdown;
-				if (this.plugin.settings.mpAccounts.length == 0) {
+				if (this.plugin.settings!.mpAccounts.length == 0) {
 					this.newMPAccountInfo();
 				} else {
-					this.plugin.settings.mpAccounts.forEach((account) => {
+					this.plugin.settings!.mpAccounts.forEach((account) => {
 						dropdown.addOption(
 							account.accountName,
 							account.accountName
@@ -853,17 +853,17 @@ export class WeWriteSettingTab extends PluginSettingTab {
 				}
 				dropdown
 					.setValue(
-						this.plugin.settings.selectedMPAccount ??
+						this.plugin.settings!.selectedMPAccount ??
 							$t("settings.select-account")
 					)
 					.onChange(async (value) => {
-						this.plugin.settings.selectedMPAccount = value;
+						this.plugin.settings!.selectedMPAccount = value;
 						this.updateMPAccountSettings(
-							this.plugin.settings.selectedMPAccount,
+							this.plugin.settings!.selectedMPAccount,
 							this.mpAccountContainer
 						);
 						await this.plugin.saveSettings();
-						this.plugin.messageService.sendMessage(
+						this.plugin.messageService!.sendMessage(
 							"wechat-account-changed",
 							value
 						);

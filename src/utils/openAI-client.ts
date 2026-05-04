@@ -11,7 +11,7 @@ import { obsidianFetch } from "./fetch";
 export class OpenAIClient {
 	private static instance: OpenAIClient;
 	private plugin: WeWritePlugin;
-	private settings: WeWriteSetting;
+	private settings: WeWriteSetting | undefined;
 
 	private constructor(plugin: WeWritePlugin) {
 		this.plugin = plugin;

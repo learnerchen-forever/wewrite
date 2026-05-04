@@ -8,12 +8,14 @@ import {
 	debounce,
 	DropdownComponent,
 	Editor,
+	EditorChange,
 	EventRef,
 	ItemView,
 	MarkdownView,
 	Notice,
 	sanitizeHTMLToDom,
 	Setting,
+	TAbstractFile,
 	TFile,
 	WorkspaceLeaf,
 } from "obsidian";
@@ -34,7 +36,6 @@ import { MPArticleHeader } from "./mp-article-header";
 import { ThemeManager } from "../theme/theme-manager";
 import { ThemeSelector } from "../theme/theme-selector";
 import { WebViewModal } from "./webview";
-import { log } from "console";
 
 export const VIEW_TYPE_WEWRITE_PREVIEW = "wewrite-article-preview";
 export interface ElectronWindow extends Window {
@@ -55,21 +56,21 @@ export interface ElectronWindow extends Window {
  * The panel integrates with WeChatClient for draft operations and maintains article properties in sync with markdown frontmatter.
  */
 export class PreviewPanel extends ItemView implements PreviewRender {
-	markdownView: MarkdownView | null = null;
-	private articleDiv: HTMLDivElement;
+	markdownView: MarkdownView | undefined;
+	private articleDiv: HTMLDivElement | undefined;
 	private listeners: EventRef[] = [];
-	currentView: EditorView;
+	currentView: EditorView | undefined;
 	observer: any;
 	private wechatClient: WechatClient;
 	private plugin: WeWritePlugin;
 	private themeSelector: ThemeSelector;
 	private debouncedRender = debounce(async () => {
-		if (this.plugin.settings.realTimeRender) {
+		if (this.plugin.settings!.realTimeRender) {
 			await this.renderDraft();
 		}
 	}, 2000);
 	private debouncedUpdate = debounce(async () => {
-		if (this.plugin.settings.realTimeRender) {
+		if (this.plugin.settings!.realTimeRender) {
 			await this.renderDraft();
 		}
 	}, 1000);
@@ -80,15 +81,15 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 		this.renderDraft();
 	}, 2000);
 
-	private draftHeader: MPArticleHeader;
+	private draftHeader: MPArticleHeader | undefined;
 	articleProperties: Map<string, string> = new Map();
 	editorView: EditorView | null = null;
 	lastLeaf: WorkspaceLeaf | undefined;
 	renderDiv: any;
-	elementMap: Map<string, Node | string>;
-	articleTitle: Setting;
-	containerDiv: HTMLElement;
-	mpModal: WebViewModal;
+	elementMap: Map<string, Node | string> | undefined;
+	articleTitle: Setting | undefined;
+	containerDiv: HTMLElement | undefined;
+	mpModal: WebViewModal | undefined;
 	isActive: boolean = false;
 	renderPreviewer: any;
 	getViewType(): string {
@@ -111,20 +112,20 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 		this.buildUI();
 		this.startListen();
 
-		this.plugin.messageService.registerListener(
+		this.plugin.messageService!.registerListener(
 			"draft-title-updated",
 			(title: string) => {
-				this.articleTitle.setName(title);
+				this.articleTitle!.setName(title);
 			}
 		);
 		this.themeSelector.startWatchThemes();
-		this.plugin.messageService.registerListener(
+		this.plugin.messageService!.registerListener(
 			"custom-theme-changed",
 			async (theme: string) => {
 				this.debouncedCustomThemeChange(theme);
 			}
 		);
-		this.plugin.messageService.sendMessage("active-file-changed", null);
+		this.plugin.messageService!.sendMessage("active-file-changed", null);
 		this.loadComponents();
 	}
 
@@ -264,26 +265,26 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 		}
 
 		this.containerDiv = shadowDom.createDiv({ cls: "wewrite-article" });
-		this.articleDiv = this.containerDiv.createDiv({ cls: "article-div" });
+		this.articleDiv = this.containerDiv!.createDiv({ cls: "article-div" });
 	}
 	async checkCoverImage() {
-		return this.draftHeader.checkCoverImage();
+		return this.draftHeader!.checkCoverImage();
 	}
 	async sendArticleToDraftBox() {
-		await uploadSVGs(this.articleDiv, this.plugin.wechatClient);
-		await uploadCanvas(this.articleDiv, this.plugin.wechatClient);
-		await uploadURLImage(this.articleDiv, this.plugin.wechatClient);
-		await uploadURLVideo(this.articleDiv, this.plugin.wechatClient);
+		await uploadSVGs(this.articleDiv!, this.plugin.wechatClient!);
+		await uploadCanvas(this.articleDiv!, this.plugin.wechatClient!);
+		await uploadURLImage(this.articleDiv!, this.plugin.wechatClient!);
+		await uploadURLVideo(this.articleDiv!, this.plugin.wechatClient!);
 
 		const media_id = await this.wechatClient.sendArticleToDraftBox(
-			this.draftHeader.getActiveLocalDraft()!,
+			this.draftHeader!.getActiveLocalDraft()!,
 			this.getArticleContent()
 		);
 
 		if (media_id) {
-			this.draftHeader.updateDraftDraftId(media_id);
+			this.draftHeader!.updateDraftDraftId(media_id);
 			const news_item = await this.wechatClient.getDraftById(
-				this.plugin.settings.selectedMPAccount!,
+				this.plugin.settings!.selectedMPAccount!,
 				media_id
 			);
 			if (news_item) {
@@ -295,7 +296,7 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 					},
 					update_time: Date.now(),
 				};
-				this.plugin.messageService.sendMessage(
+				this.plugin.messageService!.sendMessage(
 					"draft-item-updated",
 					item
 				);
@@ -339,7 +340,7 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 	}
 
 	public getArticleContent() {
-		return this.compressHTML(this.articleDiv.innerHTML);
+		return this.compressHTML(this.articleDiv!.innerHTML!);
 	}
 	// async getCSS() {
 	// 	return await ThemeManager.getInstance(this.plugin).getCSS();
@@ -354,15 +355,15 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 	 * Converts all <a> tags to <strong> tags in the rendered article content, preserving styles
 	 */
 	async convertLinksToStrongTags() {
-		const currentContent = this.articleDiv.innerHTML;
+		const currentContent = this.articleDiv!.innerHTML!;
 		const updatedContent = LinkToStrong.convertATagsToStrongTags(currentContent);
-		this.articleDiv.innerHTML = updatedContent;
+		this.articleDiv!.innerHTML = updatedContent;
 		new Notice($t("views.previewer.links-converted-to-strong-tags-successfully"));
 	}
 
 	private async showDraftData() {
 		// 获取两个方法的值
-		const draftData = this.draftHeader.getActiveLocalDraft();
+		const draftData = this.draftHeader!.getActiveLocalDraft();
 		const articleContent = this.getArticleContent();
 		
 		// 安全的字符串化函数，处理循环引用
@@ -503,7 +504,7 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 		if (!mview) {
 			return $t("views.previewer.not-a-markdown-view");
 		}
-		this.articleDiv.empty();
+		this.articleDiv!.empty();
 		this.elementMap = new Map<string, HTMLElement | string>();
 		const activeFile = this.app.workspace.getActiveFile();
 
@@ -526,20 +527,20 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 		const dom = sanitizeHTMLToDom(html);
 		articleSection.appendChild(dom);
 
-		this.articleDiv.empty();
-		this.articleDiv.appendChild(articleSection);
+		this.articleDiv!.empty();
+		this.articleDiv!.appendChild(articleSection);
 
 		this.elementMap.forEach(
-			async (node: HTMLElement | string, id: string) => {
-				const item = this.articleDiv.querySelector(
-					"#" + id
+			async (value: string | Node, key: string, map: Map<string, string | Node>) => {
+				const item = this.articleDiv!.querySelector(
+					"#" + key
 				) as HTMLElement;
 
 				if (!item) return;
-				if (typeof node === "string") {
+				if (typeof value === "string") {
 					const tf = ResourceManager.getInstance(
 						this.plugin
-					).getFileOfLink(node);
+					).getFileOfLink(value);
 					if (tf) {
 						const file = this.plugin.app.vault.getFileByPath(
 							tf.path
@@ -548,13 +549,13 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 							const body = await WechatRender.getInstance(
 								this.plugin,
 								this
-							).parseNote(file.path, this.articleDiv, this);
+							).parseNote(file.path, this.renderPreviewer, this);
 							item.empty();
 							item.appendChild(sanitizeHTMLToDom(body));
 						}
 					}
-				} else {
-					item.appendChild(node);
+				} else if (value instanceof HTMLElement) {
+					item.appendChild(value);
 				}
 			}
 		);
@@ -566,11 +567,11 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 		}
 
 		await this.parseActiveMarkdown();
-		if (this.articleDiv === null || this.articleDiv.firstChild === null) {
+		if (this.articleDiv === null || this.articleDiv!.firstChild === null) {
 			return;
 		}
 		await ThemeManager.getInstance(this.plugin).applyTheme(
-			this.articleDiv.firstChild as HTMLElement
+			this.articleDiv!.firstChild as HTMLElement
 		);
 	}
 	isViewActive(): boolean {
@@ -579,8 +580,10 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 
 	startListen() {
 		this.registerEvent(
-			this.plugin.app.vault.on("rename", (file: TFile) => {
-				this.draftHeader.onNoteRename(file);
+			this.plugin.app.vault.on("rename", (file: TAbstractFile, oldPath: string) => {
+				if (file instanceof TFile) {
+					this.draftHeader!.onNoteRename(file);
+				}
 			})
 		);
 		this.registerEvent(
@@ -590,10 +593,14 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 			})
 		);
 
-		const ec = this.app.workspace.on(
-			"editor-change",
-			(editor: Editor, info: MarkdownView) => {
-				this.onEditorChange(editor, info);
+		// 监听文件内容变化
+		const ec = this.app.vault.on(
+			"modify",
+			(file: TFile) => {
+				const activeFile = this.app.workspace.getActiveFile();
+				if (file === activeFile) {
+					this.debouncedRender();
+				}
 			}
 		);
 		this.listeners.push(ec);
@@ -601,7 +608,7 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 		const el = this.app.workspace.on("active-leaf-change", async (leaf) => {
 			if (leaf){
 				if(leaf.view.getViewType() === "markdown") {
-					this.plugin.messageService.sendMessage(
+					this.plugin.messageService!.sendMessage(
 						"active-file-changed",
 						null
 					);
@@ -619,11 +626,11 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 		this.listeners.forEach((e) => this.app.workspace.offref(e));
 	}
 
-	onEditorChange(editor: Editor, info: MarkdownView) {
+	onEditorChange(editor: Editor, info: EditorChange) {
 		this.debouncedRender();
 	}
 	updateElementByID(id: string, html: string): void {
-		const item = this.articleDiv.querySelector("#" + id) as HTMLElement;
+		const item = this.articleDiv!.querySelector("#" + id) as HTMLElement;
 		if (!item) return;
 		const doc = sanitizeHTMLToDom(html);
 
@@ -639,9 +646,9 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 	}
 	addElementByID(id: string, node: HTMLElement | string): void {
 		if (typeof node === "string") {
-			this.elementMap.set(id, node);
+			this.elementMap!.set(id, node);
 		} else {
-			this.elementMap.set(id, node.cloneNode(true));
+			this.elementMap!.set(id, node.cloneNode(true));
 		}
 	}
 	private async loadComponents() {

@@ -15,7 +15,7 @@ interface REROUCE_ITEM {
 export class MaterialPanel {
 	public name: string;
 	public containerEl: HTMLElement;
-	public timestamp: number;
+	public timestamp: number | undefined;
 	private container: HTMLElement;
 	private header: HTMLElement;
 	private content: HTMLElement;
@@ -51,23 +51,23 @@ export class MaterialPanel {
 		this.refreshButton.addEventListener('click', () => this.refreshContent());
 		this.initContent()
 
-		this.plugin.messageService.registerListener(`clear-${this.type}-list`, () => {
+		this.plugin.messageService!.registerListener(`clear-${this.type}-list`, () => {
 			this.clearContent()
 		})
-		this.plugin.messageService.registerListener(`${this.type}-item-updated`, (item) => {
+		this.plugin.messageService!.registerListener(`${this.type}-item-updated`, (item) => {
 			this.addItem(item)
 		})
-		this.plugin.messageService.registerListener(`${this.type}-item-deleted`, (item) => {
+		this.plugin.messageService!.registerListener(`${this.type}-item-deleted`, (item) => {
 			this.removeItem(item)
 		})
 		if (this.type === 'image') {
-			this.plugin.messageService.registerListener(`image-used-updated`, (item) => {
+			this.plugin.messageService!.registerListener(`image-used-updated`, (item) => {
 				this.updateItemUsed(item)
 			})
 		}
 	}
 	getLocalItems() {
-		const list = this.plugin.assetsManager.assets.get(this.type)
+		const list = this.plugin.assetsManager!.assets.get(this.type)
 
 		if (list !== undefined) {
 			list.forEach((item) => {
@@ -83,13 +83,13 @@ export class MaterialPanel {
 
 		if (this.type === 'draft') {
 
-			return await this.plugin.assetsManager.getAllDrafts((item) => {
+			return await this.plugin.assetsManager!.getAllDrafts((item) => {
 				this.addItem(item)
-			}, this.plugin.settings.selectedMPAccount)
+			}, this.plugin.settings!.selectedMPAccount)
 		}
-		await this.plugin.assetsManager.getAllMaterialOfType(this.type, (item) => {
+		await this.plugin.assetsManager!.getAllMaterialOfType(this.type, (item) => {
 			this.addItem(item)
-		}, this.plugin.settings.selectedMPAccount)
+		}, this.plugin.settings!.selectedMPAccount)
 
 	}
 	showContextMenu(mediaItem: MaterialMeidaItem, event: MouseEvent) {
@@ -103,7 +103,7 @@ export class MaterialPanel {
 						.setIcon('image-minus')
 						.setDisabled(mediaItem.used)
 						.onClick(() => {
-							this.plugin.messageService.sendMessage("delete-media-item", mediaItem)
+							this.plugin.messageService!.sendMessage("delete-media-item", mediaItem)
 						});
 				});
 			} else {
@@ -116,7 +116,7 @@ export class MaterialPanel {
 					.setIcon('image-plus')
 					.onClick(() => {
 						new Notice($t('set-cover-tu-pian-mediaitemname', [mediaItem.name]));
-						this.plugin.messageService.sendMessage("set-image-as-cover", mediaItem)
+						this.plugin.messageService!.sendMessage("set-image-as-cover", mediaItem)
 					});
 			});
 		}
@@ -130,7 +130,7 @@ export class MaterialPanel {
 						.setIcon('eye')
 						.setDisabled(mediaItem.used)
 						.onClick(() => {
-							this.plugin.messageService.sendMessage("delete-media-item", mediaItem)
+							this.plugin.messageService!.sendMessage("delete-media-item", mediaItem)
 						});
 				});
 			}
@@ -142,21 +142,21 @@ export class MaterialPanel {
 				item.setTitle($t('views.delete-draft'))
 					.setIcon('trash-2')
 					.onClick(async () => {
-						this.plugin.messageService.sendMessage("delete-draft-item", mediaItem)
+						this.plugin.messageService!.sendMessage("delete-draft-item", mediaItem)
 					});
 			});
 			menu.addItem((item) => {
 				item.setTitle($t('views.free-publish'))
 					.setIcon('send')
 					.onClick(async () => {
-						this.plugin.messageService.sendMessage("publish-draft-item", mediaItem)
+						this.plugin.messageService!.sendMessage("publish-draft-item", mediaItem)
 					});
 			});
 			menu.addItem((item) => {
 				item.setTitle($t('views.preview-draft'))
 					.setIcon('eye')
 					.onClick(async () => {
-						this.plugin.wechatClient.senfForPreview(mediaItem.media_id, this.plugin.settings.previewer_wxname, this.plugin.settings.selectedMPAccount)
+						this.plugin.wechatClient!.senfForPreview(mediaItem.media_id, this.plugin.settings!.previewer_wxname, this.plugin.settings!.selectedMPAccount)
 
 					});
 			});
@@ -164,7 +164,7 @@ export class MaterialPanel {
 				item.setTitle($t('views.send-mass-message'))
 					.setIcon('send')
 					.onClick(async () => {
-						this.plugin.wechatClient.massSendAll(mediaItem.media_id, this.plugin.settings.selectedMPAccount)
+						this.plugin.wechatClient!.massSendAll(mediaItem.media_id, this.plugin.settings!.selectedMPAccount)
 
 					});
 			});
@@ -230,7 +230,7 @@ export class MaterialPanel {
 			video.setAttribute('controls', 'controls')
 			video.setAttribute('poster', item.cover_url)
 			const wechatClient = this.plugin.wechatClient
-			wechatClient.getMaterialById(item.media_id).then(video_info => {
+			wechatClient!.getMaterialById(item.media_id).then(video_info => {
 				const source = video.createEl('source', { type: 'video/mp4' })
 				source.setAttribute('src', video_info.down_url)
 				video.appendChild(source)
@@ -294,7 +294,7 @@ export class MaterialPanel {
 		this.content.empty();
 		this.setTotal(0);
 
-		const items = this.plugin.assetsManager.assets.get(this.type)
+		const items = this.plugin.assetsManager!.assets.get(this.type)
 		if (items === undefined || items === null) {
 			return;
 		}

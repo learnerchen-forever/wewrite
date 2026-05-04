@@ -17,7 +17,7 @@ export class ThemeManager {
 	async downloadThemes() {
 		const baseUrlAlter = "https://gitee.com/northern_bank/wewrite/raw/master/themes/";
 		const baseUrl = "https://raw.githubusercontent.com/learnerchen-forever/wewrite/refs/heads/master/themes/";
-		const saveDir = this.plugin.settings.css_styles_folder || "/wewrite-custom-css";
+		const saveDir = this.plugin.settings!.css_styles_folder || "/wewrite-custom-css";
 
 		// Create save directory if it doesn't exist
 		if (!this.plugin.app.vault.getAbstractFileByPath(saveDir)) {
@@ -93,7 +93,7 @@ export class ThemeManager {
 		}
 	}
 	private plugin: WeWritePlugin;
-	defaultCssRoot: postcss.Root;
+	defaultCssRoot: postcss.Root | undefined;
 	themes: WeChatTheme[] = [];
 	// static template_css: string = combinedCss;
 
@@ -108,7 +108,7 @@ export class ThemeManager {
 
 	async loadThemes() {
 		this.themes = [];
-		const folder_path = this.plugin.settings.css_styles_folder;
+		const folder_path = this.plugin.settings!.css_styles_folder;
 		const folder = this.plugin.app.vault.getAbstractFileByPath(folder_path);
 		if (folder instanceof TFolder) {
 			this.themes = await this.getAllThemesInFolder(folder);
@@ -183,11 +183,11 @@ export class ThemeManager {
 	}
 	public async getCSS() {
 		let custom_css = '' //this.defaultCssRoot.toString() //''
-		if (this.plugin.settings.custom_theme === undefined || !this.plugin.settings.custom_theme) {
+		if (this.plugin.settings!.custom_theme === undefined || !this.plugin.settings!.custom_theme) {
 
 		} else {
 			// custom_css = await this.getThemeContent(this.plugin.settings.custom_theme)
-			custom_css = await this.extractCSSblocks(this.plugin.settings.custom_theme)
+			custom_css = await this.extractCSSblocks(this.plugin.settings!.custom_theme)
 		}
 
 		return custom_css

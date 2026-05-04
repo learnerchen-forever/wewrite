@@ -44,8 +44,8 @@ export class MaterialView extends ItemView {
 
   async onOpen() {
     this.redraw();
-    if (this.plugin.settings.selectedMPAccount !== undefined) {
-      this.plugin.assetsManager.loadMaterial(this.plugin.settings.selectedMPAccount)
+    if (this.plugin.settings!.selectedMPAccount !== undefined) {
+      this.plugin.assetsManager!.loadMaterial(this.plugin.settings!.selectedMPAccount)
     }
   }
 
@@ -62,7 +62,7 @@ export class MaterialView extends ItemView {
     const tabContent = tabContainer.createDiv({ cls: 'wewrite-material-view-tab-content' });
 
     // Get material panels from plugin and sort newest first
-    const panels = this.plugin.assetsManager.getMaterialPanels()
+    const panels = this.plugin.assetsManager!.getMaterialPanels()
       .map(material => new MaterialPanel(
         this.plugin,
         tabContent,

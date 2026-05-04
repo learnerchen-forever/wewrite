@@ -167,7 +167,7 @@ export class WechatClient {
 		data: string
 	) {
 		const accessToken = await this.plugin.refreshAccessToken(
-			this.plugin.settings.selectedMPAccount
+			this.plugin.settings!.selectedMPAccount
 		);
 		if (!accessToken) {
 			return false;
@@ -236,7 +236,7 @@ export class WechatClient {
 			}
 		}
 		const accessToken = await this.plugin.refreshAccessToken(
-			this.plugin.settings.selectedMPAccount
+			this.plugin.settings!.selectedMPAccount
 		);
 		if (!accessToken) {
 			return false;
@@ -317,7 +317,7 @@ export class WechatClient {
 
 		const resData = await res.json;
 		if (resData.errcode === undefined || resData.errcode == 0) {
-			this.plugin.messageService.sendMessage(
+			this.plugin.messageService!.sendMessage(
 				(type + "-item-updated") as MSG_TYPE,
 				resData
 			);
@@ -353,7 +353,7 @@ export class WechatClient {
 			}
 		}
 		const accessToken = await this.plugin.refreshAccessToken(
-			this.plugin.settings.selectedMPAccount
+			this.plugin.settings!.selectedMPAccount
 		);
 		if (!accessToken) {
 			return false;
@@ -434,7 +434,7 @@ export class WechatClient {
 			this.plugin.hideSpinner()
 			const resData = await response.json;
 			if (resData.errcode === undefined || resData.errcode == 0) {
-				this.plugin.messageService.sendMessage(
+				this.plugin.messageService!.sendMessage(
 					(type + "-item-updated") as MSG_TYPE,
 					resData
 				);
@@ -484,7 +484,7 @@ export class WechatClient {
 			return false;
 		}
 		if (accountName === undefined) {
-			accountName = this.plugin.settings.selectedMPAccount;
+			accountName = this.plugin.settings!.selectedMPAccount;
 		}
 		const accessToken = await this.plugin.refreshAccessToken(accountName);
 		if (!accessToken) {
@@ -603,7 +603,7 @@ export class WechatClient {
 	}
 	public async publishDraft(meida_id: string, accountName: string = "") {
 		if (!accountName) {
-			accountName = this.plugin.settings.selectedMPAccount!;
+			accountName = this.plugin.settings!.selectedMPAccount!;
 		}
 		const accessToken = await this.plugin.refreshAccessToken(accountName);
 		if (!accessToken) {
@@ -633,7 +633,7 @@ export class WechatClient {
 	}
 	public async deleteMedia(meida_id: string, accountName: string = "") {
 		if (!accountName) {
-			accountName = this.plugin.settings.selectedMPAccount!;
+			accountName = this.plugin.settings!.selectedMPAccount!;
 		}
 		const accessToken = await this.plugin.refreshAccessToken(accountName);
 		if (!accessToken) {
@@ -663,7 +663,7 @@ export class WechatClient {
 	}
 	public async deleteDraft(meida_id: string, accountName: string = "") {
 		if (!accountName) {
-			accountName = this.plugin.settings.selectedMPAccount!;
+			accountName = this.plugin.settings!.selectedMPAccount!;
 		}
 		const accessToken = await this.plugin.refreshAccessToken(accountName);
 		if (!accessToken) {
@@ -693,7 +693,7 @@ export class WechatClient {
 	}
 	public async massSendAll(media_id: string, accountName: string = "") {
 		if (!accountName) {
-			accountName = this.plugin.settings.selectedMPAccount!;
+			accountName = this.plugin.settings!.selectedMPAccount!;
 		}
 		const accessToken = await this.plugin.refreshAccessToken(accountName);
 		if (!accessToken) {
@@ -733,10 +733,10 @@ export class WechatClient {
 		accountName: string = ""
 	) {
 		if (!accountName) {
-			accountName = this.plugin.settings.selectedMPAccount!;
+			accountName = this.plugin.settings!.selectedMPAccount!;
 		}
 		if (!wxname) {
-			wxname = this.plugin.settings.previewer_wxname!;
+			wxname = this.plugin.settings!.previewer_wxname!;
 		}
 		const accessToken = await this.plugin.refreshAccessToken(accountName);
 		if (!accessToken) {

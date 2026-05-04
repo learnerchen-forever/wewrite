@@ -28,6 +28,7 @@ export class WeWriteView extends ItemView {
     constructor(leaf: WorkspaceLeaf) {
         super(leaf);
         this.plugin = (this.app as any).plugins.getPlugin("wewrite") as WeWritePlugin;
+        this.themeSelector = new ThemeSelector(this.plugin);
         this.component = new Component();
         this.debouncedRerender = this.debounce(() => {
             this.rerenderContent();

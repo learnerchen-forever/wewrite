@@ -7,11 +7,9 @@
  */
 
 import WeWritePlugin from "src/main";
-import PouchDB from 'pouchdb';
-import PouchDBFind from 'pouchdb-find';
+import { draftStorage } from "src/utils/storage";
 import { areObjectsEqual } from "src/utils/utils";
 import { $t } from "src/lang/i18n";
-PouchDB.plugin(PouchDBFind);
 
 
 
@@ -39,12 +37,11 @@ export type LocalDraftItem = {
 }
 
 export const initDraftDB = () => {
-	const db = new PouchDB('wewrite-local-drafts');
-	return  db;
+	return draftStorage;
 }
 export class LocalDraftManager {
     private plugin: WeWritePlugin;
-    private db: PouchDB.Database;
+    private db: any;
     private static instance: LocalDraftManager;
     private constructor(plugin: WeWritePlugin) {
         this.plugin = plugin;
@@ -59,7 +56,7 @@ export class LocalDraftManager {
     public async getDrafOfActiveNote() {
         let draft: LocalDraftItem | undefined
 
-        const accountName = this.plugin.settings.selectedMPAccount;
+        const accountName = this.plugin.settings!.selectedMPAccount;
         if (accountName !== undefined && accountName) {
             const f = this.plugin.app.workspace.getActiveFile()
 			
@@ -97,10 +94,10 @@ export class LocalDraftManager {
     public async getDraft(accountName: string, notePath: string): Promise<LocalDraftItem | undefined> {
         return new Promise((resolve) => {
             this.db.get(accountName + notePath)
-                .then((doc) => {
-                    resolve(doc as LocalDraftItem)
+                .then((doc: LocalDraftItem) => {
+                    resolve(doc)
                 })
-                .catch((err) => {
+                .catch((err: any) => {
                     resolve(undefined)
                 })
 
@@ -118,9 +115,8 @@ export class LocalDraftManager {
             }
 
             this.db.get(doc._id)
-                .then(existedDoc => {
-                    const existingDraft = existedDoc as LocalDraftItem;
-                    if (areObjectsEqual(doc, existingDraft)) {
+                .then((existedDoc: LocalDraftItem) => {
+                    if (areObjectsEqual(doc, existedDoc)) {
                         // No changes needed
                         resolve(true);
                         return;
@@ -129,19 +125,19 @@ export class LocalDraftManager {
                         doc._rev = existedDoc._rev;
                         return this.db.put(doc)
                             .then(() => resolve(true))
-                            .catch(error => {
+                            .catch((error: any) => {
                                 resolve(false);
                             });
                     }
                     // No changes needed
                     resolve(false);
                 })
-                .catch(error => {
+                .catch((error: any) => {
                     if (error.status === 404) {
                         // New document
                         return this.db.put(doc)
                             .then(() => resolve(true))
-                            .catch(err => {
+                            .catch((err: any) => {
                                 console.error('Error creating new draft:', err);
                                 reject(err);
                             });

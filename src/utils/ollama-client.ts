@@ -7,7 +7,7 @@ import { removeThinkTags } from "./utils";
 export class OllamaClient {
 	private static instance: OllamaClient;
 	private plugin: WeWritePlugin;
-	private settings: WeWriteSetting;
+	private settings: WeWriteSetting | undefined;
 
 	private constructor(plugin: WeWritePlugin) {
 		this.plugin = plugin;

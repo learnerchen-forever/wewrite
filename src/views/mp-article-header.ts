@@ -29,34 +29,34 @@ export class MPArticleHeader {
 	}
 
 	private plugin: WeWritePlugin;
-	private cover_image: string | null;
-	private coverFrame: HTMLElement;
+	private cover_image: string | null = null;
+	private coverFrame: HTMLElement | undefined;
 	private activeLocalDraft: LocalDraftItem | undefined;
 	private localDraftmanager: LocalDraftManager;
-	private _title: TextComponent;
-	private _author: TextComponent;
-	private _digest: HTMLTextAreaElement;
-	private _needOpenComment: ToggleComponent;
-	private _onlyFansCanComment: ToggleComponent;
+	private _title: TextComponent | undefined;
+	private _author: TextComponent | undefined;
+	private _digest: HTMLTextAreaElement | undefined;
+	private _needOpenComment: ToggleComponent | undefined;
+	private _onlyFansCanComment: ToggleComponent | undefined;
 	private imageGenerateModal: ImageGenerateModal | undefined;
 	constructor(plugin: WeWritePlugin, containerEl: HTMLElement) {
 		this.plugin = plugin;
 		this.localDraftmanager = LocalDraftManager.getInstance(plugin);
 		this.BuildUI(containerEl);
-		this.plugin.messageService.registerListener(
+		this.plugin.messageService?.registerListener(
 			"wechat-account-changed",
 			(data: string) => {
 				this.updateLocalDraft();
 			}
 		);
 
-		this.plugin.messageService.registerListener(
+		this.plugin.messageService?.registerListener(
 			"active-file-changed",
 			(data: string) => {
 				this.updateLocalDraft();
 			}
 		);
-		this.plugin.messageService.registerListener(
+		this.plugin.messageService?.registerListener(
 			"set-draft-cover-image",
 			(url: string) => {
 				this.cover_image = url;
@@ -67,7 +67,7 @@ export class MPArticleHeader {
 				}
 			}
 		);
-		this.plugin.messageService.registerListener(
+		this.plugin.messageService?.registerListener(
 			"set-image-as-cover",
 			(item: MaterialMeidaItem) => {
 				this.cover_image = item.url;
@@ -129,7 +129,7 @@ export class MPArticleHeader {
 					if (this.activeLocalDraft !== undefined) {
 						this.activeLocalDraft.title = value;
 						this.localDraftmanager.setDraft(this.activeLocalDraft);
-						this.plugin.messageService.sendMessage(
+						this.plugin.messageService?.sendMessage(
 							"draft-title-updated",
 							value
 						);
@@ -228,7 +228,7 @@ export class MPArticleHeader {
 		);
 		const summary = await this.plugin.aiClient?.generateSummary(md);
 		if (summary) {
-			this._digest.value = summary;
+			this._digest!.value = summary;
 			this.activeLocalDraft.digest = summary;
 			this.localDraftmanager.setDraft(this.activeLocalDraft);
 		}
@@ -248,8 +248,8 @@ export class MPArticleHeader {
 						if (this.imageGenerateModal === undefined) {
 							return;
 						}
-						if (this._digest.value !== undefined && this._digest.value) {
-							const prompt = this._digest.value.trim()
+						if (this._digest!.value !== undefined && this._digest!.value) {
+							const prompt = this._digest!.value.trim()
 							if (prompt){
 								this.imageGenerateModal.prompt = prompt;
 							}
@@ -320,7 +320,7 @@ export class MPArticleHeader {
 	}
 	
 	setCoverImage(url: string | null) {
-		while (this.coverFrame.firstChild) {
+		while (this.coverFrame?.firstChild) {
 			this.coverFrame.firstChild.remove();
 		}
 		if (!url) {
@@ -351,15 +351,15 @@ export class MPArticleHeader {
 
 			
 
-			this.coverFrame.appendChild(canvas);
+			this.coverFrame!.appendChild(canvas);
 		};
 	}
 	async updateCoverImage() {
 		if (this.imageGenerateModal === undefined) {
 			return;
 		}
-		if (this._digest.value !== undefined && this._digest.value) {
-			const prompt = this._digest.value.trim()
+		if (this._digest!.value !== undefined && this._digest!.value) {
+			const prompt = this._digest!.value.trim()
 			if (prompt){
 				this.imageGenerateModal.prompt = prompt;
 			}
@@ -432,33 +432,33 @@ export class MPArticleHeader {
 	}
 	updateHeaderProporties() {
 		if (this.activeLocalDraft !== undefined) {
-			this._title.setValue(this.activeLocalDraft.title);
-			this._author.setValue(this.activeLocalDraft.author || "");
-			this._digest.value = this.activeLocalDraft.digest || "";
-			this._needOpenComment.setValue(
+			this._title!.setValue(this.activeLocalDraft.title);
+			this._author!.setValue(this.activeLocalDraft.author || "");
+			this._digest!.value = this.activeLocalDraft.digest || "";
+			this._needOpenComment!.setValue(
 				(this.activeLocalDraft.need_open_comment || 1) > 0
 			);
-			this._onlyFansCanComment.setValue(
+			this._onlyFansCanComment!.setValue(
 				(this.activeLocalDraft.only_fans_can_comment || 0) > 0
 			);
 			this.cover_image = this.activeLocalDraft.cover_image_url || "";
 			const x = this.activeLocalDraft.pic_crop_235_1?.split(" ")[0] || 0;
 			const y = this.activeLocalDraft.pic_crop_235_1?.split(" ")[1] || 0;
 		} else {
-			this._title.setValue("");
-			this._author.setValue("");
-			this._digest.value = "";
-			this._needOpenComment.setValue(false);
-			this._onlyFansCanComment.setValue(false);
+			this._title!.setValue("");
+			this._author!.setValue("");
+			this._digest!.value = "";
+			this._needOpenComment!.setValue(false);
+			this._onlyFansCanComment!.setValue(false);
 			this.cover_image = "";
 			const x = 0;
 			const y = 0;
 		}
 		
 		this.setCoverImageXY();
-		this.plugin.messageService.sendMessage(
+		this.plugin.messageService?.sendMessage(
 			"draft-title-updated",
-			this._title.getValue()
+			this._title!.getValue()
 		);
 	}
 }

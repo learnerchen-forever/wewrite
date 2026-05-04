@@ -19,14 +19,14 @@
  */
 
 import { App, Notice, sanitizeHTMLToDom } from "obsidian";
-import PouchDB from 'pouchdb';
-import PouchDBFind from 'pouchdb-find';
 import WeWritePlugin from "src/main";
+import { assetsStorage } from "src/utils/storage";
 import { areObjectsEqual } from "src/utils/utils";
 import { getErrorMessage } from "src/wechat-api/error-code";
 import { ConfirmDeleteModal } from "src/modals/confirm-delete-modal";
 import { ConfirmPublishModal } from "src/modals/confirm-publish-modal";
 import { DraftItem, MaterialItem, MaterialMeidaItem, MaterialNewsItem, MediaType, NewsItem } from "src/wechat-api/wechat-types";
+import { StorageInterface } from "src/utils/storage";
 import { $t } from "src/lang/i18n";
 export const MediaTypeLable = new Map([
     ['image', $t('assets.image')],
@@ -40,10 +40,6 @@ type DeletableMaterialItem = MaterialItem & {
     _deleted?: boolean;
 }
 
-PouchDB.plugin(PouchDBFind);
-
-
-
 type ASSETS = {
     images: Array<MaterialMeidaItem>,
     videos: Array<MaterialMeidaItem>
@@ -53,16 +49,15 @@ type ASSETS = {
 }
 const MAX_COUNT = 20;
 export const initAssetsDB = () => {
-	const db = new PouchDB('wewrite-wechat-assets');
-	return  db;
+	return assetsStorage;
 }
 export class AssetsManager {
     app: App;
     assets: Map<string, any[]>
-    db: PouchDB.Database;
+    db: StorageInterface;
     used: Map<string, string[]>
-    confirmPublishModal: ConfirmPublishModal;
-    confirmDeleteModal: ConfirmDeleteModal;
+    confirmPublishModal: ConfirmPublishModal | undefined;
+    confirmDeleteModal: ConfirmDeleteModal | undefined;
 
 
     private static instance: AssetsManager;
@@ -74,25 +69,25 @@ export class AssetsManager {
         this.used = new Map()
         this.db = initAssetsDB()
 
-        this.plugin.messageService.registerListener('wechat-account-changed', (data: string) => {
+        this.plugin.messageService!.registerListener('wechat-account-changed', (data: string) => {
             this.loadMaterial(data)
         })
-        this.plugin.messageService.registerListener('delete-media-item', (item: MaterialItem) => {
+        this.plugin.messageService!.registerListener('delete-media-item', (item: MaterialItem) => {
             this.confirmDelete(item)
         })
-        this.plugin.messageService.registerListener('delete-draft-item', (item: MaterialItem) => {
+        this.plugin.messageService!.registerListener('delete-draft-item', (item: MaterialItem) => {
             this.confirmDelete(item)
         })
-        this.plugin.messageService.registerListener('image-item-updated', (item: MaterialItem) => {
+        this.plugin.messageService!.registerListener('image-item-updated', (item: MaterialItem) => {
             this.addImageItem(item)
         })
-        this.plugin.messageService.registerListener('draft-item-updated', (item: MaterialItem) => {
+        this.plugin.messageService!.registerListener('draft-item-updated', (item: MaterialItem) => {
             this.addImageItem(item)
         })
-        this.plugin.messageService.registerListener('publish-draft-item', async (item: DraftItem) => {
+        this.plugin.messageService!.registerListener('publish-draft-item', async (item: DraftItem) => {
             this.confirmPublish(item)
         })
-        this.plugin.messageService.registerListener('delete-media-item', async (item: MaterialItem) => {
+        this.plugin.messageService!.registerListener('delete-media-item', async (item: MaterialItem) => {
             this.confirmDelete(item)
         })
 
@@ -116,24 +111,24 @@ export class AssetsManager {
             'draft', 'image', 'video', 'voice', 'news'
         ];
         for (const type of types) {
-            this.plugin.messageService.sendMessage(`clear-${type}-list`, null)
+            this.plugin.messageService!.sendMessage(`clear-${type}-list`, null)
             const list = await this.getAllMeterialOfTypeFromDB(accountName, type)
             this.assets.set(type, list)
             list.forEach(item => {
-                this.plugin.messageService.sendMessage(`${type}-item-updated`, item)
+                this.plugin.messageService!.sendMessage(`${type}-item-updated`, item)
             });
         }
         this.scanDraftNewsUsedImages()
     }
     public async pullAllMaterial(accountName: string) {
-        const json = await this.plugin.wechatClient.getMaterialCounts(accountName)
+        const json = await this.plugin.wechatClient!.getMaterialCounts(accountName)
 
         const types: MediaType[] = [
             'draft', 'image', 'video', 'voice', 'news'
         ];
         for (const type of types) {
-            this.plugin.messageService.sendMessage(`clear-${type}-list`, null)
-            this.getAllMaterialOfType(type, (item) => { this.plugin.messageService.sendMessage(`${type}-item-updated`, item) }, accountName)
+            this.plugin.messageService!.sendMessage(`clear-${type}-list`, null)
+            this.getAllMaterialOfType(type, (item) => { this.plugin.messageService!.sendMessage(`${type}-item-updated`, item) }, accountName)
         }
         this.plugin.assetsUpdated()
     }
@@ -143,7 +138,7 @@ export class AssetsManager {
         let offset = 0;
         let total = MAX_COUNT;
         while (offset < total) {
-            const json = await this.plugin.wechatClient.getBatchMaterial(accountName, 'news', offset, MAX_COUNT);
+            const json = await this.plugin.wechatClient!.getBatchMaterial(accountName, 'news', offset, MAX_COUNT);
             const { errcode, item, total_count, item_count } = json;
             if (errcode !== undefined && errcode !== 0) {
                 new Notice(getErrorMessage(errcode), 0)
@@ -170,7 +165,7 @@ export class AssetsManager {
         let offset = 0;
         let total = MAX_COUNT;
         while (offset < total) {
-            const json = await this.plugin.wechatClient.getBatchDraftList(accountName, offset, MAX_COUNT);
+            const json = await this.plugin.wechatClient!.getBatchDraftList(accountName, offset, MAX_COUNT);
             const { errcode, item, total_count, item_count } = json;
             if (errcode !== undefined && errcode !== 0) {
                 new Notice(getErrorMessage(errcode), 0)
@@ -208,7 +203,7 @@ export class AssetsManager {
         let offset = 0;
         let total = MAX_COUNT;
         while (offset < total) {
-            const json = await this.plugin.wechatClient.getBatchMaterial(accountName, type, offset, MAX_COUNT);
+            const json = await this.plugin.wechatClient!.getBatchMaterial(accountName, type, offset, MAX_COUNT);
             const { errcode, item, total_count, item_count } = json;
             if (errcode !== undefined && errcode !== 0) {
                 new Notice(getErrorMessage(errcode), 0)
@@ -317,7 +312,7 @@ export class AssetsManager {
                     accountName: { $eq: accountName },
                     type: { $eq: type }
                 }
-            }).then((result: PouchDB.Find.FindResponse<MaterialItem>) => {
+            }).then((result: any) => {
                 resolve(result.docs as Array<MaterialItem>)
             }).catch((err) => {
                 console.error(err);
@@ -364,7 +359,7 @@ export class AssetsManager {
                 selector: {
                     mediea_id: { $eq: media_id }
                 }
-            }).then((result: PouchDB.Find.FindResponse<MaterialItem>) => {
+            }).then((result: any) => {
                 resolve(result.docs as Array<MaterialItem>)
             }).catch((err) => {
                 console.error(err);
@@ -393,7 +388,7 @@ export class AssetsManager {
                     skip: offset
                 });
 
-                const docs = result.docs as Array<MaterialItem>;
+                const docs = result as Array<MaterialItem>;
                 if (docs.length === 0) {
                     break; 
                 }
@@ -448,14 +443,14 @@ export class AssetsManager {
         return panels;
     }
     async removeMediaItemsFromDB(type: MediaType) {
-        const accountName = this.plugin.settings.selectedMPAccount;
+        const accountName = this.plugin.settings!.selectedMPAccount;
         await this.db.find({
             selector: {
                 accountName: { $eq: accountName },
                 type: { $eq: type }
             }
-        }).then((result: PouchDB.Find.FindResponse<DeletableMaterialItem>) => {
-            const docsToDelete = result.docs.map((doc) => {
+        }).then((result: any) => {
+            const docsToDelete = result.map((doc: DeletableMaterialItem) => {
                 doc._deleted = true; // Mark the document for deletion
                 return doc;
             });
@@ -467,29 +462,35 @@ export class AssetsManager {
             console.error('Error deleting documents:', err);
         });
     }
-    public async deleteMediaItem(item: MaterialMeidaItem) {
+    public async deleteMediaItem(item: MaterialItem) {
         const type = item.type
         if (type === undefined) {
             console.error('deleteMediaItem type is undefined', item)
             return;
         }
-        if (!await this.plugin.wechatClient.deleteMedia(item.media_id)) {
+        if (!await this.plugin.wechatClient!.deleteMedia(item.media_id)) {
             console.error('delete media failed', item)
             return false;
         }
         await this.removeDocFromDB(item._id!)
-        this.plugin.messageService.sendMessage(`${type}-item-deleted`, item)
-        this.updateUsed(item.url)
+        this.plugin.messageService!.sendMessage(`${type}-item-deleted`, item)
+        if ('url' in item && item.url) {
+            this.updateUsed(item.url)
+        }
         return true
     }
-    public async deleteDraftItem(item: any) {
-        if (!await this.plugin.wechatClient.deleteDraft(item.media_id)) {
+    public async deleteDraftItem(item: MaterialItem) {
+        if (!await this.plugin.wechatClient!.deleteDraft(item.media_id)) {
             console.error('delete draft failed', item)
             return false;
         }
-        this.removeDocFromDB(item._id)
-        this.plugin.messageService.sendMessage('draft-item-deleted', item)
-        this.updateUsed(item.url)
+        if (item._id) {
+            this.removeDocFromDB(item._id)
+        }
+        this.plugin.messageService!.sendMessage('draft-item-deleted', item)
+        if ('url' in item && item.url) {
+            this.updateUsed(item.url)
+        }
         return true;
     }
     public async removeDocFromDB(_id: string) {
@@ -512,7 +513,7 @@ export class AssetsManager {
         this.confirmPublishModal.open()
     }
     confirmDelete(item: MaterialItem) {
-        let callback = this.deleteMediaItem.bind(this)
+        let callback: (item: MaterialItem) => Promise<boolean | undefined> = this.deleteMediaItem.bind(this)
         if (item.type === 'draft') {
             callback = this.deleteDraftItem.bind(this)
         }

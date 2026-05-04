@@ -2,7 +2,7 @@
 manage the wechat account settings
 
 */
-import PouchDB from 'pouchdb';
+import { settingsStorage } from 'src/utils/storage';
 import { areObjectsEqual } from 'src/utils/utils';
 
 export type WeChatAccountInfo = {
@@ -69,12 +69,8 @@ export type ChatSetting = {
 	max_tokens?: number;
 }
 
-export const initWeWriteDB = () => {
-	const db = new PouchDB('wewrite-settings');
-	return  db;
-}
-// Create a new database
-const db = initWeWriteDB();
+// Use the storage abstraction layer
+const db = settingsStorage;
 
 
 export const getWeWriteSetting = async (): Promise<WeWriteSetting | undefined> => {
