@@ -1,9 +1,8 @@
 // views/WeWriteView.ts
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, TFile, Component, Notice, DropdownComponent, Setting } from 'obsidian';
+import { debounce, ItemView, WorkspaceLeaf, MarkdownRenderer, TFile, Component, Notice, DropdownComponent, Setting } from 'obsidian';
 import { MPArticleHeader } from './mp-article-header';
 import { $t } from 'src/lang/i18n';
 import { LinkToStrong } from 'src/render/marked-extensions/link-to-strong';
-import { T } from 'ollama/dist/shared/ollama.67ec3cf9';
 import { ThemeSelector } from 'src/theme/theme-selector';
 import WeWritePlugin from 'src/main';
 
@@ -20,7 +19,7 @@ export class WeWriteView extends ItemView {
     private contentContainer: HTMLElement | null = null;
 
     // ✅ 新增：防抖重新渲染函数
-    private debouncedRerender: (() => void) & { cancel: () => void };
+    private debouncedRerender: Function & { cancel: () => void };
     draftHeader: MPArticleHeader | undefined;
     articleTitle: Setting | undefined;
     themeSelector: ThemeSelector | undefined;
@@ -30,7 +29,7 @@ export class WeWriteView extends ItemView {
         this.plugin = (this.app as any).plugins.getPlugin("wewrite") as WeWritePlugin;
         this.themeSelector = new ThemeSelector(this.plugin);
         this.component = new Component();
-        this.debouncedRerender = this.debounce(() => {
+        this.debouncedRerender = debounce(() => {
             this.rerenderContent();
         }, 300);
     }
@@ -270,27 +269,5 @@ export class WeWriteView extends ItemView {
                 });
             });
         });
-    }
-
-    // ✅ 工具函数：防抖实现
-    // ✅ 带有 cancel 方法的防抖函数
-    private debounce<T extends (...args: any[]) => void>(func: T, delay: number): T & { cancel: () => void } {
-        let timeout: number | null = null;
-        const debounced = ((...args: any[]) => {
-            if (timeout) clearTimeout(timeout);
-            timeout = window.setTimeout(() => {
-                func(...args);
-                timeout = null;
-            }, delay);
-        }) as T & { cancel: () => void };
-        
-        debounced.cancel = () => {
-            if (timeout) {
-                clearTimeout(timeout);
-                timeout = null;
-            }
-        };
-        
-        return debounced;
     }
 }

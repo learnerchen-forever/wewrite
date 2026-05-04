@@ -426,7 +426,7 @@ export class MPArticleHeader {
 	}
 	async updateLocalDraft() {
 		this.activeLocalDraft =
-			await this.localDraftmanager.getDrafOfActiveNote();
+			await this.localDraftmanager.getDraftOfActiveNote();
 		this.updateHeaderProporties();
 		return true;
 	}

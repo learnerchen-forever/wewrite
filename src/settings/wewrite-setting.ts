@@ -35,7 +35,6 @@ export type AITaskAccountInfo = {
     doc_id?: string;
 }
 
-// export type WeWriteAccountInfo = WeChatAccountInfo | AIChatAccountInfo | AITaskAccountInfo;
 export type WeWriteSetting = {
 	useCenterToken: boolean;
     realTimeRender: boolean;
@@ -43,7 +42,7 @@ export type WeWriteSetting = {
     custom_theme?: string;
     codeLineNumber: boolean;
     css_styles_folder: string;
-    _id?: string; // = 'wewrite-setting';
+    _id?: string;
     _rev?: string;
     ipAddress?: string;
     selectedMPAccount?: string;
@@ -69,48 +68,27 @@ export type ChatSetting = {
 	max_tokens?: number;
 }
 
-// Use the storage abstraction layer
 const db = settingsStorage;
 
-
 export const getWeWriteSetting = async (): Promise<WeWriteSetting | undefined> => {
-    return new Promise((resolve, reject) => {
-        db.get('wewrite-settings')
-            .then((doc: any) => {
-                resolve(doc);
-            })
-            .catch((error: any) => {
-                console.info('Error getting WeWriteSetting:', error);
-                resolve(undefined)
-            });
-    })
+    try {
+        return await db.get('wewrite-settings');
+    } catch (error) {
+        console.info('Error getting WeWriteSetting:', error);
+        return undefined;
+    }
 }
 
 export const saveWeWriteSetting = async (doc: WeWriteSetting): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        doc._id = 'wewrite-settings';
-        db.get(doc._id).then(existedDoc => {
-            if (areObjectsEqual(doc, existedDoc)) {
-                resolve()
-            }
-            doc._rev = existedDoc._rev;
-            db.put(doc)
-                .then(() => {
-                    resolve();
-                })
-                .catch((error: any) => {
-                    console.error('Error setting WeWriteSetting:', error);
-                    resolve()
-                });
-        }).catch(error => {
-            db.put(doc)
-                .then(() => {
-                    resolve();
-                })
-                .catch((error: any) => {
-                    console.error('Error setting WeWriteSetting:', error);
-                    resolve()
-                });
-        })
-    })
+    doc._id = 'wewrite-settings';
+    try {
+        const existedDoc = await db.get(doc._id);
+        if (areObjectsEqual(doc, existedDoc)) {
+            return;
+        }
+        doc._rev = existedDoc._rev;
+        await db.put(doc);
+    } catch {
+        await db.put(doc);
+    }
 }

@@ -53,7 +53,7 @@ export class LocalDraftManager {
         }
         return LocalDraftManager.instance;
     }
-    public async getDrafOfActiveNote() {
+    public async getDraftOfActiveNote() {
         let draft: LocalDraftItem | undefined
 
         const accountName = this.plugin.settings!.selectedMPAccount;
@@ -92,59 +92,41 @@ export class LocalDraftManager {
         return false
     }
     public async getDraft(accountName: string, notePath: string): Promise<LocalDraftItem | undefined> {
-        return new Promise((resolve) => {
-            this.db.get(accountName + notePath)
-                .then((doc: LocalDraftItem) => {
-                    resolve(doc)
-                })
-                .catch((err: any) => {
-                    resolve(undefined)
-                })
-
-        })
+        try {
+            return await this.db.get(accountName + notePath);
+        } catch {
+            return undefined;
+        }
     }
 
     public async setDraft(doc: LocalDraftItem): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            if (!doc.accountName || !doc.notePath) {
-                return reject(new Error($t('assets.invalid-draft')));
-            }
+        if (!doc.accountName || !doc.notePath) {
+            throw new Error($t('assets.invalid-draft'));
+        }
 
-            if (!doc._id) {
-                doc._id = doc.accountName + doc.notePath;
-            }
+        if (!doc._id) {
+            doc._id = doc.accountName + doc.notePath;
+        }
 
-            this.db.get(doc._id)
-                .then((existedDoc: LocalDraftItem) => {
-                    if (areObjectsEqual(doc, existedDoc)) {
-                        // No changes needed
-                        resolve(true);
-                        return;
-                    }
-                    else {
-                        doc._rev = existedDoc._rev;
-                        return this.db.put(doc)
-                            .then(() => resolve(true))
-                            .catch((error: any) => {
-                                resolve(false);
-                            });
-                    }
-                    // No changes needed
-                    resolve(false);
-                })
-                .catch((error: any) => {
-                    if (error.status === 404) {
-                        // New document
-                        return this.db.put(doc)
-                            .then(() => resolve(true))
-                            .catch((err: any) => {
-                                console.error('Error creating new draft:', err);
-                                reject(err);
-                            });
-                    }
-                    console.error('Error checking existing draft:', error);
-                    reject(error);
-                });
-        });
+        try {
+            const existedDoc = await this.db.get(doc._id);
+            if (areObjectsEqual(doc, existedDoc)) {
+                return true;
+            }
+            doc._rev = existedDoc._rev;
+        } catch (error: any) {
+            if (error.status !== 404) {
+                console.error('Error checking existing draft:', error);
+                throw error;
+            }
+        }
+
+        try {
+            await this.db.put(doc);
+            return true;
+        } catch (err: any) {
+            console.error('Error saving draft:', err);
+            return false;
+        }
     }
 }

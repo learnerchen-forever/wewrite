@@ -71,7 +71,7 @@ export default class WeWritePlugin extends Plugin {
 	aiClient: AiClient | undefined;
 	private editorChangeListener: EventRef | undefined;
 	private imageGenerateModal: ImageGenerateModal | undefined;
-	matierialView: MaterialView | undefined;
+	materialView: MaterialView | undefined;
 	messageService: MessageService | undefined;
 	resourceManager = ResourceManager.getInstance(this);
 	active: boolean = false;
@@ -126,31 +126,22 @@ export default class WeWritePlugin extends Plugin {
 		this.settings!.css_styles_folder =
 			this.settings!.css_styles_folder?.trim();
 	}
-	saveSettings: Function = debounce(async () => {
+	saveSettings = debounce(async () => {
 		delete this.settings!._id;
 		delete this.settings!._rev;
 		this.trimSettings();
 		await saveWeWriteSetting(this.settings!);
 		await this.saveThemeFolder();
 	}, 3000);
-	saveThemeFolderDebounce: Function = debounce(async () => {
+	saveThemeFolderDebounce = debounce(async () => {
 		await this.saveThemeFolder();
 	}, 3000);
 
 	// proofService: ProofService;
 
 	getCurrentEditor(): Editor | null {
-		const activeLeaf = this.app.workspace.activeLeaf;
-		if (!activeLeaf) {
-			return null;
-		}
-
-		const view = activeLeaf.view;
-		if (view?.getViewType() === "markdown") {
-			return (view as any).editor;
-		}
-
-		return null;
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		return view?.editor ?? null;
 	}
 	async addEditorMenu() {
 		this.messageService?.registerListener(
@@ -171,13 +162,8 @@ export default class WeWritePlugin extends Plugin {
 			},
 		);
 		this.registerEvent(
-			this.app.workspace.on("editor-menu", (menu, editor) => {
-				// @ts-ignore: Obsidian ts defined incomplete.
-				let file = editor.editorComponent.file;
-				file =
-					file instanceof TFile
-						? file
-						: this.app.workspace.getActiveFile();
+			this.app.workspace.on("editor-menu", (menu, editor, view) => {
+				const file = view.file ?? this.app.workspace.getActiveFile();
 
 				if (!file) {
 					return;
@@ -440,20 +426,12 @@ export default class WeWritePlugin extends Plugin {
 		await this.loadThemeFolder();
 	}
 	async updateIpAddress(): Promise<string> {
-		return new Promise((resolve, reject) => {
-			getPublicIpAddress()
-				.then(async (ip) => {
-					if (ip !== undefined && ip) {
-						this.settings!.ipAddress = ip;
-						await this.saveSettings();
-						resolve(ip);
-					}
-				})
-				.catch((error) => {
-					console.error("Error fetching public IP address:", error);
-					reject("Failed to fetch public IP address: " + error);
-				});
-		});
+		const ip = await getPublicIpAddress();
+		if (ip) {
+			this.settings!.ipAddress = ip;
+			await this.saveSettings();
+		}
+		return ip;
 	}
 
 	async activateView() {
@@ -604,7 +582,7 @@ export default class WeWritePlugin extends Plugin {
 		}
 		return this.settings!.drawAccounts.find(
 			(account) =>
-				account.accountName === this.settings!.selectedDrawAccount,
+				account.accountName === accountName,
 		);
 	}
 	getSelectedMPAccount() {
@@ -962,7 +940,7 @@ export default class WeWritePlugin extends Plugin {
 		// }
 	}
 	async onload() {
-		console.error("Loading WeWrite plugin...");
+		console.log("Loading WeWrite plugin...");
 		this.initDB();
 		this.messageService = new MessageService();
 		await this.loadSettings();
@@ -1010,45 +988,18 @@ export default class WeWritePlugin extends Plugin {
 			this.hideSpinner();
 		});
 	}
-	registerViewOnce(viewType: string) {
-		if (this.app.workspace.getLeavesOfType(viewType).length === 0) {
-			if (viewType === VIEW_TYPE_WEWRITE_PREVIEW) {
-				this.registerView(
-					viewType,
-					(leaf) => new PreviewPanel(leaf, this),
-				);
-			} else if (viewType === VIEW_TYPE_MP_MATERIAL) {
-				this.registerView(
-					viewType,
-					(leaf) => new MaterialView(leaf, this),
-				);
-			}
-		}
-	}
 	registerViews() {
-		this.registerViewOnce(VIEW_TYPE_WEWRITE_PREVIEW);
-		this.registerViewOnce(VIEW_TYPE_MP_MATERIAL);
+		this.registerView(
+			VIEW_TYPE_WEWRITE_PREVIEW,
+			(leaf) => new PreviewPanel(leaf, this),
+		);
+		this.registerView(
+			VIEW_TYPE_MP_MATERIAL,
+			(leaf) => new MaterialView(leaf, this),
+		);
 	}
 
 	onunload() {
-		if (this.editorChangeListener) {
-			this.app.workspace.offref(this.editorChangeListener);
-		}
-		// this.spinnerEl.remove();
 		this.spinner?.unload();
-		this.app.workspace.iterateAllLeaves((leaf) => {
-			if (leaf.view instanceof PreviewPanel) {
-				leaf.detach();
-			}
-			if (leaf.view instanceof MaterialView) {
-				leaf.detach();
-			}
-		});
-		this.app.workspace
-			.getLeavesOfType(VIEW_TYPE_WEWRITE_PREVIEW)
-			.forEach((leaf) => leaf.detach());
-		this.app.workspace
-			.getLeavesOfType(VIEW_TYPE_MP_MATERIAL)
-			.forEach((leaf) => leaf.detach());
 	}
 }

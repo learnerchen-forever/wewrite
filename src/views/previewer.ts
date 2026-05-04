@@ -126,7 +126,6 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 			}
 		);
 		this.plugin.messageService!.sendMessage("active-file-changed", null);
-		this.loadComponents();
 	}
 
 	getArticleProperties() {
@@ -256,7 +255,7 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 			cls: ".wewrite-render-preview",
 		})
 		this.renderPreviewer.hide()
-		let shadowDom = this.renderDiv.shawdowRoot;
+		let shadowDom = this.renderDiv.shadowRoot;
 		if (shadowDom === undefined || shadowDom === null) {
 			shadowDom = this.renderDiv.attachShadow({ mode: 'open' });
 			shadowDom.adoptedStyleSheets = [
@@ -575,7 +574,7 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 		);
 	}
 	isViewActive(): boolean {
-		return this.isActive && !this.app.workspace.rightSplit.collapsed
+		return this.isActive && this.leaf.view === this && this.containerEl.isShown()
 	}
 
 	startListen() {
@@ -651,42 +650,4 @@ export class PreviewPanel extends ItemView implements PreviewRender {
 			this.elementMap!.set(id, node.cloneNode(true));
 		}
 	}
-	private async loadComponents() {
-			const view = this;
-			type InternalComponent = Component & {
-				_children: Component[];
-				onload: () => void | Promise<void>;
-			}
-	
-			const internalView = view as unknown as InternalComponent;
-	
-			// recursively call onload() on all children, depth-first
-			const loadChildren = async (
-				component: Component,
-				visited: Set<Component> = new Set()
-			): Promise<void> => {
-				if (visited.has(component)) {
-					return;  // Skip if already visited
-				}
-	
-				visited.add(component);
-	
-				const internalComponent = component as InternalComponent;
-	
-				if (internalComponent._children?.length) {
-					for (const child of internalComponent._children) {
-						await loadChildren(child, visited);
-					}
-				}
-				try {
-					// relies on the Sheet plugin (advanced-table-xt) not to be minified
-					if (component?.constructor?.name === 'SheetElement') {
-						await component.onload();
-					}
-				} catch (error) {
-					console.error(`Error calling onload()`, error);
-				}
-			};
-			await loadChildren(internalView);
-		}
 }

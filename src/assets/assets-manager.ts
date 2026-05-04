@@ -28,7 +28,7 @@ import { ConfirmPublishModal } from "src/modals/confirm-publish-modal";
 import { DraftItem, MaterialItem, MaterialMeidaItem, MaterialNewsItem, MediaType, NewsItem } from "src/wechat-api/wechat-types";
 import { StorageInterface } from "src/utils/storage";
 import { $t } from "src/lang/i18n";
-export const MediaTypeLable = new Map([
+export const MediaTypeLabel = new Map([
     ['image', $t('assets.image')],
     ['voice', $t('assets.voice')],
     ['video', $t('assets.video')],
@@ -112,7 +112,7 @@ export class AssetsManager {
         ];
         for (const type of types) {
             this.plugin.messageService!.sendMessage(`clear-${type}-list`, null)
-            const list = await this.getAllMeterialOfTypeFromDB(accountName, type)
+            const list = await this.getAllMaterialOfTypeFromDB(accountName, type)
             this.assets.set(type, list)
             list.forEach(item => {
                 this.plugin.messageService!.sendMessage(`${type}-item-updated`, item)
@@ -153,7 +153,7 @@ export class AssetsManager {
             item.accountName = accountName
             item.type = 'news'
 
-            this.pushMaterailToDB(item)
+            this.pushMaterialToDB(item)
             if (callback) {
                 callback(item)
             }
@@ -188,7 +188,7 @@ export class AssetsManager {
             if (callback) {
                 callback(i)
             }
-            this.pushMaterailToDB(i)
+            this.pushMaterialToDB(i)
         })
         this.scanDraftNewsUsedImages()
     }
@@ -226,7 +226,7 @@ export class AssetsManager {
             if (callback) {
                 callback(item)
             }
-            this.pushMaterailToDB(item)
+            this.pushMaterialToDB(item)
         })
     }
     public getImageUsedUrl(imgItem: any) {
@@ -304,104 +304,80 @@ export class AssetsManager {
         })
     }
 
-    async fetchAllMeterialOfTypeFromDB(accountName: string, type: MediaType): Promise<MaterialItem[]> {
-        return new Promise((resolve) => {
-
-            this.db.find({
+    async fetchAllMaterialOfTypeFromDB(accountName: string, type: MediaType): Promise<MaterialItem[]> {
+        try {
+            const result = await this.db.find({
                 selector: {
                     accountName: { $eq: accountName },
                     type: { $eq: type }
                 }
-            }).then((result: any) => {
-                resolve(result.docs as Array<MaterialItem>)
-            }).catch((err) => {
-                console.error(err);
-                resolve([])
-            })
-
-        })
+            });
+            return result as Array<MaterialItem>;
+        } catch (err) {
+            console.error(err);
+            return [];
+        }
     }
-    async pushMaterailToDB(doc: MaterialItem): Promise<void> {
-        return new Promise((resolve) => {
-            if (doc._id === undefined) {
-                doc._id = doc.media_id
+    async pushMaterialToDB(doc: MaterialItem): Promise<void> {
+        if (doc._id === undefined) {
+            doc._id = doc.media_id;
+        }
+
+        try {
+            const existedDoc = await this.db.get(doc._id);
+            if (areObjectsEqual(doc, existedDoc)) {
+                return;
             }
-
-            this.db.get(doc._id).then(existedDoc => {
-                if (areObjectsEqual(doc, existedDoc)) {
-                    // the material has not been changed
-                    resolve()
-                } else {
-                    doc._rev = existedDoc._rev;
-                    this.db.put(doc)
-                        .then(() => {
-                            resolve();
-                        })
-                        .catch((error: any) => {
-                            console.error('Error saving material:', error);
-                            resolve()
-                        });
-                }
-            }).catch(error => {
-                this.db.put(doc).then(() => {
-                    resolve()
-                }).catch((err) => {
-                    console.error(err);
-                    resolve()
-                })
-                resolve()
-            })
-        })
+            doc._rev = existedDoc._rev;
+            await this.db.put(doc);
+        } catch {
+            try {
+                await this.db.put(doc);
+            } catch (err) {
+                console.error(err);
+            }
+        }
     }
-    async AllMeterialOfTypeFromDB(media_id: string): Promise<MaterialItem[]> {
-        return new Promise((resolve) => {
-            this.db.find({
+    async AllMaterialOfTypeFromDB(media_id: string): Promise<MaterialItem[]> {
+        try {
+            const result = await this.db.find({
                 selector: {
-                    mediea_id: { $eq: media_id }
+                    media_id: { $eq: media_id }
                 }
-            }).then((result: any) => {
-                resolve(result.docs as Array<MaterialItem>)
-            }).catch((err) => {
-                console.error(err);
-                resolve([])
-            })
-        })
+            });
+            return result as Array<MaterialItem>;
+        } catch (err) {
+            console.error(err);
+            return [];
+        }
     }
-    async getAllMeterialOfTypeFromDB(accountName: string, type: string): Promise<MaterialItem[]> {
-        return new Promise(async (resolve) => {
+    async getAllMaterialOfTypeFromDB(accountName: string, type: string): Promise<MaterialItem[]> {
+        const pageSize = 10;
+        let offset = 0;
+        const items: Array<MaterialItem> = [];
+        if (accountName === undefined || !accountName) {
+            return items;
+        }
+        while (true) {
+            const result = await this.db.find({
+                selector: {
+                    accountName: { $eq: accountName },
+                    type: { $eq: type }
+                },
+                limit: pageSize,
+                skip: offset
+            });
 
-            const pageSize = 10; 
-            let offset = 0; 
-            let total = 10; 
-            const items: Array<MaterialItem> = []
-            if (accountName === undefined || !accountName) {
-                resolve(items)
-                return
+            const docs = result as Array<MaterialItem>;
+            if (docs.length === 0) {
+                break;
             }
-            while (true) {
-                const result = await this.db.find({
-                    selector: {
-                        accountName: { $eq: accountName },
-                        type: { $eq: type }
-                    },
-                    limit: pageSize,
-                    skip: offset
-                });
 
-                const docs = result as Array<MaterialItem>;
-                if (docs.length === 0) {
-                    break; 
-                }
-
-                items.push(...docs)
-
-                offset += docs.length;
-            }
-            items.sort((a, b) => {
-                return b.update_time - a.update_time
-            })
-            resolve(items)
-        })
+            items.push(...docs);
+            offset += docs.length;
+        }
+        items.sort((a, b) => b.update_time - a.update_time);
+        return items;
     }
     findUrlOfMediaId(type: MediaType, media_id: string) {
         const list = this.assets.get(type)
@@ -433,7 +409,7 @@ export class AssetsManager {
         ];
         types.forEach(type => {
             panels.push({
-                name: MediaTypeLable.get(type)!,
+                name: MediaTypeLabel.get(type)!,
                 type: type,
                 timestamp: Date.now(),
                 url: ''
@@ -444,23 +420,21 @@ export class AssetsManager {
     }
     async removeMediaItemsFromDB(type: MediaType) {
         const accountName = this.plugin.settings!.selectedMPAccount;
-        await this.db.find({
-            selector: {
-                accountName: { $eq: accountName },
-                type: { $eq: type }
-            }
-        }).then((result: any) => {
+        try {
+            const result = await this.db.find({
+                selector: {
+                    accountName: { $eq: accountName },
+                    type: { $eq: type }
+                }
+            });
             const docsToDelete = result.map((doc: DeletableMaterialItem) => {
-                doc._deleted = true; // Mark the document for deletion
+                doc._deleted = true;
                 return doc;
             });
-
-            // Perform bulk deletion
-            return this.db.bulkDocs(docsToDelete);
-        }).then((result) => {
-        }).catch((err) => {
+            await this.db.bulkDocs(docsToDelete);
+        } catch (err) {
             console.error('Error deleting documents:', err);
-        });
+        }
     }
     public async deleteMediaItem(item: MaterialItem) {
         const type = item.type
