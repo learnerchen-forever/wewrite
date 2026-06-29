@@ -8,5 +8,15 @@
     "author": "Learner Chen",
     "authorUrl": "https://www.3thinking.cn/#/learner-forever",
     "isDesktopOnly": false
+  },
+  "2.0。0": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "2.0。0",
+    "minAppVersion": "1.5.0",
+    "description": "全平台写作工具，随时随地创作微信公众号文章，轻松定制你的个性化文章风格。",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": false
   }
 }
