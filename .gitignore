@@ -1,28 +1,60 @@
 # vscode
-.vscode 
+.vscode
 
 # Intellij
 *.iml
 .idea
 
 # npm
-node_modules
+node_modules/
 
-# Don't include the compiled main.js file in the repo.
-# They should be uploaded to GitHub releases instead.
+# build output
+dist/
 main.js
-
-# Exclude sourcemaps
+chunks/
 *.map
 
 # obsidian
 data.json
 
-# Exclude macOS Finder (System Explorer) View States
+# macOS
 .DS_Store
 
-# exclue test
+# test
 test/
 
-# claude 
-.claude/
+# Claude Code & plugins
+# .claude/
+# .claude-plugin/
+
+# dotenv
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+*.log.*
+
+# Coverage
+coverage/
+
+# Playwright
+test-results/
+playwright-report/
+
+# speckit
+#.specify/
+
+# cc
+_references/
+_article_references/
+
+
+.claude/worktrees/
+
+# superpowers
+.superpowers/
+
+# log
+_logs/

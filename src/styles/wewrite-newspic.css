@@ -1,0 +1,442 @@
+/* ═══ WeChatNewsPicView Styles — compact config + phone-frame slideshow ═══ */
+
+/* ── Layout ── */
+.wewrite-newspic-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Config Rows ── */
+.wewrite-newspic-topbar,
+.wewrite-newspic-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.wewrite-newspic-topbar {
+  border-bottom: 1px solid var(--divider-color, #e0e0e0);
+  background: transparent;
+}
+
+.wewrite-newspic-config-row {
+  border-bottom: 1px solid var(--background-modifier-border, #eee);
+}
+
+.wewrite-newspic-row-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #666);
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
+.wewrite-newspic-spacer { flex: 1; }
+
+/* Input & Select — inherit from unified .wewrite-input / .wewrite-select in styles.css */
+.wewrite-newspic-account-select {
+  /* inherits from .wewrite-select */
+}
+
+.wewrite-newspic-input {
+  /* inherits from .wewrite-input */
+}
+
+.wewrite-newspic-input-short { max-width: 120px; flex: 0 1 120px; }
+
+.wewrite-newspic-device-select {
+  /* inherits from .wewrite-select */
+}
+
+.wewrite-newspic-counter {
+  font-size: 10px;
+  color: var(--text-muted, #999);
+  min-width: 32px;
+}
+.wewrite-newspic-counter.over { color: #e74c3c; font-weight: bold; }
+
+/* ── Meta Toggles ── */
+.wewrite-newspic-meta-row { gap: 12px; }
+
+.wewrite-newspic-toggle {
+  font-size: 12px;
+  color: var(--text-muted, #666);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ── Publish Button — inherits from unified .wewrite-btn.wewrite-btn-accent in styles.css ── */
+.wewrite-newspic-publish-btn {
+  /* inherits from .wewrite-btn.wewrite-btn-accent */
+}
+
+/* ── Preview Area ── */
+.wewrite-newspic-preview-wrap {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 12px;
+  background: var(--background-secondary, #f5f5f5);
+}
+
+/* ── Preview Container (from renderer) ── */
+.newspic-preview-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.newspic-preview-status {
+  font-size: 11px;
+  color: var(--text-muted, #999);
+  margin-bottom: 6px;
+  min-height: 16px;
+}
+.newspic-status-error { color: #e74c3c; }
+
+/* ── Phone Bezel (3D metallic, matches WeChatNewsView) ── */
+.newspic-phone-bezel {
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  /* Deep anodized aluminum — cool-toned dark metal with subtle blue undertones */
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,0.07) 0%,
+      rgba(255,255,255,0.02) 8%,
+      transparent 20%,
+      transparent 80%,
+      rgba(0,0,0,0.15) 95%,
+      rgba(0,0,0,0.25) 100%
+    ),
+    linear-gradient(105deg,
+      #1e1e22 0%,
+      #2a2a30 8%,
+      #1c1c20 18%,
+      #26262c 30%,
+      #18181c 50%,
+      #222228 65%,
+      #1a1a1f 78%,
+      #28282e 92%,
+      #1e1e22 100%
+    ),
+    #1a1a1d;
+
+  border-radius: 28px;
+
+  /* Box shadow: rim + bevel + depth + floor shadow */
+  box-shadow:
+    0 0 0 0.5px rgba(255,255,255,0.12),
+    0 0 0 2px #0e0e10,
+    0 0 0 3px rgba(255,255,255,0.03),
+    inset 0 0.5px 0 rgba(255,255,255,0.1),
+    inset 0 1px 1px rgba(255,255,255,0.04),
+    inset 0 -1px 1px rgba(0,0,0,0.4),
+    0 2px 6px rgba(0,0,0,0.5),
+    0 8px 20px rgba(0,0,0,0.45),
+    0 20px 50px rgba(0,0,0,0.35),
+    0 32px 80px rgba(0,0,0,0.2);
+}
+
+/* Top edge specular highlight */
+.newspic-phone-bezel::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.03) 8%,
+    rgba(255,255,255,0.12) 25%,
+    rgba(255,255,255,0.07) 50%,
+    rgba(255,255,255,0.11) 72%,
+    rgba(255,255,255,0.03) 90%,
+    transparent 100%
+  );
+  border-radius: 2px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+/* Speaker bar — recessed into metal */
+.newspic-phone-bezel::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 2.5px;
+  background:
+    linear-gradient(180deg,
+      #111 0%,
+      #2a2a2d 30%,
+      #1a1a1c 70%,
+      #333 100%
+    );
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,0.7),
+    0 0.5px 0 rgba(255,255,255,0.06);
+  z-index: 5;
+}
+
+/* ── Notch — sculpted into the metal ── */
+.newspic-phone-notch {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70px;
+  height: 16px;
+  background:
+    linear-gradient(180deg,
+      #16161a 0%,
+      #0f0f12 40%,
+      #18181c 100%
+    );
+  border-radius: 0 0 9px 9px;
+  box-shadow:
+    inset 0 3px 4px rgba(0,0,0,0.7),
+    0 0.5px 0 rgba(255,255,255,0.05);
+  z-index: 4;
+}
+
+/* Inner screen frame */
+.newspic-phone-frame {
+  display: flex;
+  flex-direction: column;
+  background: var(--background-primary, #fff);
+  border-radius: 14px;
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    inset 0 0 0 1px rgba(0,0,0,0.3),
+    inset 0 0 0 2px rgba(0,0,0,0.1);
+}
+
+.newspic-phone-frame::-webkit-scrollbar {
+  width: 3px;
+}
+
+.newspic-phone-frame::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+  border-radius: 2px;
+}
+
+/* ── Slideshow Area ── */
+.newspic-slideshow-area {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: #1a1a1a;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.newspic-image-stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.newspic-image-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.35s ease;
+}
+
+.newspic-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Page indicator */
+.newspic-page-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Nav arrows */
+.newspic-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  font-size: 16px;
+  color: #333;
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+.newspic-nav-arrow:hover { background: #fff; }
+.newspic-nav-prev { left: 8px; }
+.newspic-nav-next { right: 8px; }
+
+/* ── Swipe Dots ── */
+.newspic-swipe-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  flex-shrink: 0;
+}
+
+.newspic-swipe-dot {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: #d0d0d0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.newspic-swipe-dot.active {
+  background: #333;
+}
+.newspic-swipe-dot:hover { background: #999; }
+
+/* ── Description ── */
+.newspic-desc {
+  font-size: 12px;
+  color: #666;
+  padding: 6px 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  flex-shrink: 0;
+}
+
+/* ── Author + Action Bar ── */
+.newspic-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 12px 8px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.newspic-author {
+  color: var(--text-muted, #999);
+}
+
+.newspic-action-bar {
+  display: flex;
+  gap: 10px;
+  color: #999;
+}
+
+.newspic-action-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+}
+
+.newspic-original-badge {
+  font-size: 9px;
+  color: #ff6600;
+  border: 1px solid #ff6600;
+  border-radius: 2px;
+  padding: 0 4px;
+}
+
+/* Empty hint */
+.newspic-empty-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  color: #999;
+  font-size: 14px;
+}
+
+/* ── No Simulation mode — clean line frame, no phone bezel ── */
+.newspic-phone-bezel.newspic-bezel-none {
+  background: transparent;
+  border: 1px solid var(--background-modifier-border, #e0e0e0);
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.newspic-phone-bezel.newspic-bezel-none::before,
+.newspic-phone-bezel.newspic-bezel-none::after {
+  content: none;
+}
+
+.newspic-phone-bezel.newspic-bezel-none .newspic-phone-frame {
+  width: 100%;
+  height: auto;
+  min-height: 200px;
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+.wewrite-newspic-view figcaption {
+  font-size: var(--wewrite-caption-font-size, 13px);
+  color: var(--wewrite-caption-color, #888888);
+  text-align: var(--wewrite-caption-text-align, center);
+  letter-spacing: var(--wewrite-caption-letter-spacing, 0);
+  margin-top: 4px;
+}
+
+/* ── Mobile ── */
+@media (max-width: 500px) {
+  .wewrite-newspic-topbar,
+  .wewrite-newspic-config-row {
+    padding: 4px 8px;
+    gap: 4px;
+  }
+  .wewrite-newspic-row-label { font-size: 11px; }
+  .wewrite-newspic-input-short { max-width: 80px; }
+  .wewrite-newspic-toggle { font-size: 11px; }
+  .wewrite-newspic-meta-row { gap: 6px; }
+  .wewrite-newspic-preview-wrap { padding: 10px 4px; }
+  .newspic-nav-arrow { width: 26px; height: 26px; font-size: 14px; }
+}

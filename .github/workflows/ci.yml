@@ -2,24 +2,40 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, main, '**-v*']
   pull_request:
-    branches: [master]
+    branches: [master, main]
 
 jobs:
-  lint:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
           cache: 'npm'
-      
+
       - name: Install dependencies
-        run: npm install
-      
-      - name: Run ESLint
-        run: npm run lint || echo "ESLint issues found"
+        run: npm ci
+
+      - name: Check version consistency
+        run: |
+          PKG_VER=$(node -p "require('./package.json').version")
+          MANIFEST_VER=$(node -p "require('./manifest.json').version")
+          if [ "$PKG_VER" != "$MANIFEST_VER" ]; then
+            echo "::error::Version mismatch: package.json=$PKG_VER, manifest.json=$MANIFEST_VER"
+            exit 1
+          fi
+          echo "Versions match: $PKG_VER"
+
+      - name: Type check
+        run: npx tsc --noEmit --skipLibCheck
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build

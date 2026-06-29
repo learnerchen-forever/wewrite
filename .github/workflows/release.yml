@@ -2,9 +2,10 @@ name: Smart Release
 
 on:
   push:
+    branches: [master, main]
     paths:
       - 'manifest.json'
-    
+
 permissions:
   contents: write
 
@@ -23,7 +24,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: npm ci
 
       - name: Read version from manifest.json
         id: read_version
@@ -42,11 +43,17 @@ jobs:
             echo "SKIP_RELEASE=false" >> $GITHUB_ENV
           fi
 
-    #   - name: Fail if tag exists
-    #     if: env.SKIP_RELEASE == 'true'
-    #     run: |
-    #       echo "::error::Tag $VERSION already exists. Release aborted."
-    #       exit 1
+      - name: Type check
+        if: env.SKIP_RELEASE != 'true'
+        run: npx tsc --noEmit --skipLibCheck
+
+      - name: Run unit tests
+        if: env.SKIP_RELEASE != 'true'
+        run: npm test
+
+      - name: Build plugin
+        if: env.SKIP_RELEASE != 'true'
+        run: npm run build
 
       - name: Update versions.json
         if: env.SKIP_RELEASE != 'true'
@@ -54,10 +61,6 @@ jobs:
           jq --arg v "$VERSION" --argjson m "$(cat manifest.json)" \
             '. + {($v): $m}' versions.json > versions.tmp.json
           mv versions.tmp.json versions.json
-
-      - name: Build plugin
-        if: env.SKIP_RELEASE!= 'true'
-        run: yarn build
 
       - name: Commit updated versions.json
         if: env.SKIP_RELEASE != 'true'
@@ -73,7 +76,7 @@ jobs:
           fi
 
       - name: Create and push Git tag
-        if: env.SKIP_RELEASE != 'true'	  
+        if: env.SKIP_RELEASE != 'true'
         run: |
           git tag "$VERSION"
           git push origin "$VERSION"

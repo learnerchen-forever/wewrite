@@ -1,10 +1,10 @@
 {
-	"id": "wewrite",
-	"name": "WeWrite",
-	"version": "1.1.6",
-	"minAppVersion": "0.16.0",
-	"description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
-	"author": "Learner Chen",
-	"authorUrl": "https://www.3thinking.cn/#/learner-forever",
-	"isDesktopOnly": false
+  "id": "wewrite",
+  "name": "WeWrite",
+  "version": "2.0",
+  "minAppVersion": "1.5.0",
+  "description": "全平台写作工具，随时随地创作微信公众号文章，轻松定制你的个性化文章风格。",
+  "author": "Learner Chen",
+  "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+  "isDesktopOnly": false
 }

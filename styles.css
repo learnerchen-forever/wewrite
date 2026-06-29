@@ -1,892 +1,2626 @@
-/*
-
-CSS for wewrite plugin.
-
-
-*/
-
-.wewrite-ribbon-icon {
-	color: rgb(8, 203, 138);
-}
-
-.wewrite-web-image {
-	display: flex;
-	justify-content: center;
-	/* 水平居中 */
-	align-items: center;
-	/* 垂直居中 */
-	width: 100%;
-	max-width: 800px;
-	margin: 0 auto;
-	/* border-radius: 3px;
-    border: solid 2px #ddd; */
-}
-
-.wewrite-web-image img {
-	width: 100%;
-	height: auto;
-}
-
-/* 凸起阴影效果的 CSS 类 */
-.elevated-shadow {
-	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-	border-radius: 8px;
-	/* 可选：添加圆角效果 */
-	background-color: white;
-	/* 可选：设置背景颜色 */
-	transition: box-shadow 0.3s ease;
-	/* 可选：添加过渡效果 */
-}
-
-/* 鼠标悬停时增加阴影效果 */
-.elevated-shadow:hover {
-	box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-}
-
-
-/********************************* 
-left side view 
-*********************************/
-.wewrite-material-panel-container {
-	/* border: 1px solid #ccc; */
-	margin-bottom: 5px;
-	vertical-align: middle;
-}
-
-.wewrite-material-panel-header {
-	/* background-color: bisque; */
-	padding: 5px;
-	cursor: pointer;
-	font-weight: bold;
-	border: 1px solid #ccc;
-	/* margin-right: 5px; */
-	/* position: relative; */
-}
-
-.toggle-icon {
-	float: right;
-	background-color: transparent;
-	border: none;
-	cursor: pointer;
-	transition: transform 1.8s ease;
-}
-
-.refresh-material-button {
-	float: left;
-	background-color: transparent;
-	border: none;
-	cursor: pointer;
-	margin-left: 5px;
-	margin-right: 10px;
-	/* color: darkorange; */
-}
-
-.wewrite-material-panel-total {
-	margin-left: 5px;
-	margin-right: 5px;
-	color: green;
-}
-
-.wewrite-material-panel-content {
-	padding: 0.5em;
-}
-
-.wewrite-setting-frame,
-.wewrite-account-info-div {
-	padding: 1em;
-	border: 2px solid #ccc;
-	background-color: #fff;
-	border-radius: 5px;
-	margin-top: 0.5em;
-	margin-bottom: 1em;
-}
-
-.wewrite-setting-frame .setting-item-control input {
-	flex: 3;
-}
-
-.wewrite-setting-input {
-	display: flex !important;
-	flex-direction: row !important;
-}
-
-.wewrite-setting-input input {
-	flex-grow: 1;
-}
-
-.wewrite-account-info-div .wewrite-account-info-title {
-	position: absolute;
-	top: -15px;
-	/* 调整标题距离顶部的距离 */
-	left: 20px;
-	/* 调整标题距离左边的距离 */
-	background-color: #fff;
-	/* 背景色与容器背景色相同，以覆盖边框 */
-	padding: 0 10px;
-	/* 内边距 */
-	font-weight: bold;
-	color: #333;
-
-}
-
-
-.wewrite-account-info-div .wewrite-account-info-content {
-	padding: 10px;
-	font-size: 0.8em;
-	font-weight: 500;
-}
-
-/* article header */
-.wewrite-article-header {
-	padding: 5px;
-	border: 1px solid #ccc;
-	/* background-color: bisque; papayawhip */
-	border-radius: 6px;
-	margin-bottom: 0.5em;
-}
-
-.wewrite-article-header details {
-	margin: 5px;
-}
-
-.wewrite-article-header summary {
-	font-weight: normal;
-	cursor: pointer;
-	outline: none;
-	margin-left: 0px;
-
-}
-
-.wewrite-article-header summary::-webkit-details-marker {
-	display: none;
-}
-
-.wewrite-article-header summary::before {
-	content: "";
-	font-weight: normal;
-}
-
-.wewrite-article-header details[open] summary::before {
-	content: "";
-}
-
-.wewrite-article-header .cover-container {
-	max-width: 500px;
-	position: relative;
-	width: 100%;
-	/* 使容器宽度适应父元素 */
-	overflow: hidden;
-	/* 隐藏溢出的内容 */
-	margin: auto;
-}
-
-.wewrite-article-header .cover-container::before {
-	content: "";
-	display: block;
-	padding-top: 42.55%;
-	/* 1 / 2.35 * 100%，计算得到的百分比 */
-}
-
-.wewrite-article-header .cover-frame {
-	margin: auto;
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	background-color: #f0f0f0;
-	/* 示例背景颜色 */
-}
-
-
-.wewrite-article-header .cover-frame>* {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-}
-
-.wewrite-article-header .cover-frame img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	/* 使图片完全覆盖容器，保持宽高比 */
-	aspect-ratio: 1 / 2.35;
-	/* 设置图片的宽高比 */
-}
-
-.wewrite-article-header .cover-frame .image-on-dragover {
-	border: 2px dashed red;
-}
-
-.wewrite-article-header .digest {
-	width: 100%;
-	/* 全宽 */
-	height: auto;
-	/* 自动高度 */
-	min-height: 48px;
-	/* 最小高度，3 行的高度 */
-	max-height: 72px;
-	/* 最大高度，3 行的高度 */
-	resize: none;
-	/* 禁止用户调整大小 */
-	box-sizing: border-box;
-	/* 包含边框和内边距 */
-}
-
-/* previewer */
-.wewrite-previewer-container {
-	display: flex;
-	flex-direction: column;
-	height: 88vh;
-	/* 100% 视口高度 */
-}
-
-.wewrite-previewer-container .render-container {
-	border: 1px solid #ccc;
-	border-radius: 6px;
-	background-color: var(--background-primary);
-	padding: 5px;
-	-webkit-user-select: text;
-	user-select: text;
-}
-
-.wewrite-draft-header {
-	font-size: 1.2rem;
-	font-weight: bold;
-	margin-left: 0.5em;
-}
-
-.wewrite-previewer-container .wewrite-article {
-	margin: 0;
-	padding: 0;
-	border: 1px dashed lightgray;
-}
-
-.wewrite-previewer-container .article-div {
-	border: none;
-}
-
-
-
-/* 
-material view 
-*/
-
-.wewrite-material-view-tabs {
-	width: 100%;
-	/* margin-top: 1rem; */
-}
-
-.wewrite-material-view-tab-header {
-	display: flex;
-	/* border-bottom: 1px solid var(--background-modifier-border);
-  margin-bottom: 0.5rem; */
-	margin: 5px;
-}
-
-.wewrite-material-view-tab {
-	background: transparent !important;
-	/* Remove background */
-	border: none !important;
-	/* Remove border */
-	box-shadow: none !important;
-	/* Remove shadow */
-	color: var(--text-normal);
-	/* Use Obsidian's default text color */
-	padding: 8px 12px;
-	cursor: pointer;
-	/* Add pointer cursor for better UX */
-}
-
-.wewrite-material-view-tab:hover {
-	background: var(--background-modifier-hover);
-	/* Add hover effect */
-	color: var(--interactive-accent)
-}
-
-.wewrite-material-view-tab.active {
-	background: var(--background-modifier-active);
-	/* Add active effect */
-}
-
-.wewrite-material-view-tab-content {
-	padding: 0;
-}
-
-.draft-news-item {
-	margin-top: 0.5em;
-	font-size: 0.8em;
-}
-
-/* confirm pulbish */
-.confirm-pulbish-dialog {
-	width: 100%;
-	height: 100%;
-	justify-content: center;
-	align-items: center;
-
-}
-
-.confirm-pulbish-dialog-content {
-
-	display: flex;
-	padding: 10px;
-	flex-direction: column;
-
-}
-
-.confirm-pulbish-dialog-content .description {
-	border: gray 2px solid;
-	padding: 1em;
-	line-height: 1.8em;
-	flex-grow: 1;
-	text-align: center;
-}
-
-.confirm-pulbish-dialog-content .warning {
-	color: red;
-	font-weight: bold;
-}
-
-
-.confirm-pulbish-dialog-tool-bar {
-	display: flex;
-	flex-direction: row;
-	justify-content: center;
-	flex: auto
-		/* width: 100%; */
-}
-
-.confirm-pulbish-dialog-content button {
-	margin-top: 2em;
-	margin: 1em;
-	background: transparent;
-	border: none;
-	cursor: pointer;
-}
-
-.danger-button {
-	background-color: rgb(139, 22, 4) !important;
-	color: azure !important;
-}
-
-.danger-extra-button {
-	color: red;
-}
-
-.danger-extra-button .extra-setting-button {
-	background-color: rgb(139, 22, 4) !important;
-	color: azure !important;
-}
-
-
-/* image generation modal */
-
-.image-generate-dialog-content {
-	display: flex;
-	padding: 10px;
-	flex-direction: column;
-}
-
-.image-generate-dialog-size-bar {
-	display: flex;
-	flex-direction: row;
-	justify-content: center;
-	flex: auto;
-	vertical-align: middle;
-
-}
-
-.image-generate-dialog-size-bar input {
-	flex-grow: 1;
-	margin-left: 1em;
-
-	/* margin-left: 1em; */
-	padding: 0.5em 1em 0.5em;
-	margin: 0;
-	line-height: 1em;
-	height: min-content;
-}
-
-.image-generate-dialog-tool-bar {
-	display: flex;
-	flex-direction: row;
-	justify-content: center;
-	flex: auto
-}
-
-.image-generate-dialog-tool-bar button {
-	margin-top: 2em;
-	margin: 1em;
-	background: transparent;
-	border: none;
-	cursor: pointer;
-}
-
-.image-generate-dialog-content textarea {
-	border: gray 1px solid;
-	border-radius: 5px;
-	padding: 0.5em;
-	line-height: 1.8em;
-	flex-grow: 1;
-	text-align: justify;
-	margin-bottom: 5px;
-	resize: none;
-	text-wrap: pretty;
-	overflow-y: auto;
-	height: 6rem !important;
-}
-
-.image-generate-dialog-size-label {
-	vertical-align: middle;
-	margin-right: 1em;
-	padding: auto;
-}
-
-.wewrite-list-frame {
-	width: 100%;
-	height: 100%;
-	border: solid 1px #ccc;
-	visibility: visible;
-}
-
-.wewrite-markdown-render-container {
-	max-width: 720px;
-}
-
-.wewrite-markdown-render-container li {
-	line-height: 3rem;
-
-}
-
-.wewrite-markdown-render-container ul,
-ol {
-	margin-top: 1rem;
-	margin-bottom: 2rem;
-
-}
-
-.wewrite-markdown-render-container .callout {
-	font-size: 20px;
-	padding: 1rem;
-
-}
-
-/* styles.css */
-.proof-suggestion-modal {
-	position: fixed;
-	z-index: 9999;
-	background-color: var(--background-primary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 4px;
-	padding: 1em;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-	resize: both;
-	overflow: auto;
-	min-width: 300px;
-	min-height: 200px;
-	max-width: 80vw;
-	max-height: 80vh;
-}
-
-.proof-tooltip {
-	position: fixed;
-	background: white;
-	border: 1px solid #ccc;
-	border-radius: 4px;
-	padding: 8px;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-	z-index: 1000;
-	max-width: 300px;
-	pointer-events: auto;
-}
-
-.proof-underline {
-	text-decoration: wavy underline #2196F3;
-	cursor: pointer;
-	position: relative;
-	z-index: 1;
-}
-
-.proof-tooltip .proof-type {
-	font-weight: bold;
-	margin-bottom: 4px;
-}
-
-.proof-tooltip .proof-description {
-	margin-bottom: 4px;
-}
-
-.proof-tooltip .proof-suggestion {
-	margin-bottom: 8px;
-	color: #2196F3;
-}
-
-.proof-tooltip .proof-actions {
-	display: flex;
-	gap: 8px;
-}
-
-.proof-tooltip button {
-	padding: 4px 8px;
-	border: none;
-	border-radius: 4px;
-	cursor: pointer;
-}
-
-.proof-tooltip .proof-accept {
-	background: #4CAF50;
-	color: white;
-}
-
-.proof-tooltip .proof-reject {
-	background: #f44336;
-	color: white;
-}
-
-.synonyms-modal {
-	max-height: 300px;
-	overflow-y: auto;
-}
-
-.synonyms-list {
-	list-style: none;
-	padding: 0;
-	margin: 0;
-}
-
-.synonym-item {
-	padding: 8px 16px;
-	cursor: pointer;
-	transition: background-color 0.2s;
-}
-
-.synonym-item:hover {
-	background-color: var(--background-modifier-hover);
-}
-
-.synonym-item.selected {
-	background-color: var(--background-modifier-active);
-}
-
-
-.wewrite-material-panel-item {
-	cursor: 'pointer';
-}
-
-.wewrite-webview-iframe {
-	width: 100%;
-	height: 100%;
-	border: none;
-}
-
-
-/*
-chat gpt 
-proofreed
-*/
-.proofread-error {
-	background-color: rgba(255, 0, 0, 0.3);
-	cursor: pointer;
-	border-bottom: 2px dashed red;
-}
-
-.proofread-menu {
-	position: absolute;
-	background: white;
-	border: 1px solid #ccc;
-	padding: 8px;
-	border-radius: 5px;
-	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-	z-index: 1000;
-	font-size: 14px;
-}
-
-.proofread-menu:hover {
-	display: block;
-}
-
-.proofread-menu .suggestion {
-	display: block;
-	margin-bottom: 6px;
-	font-weight: bold;
-}
-
-.proofread-menu button {
-	border: none;
-	background: none;
-	cursor: pointer;
-	margin: 0 5px;
-	font-size: 16px;
-}
-
-.proofread-menu button:hover {
-	opacity: 0.7;
-}
-
-.wewrite-chat-playground {
-	padding: 16px;
-
-	.vertical-layout {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-		height: 100%;
-	}
-
-	.param-item {
-		display: flex;
-		flex-direction: column;
-		margin-bottom: 8px;
-
-		label {
-			font-weight: 500;
-			margin-bottom: 4px;
-		}
-
-		select,
-		textarea,
-		input[type="range"] {
-			background: var(--background-primary);
-			color: var(--text-normal);
-			border: 1px solid var(--background-modifier-border);
-			border-radius: 4px;
-			padding: 6px;
-		}
-
-		textarea {
-			resize: vertical;
-			min-height: 60px;
-		}
-	}
-
-	.output-scroll-area {
-		flex: 1;
-		overflow-y: auto;
-		border: 1px solid var(--background-modifier-border);
-		padding: 12px;
-		border-radius: 4px;
-		background: var(--background-primary);
-
-		.response-item {
-			margin: 8px 0;
-			padding: 8px;
-			background: var(--background-secondary);
-			border-radius: 4px;
-		}
-	}
-
-	.button-container {
-		display: flex;
-		justify-content: flex-end;
-	}
-}
-
-
-/** --------------- spinner ----------------- */
-
-
-.spinner-container {
-	display: none;
-	position: fixed;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	justify-content: center;
-	align-items: center;
-	flex-direction: column;
-	align-items: center;
-}
-
-.spinner-dots {
-	position: relative;
-	width: 120px;
-	height: 120px;
-	animation: spin 1.2s linear infinite;
-}
-
-.spinner-dot {
-	position: absolute;
-	width: 16px;
-	height: 16px;
-	border-radius: 50%;
-	animation: pulse 1.2s ease-in-out infinite;
-}
-
-/* 多彩颜色（渐变感） */
-.spinner-dot1 {
-	background: #FF3CAC;
-	top: 0;
-	left: 52px;
-	animation-delay: 0s;
-}
-
-.spinner-dot2 {
-	background: #FF884B;
-	top: 17px;
-	left: 87px;
-	animation-delay: 0.1s;
-}
-
-.spinner-dot3 {
-	background: #FFD700;
-	top: 52px;
-	left: 104px;
-	animation-delay: 0.2s;
-}
-
-.spinner-dot4 {
-	background: #32CD32;
-	top: 87px;
-	left: 87px;
-	animation-delay: 0.3s;
-}
-
-.spinner-dot5 {
-	background: #00CFFF;
-	top: 104px;
-	left: 52px;
-	animation-delay: 0.4s;
-}
-
-.spinner-dot6 {
-	background: #6A5ACD;
-	top: 87px;
-	left: 17px;
-	animation-delay: 0.5s;
-}
-
-.spinner-dot7 {
-	background: #8A2BE2;
-	top: 52px;
-	left: 0px;
-	animation-delay: 0.6s;
-}
-
-.spinner-dot8 {
-	background: #FF69B4;
-	top: 17px;
-	left: 17px;
-	animation-delay: 0.7s;
-}
-
-@keyframes spin {
-	0% {
-		transform: rotate(0deg);
-	}
-
-	100% {
-		transform: rotate(360deg);
-	}
-}
-
-@keyframes pulse {
-
-	0%,
-	100% {
-		transform: scale(0.85);
-		opacity: 0.6;
-	}
-
-	50% {
-		transform: scale(1.2);
-		opacity: 1;
-	}
-}
-
-.spinner-text {
-  margin-top: -70px;
+/* WeWrite Plugin Styles */
+
+/* ═══════════════════════════════════════════════════════════════
+   UNIFIED DESIGN SYSTEM
+   Compact · Flat · Rounded-rectangle · Light thin border
+
+   Design tokens are scoped to WeWrite containers so they resist
+   Obsidian's theme cascade. All form controls share the same
+   height (30px) and font-size (13px) for visual consistency.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Design tokens (scoped to all WeWrite UI containers) ── */
+.wewrite-view,
+.wewrite-auto-expand,
+.wewrite-material-view,
+.wewrite-newspic-view,
+.wewrite-style-view,
+.wewrite-modal {
+  --ww-ctrl-h: 30px;
+  --ww-ctrl-font: 13px;
+  --ww-ctrl-radius: 4px;
+  --ww-ctrl-border-color: var(--background-modifier-border);
+  --ww-ctrl-bg: var(--background-modifier-form-field);
+  --ww-ctrl-color: var(--text-normal);
+}
+
+/* ── Input (text / url / password) ── */
+.wewrite-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--ww-ctrl-h, 30px);
+  padding: 4px 8px;
+  font-size: var(--ww-ctrl-font, 13px);
+  line-height: 1.4;
+  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border));
+  border-radius: var(--ww-ctrl-radius, 4px);
+  background: var(--ww-ctrl-bg, var(--background-modifier-form-field));
+  color: var(--ww-ctrl-color, var(--text-normal));
+  box-sizing: border-box;
+  box-shadow: none;
+  vertical-align: middle;
+}
+.wewrite-input:focus {
+  border-color: var(--interactive-accent);
+  box-shadow: none;
+}
+
+/* ── Select / Dropdown ──
+   The .dropdown class (alongside .wewrite-select) is what triggers
+   Obsidian themes to apply their own dropdown indicator icon via
+   background-image. Every <select> must carry both classes. */
+.wewrite-select {
+  flex: 1;
+  min-width: 0;
+  height: var(--ww-ctrl-h, 30px);
+  padding: 4px 8px;
+  font-size: var(--ww-ctrl-font, 13px);
+  line-height: 1.4;
+  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border));
+  border-radius: var(--ww-ctrl-radius, 4px);
+  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field));
+  color: var(--ww-ctrl-color, var(--text-normal));
+  box-sizing: border-box;
+  box-shadow: none;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.wewrite-select:focus {
+  border-color: var(--interactive-accent);
+  box-shadow: none;
+}
+
+/* ── Textarea ── */
+.wewrite-textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 8px;
+  font-size: var(--ww-ctrl-font, 13px);
+  line-height: 1.4;
+  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border));
+  border-radius: var(--ww-ctrl-radius, 4px);
+  background: var(--ww-ctrl-bg, var(--background-modifier-form-field));
+  color: var(--ww-ctrl-color, var(--text-normal));
+  box-sizing: border-box;
+  resize: vertical;
+  box-shadow: none;
+  vertical-align: middle;
+}
+.wewrite-textarea:focus {
+  border-color: var(--interactive-accent);
+  box-shadow: none;
+}
+
+/* ── Icon-only button (square, flat, no border/bg) ──
+   Uses display:grid (not flex/inline-flex) to avoid Android System
+   WebView bug where flex layout on <button> collapses SVG children
+   to zero size. Grid's place-items:center gives equivalent centering
+   without triggering the Chromium button-flex rendering bug.
+
+   Uses button.wewrite-btn-icon (0,2,0) to beat Obsidian's
+   button:not(.clickable-icon) (0,1,1) default button chrome. */
+button.wewrite-btn-icon {
+  flex-shrink: 0;
+  width: var(--ww-ctrl-h, 30px);
+  height: var(--ww-ctrl-h, 30px);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--ww-ctrl-radius, 4px);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  box-shadow: none;
+}
+button.wewrite-btn-icon:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+button.wewrite-btn-icon:disabled { opacity: 0.4; cursor: not-allowed; }
+button.wewrite-btn-icon svg { width: 16px; height: 16px; }
+
+/* ── Text button (label + icon, flat, no border, transparent bg) ──
+   Uses display:flex (not inline-flex) to avoid Android System WebView
+   bug where inline-flex on <button> collapses child content.
+
+   Uses button.wewrite-btn (0,2,0) to beat Obsidian's
+   button:not(.clickable-icon) (0,1,1) default button chrome. */
+button.wewrite-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--ww-ctrl-h, 30px);
+  padding: 4px 10px;
+  font-size: var(--ww-ctrl-font, 13px);
+  line-height: 1.4;
+  border: none;
+  border-radius: var(--ww-ctrl-radius, 4px);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  box-shadow: none;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+button.wewrite-btn:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+button.wewrite-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+button.wewrite-btn svg { width: 14px; height: 14px; }
+
+/* Accent variant — colored text, filled bg on hover */
+button.wewrite-btn-accent {
+  color: var(--interactive-accent);
+}
+button.wewrite-btn-accent:hover { background: var(--interactive-accent); color: var(--text-on-accent); }
+
+/* Warning / danger variant — red text, red bg on hover */
+button.wewrite-btn-danger {
+  color: var(--text-error);
+}
+button.wewrite-btn-danger:hover { background: var(--background-modifier-error); }
+
+/* ── Toolbar / control row (flex,两端对齐, one flex:1 fill) ── */
+.wewrite-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.wewrite-row-noborder { border-bottom: none; }
+.wewrite-row-tight { padding-top: 2px; padding-bottom: 2px; }
+.wewrite-row-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── Obsidian theme override layer ──
+   Obsidian's theme (especially mobile) applies pill-shaped (capsule)
+   border-radius, strips borders/backgrounds from native form elements,
+   and sets fixed heights. These rules reset Obsidian's overrides on
+   plain form elements WITHOUT touching WeWrite's own design-system
+   classes (.wewrite-input / .wewrite-select / .wewrite-textarea). */
+
+/* ─── Desktop: reset capsule shapes on non-WeWrite form elements ─── */
+:is(.wewrite-view, .wewrite-auto-expand, .wewrite-material-view,
+    .wewrite-newspic-view, .wewrite-style-view) :is(input[type="text"]:not(.wewrite-input),
+input[type="url"]:not(.wewrite-input), input[type="password"]:not(.wewrite-input),
+textarea:not(.wewrite-textarea), select:not(.wewrite-select)) {
+  box-shadow: none !important;
+  border-radius: var(--ww-ctrl-radius, 4px) !important;
+  height: auto;
+}
+
+body.is-mobile :is(.wewrite-view, .wewrite-auto-expand, .wewrite-material-view,
+    .wewrite-newspic-view, .wewrite-style-view) :is(input[type="text"]:not(.wewrite-input),
+input[type="url"]:not(.wewrite-input), input[type="password"]:not(.wewrite-input),
+textarea:not(.wewrite-textarea), select:not(.wewrite-select)) {
+  box-shadow: none !important;
+  border-radius: var(--ww-ctrl-radius, 4px) !important;
+  height: auto;
+}
+
+/* ─── Mobile: restore border + background + border-radius stripped by Obsidian ─── */
+body.is-mobile :is(.wewrite-input, .wewrite-select, .wewrite-textarea) {
+  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border)) !important;
+  border-radius: var(--ww-ctrl-radius, 4px) !important;
+  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field)) !important;
+}
+body.is-mobile :is(input.wewrite-input, select.wewrite-select) {
+  height: var(--ww-ctrl-h, 30px);
+}
+body.is-mobile .wewrite-material-view :is(input[type="text"], input[type="url"], select) {
+  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border)) !important;
+  border-radius: var(--ww-ctrl-radius, 4px) !important;
+  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field)) !important;
+  box-shadow: none !important;
+  height: var(--ww-ctrl-h, 30px);
+}
+
+/* ─── Mobile: restore border + background + height on Settings form elements ─── */
+body.is-mobile .wewrite-auto-expand .setting-item-control :is(input[type="text"],
+input[type="password"], input[type="url"], textarea, select) {
+  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border)) !important;
+  border-radius: var(--ww-ctrl-radius, 4px) !important;
+  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field)) !important;
+  box-shadow: none !important;
+  height: var(--ww-ctrl-h, 30px) !important;
+}
+
+/* ── Auto-expanding Setting Controls ──
+   Flat style: no card backgrounds, simple separators.
+   Inputs and dropdowns fill available width via width:100%.
+   flex-direction:row + flex-wrap:nowrap prevents Obsidian's mobile
+   CSS (which sets flex-direction:column on .setting-item) from
+   stacking the label and control. Simple label+button rows stay on
+   one line even on narrow screens like iPhone 7 (375px). */
+.wewrite-auto-expand .setting-item {
+  background: none;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 8px 0;
+  flex-direction: row;
+  flex-wrap: nowrap;
+}
+
+.wewrite-auto-expand .setting-item-control {
+  flex: 1 1 auto;
+}
+
+/* ── Settings form elements: apply full WeWrite design system ── */
+.wewrite-auto-expand .setting-item-control input[type="text"],
+.wewrite-auto-expand .setting-item-control input[type="password"],
+.wewrite-auto-expand .setting-item-control input[type="url"],
+.wewrite-auto-expand .setting-item-control textarea,
+.wewrite-auto-expand .setting-item-control .dropdown {
+  width: 100%;
+  box-sizing: border-box;
+  height: var(--ww-ctrl-h, 30px);
+  padding: 4px 8px;
+  font-size: var(--ww-ctrl-font, 13px);
+  line-height: 1.4;
+  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border));
+  border-radius: var(--ww-ctrl-radius, 4px);
+  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field));
+  color: var(--ww-ctrl-color, var(--text-normal));
+  box-shadow: none;
+}
+
+.wewrite-auto-expand .setting-item-control select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ── Flat buttons: override Obsidian's default button chrome inside Settings ── */
+.wewrite-auto-expand .setting-item-control button,
+.wewrite-auto-expand button:not(.clickable-icon) {
+  flex-shrink: 0;
+  height: var(--ww-ctrl-h, 30px);
+  padding: 4px 10px;
+  font-size: var(--ww-ctrl-font, 13px);
+  line-height: 1.4;
+  border: none !important;
+  border-radius: var(--ww-ctrl-radius, 4px);
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-muted);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.wewrite-auto-expand .setting-item-control button:hover,
+.wewrite-auto-expand button:not(.clickable-icon):hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover) !important;
+}
+.wewrite-auto-expand .setting-item-control button:focus-visible,
+.wewrite-auto-expand button:not(.clickable-icon):focus-visible {
+  color: var(--text-on-accent);
+  background: var(--interactive-accent) !important;
+}
+.wewrite-auto-expand .setting-item-control button.mod-cta,
+.wewrite-auto-expand button.mod-cta {
+  color: var(--interactive-accent);
+  background: transparent !important;
+}
+.wewrite-auto-expand .setting-item-control button.mod-cta:hover,
+.wewrite-auto-expand button.mod-cta:hover,
+.wewrite-auto-expand .setting-item-control button.mod-cta:focus-visible,
+.wewrite-auto-expand button.mod-cta:focus-visible {
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent);
+}
+.wewrite-auto-expand .setting-item-control button.mod-warning,
+.wewrite-auto-expand button.mod-warning {
+  color: var(--text-error);
+  background: transparent !important;
+}
+.wewrite-auto-expand .setting-item-control button.mod-warning:hover,
+.wewrite-auto-expand button.mod-warning:hover,
+.wewrite-auto-expand .setting-item-control button.mod-warning:focus-visible,
+.wewrite-auto-expand button.mod-warning:focus-visible {
+  background: var(--background-modifier-error) !important;
+  color: #fff;
+}
+.wewrite-auto-expand .setting-item-control button:disabled,
+.wewrite-auto-expand button:not(.clickable-icon):disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Account cards inside settings */
+.wewrite-account-row .setting-item {
+  border-bottom: none;
+  padding: 4px 0;
+}
+
+/* Inline setting rows (label + button on one line) */
+.wewrite-setting-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.wewrite-setting-inline-label {
+  font-size: 13px;
+  color: var(--text-normal);
+  flex: 1;
+}
+
+.wewrite-setting-inline button {
+  flex-shrink: 0;
+}
+
+/* Fix iPhone Delete button ghost — prevent overflow clipping on buttons */
+.wewrite-account-row button {
+  overflow: visible;
+}
+
+/* Keep setting items on one line (no wrap) for account form fields */
+.wewrite-account-row .setting-item {
+  flex-wrap: nowrap;
+}
+
+.wewrite-account-row .setting-item-info {
+  flex-shrink: 0;
+}
+
+/* Mobile: compact inline layout — keep items on one row */
+@media (max-width: 500px) {
+  /* Tighter vertical spacing */
+  .wewrite-auto-expand .setting-item {
+    padding: 6px 0;
+  }
+
+  /* ── Toggle items: keep toggle on the right ── */
+  .wewrite-auto-expand .setting-item:has(.checkbox-container) {
+    justify-content: space-between;
+  }
+
+  .wewrite-auto-expand .setting-item:has(.checkbox-container) .setting-item-control {
+    flex: 0 0 auto;
+  }
+
+  /* ── Hide descriptions on mobile (keep rows compact) ── */
+  .wewrite-auto-expand .setting-item-description {
+    display: none;
+  }
+
+  /* ── Input + button combo: input flexes so both share one row ── */
+  .wewrite-auto-expand .setting-item-control:has(button) input[type="text"],
+  .wewrite-auto-expand .setting-item-control:has(button) input[type="password"],
+  .wewrite-auto-expand .setting-item-control:has(button) input[type="url"] {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* ── Account cards: full-width, no overflow ── */
+  .wewrite-account-row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border-radius: 0 !important;
+    padding: 8px !important;
+  }
+}
+
+/* ── Section Dividers ── */
+.wewrite-section {
+  border-top: 2px solid var(--background-modifier-border);
+  margin-top: 20px;
+  padding-top: 12px;
+}
+
+.wewrite-section:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* ── Collapsible Section Headers (flat, left-aligned, div not button) ── */
+.wewrite-section-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  padding: 5px 0 6px 0;
+  margin: 0 0 8px 0;
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+  border: none;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: none;
+  background-color: transparent;
+  width: 100%;
+  text-align: left;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  line-height: 1.4;
+}
+
+.wewrite-section-header:hover {
+  color: var(--text-accent);
+  background: none;
+  background-color: transparent;
+}
+
+.wewrite-section-header:focus,
+.wewrite-section-header:focus-visible {
+  box-shadow: none;
+  outline: none;
+  background: none;
+  background-color: transparent;
+}
+
+.wewrite-section-header .wewrite-collapse-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.wewrite-section-header .wewrite-collapse-icon .svg-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.wewrite-section-body.collapsed {
+  display: none;
+}
+
+.wewrite-help-toggle-body.collapsed {
+  display: none;
+}
+
+/* ── IP Display ── */
+.wewrite-ip-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--background-primary-alt);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.wewrite-ip-display .wewrite-ip-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.wewrite-ip-display .wewrite-ip-value {
   font-size: 14px;
-  color: green;
+  font-weight: 600;
+  font-family: var(--font-monospace);
+  color: var(--text-accent);
+  flex: 1;
+}
+
+/* ── Settings description links ── */
+.setting-item-description a {
+  color: var(--text-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.setting-item-description a:hover {
+  color: var(--text-accent-hover);
+}
+
+.wewrite-ip-display .wewrite-ip-value.is-empty {
+  color: var(--text-faint);
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* ── Material View root: column flex so header/tabs/toolbar stay fixed,
+     scroll area (flex:1) fills remaining height. ── */
+.wewrite-material-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ── Material View Header (account selector + sync) ── */
+.wewrite-material-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.wewrite-material-selector-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.wewrite-material-selector-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.wewrite-material-tab-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 0;
+}
+
+.wewrite-material-fp-stats {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wewrite-material-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.wewrite-material-empty-action:hover {
+  color: var(--text-accent-hover);
+}
+
+/* Scrollable content area below the fixed header/tabs/toolbar.
+   flex:1 + overflow-y:auto keeps the header row, tabs, and toolbar
+   pinned at the top while the list/grid scrolls independently. */
+.wewrite-material-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.wewrite-material-pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+
+/* ── Material View Tabs (compact flat tab strip) ── */
+.wewrite-material-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--background-modifier-border);
+}
+.wewrite-material-tabs-group {
+  display: flex;
+  gap: 0;
+}
+
+.wewrite-material-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+  border-radius: 6px 6px 0 0;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+
+.wewrite-material-tab:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+  border-color: var(--background-modifier-border);
+}
+
+.wewrite-material-tab.active {
+  position: relative;
+  z-index: 1;
+  color: var(--text-accent);
+  border-color: var(--background-modifier-border);
+  border-bottom-color: var(--background-primary);
+  background: var(--background-primary);
+}
+
+.wewrite-material-tab.active .wewrite-material-tab-icon .svg-icon {
+  color: var(--text-accent);
+}
+
+.wewrite-material-tab-icon .svg-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.wewrite-material-tab-count {
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
   text-align: center;
-  animation: fadeInOut 2s ease-in-out infinite;
-  padding: 10px;
-  border-radius: 4px;
-  /* background-color: white; */
+  border-radius: 9px;
+  padding: 0 5px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
 }
 
-@keyframes fadeInOut {
-  0%, 100% {
-    opacity: 0;
-	background-color: transparent;
-  }
-  50% {
-    opacity: 1;
-	background-color: #ccc;
-  }
+.wewrite-material-tab.active .wewrite-material-tab-count {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
 }
 
-/* 滚动条样式 we use shadow dom, make the preview looks better.*/
-.wewrite-article::-webkit-scrollbar {
-	width: 10px;
-	height: 10px;
-	background-color: var(--scrollbar-bg);
+/* ── Material draft list (draft_news / draft_newspic) ── */
+
+.wewrite-material-draftlist {
+  display: flex;
+  flex-direction: column;
 }
 
-.wewrite-article::-webkit-scrollbar-thumb {
-	background-color: var(--scrollbar-thumb-bg);
-    -webkit-border-radius: var(--radius-l);
-    background-clip: padding-box;
-    border: 2px solid transparent;
-    border-width: 3px 3px 3px 2px;
-    min-height: 45px;
-}
-.wewrite-article::-webkit-scrollbar-thumb:hover {
-	background-color: var(--scrollbar-thumb-hover-bg);
-}
-.wewrite-article::-webkit-scrollbar-corner{
-	background: transparent;
+/* ── Swipe wrapper: clips the translated row ── */
+.wewrite-material-swipe-wrap {
+  position: relative;
+  overflow: hidden;
 }
 
-.wewrite-render-preview {
-	display:  none;
+/* ── Delete zone revealed behind the row on left-swipe ── */
+.wewrite-material-swipe-delete {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 16px;
+  background: var(--background-modifier-error);
+  color: var(--text-on-accent);
+  z-index: 0;
 }
 
-/* --------------- end of spinner ----------------- */
+.wewrite-material-swipe-delete-text {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
 
-/* 顶部参数区域样式 */
-.wewrite-view-header {
-    padding: 12px;
-    border-bottom: 1px solid var(--background-modifier-border);
-    background-color: var(--background-secondary);
-    display: flex;
+/* ── Swipeable row — sits above the delete zone ── */
+.wewrite-swipe-row {
+  position: relative;
+  z-index: 1;
+  background: var(--background-primary);
+  will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.wewrite-material-draftlist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.wewrite-material-draftlist-index {
+  width: 22px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.wewrite-material-draftlist-cover {
+  width: 64px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: var(--background-modifier-form-field);
+}
+
+.wewrite-material-draftlist-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.wewrite-material-draftlist-title {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wewrite-material-draftlist-title:hover {
+  text-decoration: underline;
+}
+
+/* ═══ WeWrite View — Three-Part Layout ═══ */
+
+/* ── Part 1: Publish Toolbar ── */
+.wewrite-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--background-primary);
+}
+
+.wewrite-toolbar-account {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+/* ── Part 2: Article Properties ── */
+.wewrite-properties {
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.wewrite-props-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  font-weight: 700;
+  font-size: var(--font-ui-medium);
+}
+
+.wewrite-props-toggle {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  transition: transform 0.15s;
+  color: var(--text-muted);
+}
+
+.wewrite-props-toggle.collapsed {
+  transform: rotate(-90deg);
+}
+
+.wewrite-props-title {
+  flex: 1;
+}
+
+.wewrite-props-body.collapsed {
+  display: none;
+}
+
+.wewrite-prop-spacer {
+  flex: 1;
+}
+
+/* ── Property row (label + input + controls, flex layout with border) ── */
+.wewrite-prop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.wewrite-prop-label-news {
+  font-size: calc(var(--font-text-size) * 0.8);
+  color: var(--text-normal);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.wewrite-label-icon {
+  margin-right: 1rem;
+}
+.wewrite-prop-row-full {
+  border-bottom: none;
+}
+
+/* Title input wrapper for floating counter */
+.wewrite-prop-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.wewrite-title-input {
+  width: 100%;
+  padding-right: 42px !important;
+}
+
+/* Floating counter inside title input */
+.wewrite-title-counter {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+  background: transparent;
+  line-height: 1;
+}
+
+.wewrite-title-counter.over {
+  color: var(--text-error);
+}
+
+/* Digest textarea with floating counter */
+.wewrite-digest-textarea {
+  width: 100%;
+  padding-right: 48px !important;
+  padding-bottom: 18px !important;
+}
+
+.wewrite-digest-counter {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+  background: transparent;
+  line-height: 1;
+}
+
+.wewrite-digest-counter.over {
+  color: var(--text-error);
+}
+
+.wewrite-prop-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── Collapse toggle (Cover Image section) ── */
+.wewrite-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+  border-radius: 3px;
+  transition: opacity 0.15s;
+}
+.wewrite-collapse-toggle:hover {
+  opacity: 1;
+  background: var(--background-modifier-hover);
+}
+.wewrite-collapse-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Checkbox group — wraps as a single unit ── */
+.wewrite-checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Mobile: checkbox group wraps to its own row, input fills first row */
+@media (max-width: 500px) {
+  .wewrite-prop-row {
     flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+  }
+  .wewrite-checkbox-group {
+    flex: 1 0 100%;
+    margin-top: 4px;
+  }
 }
 
-.wewrite-param-input {
-    flex: 2;
-    min-width: 150px;
+
+/* ── Cover Frame ── */
+.wewrite-cover-frame {
+  width: 100%;
+  aspect-ratio: 2.35 / 1;
+  border: 2px dashed var(--background-modifier-border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  background: var(--background-primary-alt);
 }
 
-.wewrite-param-button {
-    flex-shrink: 0;
+.wewrite-cover-frame.has-image {
+  border-style: solid;
+  border-color: var(--background-modifier-border);
 }
 
-.wewrite-param-display {
-    flex: 1;
-    font-size: 0.9em;
-    color: var(--text-muted);
-    word-break: break-word;
+.wewrite-cover-placeholder {
+  color: var(--text-faint);
+  font-size: 13px;
+  pointer-events: none;
 }
 
-/* Markdown 内容区域 */
-.wewrite-view-content {
-    padding: 16px;
-    overflow-y: auto;
-    height: calc(100% - 60px); /* 减去头部高度，移动端可能需要调整 */
+.wewrite-cover-frame.drag-over {
+  border-color: var(--interactive-accent);
+  background: var(--background-modifier-hover);
 }
 
-/* 移动端适配 */
-@media (max-width: 768px) {
-    .wewrite-view-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .wewrite-view-content {
-        height: calc(100% - 100px);
-    }
+.wewrite-cover-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.wewrite-cover-crop-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  color: var(--text-muted);
+  z-index: 2;
+}
+
+.wewrite-cover-crop-btn:hover {
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+}
+
+/* ── Cover Mode Toggle Buttons ── */
+.wewrite-cover-mode-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  z-index: 3;
+}
+
+.wewrite-cover-mode-btn {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.wewrite-cover-mode-btn.active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.wewrite-cover-mode-btn:hover:not(.active) {
+  color: var(--text-normal);
+  border-color: var(--text-accent);
+}
+
+/* ── Part 3: Phone Frame Preview ── */
+
+.wewrite-device-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.wewrite-device-spacer {
+  flex: 0;
+}
+
+/* ── Screen selector row — collapsible via chevron toggle ── */
+.wewrite-screen-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 6px 0;
+}
+
+.wewrite-screen-row.collapsed {
+  display: none;
+}
+
+/* ── Phone Simulator Bezel (outer body) ── */
+.wewrite-phone-bezel {
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  /* Clean dark bezel */
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,0.04) 0%,
+      transparent 15%,
+      transparent 85%,
+      rgba(0,0,0,0.10) 100%
+    ),
+    #1c1c1e;
+  border-radius: 28px;
+
+  /* Rim ring + surface shadow (phone resting on a surface) */
+  box-shadow:
+    /* Hairline rim catch-light */
+    0 0 0 1px rgba(255,255,255,0.06),
+    /* Outer rim ring */
+    0 0 0 2px rgba(0,0,0,0.30),
+    /* Tight contact shadow */
+    0 2px 4px rgba(0,0,0,0.18),
+    /* Soft penumbra */
+    0 6px 16px rgba(0,0,0,0.12),
+    /* Wide ambient spread */
+    0 16px 40px rgba(0,0,0,0.08),
+    /* Far-field occlusion */
+    0 32px 80px rgba(0,0,0,0.04);
+}
+
+/* ── Top-edge rim highlight ── */
+.wewrite-phone-bezel::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 16px;
+  right: 16px;
+  height: 1.5px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.08) 20%,
+    rgba(255,255,255,0.14) 45%,
+    rgba(255,255,255,0.08) 75%,
+    transparent 100%
+  );
+  border-radius: 1px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+/* ── Speaker bar — recessed into metal ── */
+.wewrite-phone-bezel::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 2.5px;
+  background:
+    linear-gradient(180deg,
+      #111 0%,
+      #2a2a2d 30%,
+      #1a1a1c 70%,
+      #333 100%
+    );
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,0.7),
+    0 0.5px 0 rgba(255,255,255,0.06);
+  z-index: 5;
+}
+
+/* Dark mode: slightly lighter bezel, deeper surface shadows */
+.theme-dark .wewrite-phone-bezel {
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,0.05) 0%,
+      transparent 15%,
+      transparent 85%,
+      rgba(0,0,0,0.12) 100%
+    ),
+    #2a2a2e;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.08),
+    0 0 0 2px rgba(0,0,0,0.40),
+    0 2px 4px rgba(0,0,0,0.40),
+    0 6px 16px rgba(0,0,0,0.30),
+    0 16px 40px rgba(0,0,0,0.18),
+    0 32px 80px rgba(0,0,0,0.10);
+}
+
+/* ── Notch — sculpted into the metal ── */
+.wewrite-phone-notch {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70px;
+  height: 16px;
+  background:
+    linear-gradient(180deg,
+      #16161a 0%,
+      #0f0f12 40%,
+      #18181c 100%
+    );
+  border-radius: 0 0 9px 9px;
+  box-shadow:
+    /* Deep cut shadow inside notch */
+    inset 0 3px 4px rgba(0,0,0,0.7),
+    /* Subtle highlight on the lip */
+    0 0.5px 0 rgba(255,255,255,0.05);
+  z-index: 4;
+}
+
+/* ── Inner screen surround ring (bezel → screen transition) ── */
+.wewrite-phone-frame {
+  background: var(--background-primary);
+  border-radius: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  position: relative;
+  z-index: 1;
+  padding: 0.5rem;
+  /* Thin inner ring — the dark gap between bezel and screen */
+  box-shadow:
+    inset 0 0 0 1px rgba(0,0,0,0.3),
+    inset 0 0 0 2px rgba(0,0,0,0.1);
+}
+
+.wewrite-phone-frame::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Phone bezel scroll wrapper ── */
+.wewrite-phone-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-top: 1rem;
+  padding-bottom: 4px;
+  background: transparent;
+}
+
+/* Mobile: white phone screen for readability */
+@media (max-width: 500px) {
+  .wewrite-phone-scroll {
+    background: transparent;
+    border-radius: 6px;
+    padding: 8px;
+    padding-top: 1rem;
+  }
+
+  .wewrite-phone-frame {
+    background: #ffffff !important;
+  }
+
+  .wewrite-phone-bezel {
+    box-shadow: none;
+  }
+}
+
+.wewrite-phone-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.wewrite-phone-scroll::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+  border-radius: 2px;
+}
+
+/* ── No Simulation mode — clean line frame, no phone bezel ── */
+.wewrite-phone-bezel.wewrite-bezel-none {
+  background: transparent;
+  border: 1px solid var(--background-modifier-border, #e0e0e0);
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.wewrite-phone-bezel.wewrite-bezel-none::before,
+.wewrite-phone-bezel.wewrite-bezel-none::after {
+  content: none;
+}
+
+.wewrite-phone-bezel.wewrite-bezel-none .wewrite-phone-frame {
+  width: 100%;
+  height: auto;
+  min-height: 200px;
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+.wewrite-preview {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #333;
+  word-break: break-word;
+}
+
+/* ── Migration Confirm Dialog ── */
+.wewrite-migrate-move {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.wewrite-migrate-keep {
+  padding: 6px 16px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  background: transparent;
+  color: var(--text-normal);
+}
+
+/* ── Publish Modal ── */
+.wewrite-publish-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.wewrite-publish-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.wewrite-publish-dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  min-width: 360px;
+  max-width: 460px;
+  max-height: 80vh;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.wewrite-publish-dialog h3 {
+  margin: 0 0 12px 0;
+  font-size: var(--font-ui-medium);
+  flex-shrink: 0;
+}
+
+.wewrite-publish-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.wewrite-publish-phase-header {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 8px 0 4px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.wewrite-publish-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.wewrite-publish-task-icon {
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.task-done .wewrite-publish-task-icon { color: var(--color-green); }
+.task-error .wewrite-publish-task-icon { color: var(--text-error); }
+.task-running .wewrite-publish-task-icon { color: var(--text-accent); }
+
+.wewrite-publish-task-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wewrite-publish-task-error {
+  color: var(--text-error);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.wewrite-publish-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* .wewrite-publish-cancel inherits from .wewrite-btn */
+
+/* ── Image Validation Modal ── */
+
+.wewrite-validate-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.wewrite-validate-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.wewrite-validate-dialog {
+  position: relative;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 380px;
+  max-width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25);
+}
+
+.wewrite-validate-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.wewrite-validate-header h3 {
+  margin: 0;
+  font-size: var(--font-ui-medium);
+  line-height: 1.3;
+}
+
+.wewrite-validate-icon {
+  font-size: 22px;
+  color: var(--text-warning, #d4a017);
+  flex-shrink: 0;
+}
+
+.wewrite-validate-summary {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.wewrite-validate-issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.wewrite-validate-issue {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.wewrite-validate-issue-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.wewrite-validate-issue-name {
+  font-size: 13px;
+  font-weight: 500;
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+
+.wewrite-validate-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wewrite-validate-badge-warn {
+  background: rgba(212, 160, 23, 0.15);
+  color: var(--text-warning, #b8860b);
+}
+
+.wewrite-validate-badge-err {
+  background: rgba(220, 53, 69, 0.12);
+  color: var(--text-error, #dc3545);
+}
+
+.wewrite-validate-badge-type {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+}
+
+.wewrite-validate-badge-video {
+  background: rgba(88, 86, 214, 0.12);
+  color: #5856d6;
+}
+
+.wewrite-validate-badge-audio {
+  background: rgba(52, 199, 89, 0.12);
+  color: #34c759;
+}
+
+.wewrite-validate-issue-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.wewrite-validate-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.wewrite-validate-cancel,
+.wewrite-validate-convert {
+  padding: 8px 20px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  min-height: 44px;
+}
+
+.wewrite-validate-cancel:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.wewrite-validate-convert.mod-cta {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+  font-weight: 600;
+}
+
+.wewrite-validate-convert.mod-cta:hover {
+  filter: brightness(1.1);
+}
+
+/* ── Cover Composer ── */
+.wewrite-cover-composer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wewrite-cover-composer-frame {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+/* Outer frame — solid border matching text-input/dropdown style */
+.wewrite-cover-frame {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: transparent;
+}
+
+/* Inner wrapper — provides padding, separated from border to avoid specificity issues */
+.wewrite-cover-frame-inner {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Compose button row — full width, same as Zone C */
+.wewrite-compose-btn-row {
+  width: 100%;
+}
+
+/* Flat compose button, full width, transparent */
+.wewrite-compose-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 4px 12px;
+  width: 100%;
+  height: 56px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.wewrite-compose-btn:hover {
+  color: var(--text-normal);
+}
+.wewrite-compose-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* A/B section */
+.wewrite-cover-ab-section {
+  width: 100%;
+}
+
+/* A/B 2-column grid */
+.wewrite-cover-ab-row {
+  display: grid;
+  grid-template-columns: 2.35fr 1fr;
+  gap: 8px;
+  aspect-ratio: 3.35;
+  width: 100%;
+  min-width: 0;
+}
+
+.wewrite-cover-zone-a {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wewrite-cover-zone-b {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wewrite-cover-zone-c {
+  width: 100%;
+}
+
+/* ── WeWrite View min-width ensures iPhone SE preview fits ── */
+.wewrite-view {
+  min-width: 380px;
+}
+
+/* Zero padding-top on .view-content so the sticky toolbar sits flush with the top edge.
+   Left/right/bottom padding is preserved from the theme. */
+.view-content.wewrite-view {
+  padding-top: 0;
+}
+
+/* ── Cover checkboxes (ext-wide / compose) ── */
+.wewrite-cover-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: 10px;
+  white-space: nowrap;
+  user-select: none;
+}
+.wewrite-cover-checkbox-label input {
+  cursor: pointer;
+  margin: 0;
+}
+
+/* ── Cover Zone ── */
+.wewrite-cover-zone {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px dashed var(--background-modifier-border);
+  background: var(--background-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.wewrite-cover-zone:hover {
+  border-color: var(--interactive-accent-hover);
+}
+
+.wewrite-zone-placeholder {
+  pointer-events: none;
+  user-select: none;
+}
+
+.wewrite-zone-ratio-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  color: var(--text-muted);
+  opacity: 0.3;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.wewrite-zone-image {
+  max-width: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Narrow view: stack A and B vertically, centered */
+@media (max-width: 700px) {
+  .wewrite-cover-ab-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    justify-items: center;
+    aspect-ratio: auto;
+  }
+
+  .wewrite-cover-zone-a {
+    width: 100%;
+    min-height: 0;
+  }
+
+  .wewrite-cover-zone-b {
+    width: 100%;
+    max-width: 240px;
+    min-height: 0;
+  }
+
+}
+
+/* ═══ WeChatNewsPicView Styles — compact config + phone-frame slideshow ═══ */
+
+/* ── Layout ── */
+/* ── Vault Image Picker (Cover Zone) ── */
+.wewrite-vault-image-modal {
+  display: flex;
+  flex-direction: column;
+  max-width: 600px;
+  max-height: 85vh;
+  padding: 12px;
+}
+.wewrite-vault-folder-select {
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+.wewrite-vault-image-search {
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.wewrite-vault-image-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+.wewrite-vault-image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.wewrite-vault-image-card {
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: var(--background-modifier-border);
+}
+.wewrite-vault-image-card:hover {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.wewrite-vault-image-card .wewrite-vault-image-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.wewrite-vault-image-more {
+  text-align: center;
+  padding: 10px;
+  margin-top: 6px;
+  cursor: pointer;
+  color: var(--interactive-accent);
+  font-size: 13px;
+  border-radius: 6px;
+}
+.wewrite-vault-image-more:hover {
+  background: var(--background-modifier-hover);
+}
+.wewrite-vault-image-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+}
+
+.wewrite-newspic-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Config Rows ── */
+.wewrite-newspic-topbar,
+.wewrite-newspic-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.wewrite-newspic-topbar {
+  border-bottom: 1px solid var(--divider-color, #e0e0e0);
+  background: transparent;
+}
+
+.wewrite-newspic-config-row {
+  border-bottom: 1px solid var(--background-modifier-border, #eee);
+}
+
+.wewrite-newspic-row-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #666);
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
+.wewrite-newspic-spacer { flex: 1; }
+
+.wewrite-newspic-account-select {
+  /* inherits from .wewrite-select */
+}
+
+.wewrite-newspic-device-select {
+  /* inherits from .wewrite-select */
+}
+
+.wewrite-newspic-input {
+  /* inherits from .wewrite-input */
+}
+
+
+/* ── Preview Area ── */
+.wewrite-newspic-preview-wrap {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 12px;
+  background: transparent;
+  scrollbar-width: thin;
+}
+.wewrite-newspic-preview-wrap::-webkit-scrollbar { width: 4px; }
+.wewrite-newspic-preview-wrap::-webkit-scrollbar-thumb {
+  background: rgba(127, 127, 127, 0.25);
+  border-radius: 4px;
+}
+
+/* ── Preview Container (from renderer) ── */
+.newspic-preview-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.newspic-preview-status {
+  font-size: 11px;
+  color: var(--text-muted, #999);
+  margin-bottom: 6px;
+  min-height: 16px;
+}
+.newspic-status-error { color: #e74c3c; }
+
+/* ── Phone Bezel (3D metallic, matches WeChatNewsView) ── */
+.newspic-phone-bezel {
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  /* Deep anodized aluminum — cool-toned dark metal with subtle blue undertones */
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,0.07) 0%,
+      rgba(255,255,255,0.02) 8%,
+      transparent 20%,
+      transparent 80%,
+      rgba(0,0,0,0.15) 95%,
+      rgba(0,0,0,0.25) 100%
+    ),
+    linear-gradient(105deg,
+      #1e1e22 0%,
+      #2a2a30 8%,
+      #1c1c20 18%,
+      #26262c 30%,
+      #18181c 50%,
+      #222228 65%,
+      #1a1a1f 78%,
+      #28282e 92%,
+      #1e1e22 100%
+    ),
+    #1a1a1d;
+
+  border-radius: 28px;
+
+  /* Box shadow: rim + bevel + depth + floor shadow */
+  box-shadow:
+    0 0 0 0.5px rgba(255,255,255,0.12),
+    0 0 0 2px #0e0e10,
+    0 0 0 3px rgba(255,255,255,0.03),
+    inset 0 0.5px 0 rgba(255,255,255,0.1),
+    inset 0 1px 1px rgba(255,255,255,0.04),
+    inset 0 -1px 1px rgba(0,0,0,0.4),
+    0 2px 6px rgba(0,0,0,0.5),
+    0 8px 20px rgba(0,0,0,0.45),
+    0 20px 50px rgba(0,0,0,0.35),
+    0 32px 80px rgba(0,0,0,0.2);
+}
+
+/* Top edge specular highlight */
+.newspic-phone-bezel::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.03) 8%,
+    rgba(255,255,255,0.12) 25%,
+    rgba(255,255,255,0.07) 50%,
+    rgba(255,255,255,0.11) 72%,
+    rgba(255,255,255,0.03) 90%,
+    transparent 100%
+  );
+  border-radius: 2px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+/* Speaker bar — recessed into metal */
+.newspic-phone-bezel::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 2.5px;
+  background:
+    linear-gradient(180deg,
+      #111 0%,
+      #2a2a2d 30%,
+      #1a1a1c 70%,
+      #333 100%
+    );
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,0.7),
+    0 0.5px 0 rgba(255,255,255,0.06);
+  z-index: 5;
+}
+
+/* ── Notch — sculpted into the metal ── */
+.newspic-phone-notch {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70px;
+  height: 16px;
+  background:
+    linear-gradient(180deg,
+      #16161a 0%,
+      #0f0f12 40%,
+      #18181c 100%
+    );
+  border-radius: 0 0 9px 9px;
+  box-shadow:
+    inset 0 3px 4px rgba(0,0,0,0.7),
+    0 0.5px 0 rgba(255,255,255,0.05);
+  z-index: 4;
+}
+
+/* Inner screen frame */
+.newspic-phone-frame {
+  display: flex;
+  flex-direction: column;
+  background: var(--background-primary, #fff);
+  border-radius: 14px;
+  position: relative;
+  z-index: 1;
+  padding: 0.5rem;
+  scrollbar-width: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(0,0,0,0.3),
+    inset 0 0 0 2px rgba(0,0,0,0.1);
+}
+
+.newspic-phone-frame::-webkit-scrollbar { display: none; }
+
+/* ── Slideshow Area ── */
+.newspic-slideshow-area {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.newspic-image-stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+}
+
+.newspic-image-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.35s ease;
+}
+
+.newspic-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Page indicator */
+.newspic-page-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Nav arrows */
+.newspic-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  font-size: 16px;
+  color: #555;
+  user-select: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.newspic-nav-arrow:hover { background: rgba(0,0,0,0.12); color: #333; }
+.newspic-nav-prev { left: 8px; }
+.newspic-nav-next { right: 8px; }
+
+/* ── Swipe Dots ── */
+.newspic-swipe-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  flex-shrink: 0;
+}
+
+.newspic-swipe-dot {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: #d0d0d0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.newspic-swipe-dot.active {
+  background: #333;
+}
+.newspic-swipe-dot:hover { background: #999; }
+
+/* ── Description ── */
+.newspic-desc {
+  font-size: 12px;
+  color: #666;
+  padding: 6px 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  flex-shrink: 0;
+}
+
+/* ── Author + Action Bar ── */
+/* Empty hint */
+.newspic-empty-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  color: #999;
+  font-size: 14px;
+}
+
+/* ── No Simulation mode — clean line frame, no phone bezel ── */
+.newspic-phone-bezel.newspic-bezel-none {
+  background: transparent;
+  border: 1px solid var(--background-modifier-border, #e0e0e0);
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.newspic-phone-bezel.newspic-bezel-none::before,
+.newspic-phone-bezel.newspic-bezel-none::after {
+  content: none;
+}
+
+.newspic-phone-bezel.newspic-bezel-none .newspic-phone-frame {
+  width: 100%;
+  height: auto;
+  min-height: 200px;
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+/* ── Mobile ── */
+@media (max-width: 500px) {
+  .wewrite-newspic-topbar,
+  .wewrite-newspic-config-row {
+    padding: 4px 8px;
+    gap: 4px;
+  }
+  .wewrite-newspic-row-label { font-size: 11px; }
+  .wewrite-newspic-input { font-size: 12px; }
+  .wewrite-newspic-preview-wrap { padding: 10px 4px; }
+  .newspic-nav-arrow { width: 26px; height: 26px; font-size: 14px; }
+}
+
+/* ── Character counter over-limit indicator ── */
+.wewrite-prop-counter.over {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+/* ── Image Edit Modal ── */
+.wewrite-image-edit-modal {
+  position: fixed; inset: 0; z-index: 1000;
+  display: none; align-items: center; justify-content: center;
+}
+.wewrite-image-edit-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.5);
+}
+.wewrite-image-edit-dialog {
+  position: relative;
+  background: var(--background-primary);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex; flex-direction: column;
+  gap: 10px;
+  width: min(720px, 95vw);
+  max-height: 90vh;
+}
+.wewrite-image-edit-dialog.wewrite-image-edit-mobile {
+  width: calc(100vw - 16px);
+  height: calc(100vh - 16px);
+  max-height: none;
+  margin: 8px;
+  border-radius: 8px;
+  padding: 10px;
+  border: none;
+  justify-content: center;
+}
+.wewrite-image-edit-dialog.wewrite-image-edit-mobile .wewrite-image-edit-area {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 0;
+}
+.wewrite-image-edit-description {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.wewrite-image-edit-area {
+  position: relative; overflow: hidden;
+  min-height: 200px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+  flex: 1;
+}
+.wewrite-image-edit-actions {
+  display: flex; justify-content: center; gap: 16px;
+}
+.wewrite-image-edit-btn {
+  display: flex; align-items: center; gap: 4px;
+  padding: 8px 20px; border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  cursor: pointer;
+  min-width: 44px; min-height: 44px;
+}
+.wewrite-image-edit-btn:hover {
+  background: var(--background-modifier-hover);
+}
+.wewrite-image-edit-btn-primary {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+.wewrite-image-edit-btn-primary:hover {
+  filter: brightness(1.1);
+}
+.wewrite-image-edit-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.wewrite-image-edit-toggles {
+  display: flex; gap: 16px; justify-content: center;
+}
+.wewrite-image-edit-toggle-label {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13px; cursor: pointer;
+}
+
+/* D/F overlay frames floating over the edit area */
+.wewrite-iem-frame-d,
+.wewrite-iem-frame-f {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  z-index: 5;
+  pointer-events: auto;
+  cursor: grab;
+  border: 2px solid rgba(255, 215, 0, 0.7);
+  background: rgba(255, 215, 0, 0.35);
+  box-sizing: border-box;
+}
+.wewrite-iem-frame-d:active,
+.wewrite-iem-frame-f:active {
+  cursor: grabbing;
+}
+.wewrite-iem-frame-f {
+  border-color: rgba(0, 180, 255, 0.7);
+  background: rgba(0, 180, 255, 0.35);
+}
+
+/* ── Caption Modal ── */
+
+.wewrite-caption-modal {
+  position: fixed; inset: 0; z-index: 1000;
+  display: none; align-items: center; justify-content: center;
+}
+.wewrite-caption-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+.wewrite-caption-dialog {
+  position: relative;
+  background: var(--background-primary);
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: flex; flex-direction: column;
+  gap: 12px;
+  width: min(420px, 90vw);
+}
+.wewrite-caption-dialog h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.wewrite-caption-dialog textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 14px;
+  width: 100%;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.wewrite-caption-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.wewrite-caption-cancel,
+.wewrite-caption-save {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  font-size: 13px;
+  min-width: 44px; min-height: 36px;
+}
+.wewrite-caption-cancel {
+  background: var(--background-secondary);
+  color: var(--text-muted);
+}
+.wewrite-caption-cancel:hover {
+  background: var(--background-modifier-hover);
+}
+.wewrite-caption-save {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+.wewrite-caption-save:hover {
+  filter: brightness(1.1);
+}
+
+/* ── Global Spinner ── */
+.wewrite-global-spinner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: all;
+}
+
+.wewrite-global-spinner-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 36px;
+  background: var(--background-primary);
+  border: 2px solid var(--interactive-accent);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.wewrite-global-spinner-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--interactive-accent);
+  animation: wewrite-spin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.wewrite-global-spinner-icon svg {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+
+@keyframes wewrite-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.wewrite-global-spinner-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-normal);
+  text-align: center;
+  min-height: 18px;
+  letter-spacing: 0.02em;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MATERIAL VIEW — Tab Content, Toolbar, Image Grid, Multi-select
+   ═══════════════════════════════════════════════════════════════ */
+
+.wewrite-material-tab-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Toolbar ── */
+.wewrite-material-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+
+.wewrite-material-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wewrite-material-toolbar-spacer {
+  flex: 1;
+}
+
+.wewrite-material-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Multi-select ── */
+.wewrite-material-multiselect-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wewrite-material-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button.wewrite-btn-icon.wewrite-material-multiselect-btn.active {
+  color: var(--text-accent);
+  background: var(--background-modifier-hover);
+}
+
+.wewrite-material-select-overlay {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+}
+
+.wewrite-material-select-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.wewrite-material-select-check.checked {
+  background: var(--interactive-accent);
+  border-color: transparent;
+}
+
+.wewrite-material-select-check.checked::after {
+  content: '✓';
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Image Grid ── */
+.wewrite-material-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  padding: 8px;
+}
+
+.wewrite-material-image-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+}
+
+.wewrite-material-image-card:hover {
+  border-color: var(--interactive-accent);
+}
+
+.wewrite-material-image-thumb {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  display: block;
+}
+
+.wewrite-material-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: var(--background-secondary);
+}
+
+.wewrite-material-image-name {
+  padding: 4px 6px;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Scroll area ── */
+.wewrite-material-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Loading state ── */
+.wewrite-material-loading {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--text-muted);
+}
+
+/* ── Load more ── */
+/* ── Page Navigator ── */
+
+.wewrite-material-pagenav-spacer {
+  flex-shrink: 0;
+  height: 4px;
+}
+
+.wewrite-material-pagenav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 4px 12px;
+  border-top: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+
+.wewrite-material-pagenav-info {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 100px;
+  text-align: center;
+}
+
+.wewrite-material-pagenav-btns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wewrite-material-pagenav-btn {
+  /* inherits from .wewrite-btn-icon */
+}
+
+.wewrite-material-pagenav-btn[disabled] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ── Sync button spin animation ── */
+button.wewrite-btn-icon.spinning svg {
+  animation: wewrite-spin 1s linear infinite;
+}
+
+/* ── Mobile adjustments ── */
+@media (max-width: 500px) {
+  .wewrite-material-image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 6px;
+    padding: 4px;
+  }
+
+  .wewrite-material-image-thumb {
+    height: 80px;
+  }
+
+  .wewrite-material-toolbar {
+    padding: 4px 4px;
+  }
 }

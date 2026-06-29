@@ -1,0 +1,57 @@
+<svg width="220" height="100" viewBox="0 0 220 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="45%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="penBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4338ca"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+
+    <!-- Progressive left-to-right reveal via animated mask -->
+    <mask id="writeMask">
+      <rect x="0" y="0" width="220" height="100" fill="white"/>
+      <rect x="0" y="0" width="220" height="100" fill="black">
+        <animate attributeName="x"
+                 values="0;220;220;0"
+                 keyTimes="0;0.38;0.55;1"
+                 dur="6s" repeatCount="indefinite"/>
+      </rect>
+    </mask>
+
+    <!-- Pen baseline — a gentle wave at the text baseline -->
+    <path id="baseline" d="M 22,60 Q 70,52 110,56 T 198,60"/>
+  </defs>
+
+  <!-- Paper-texture dot grid -->
+  <pattern id="dots" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
+    <circle cx="7" cy="7" r="0.5" fill="#94a3b8" opacity="0.4"/>
+  </pattern>
+  <rect x="0" y="0" width="220" height="100" fill="url(#dots)" opacity="0.25"/>
+
+  <!-- Handwriting text, revealed by the animated mask -->
+  <g mask="url(#writeMask)">
+    <text x="110" y="62" text-anchor="middle"
+          font-family="'Segoe Script', 'Brush Script MT', 'Apple Chancery', cursive"
+          font-size="40" font-style="italic"
+          fill="url(#ink)" stroke="url(#ink)" stroke-width="0.6"
+          stroke-linecap="round" stroke-linejoin="round">WeWrite</text>
+  </g>
+
+  <!-- Pen following the baseline -->
+  <g>
+    <animateMotion dur="6s" repeatCount="indefinite"
+                   keyPoints="0;1;1;0" keyTimes="0;0.38;0.55;1"
+                   calcMode="linear">
+      <mpath href="#baseline"/>
+    </animateMotion>
+    <g transform="rotate(52)">
+      <rect x="-3" y="6" width="6" height="18" rx="2" fill="url(#penBody)" opacity="0.92"/>
+      <path d="M -3,14 L -4.5,6 L 0,0 L 4.5,6 L 3,14 Z" fill="#1e1b4b" opacity="0.85"/>
+      <line x1="0" y1="12" x2="0" y2="2.5" stroke="#a5b4fc" stroke-width="0.5" opacity="0.6"/>
+      <circle cx="0" cy="0" r="1.5" fill="#818cf8" opacity="0.9"/>
+    </g>
+  </g>
+</svg>
