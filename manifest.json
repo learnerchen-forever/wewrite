@@ -1,7 +1,7 @@
 {
   "id": "wewrite",
   "name": "WeWrite",
-  "version": "2.0。0",
+  "version": "2.0.pre",
   "minAppVersion": "1.5.0",
   "description": "全平台写作工具，随时随地创作微信公众号文章，轻松定制你的个性化文章风格。",
   "author": "Learner Chen",

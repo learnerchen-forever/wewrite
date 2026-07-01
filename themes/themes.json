@@ -1,0 +1,52 @@
+{
+  "themes": [
+    {
+      "name": "Tech Blue",
+      "file": "001-tech-blue.md"
+    },
+    {
+      "name": "Warm Daily",
+      "file": "002-warm-daily.md"
+    },
+    {
+      "name": "Dark Mode",
+      "file": "003-dark-mode.md"
+    },
+    {
+      "name": "Elegant Serif",
+      "file": "004-elegant-serif.md"
+    },
+    {
+      "name": "Fresh Green",
+      "file": "005-fresh-green.md"
+    },
+    {
+      "name": "Minimal Gray",
+      "file": "006-minimal-gray.md"
+    },
+    {
+      "name": "Vibrant Purple",
+      "file": "007-vibrant-purple.md"
+    },
+    {
+      "name": "Magazine Style",
+      "file": "008-magazine-style.md"
+    },
+    {
+      "name": "Academic Paper",
+      "file": "009-academic-paper.md"
+    },
+    {
+      "name": "Rose Romance",
+      "file": "010-rose-romance.md"
+    },
+    {
+      "name": "new-theme-ccs-analysis",
+      "file": "new-theme-ccs-analysis.md"
+    },
+    {
+      "name": "new-theme-llm",
+      "file": "new-theme-llm.md"
+    }
+  ]
+}

@@ -669,18 +669,26 @@ export class WeWriteSettingTab extends PluginSettingTab {
       .setName(t('settings.export_settings'))
       .setDesc(t('settings.export_settings_desc'))
       .addButton((btn) =>
-        btn.setButtonText(t('settings.export_button')).onClick(() => {
+        btn.setButtonText(t('settings.export_button')).onClick(async () => {
           const exportData = this.plugin.settingsManager.exportToJSON();
           const json = JSON.stringify(exportData, null, 2);
           const dateStr = new Date().toISOString().slice(0, 10);
-          const blob = new Blob([json], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `wewrite-settings-${dateStr}.json`;
-          a.click();
-          URL.revokeObjectURL(url);
-          new Notice(t('notice.settings_exported'));
+          const settings = this.plugin.settingsManager.getSettings();
+          const vaultPath = `${settings.wewriteFolder}/wewrite-settings-${dateStr}.json`;
+          try {
+            await this.app.vault.create(vaultPath, json);
+            new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
+          } catch {
+            // Fallback: file already exists or vault write failed — try browser download
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `wewrite-settings-${dateStr}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            new Notice(t('notice.settings_exported'));
+          }
         }),
       );
 

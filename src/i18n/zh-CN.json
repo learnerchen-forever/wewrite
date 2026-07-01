@@ -75,6 +75,7 @@
   "modal.crop_image_label": "裁剪图片 - {label}",
 
   "notice.settings_exported": "设置已导出",
+  "notice.settings_exported_vault": "设置已导出到仓库：{path}",
   "notice.settings_imported": "已导入：{wechat} 个微信公众号、{aiText} 个 AI 文本、{aiImage} 个 AI 图片账号",
   "notice.settings_imported_v1": "（从 v1 格式迁移）",
   "notice.settings_import_failed": "导入设置失败：{error}",

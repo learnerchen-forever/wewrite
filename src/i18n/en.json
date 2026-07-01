@@ -75,6 +75,7 @@
   "modal.crop_image_label": "Crop image for {label}",
 
   "notice.settings_exported": "Settings exported successfully",
+  "notice.settings_exported_vault": "Settings exported to vault: {path}",
   "notice.settings_imported": "Imported: {wechat} WeChat, {aiText} AI text, {aiImage} AI image accounts",
   "notice.settings_imported_v1": "(migrated from v1 format)",
   "notice.settings_import_failed": "Failed to import settings: {error}",
