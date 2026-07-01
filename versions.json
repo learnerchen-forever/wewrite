@@ -1,0 +1,125 @@
+{
+  "1.0.0": "0.15.0",
+  "1.0.5": "0.16.0",
+  "1.0.6": "0.16.0",
+  "1.0.8": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "1.0.8",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": true
+  },
+  "1.0.9": {
+    "id": "wewrite-github",
+    "name": "WeWrite-GitHub",
+    "version": "1.0.9",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": true
+  },
+  "1.0.10": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "1.0.10",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": true
+  },
+  "1.0.11": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "1.0.11",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": true
+  },
+  "1.1.0": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "1.1.0",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": true
+  },
+  "1.1.1": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "1.1.1",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": true
+  },
+  "1.1.2": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "1.1.2",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": true
+  },
+  "1.1.3": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "1.1.3",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": true
+  },
+  "1.1.4": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "1.1.4",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": true
+  },
+  "1.1.5": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "1.1.5",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": true
+  },
+  "1.1.6": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "1.1.6",
+    "minAppVersion": "0.16.0",
+    "description": "Make obsidian a powerful workspace for writing and publishing article to WeChat MP. Draft ahead  of release.",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": false
+  },
+  "2.0.pre01": {
+    "id": "wewrite",
+    "name": "WeWrite",
+    "version": "2.0.pre01",
+    "minAppVersion": "1.5.0",
+    "description": "全平台写作工具，随时随地创作微信公众号文章，轻松定制你的个性化文章风格。",
+    "author": "Learner Chen",
+    "authorUrl": "https://www.3thinking.cn/#/learner-forever",
+    "isDesktopOnly": false
+  }
+}

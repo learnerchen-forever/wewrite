@@ -1,6 +1,6 @@
 {
   "name": "obsidian-wewrite",
-  "version": "2.0.pre",
+  "version": "2.0.pre01",
   "description": "全平台写作工具，随时随地创作微信公众号文章，轻松定制你的个性化文章风格。",
   "license": "MIT",
   "main": "main.js",
