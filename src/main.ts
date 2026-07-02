@@ -1,5 +1,17 @@
 // WeWrite v2.0 — Obsidian Plugin Entry Point
 
+// Polyfill Node.js Buffer for browser/WebView (used by js-yaml via gray-matter)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+if (typeof (globalThis as any).Buffer === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).Buffer = class {
+    static from(data: string, _encoding?: string): Uint8Array {
+      return new TextEncoder().encode(data);
+    }
+    static isBuffer(_v: unknown): boolean { return false; }
+  };
+}
+
 import { Plugin, MarkdownView, Notice, requestUrl, Platform, type TFile } from 'obsidian';
 import { SettingsManager } from './core/settings-manager';
 import { eventBus } from './core/event-bus';

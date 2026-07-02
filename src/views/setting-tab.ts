@@ -47,6 +47,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
   async display(): Promise<void> {
     const { containerEl } = this;
+    // Preserve scroll position across rebuild so the user stays looking at
+    // the section they were editing (add/remove account, change provider, etc.)
+    const scrollAncestor = this.findScrollAncestor();
+    const savedScrollTop = scrollAncestor?.scrollTop ?? 0;
     // Capture collapse state before rebuild so user's expand/collapse choices survive save
     const savedStates = this.captureCollapseState();
     containerEl.empty();
@@ -674,20 +678,40 @@ export class WeWriteSettingTab extends PluginSettingTab {
           const json = JSON.stringify(exportData, null, 2);
           const dateStr = new Date().toISOString().slice(0, 10);
           const settings = this.plugin.settingsManager.getSettings();
-          const vaultPath = `${settings.wewriteFolder}/wewrite-settings-${dateStr}.json`;
+          const fileName = `wewrite-settings-${dateStr}.json`;
+          let vaultPath = `${settings.wewriteFolder}/${fileName}`;
+
+          // Avoid overwriting — append counter if file exists
+          let counter = 1;
+          while (await this.app.vault.adapter.exists(vaultPath)) {
+            vaultPath = `${settings.wewriteFolder}/wewrite-settings-${dateStr}(${counter}).json`;
+            counter++;
+          }
+
           try {
             await this.app.vault.create(vaultPath, json);
-            new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
+
+            // Try system share on mobile so user can save outside vault
+            const blob = new Blob([json], { type: 'application/json' });
+            const file = new File([blob], fileName, { type: 'application/json' });
+            if (navigator.canShare?.({ files: [file] })) {
+              await navigator.share({ files: [file], title: 'WeWrite Settings Export' });
+              new Notice(t('notice.settings_exported'));
+            } else {
+              new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
+            }
           } catch {
-            // Fallback: file already exists or vault write failed — try browser download
+            // Vault write or share failed — fall back to browser download (desktop)
             const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `wewrite-settings-${dateStr}.json`;
+            a.download = fileName;
             a.click();
-            URL.revokeObjectURL(url);
-            new Notice(t('notice.settings_exported'));
+            setTimeout(() => {
+              URL.revokeObjectURL(url);
+              new Notice(t('notice.settings_exported'));
+            }, 500);
           }
         }),
       );
@@ -733,6 +757,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
     // Restore collapse state so user-expanded sections stay expanded
     this.restoreCollapseState(savedStates);
+
+    // Restore scroll position so user stays at the section they were editing
+    if (scrollAncestor && savedScrollTop > 0) {
+      requestAnimationFrame(() => {
+        scrollAncestor.scrollTop = savedScrollTop;
+      });
+    }
 
     onLanguageChange(() => {
       this.containerEl.empty();
@@ -786,6 +817,18 @@ export class WeWriteSettingTab extends PluginSettingTab {
     } catch {
       return null;
     }
+  }
+
+  /** Find the nearest scrollable ancestor so we can preserve scroll position. */
+  private findScrollAncestor(): HTMLElement | null {
+    let el: HTMLElement | null = this.containerEl.parentElement;
+    while (el) {
+      const style = window.getComputedStyle(el);
+      const overflowY = style.overflowY;
+      if (overflowY === 'auto' || overflowY === 'scroll') return el;
+      el = el.parentElement;
+    }
+    return null;
   }
 
   // ── Collapsible Section Helper ──

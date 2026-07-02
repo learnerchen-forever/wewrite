@@ -74,8 +74,10 @@ export async function encryptValue(value: string): Promise<string> {
     if (hasElectronSafeStorage()) {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const safeStorage = require('electron').remote.safeStorage;
-      const encrypted = safeStorage.encryptString(rawValue) as Buffer;
-      return DESKTOP_PREFIX + encrypted.toString('base64');
+      // safeStorage returns Buffer (Node.js); convert to base64 safely
+      const encrypted = safeStorage.encryptString(rawValue);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return DESKTOP_PREFIX + (encrypted as any).toString('base64');
     }
 
     // Fallback to Web Crypto API
@@ -102,8 +104,12 @@ export async function decryptValue(value: string): Promise<string> {
       if (hasElectronSafeStorage()) {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const safeStorage = require('electron').remote.safeStorage;
-        const buffer = Buffer.from(value.slice(DESKTOP_PREFIX.length), 'base64');
-        return safeStorage.decryptString(buffer);
+        // typeof Buffer is safe — returns 'undefined' on mobile without throwing
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const buf: any = typeof (globalThis as any).Buffer !== 'undefined'
+          ? (globalThis as any).Buffer.from(value.slice(DESKTOP_PREFIX.length), 'base64')
+          : base64ToArrayBuffer(value.slice(DESKTOP_PREFIX.length));
+        return safeStorage.decryptString(buf);
       }
       return value; // can't decrypt without Electron
     }
