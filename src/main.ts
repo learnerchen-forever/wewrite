@@ -32,6 +32,9 @@ import type { WeWriteSettings } from './core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from './core/interfaces';
 import { createLogger, redact } from './utils/logger';
 import { initI18n, t } from './i18n';
+import { SyncEngine } from './sync/engine';
+import { SyncScheduler } from './sync/scheduler';
+import { setIcon } from 'obsidian';
 
 const log = createLogger('Main');
 
@@ -46,6 +49,9 @@ export default class WeWritePlugin extends Plugin {
   private materialCacheLoaded = false;
   private materialViewEnsured = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  syncEngine!: SyncEngine;
+  syncScheduler!: SyncScheduler;
+  private syncRibbonEl?: HTMLElement;
 
   async onload(): Promise<void> {
     // Initialize API early (needed by settings load for material cache)
@@ -104,6 +110,15 @@ export default class WeWritePlugin extends Plugin {
     // Register settings tab
     this.addSettingTab(new WeWriteSettingTab(this));
 
+    // Sync ribbon icon (always visible, sync runs only when enabled)
+    this.syncRibbonEl = this.addRibbonIcon('refresh-cw', 'WeWrite Sync', () => {
+      void this.syncNow('manual');
+    });
+
+    // Sync status bar
+    this.syncStatusEl = this.addStatusBarItem();
+    this.syncStatusEl.setText('');
+
     // Pre-create the material view in the left sidebar so it appears
     // in the mobile navigation bar alongside Files, Bookmarks, etc.
     this.app.workspace.onLayoutReady(() => {
@@ -152,14 +167,42 @@ export default class WeWritePlugin extends Plugin {
     // Register commands
     this.registerCommands();
 
+    // Initialize sync engine
+    const plugin = this;
+    this.syncEngine = new SyncEngine(this.app, this.settings.wewriteFolder, {
+      get enabled() { return plugin.settings.syncEnabled; },
+      get webdavUrl() { return plugin.settings.syncWebdavUrl; },
+      get username() { return plugin.settings.syncUsername; },
+      get password() { return plugin.settings.syncPassword; },
+      get remoteDir() { return plugin.settings.syncRemoteDir || plugin.app.vault.getName(); },
+      get logDebug() { return plugin.settings.syncLogDebug; },
+    } as any);
+    const syncRawData = await this.loadData();
+    await this.syncEngine.loadState(syncRawData);
+
+    // Initialize sync scheduler
+    this.syncScheduler = new SyncScheduler(
+      this.syncEngine,
+      {
+        intervalMinutes: this.settings.syncIntervalMinutes || 10,
+        startupDelaySeconds: 5,
+      },
+      (text) => this.updateSyncStatus(text),
+      this.syncRibbonEl,
+    );
+    if (this.settings.syncEnabled) {
+      this.syncScheduler.start();
+    }
+
     log.info('plugin loaded', { version: this.manifest.version });
   }
 
   async onunload(): Promise<void> {
+    // Cancel any in-progress sync
+    this.syncScheduler?.stop();
+    this.syncEngine?.cancel();
+
     // Detach material view leaves so they are not persisted in workspace state.
-    // Without this, mobile upgrade/reinstall creates duplicate nav bar entries
-    // because old leaves survive the reload and get re-instantiated alongside
-    // the new leaf created by ensureMaterialViewExists().
     this.app.workspace.getLeavesOfType(VIEW_TYPE_MATERIAL).forEach((leaf) => leaf.detach());
 
     eventBus.clear();
@@ -190,6 +233,10 @@ export default class WeWritePlugin extends Plugin {
       (encrypted as Record<string, unknown>).wewrite_material_cache = this.materialManager.getCache();
     }
     (encrypted as Record<string, unknown>).wewrite_media_db = this.mediaRegistry.serialize();
+    // Persist sync state alongside settings
+    if (this.syncEngine) {
+      Object.assign(encrypted as Record<string, unknown>, this.syncEngine.getStateForSave());
+    }
     await this.saveData(encrypted);
   }
 
@@ -199,6 +246,42 @@ export default class WeWritePlugin extends Plugin {
     this.themeLoader.setDirectory(newPath);
     await this.themeLoader.scanThemes();
     log.info('theme directory updated', { path: newPath });
+  }
+
+  // ── Sync ──
+
+  private syncStatusEl?: HTMLElement;
+
+  private updateSyncStatus(text: string): void {
+    if (this.syncStatusEl) {
+      this.syncStatusEl.setText(text);
+    }
+  }
+
+  startSyncTimer(): void {
+    this.syncScheduler?.start();
+  }
+
+  stopSyncTimer(): void {
+    this.syncScheduler?.stop();
+  }
+
+  async syncNow(trigger: import('./sync/types').SyncTrigger = 'manual'): Promise<void> {
+    if (!this.syncEngine) return;
+    this.updateSyncStatus('Syncing...');
+    const result = await this.syncScheduler.syncNow(trigger);
+    await this.saveSettings();
+    const conflicts = this.syncEngine.getPendingConflicts().length;
+    const statusText = conflicts > 0
+      ? `Synced (${conflicts} conflicts)`
+      : `Synced ${new Date().toLocaleTimeString()}`;
+    this.updateSyncStatus(statusText);
+    if (trigger === 'manual') {
+      new Notice(result.message);
+    }
+    if (conflicts > 0) {
+      new Notice(t('sync.conflicts_pending', { count: String(conflicts) }));
+    }
   }
 
   /** Debounced save — coalesces rapid auto-save calls into a single write. */
@@ -343,6 +426,64 @@ export default class WeWritePlugin extends Plugin {
         }
       }),
     );
+
+    // ── Sync Commands ──
+    this.addCommand({
+      id: 'wewrite-sync-now',
+      name: t('command.sync_now'),
+      callback: () => { void this.syncNow('manual'); },
+    });
+    this.addCommand({
+      id: 'wewrite-sync-test-connection',
+      name: t('command.sync_test_connection'),
+      callback: async () => {
+        const result = await this.syncEngine.testConnection();
+        new Notice(result.ok ? t('notice.sync_connection_ok') : result.message);
+      },
+    });
+    this.addCommand({
+      id: 'wewrite-sync-resolve-conflicts',
+      name: t('command.sync_resolve_conflicts'),
+      callback: () => { void this.resolveSyncConflicts(); },
+    });
+    this.addCommand({
+      id: 'wewrite-sync-journal',
+      name: t('command.sync_journal'),
+      callback: () => {
+        import('./sync/journal-viewer').then(({ JournalViewer }) => {
+          new JournalViewer(
+            this.app,
+            this.syncEngine.getJournal(),
+            async (entryId) => {
+              const result = await this.syncEngine.rollback(entryId);
+              await this.saveSettings();
+              return result;
+            },
+          );
+        }).catch(() => {});
+      },
+    });
+  }
+
+  async resolveSyncConflicts(): Promise<void> {
+    const conflicts = this.syncEngine.getPendingConflicts();
+    if (conflicts.length === 0) {
+      new Notice(t('sync.no_conflicts'));
+      return;
+    }
+    const { ConflictModal } = await import('./sync/conflict-modal');
+    new ConflictModal(
+      this.app,
+      conflicts,
+      async (conflict, resolution) => {
+        await this.syncEngine.resolveConflict(conflict, resolution);
+        await this.saveSettings();
+      },
+      () => {
+        new Notice(t('sync.conflicts_resolved'));
+        void this.saveSettings();
+      },
+    ).open();
   }
 
   getActiveMarkdownFile(): TFile | null {

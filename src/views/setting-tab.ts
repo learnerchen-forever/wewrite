@@ -2,7 +2,7 @@
 
 import { PluginSettingTab, Setting, Notice, setIcon, requestUrl, SuggestModal, type TFolder } from 'obsidian';
 import type WeWritePlugin from '../main';
-import type { WeChatAccount, AITextAccount, AIImageGenAccount, AIProviderType, ImageGenProviderType } from '../core/interfaces';
+import type { WeChatAccount, AITextAccount, AIImageGenAccount, AIProviderType, ImageGenProviderType, WeWriteSettings } from '../core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS, DEFAULT_SETTINGS } from '../core/interfaces';
 import { createLogger } from '../utils/logger';
 import { t, onLanguageChange } from '../i18n';
@@ -50,7 +50,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // Preserve scroll position across rebuild so the user stays looking at
     // the section they were editing (add/remove account, change provider, etc.)
     const scrollAncestor = this.findScrollAncestor();
-    const savedScrollTop = scrollAncestor?.scrollTop ?? 0;
+    const savedScrollRatio = scrollAncestor && scrollAncestor.scrollHeight > 0
+      ? scrollAncestor.scrollTop / scrollAncestor.scrollHeight
+      : null;
     // Capture collapse state before rebuild so user's expand/collapse choices survive save
     const savedStates = this.captureCollapseState();
     containerEl.empty();
@@ -667,6 +669,106 @@ export class WeWriteSettingTab extends PluginSettingTab {
         }),
       );
 
+    // ── Sync ──
+    const syncBody = this.addCollapsibleSection(containerEl, t('settings.sync'), 'refresh-cw');
+
+    new Setting(syncBody)
+      .setName(t('settings.sync_enable'))
+      .setDesc(t('settings.sync_enable_desc'))
+      .addToggle((t) =>
+        t.setValue(settings.syncEnabled).onChange(async (v) => {
+          settings.syncEnabled = v;
+          this.save();
+          this.display();
+        }),
+      );
+
+    if (settings.syncEnabled) {
+      new Setting(syncBody)
+        .setName(t('settings.sync_webdav_url'))
+        .setDesc(t('settings.sync_webdav_url_desc'))
+        .addText((t) =>
+          t.setValue(settings.syncWebdavUrl).onChange(async (v) => {
+            settings.syncWebdavUrl = v.trim();
+            this.save();
+          }),
+        );
+
+      new Setting(syncBody)
+        .setName(t('settings.sync_username'))
+        .setDesc(t('settings.sync_username_desc'))
+        .addText((t) =>
+          t.setValue(settings.syncUsername).onChange(async (v) => {
+            settings.syncUsername = v.trim();
+            this.save();
+          }),
+        );
+
+      new Setting(syncBody)
+        .setName(t('settings.sync_password'))
+        .setDesc(t('settings.sync_password_desc'))
+        .addText((t) => {
+          t.setValue(settings.syncPassword)
+            .onChange(async (v) => {
+              settings.syncPassword = v;
+              this.save();
+            });
+          t.inputEl.type = 'password';
+        });
+
+      new Setting(syncBody)
+        .setName(t('settings.sync_remote_dir'))
+        .setDesc(t('settings.sync_remote_dir_desc'))
+        .addText((t) =>
+          t.setValue(settings.syncRemoteDir).onChange(async (v) => {
+            settings.syncRemoteDir = v.trim();
+            this.save();
+          }),
+        );
+
+      new Setting(syncBody)
+        .setName(t('settings.sync_interval'))
+        .setDesc(t('settings.sync_interval_desc'))
+        .addSlider((slider) => {
+          slider
+            .setLimits(1, 120, 1)
+            .setValue(settings.syncIntervalMinutes)
+            .setDynamicTooltip()
+            .onChange(async (value) => {
+              settings.syncIntervalMinutes = value;
+              this.save();
+            });
+          slider.sliderEl.style.width = '100%';
+          return slider;
+        });
+
+      new Setting(syncBody)
+        .setName(t('settings.sync_test_connection'))
+        .setDesc(t('settings.sync_test_connection_desc'))
+        .addButton((btn) =>
+          btn.setButtonText(t('settings.sync_test_button')).onClick(async () => {
+            btn.setButtonText(t('settings.loading'));
+            btn.setDisabled(true);
+            try {
+              await this.testSyncConnection(settings);
+            } finally {
+              btn.setButtonText(t('settings.sync_test_button'));
+              btn.setDisabled(false);
+            }
+          }),
+        );
+
+      new Setting(syncBody)
+        .setName(t('settings.sync_log_debug'))
+        .setDesc(t('settings.sync_log_debug_desc'))
+        .addToggle((t) =>
+          t.setValue(settings.syncLogDebug).onChange(async (v) => {
+            settings.syncLogDebug = v;
+            this.save();
+          }),
+        );
+    }
+
     // ── Import / Export ──
     const ioBody = this.addCollapsibleSection(containerEl, t('settings.import_export'), 'upload');
     new Setting(ioBody)
@@ -692,26 +794,24 @@ export class WeWriteSettingTab extends PluginSettingTab {
             await this.app.vault.create(vaultPath, json);
 
             // Try system share on mobile so user can save outside vault
-            const blob = new Blob([json], { type: 'application/json' });
-            const file = new File([blob], fileName, { type: 'application/json' });
-            if (navigator.canShare?.({ files: [file] })) {
-              await navigator.share({ files: [file], title: 'WeWrite Settings Export' });
+            if (navigator.share) {
+              const blob = new Blob([json], { type: 'application/json' });
+              const file = new File([blob], fileName, { type: 'application/json' });
+              let shared = false;
+              // Try file share first (iOS); canShare may lie on Android
+              try { await navigator.share({ files: [file] }); shared = true; } catch {}
+              // Fall back to text share (Android) if file share didn't work
+              if (!shared) {
+                try { await navigator.share({ text: json, title: 'WeWrite Settings' }); } catch {}
+              }
               new Notice(t('notice.settings_exported'));
             } else {
-              new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
+              // Desktop without share API — try download link
+              this.downloadBlob(json, fileName);
             }
           } catch {
-            // Vault write or share failed — fall back to browser download (desktop)
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            setTimeout(() => {
-              URL.revokeObjectURL(url);
-              new Notice(t('notice.settings_exported'));
-            }, 500);
+            // Vault write failed — fall back to download link
+            this.downloadBlob(json, fileName);
           }
         }),
       );
@@ -758,10 +858,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // Restore collapse state so user-expanded sections stay expanded
     this.restoreCollapseState(savedStates);
 
-    // Restore scroll position so user stays at the section they were editing
-    if (scrollAncestor && savedScrollTop > 0) {
+    // Restore scroll position so user stays at the section they were editing.
+    // Double rAF ensures the browser has completed layout after the DOM rebuild.
+    // Proportional ratio handles content height changes from add/remove account.
+    if (scrollAncestor && savedScrollRatio !== null) {
       requestAnimationFrame(() => {
-        scrollAncestor.scrollTop = savedScrollTop;
+        requestAnimationFrame(() => {
+          scrollAncestor.scrollTop = savedScrollRatio * scrollAncestor.scrollHeight;
+        });
       });
     }
 
@@ -829,6 +933,23 @@ export class WeWriteSettingTab extends PluginSettingTab {
       el = el.parentElement;
     }
     return null;
+  }
+
+  /** Attempt a file download via an anchor in the DOM (works on desktop + some Android WebViews). */
+  private downloadBlob(json: string, fileName: string): void {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      new Notice(t('notice.settings_exported'));
+    }, 1000);
   }
 
   // ── Collapsible Section Helper ──
@@ -899,6 +1020,20 @@ export class WeWriteSettingTab extends PluginSettingTab {
         }
       }
     });
+  }
+
+  private async testSyncConnection(settings: WeWriteSettings): Promise<void> {
+    if (!settings.syncWebdavUrl) {
+      new Notice(t('notice.sync_no_url'));
+      return;
+    }
+    try {
+      const result = await this.plugin.syncEngine.testConnection();
+      new Notice(result.ok ? t('notice.sync_connection_ok') : result.message);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      new Notice(t('notice.sync_connection_error', { error: msg }));
+    }
   }
 
   private save(): void {

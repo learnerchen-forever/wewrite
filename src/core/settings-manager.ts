@@ -59,6 +59,14 @@ export const WeWriteSettingsSchema = z.object({
   svgFallbackThresholdKb: z.number().int().min(10).max(1000).catch(100),
   showCopyButton: z.boolean().catch(false),
   logAICalling: z.boolean().catch(false),
+  // ── Sync ──
+  syncEnabled: z.boolean().catch(false),
+  syncWebdavUrl: z.string().catch(''),
+  syncUsername: z.string().catch(''),
+  syncPassword: z.string().catch(''),
+  syncRemoteDir: z.string().catch(''),
+  syncIntervalMinutes: z.number().int().min(1).max(1440).catch(10),
+  syncLogDebug: z.boolean().catch(false),
 });
 
 // ── Migration Pipeline ──
@@ -129,7 +137,8 @@ function recoverPartialSettings(
   const scalarKeys = ['version', 'ipAddress', 'useCenterToken', 'activeWeChatAccountId', 'activeAITextAccountId',
     'activeAIImageGenAccountId', 'wewriteFolder', 'stylesDirectory', 'coverStorageMode',
     'coverStoragePath', 'dumpPublishContent',
-    'logRenderPipeline', 'svgFallbackThresholdKb', 'showCopyButton', 'logAICalling'] as const;
+    'logRenderPipeline', 'svgFallbackThresholdKb', 'showCopyButton', 'logAICalling',
+    'syncEnabled', 'syncWebdavUrl', 'syncUsername', 'syncPassword', 'syncRemoteDir', 'syncIntervalMinutes', 'syncLogDebug'] as const;
 
   for (const key of scalarKeys) {
     const fieldSchema = WeWriteSettingsSchema.shape[key];

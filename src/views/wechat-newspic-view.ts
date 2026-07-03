@@ -144,6 +144,10 @@ export class WeChatNewsPicView extends ItemView {
     const c = this.contentEl;
     c.empty();
     c.addClass('wewrite-newspic-view');
+
+    // Hide Obsidian's built-in view header — the title is already shown on the tab
+    this.hideViewHeader();
+
     this.configStore = new NoteConfigStore(this.app.vault.adapter as any);
 
     this._eventBusUnsubs.push(onLanguageChange(() => {
@@ -608,6 +612,13 @@ export class WeChatNewsPicView extends ItemView {
     this.config.notePath = this.filePath;
     await this.configStore.save(this.filePath, 'newspic', this.config);
   }, 300);
+
+  private hideViewHeader(): void {
+    const leafEl = this.containerEl.closest('.workspace-leaf');
+    if (!leafEl) return;
+    const viewHeader = leafEl.querySelector(':scope > .view-header') as HTMLElement | null;
+    if (viewHeader) viewHeader.style.display = 'none';
+  }
 
   private refreshTitle(): void {
     const t = this.getDisplayText();

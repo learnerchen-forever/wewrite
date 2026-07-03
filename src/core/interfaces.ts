@@ -57,6 +57,14 @@ export interface WeWriteSettings {
   showCopyButton: boolean;
   logAICalling: boolean;
   lastDeviceSize?: string;
+  // ── Sync ──
+  syncEnabled: boolean;
+  syncWebdavUrl: string;
+  syncUsername: string;
+  syncPassword: string;
+  syncRemoteDir: string;
+  syncIntervalMinutes: number;
+  syncLogDebug: boolean;
 }
 
 // ── Import / Export Types ──
@@ -188,6 +196,14 @@ export const DEFAULT_SETTINGS: WeWriteSettings = {
   svgFallbackThresholdKb: 100,
   showCopyButton: false,
   logAICalling: false,
+  // ── Sync (disabled by default) ──
+  syncEnabled: false,
+  syncWebdavUrl: '',
+  syncUsername: '',
+  syncPassword: '',
+  syncRemoteDir: '',
+  syncIntervalMinutes: 10,
+  syncLogDebug: false,
 };
 
 // ── WeWrite Directory Layout ──

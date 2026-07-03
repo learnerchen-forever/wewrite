@@ -139,7 +139,7 @@ export async function decryptValue(value: string): Promise<string> {
 export async function encryptSettingsKeys(settings: Record<string, unknown>): Promise<Record<string, unknown>> {
   const result = { ...settings };
   const keysToEncrypt = Object.keys(result).filter(
-    (k) => k.toLowerCase().includes('apikey') || k.toLowerCase().includes('appsecret'),
+    (k) => k.toLowerCase().includes('apikey') || k.toLowerCase().includes('appsecret') || k === 'syncPassword',
   );
 
   for (const key of keysToEncrypt) {
@@ -183,7 +183,7 @@ export async function encryptSettingsKeys(settings: Record<string, unknown>): Pr
 export async function decryptSettingsKeys(raw: Record<string, unknown>): Promise<Record<string, unknown>> {
   const result = { ...raw };
   const keysToDecrypt = Object.keys(result).filter(
-    (k) => k.toLowerCase().includes('apikey') || k.toLowerCase().includes('appsecret'),
+    (k) => k.toLowerCase().includes('apikey') || k.toLowerCase().includes('appsecret') || k === 'syncPassword',
   );
 
   for (const key of keysToDecrypt) {

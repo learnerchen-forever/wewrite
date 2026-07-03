@@ -23,6 +23,18 @@ import { hexToRgba, adjustColorBrightness } from '../renderer/theme-resolver';
 const log = createLogger('ThemeView');
 export const VIEW_TYPE_WEWRITE_THEME = 'wewrite-theme-view';
 
+interface ThemeSnapshot {
+  modifierConfig: Record<string, Record<string, string>>;
+  paletteAccent: string;
+  accentDeep: string;
+  typographyFamily: string;
+  typographyBaseSize: number;
+  typographyLineHeight: number;
+  typographyLetterSpacing: number;
+  themeName: string;
+  customValues: CustomValueDef[];
+}
+
 // ── Element Groups for Editor UI ──
 
 const ELEMENT_GROUPS = [
@@ -185,6 +197,11 @@ export class WeWriteThemeView extends ItemView {
   // Derived accent colors
   private accentDeep = '#004795';
 
+  // ── Undo/Redo ──
+  private readonly MAX_UNDO = 50;
+  private undoStack: ThemeSnapshot[] = [];
+  private redoStack: ThemeSnapshot[] = [];
+
   // UI elements
   private scrollContainer!: HTMLElement;
   private nameInput!: HTMLInputElement;
@@ -222,6 +239,13 @@ export class WeWriteThemeView extends ItemView {
     this.startWatching();
   }
 
+  private hideViewHeader(): void {
+    const leafEl = this.containerEl.closest('.workspace-leaf');
+    if (!leafEl) return;
+    const viewHeader = leafEl.querySelector(':scope > .view-header') as HTMLElement | null;
+    if (viewHeader) viewHeader.style.display = 'none';
+  }
+
   private refreshTitle(): void {
     const title = this.getDisplayText();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -240,10 +264,22 @@ export class WeWriteThemeView extends ItemView {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('wewrite-theme-view');
+
+    // Hide Obsidian's built-in view header — the title is already shown on the tab
+    this.hideViewHeader();
+
     contentEl.style.display = 'flex';
     contentEl.style.flexDirection = 'column';
     contentEl.style.height = '100%';
     contentEl.style.overflow = 'hidden';
+
+    // Keyboard shortcuts: Ctrl+Z undo, Ctrl+Y / Ctrl+Shift+Z redo
+    this.registerDomEvent(contentEl, 'keydown', (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
+      else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); this.redo(); }
+    });
 
     onLanguageChange(() => { this.render(); });
   }
@@ -337,6 +373,61 @@ export class WeWriteThemeView extends ItemView {
     Object.assign(this.modifierConfig, config);
   }
 
+  // ── Undo / Redo ──
+
+  private takeSnapshot(): ThemeSnapshot {
+    return {
+      modifierConfig: JSON.parse(JSON.stringify(this.modifierConfig)),
+      paletteAccent: this.paletteAccent,
+      accentDeep: this.accentDeep,
+      typographyFamily: this.typographyFamily,
+      typographyBaseSize: this.typographyBaseSize,
+      typographyLineHeight: this.typographyLineHeight,
+      typographyLetterSpacing: this.typographyLetterSpacing,
+      themeName: this.themeName,
+      customValues: [...this.customValues],
+    };
+  }
+
+  private restoreSnapshot(s: ThemeSnapshot): void {
+    this.modifierConfig = JSON.parse(JSON.stringify(s.modifierConfig));
+    this.paletteAccent = s.paletteAccent;
+    this.accentDeep = s.accentDeep;
+    this.typographyFamily = s.typographyFamily;
+    this.typographyBaseSize = s.typographyBaseSize;
+    this.typographyLineHeight = s.typographyLineHeight;
+    this.typographyLetterSpacing = s.typographyLetterSpacing;
+    this.themeName = s.themeName;
+    this.customValues = [...s.customValues];
+    registerCustomValues(this.customValues);
+  }
+
+  private pushUndo(): void {
+    this.undoStack.push(this.takeSnapshot());
+    if (this.undoStack.length > this.MAX_UNDO) this.undoStack.shift();
+    this.redoStack = []; // new change invalidates redo
+  }
+
+  private undo(): void {
+    if (this.undoStack.length === 0) return;
+    this.redoStack.push(this.takeSnapshot());
+    const snapshot = this.undoStack.pop()!;
+    this.restoreSnapshot(snapshot);
+    this.markDirty();
+    this.buildEditor();
+    this.debouncedPreviewUpdate();
+  }
+
+  private redo(): void {
+    if (this.redoStack.length === 0) return;
+    this.undoStack.push(this.takeSnapshot());
+    const snapshot = this.redoStack.pop()!;
+    this.restoreSnapshot(snapshot);
+    this.markDirty();
+    this.buildEditor();
+    this.debouncedPreviewUpdate();
+  }
+
   // ── Build Editor UI ──
 
   private buildEditor(): void {
@@ -370,6 +461,7 @@ export class WeWriteThemeView extends ItemView {
     this.nameInput = leftGroup.createEl('input', { type: 'text', placeholder: t('theme.default_theme_name'), cls: 'wewrite-input' });
     this.nameInput.value = this.themeName;
     this.nameInput.style.flex = '1';
+    this.nameInput.addEventListener('focus', () => { this.pushUndo(); });
     this.nameInput.addEventListener('change', () => { this.themeName = this.nameInput.value; this.markDirty(); });
 
     const extractBtn = leftGroup.createEl('button', { cls: 'wewrite-btn-icon' });
@@ -382,6 +474,17 @@ export class WeWriteThemeView extends ItemView {
     rightGroup.style.display = 'flex';
     rightGroup.style.alignItems = 'center';
     rightGroup.style.justifyContent = 'flex-end';
+
+    // Undo / Redo buttons
+    const undoBtn = rightGroup.createEl('button', { cls: 'wewrite-btn-icon' });
+    undoBtn.title = t('theme.undo');
+    setIcon(undoBtn, 'undo');
+    undoBtn.addEventListener('click', () => this.undo());
+
+    const redoBtn = rightGroup.createEl('button', { cls: 'wewrite-btn-icon' });
+    redoBtn.title = t('theme.redo');
+    setIcon(redoBtn, 'redo');
+    redoBtn.addEventListener('click', () => this.redo());
 
     this.collapseBtn = rightGroup.createEl('button', { cls: 'wewrite-btn-icon' });
     this.collapseBtn.title = t('theme.toggle_properties');
@@ -622,6 +725,7 @@ export class WeWriteThemeView extends ItemView {
     this.drawColorWheel(canvas, this.paletteAccent);
 
     canvas.addEventListener('click', (e) => {
+      this.pushUndo();
       const rect = canvas.getBoundingClientRect();
       const cx = 80, cy = 80;
       const x = e.clientX - rect.left - cx;
@@ -672,6 +776,8 @@ export class WeWriteThemeView extends ItemView {
       }
       return false;
     };
+
+    hexInput.addEventListener('focus', () => { this.pushUndo(); });
 
     hexInput.addEventListener('input', () => {
       if (applyHex(hexInput.value)) return;
@@ -776,6 +882,7 @@ export class WeWriteThemeView extends ItemView {
       name.style.color = '#656d76';
 
       row.addEventListener('click', () => {
+        this.pushUndo();
         this.typographyFamily = font.id;
         this.markDirty();
         this.buildEditor();
@@ -797,6 +904,7 @@ export class WeWriteThemeView extends ItemView {
     sizeDisplay.style.fontSize = '12px';
     sizeDisplay.style.width = '36px';
     sizeDisplay.style.textAlign = 'right';
+    sizeSlider.addEventListener('pointerdown', () => { this.pushUndo(); });
     sizeSlider.addEventListener('input', () => {
       this.typographyBaseSize = parseInt(sizeSlider.value, 10);
       sizeDisplay.setText(`${this.typographyBaseSize}px`);
@@ -819,6 +927,7 @@ export class WeWriteThemeView extends ItemView {
     lhDisplay.style.fontSize = '12px';
     lhDisplay.style.width = '36px';
     lhDisplay.style.textAlign = 'right';
+    lhSlider.addEventListener('pointerdown', () => { this.pushUndo(); });
     lhSlider.addEventListener('input', () => {
       this.typographyLineHeight = parseFloat(lhSlider.value);
       lhDisplay.setText(String(this.typographyLineHeight));
@@ -841,6 +950,7 @@ export class WeWriteThemeView extends ItemView {
     lsDisplay.style.fontSize = '12px';
     lsDisplay.style.width = '36px';
     lsDisplay.style.textAlign = 'right';
+    lsSlider.addEventListener('pointerdown', () => { this.pushUndo(); });
     lsSlider.addEventListener('input', () => {
       this.typographyLetterSpacing = parseFloat(lsSlider.value);
       lsDisplay.setText(`${this.typographyLetterSpacing}px`);
@@ -891,6 +1001,7 @@ export class WeWriteThemeView extends ItemView {
         const currentValueId = config[varId] || variable.defaultValue;
 
         modifierDropdown(row, variable, currentValueId, (newValueId) => {
+          this.pushUndo();
           if (newValueId === variable.defaultValue) {
             const cfg = this.modifierConfig[elementPath];
             if (cfg) {
@@ -950,6 +1061,7 @@ export class WeWriteThemeView extends ItemView {
 
           const saveBtn = btnRow.createEl('button', { cls: 'wewrite-btn wewrite-btn-accent', text: t('theme.add') });
           saveBtn.addEventListener('click', () => {
+            this.pushUndo();
             const name = nameInput.value.trim();
             const cssVal = cssInput.value.trim();
             if (!name || !cssVal) return;

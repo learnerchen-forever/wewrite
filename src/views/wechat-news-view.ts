@@ -84,6 +84,10 @@ export class WeChatNewsView extends ItemView {
   private composeCheckboxLabelEl!: HTMLElement;
   private coverRowEl!: HTMLElement;
   private coverCollapsed = false;
+  private previewCollapsed = false;
+  private previewCollapseBtnEl!: HTMLElement;
+  private phoneScrollEl!: HTMLElement;
+  private screenRowEl!: HTMLElement;
   private deviceSize = 'none';
   private deviceSizes: Record<string, { label: string; width: number; height: number; isNone?: boolean }> = {
     small:   { label: t('misc.device_iphone_se'),          width: 320, height: 568 },
@@ -147,6 +151,9 @@ export class WeChatNewsView extends ItemView {
     c.empty();
     c.addClass('wewrite-view');
 
+    // Hide Obsidian's built-in view header — the title is already shown on the tab
+    this.hideViewHeader();
+
     this.configStore = new NoteConfigStore(this.app.vault.adapter as any);
 
     // Hide Obsidian status bar + sync button while this view is active
@@ -205,6 +212,13 @@ export class WeChatNewsView extends ItemView {
   private _syncStatusOrigDisplay: string | undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _leafChangeRef: any = null;
+
+  private hideViewHeader(): void {
+    const leafEl = this.containerEl.closest('.workspace-leaf');
+    if (!leafEl) return;
+    const viewHeader = leafEl.querySelector(':scope > .view-header') as HTMLElement | null;
+    if (viewHeader) viewHeader.style.display = 'none';
+  }
 
   private hideBottomBars(): void {
     const statusBar = this.app.workspace.containerEl.querySelector('.status-bar') as HTMLElement | null;
@@ -764,8 +778,17 @@ export class WeChatNewsView extends ItemView {
     });
     setIcon(screenToggleBtn, 'chevron-right');
 
+    // Preview panel collapse toggle
+    this.previewCollapseBtnEl = styleRow.createEl('button', {
+      cls: 'wewrite-btn-icon wewrite-preview-collapse-btn',
+      attr: { 'aria-label': t('misc.collapse_preview') },
+    });
+    setIcon(this.previewCollapseBtnEl, 'chevron-down');
+    this.previewCollapseBtnEl.addEventListener('click', () => this.togglePreviewPanel());
+
     // Row 2: Screen selector (collapsible)
     const screenRow = container.createDiv({ cls: 'wewrite-device-selector-row wewrite-screen-row' });
+    this.screenRowEl = screenRow;
 
     const screenLabel = screenRow.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
     screenLabel.setAttribute('title', t('misc.screen'));
@@ -801,6 +824,7 @@ export class WeChatNewsView extends ItemView {
 
     // Phone scroll wrapper (for wide devices that overflow)
     const phoneScroll = container.createDiv({ cls: 'wewrite-phone-scroll' });
+    this.phoneScrollEl = phoneScroll;
 
     // Phone simulator: outer bezel + inner screen
     const bezel = phoneScroll.createDiv({ cls: 'wewrite-phone-bezel' });
@@ -816,6 +840,19 @@ export class WeChatNewsView extends ItemView {
     this.containerEl.addEventListener('focusin', () => {
       this.lastActiveAt = Date.now();
     });
+  }
+
+  private togglePreviewPanel(): void {
+    this.previewCollapsed = !this.previewCollapsed;
+    if (this.previewCollapsed) {
+      this.screenRowEl.classList.add('collapsed');
+      this.phoneScrollEl.style.display = 'none';
+      setIcon(this.previewCollapseBtnEl, 'chevron-right');
+    } else {
+      this.screenRowEl.classList.remove('collapsed');
+      this.phoneScrollEl.style.display = '';
+      setIcon(this.previewCollapseBtnEl, 'chevron-down');
+    }
   }
 
   private applyDeviceSize(): void {

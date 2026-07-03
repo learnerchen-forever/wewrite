@@ -156,6 +156,14 @@ export function migrateLegacyToV2(legacy: LegacySettings): WeWriteSettings {
     svgFallbackThresholdKb: 100,
     showCopyButton: false,
     logAICalling: false,
+    // ── Sync ──
+    syncEnabled: false,
+    syncWebdavUrl: '',
+    syncUsername: '',
+    syncPassword: '',
+    syncRemoteDir: '',
+    syncIntervalMinutes: 10,
+    syncLogDebug: false,
   };
 }
 
