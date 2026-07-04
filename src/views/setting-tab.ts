@@ -685,7 +685,8 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const warnBox = syncBody.createDiv({ cls: 'wewrite-sync-warn' });
     warnBox.style.cssText = [
       'margin-bottom:12px', 'padding:10px 12px',
-      'background:var(--background-modifier-error)', 'color:var(--text-error)',
+      'color:var(--text-error)',
+      'border:1px solid var(--text-error)',
       'border-radius:6px', 'font-size:12px', 'line-height:1.7',
     ].join(';');
     const warnList = warnBox.createEl('ul');
@@ -833,20 +834,20 @@ export class WeWriteSettingTab extends PluginSettingTab {
           slider.sliderEl.style.width = '100%';
           return slider;
         });
-
-      new Setting(syncBody)
-        .setName(t('settings.sync_reset'))
-        .setDesc(t('settings.sync_reset_desc'))
-        .addButton((btn) =>
-          btn.setButtonText(t('settings.sync_reset_button')).setWarning().onClick(() => {
-            new SyncResetModal(this.app, () => {
-              void this.plugin.resetSync();
-              new Notice(t('notice.sync_reset_done'));
-              this.display();
-            }).open();
-          }),
-        );
     }
+
+    new Setting(syncBody)
+      .setName(t('settings.sync_reset'))
+      .setDesc(t('settings.sync_reset_desc'))
+      .addButton((btn) =>
+        btn.setButtonText(t('settings.sync_reset_button')).setWarning().onClick(() => {
+          new SyncResetModal(this.app, () => {
+            void this.plugin.resetSync();
+            new Notice(t('notice.sync_reset_done'));
+            this.display();
+          }).open();
+        }),
+      );
 
     // ── Import / Export ──
     const ioBody = this.addCollapsibleSection(containerEl, t('settings.import_export'), 'upload');

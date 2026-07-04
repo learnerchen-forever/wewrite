@@ -392,6 +392,7 @@
   "cover.compose_button": "合成",
   "cover.compose_aria": "从 A+B 合成",
 
+  "theme.config": "主题配置",
   "theme.color_palette": "调色板",
   "theme.typography_fonts": "排版与字体",
   "theme.headings": "标题",

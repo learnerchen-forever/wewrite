@@ -1,4 +1,5 @@
-// Sync debug logger — writes structured .md logs to {wewrite}/debug when syncLogDebug is enabled
+// Sync debug logger — writes structured .md logs to {wewrite}/debug when syncLogDebug is enabled.
+// Log is written incrementally as the sync cycle progresses so interrupted cycles leave a trace.
 
 import type { App } from 'obsidian';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
@@ -7,166 +8,242 @@ import { ensureUniqueName } from './dump-naming';
 function localTimestamp(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '-' + pad(d.getSeconds());
 }
 
-// ── Log Types ──
+function timeStr(ts: number): string {
+  const d = new Date(ts);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+}
 
-export interface SyncLogCycleSummary {
-  trigger: 'startup' | 'interval' | 'manual';
+function fmtSize(bytes: number): string {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+}
+
+function fmtDuration(ms: number): string {
+  if (ms < 1000) return ms + 'ms';
+  return (ms / 1000).toFixed(1) + 's';
+}
+
+// ── Types ──
+
+export interface SyncActionLog {
+  index: number;
+  timestamp: number;
+  path: string;
+  kind: string;
+  sizeBytes: number;
+  durationMs: number;
+  result: string;
+  message: string;
+}
+
+export interface SyncChangesData {
+  localFiles: number;
+  localSkipped: number;
+  remoteFiles: number;
+  remoteSkipped: number;
+  recordEntries: number;
+}
+
+export interface SyncScheduledData {
+  totalTasks: number;
+  push: number;
+  pull: number;
+  merge: number;
+  mkdirRemote: number;
+  removeRemote: number;
+  removeLocal: number;
+  conflicts: number;
+  concurrency: number;
+  batchDelayMs: number;
+  walkDelayMs: number;
+}
+
+export interface SyncResultData {
+  trigger: string;
   startedAt: number;
   completedAt: number;
-  durationMs: number;
-  localFiles: number;
-  remoteFiles: number;
-  recordEntries: number;
-  tasks: { push: number; pull: number; merge: number; mkdirRemote: number; removeRemote: number; removeLocal: number };
+  totalActions: number;
+  succeeded: number;
+  failed: number;
   conflicts: number;
-  errors: string[];
   aborted: boolean;
   abortReason?: string;
 }
 
-export interface SyncLogFileEntry {
-  path: string;
-  action: string;
-  caseNumber: number;
-  reason: string;
+// ── Internal helpers ──
+
+async function readLog(app: App, filePath: string): Promise<string> {
+  return app.vault.adapter.read(filePath);
 }
 
-export interface SyncLogErrorEntry {
-  path: string;
-  taskKind: string;
-  message: string;
-  retryCount: number;
+async function writeLog(app: App, filePath: string, content: string): Promise<void> {
+  await app.vault.adapter.write(filePath, content);
 }
 
-// ── Write Functions ──
+async function appendToLog(app: App, filePath: string, lines: string[]): Promise<void> {
+  const existing = await readLog(app, filePath);
+  await writeLog(app, filePath, existing + lines.join('\n') + '\n');
+}
 
-/** Write a partial log at sync start so interrupted cycles still leave a trace. */
-export async function writeSyncCycleStart(
+// ── Public API ──
+
+export async function createSyncLog(
   app: App,
   wewriteFolder: string,
   trigger: string,
   startedAt: number,
 ): Promise<string> {
   const debugDir = getWeWriteSubPath(wewriteFolder, WEWRITE_SUBDIRS.debug);
-
   if (!(await app.vault.adapter.exists(debugDir))) {
     await app.vault.createFolder(debugDir);
   }
 
   const ts = localTimestamp();
-  const filePath = await ensureUniqueName(app, debugDir, `sync-${ts}.md`);
+  const filePath = await ensureUniqueName(app, debugDir, 'sync-' + ts + '.md');
 
   const lines: string[] = [];
   lines.push('---');
   lines.push('wewrite-sync-log: true');
-  lines.push(`sync-time: ${new Date(startedAt).toISOString()}`);
-  lines.push(`sync-trigger: ${trigger}`);
-  lines.push('sync-status: STARTED');
+  lines.push('sync-time: ' + new Date(startedAt).toISOString());
+  lines.push('sync-trigger: ' + trigger);
   lines.push('---');
   lines.push('');
   lines.push('# Sync Cycle Log');
   lines.push('');
-  lines.push('| Field | Value |');
-  lines.push('| --- | --- |');
-  lines.push(`| Trigger | ${trigger} |`);
-  lines.push(`| Started | ${new Date(startedAt).toISOString()} |`);
-  lines.push(`| Status | **RUNNING** |`);
+  lines.push('**Trigger:** ' + trigger);
+  lines.push('**Started:** ' + new Date(startedAt).toISOString());
+  lines.push('');
+
+  lines.push('## Changes');
+  lines.push('');
+  lines.push('*Awaiting walk...*');
+  lines.push('');
+
+  lines.push('## Scheduled');
+  lines.push('');
+  lines.push('*Awaiting decision...*');
+  lines.push('');
+
+  lines.push('## Sync Action Detail');
+  lines.push('');
+
+  lines.push('## Sync Result');
+  lines.push('');
+  lines.push('*Awaiting completion...*');
+  lines.push('');
 
   await app.vault.create(filePath, lines.join('\n'));
   return filePath;
 }
 
-/** Finalize the log file with the full cycle summary. */
-export async function finalizeSyncCycleLog(
+export async function appendChangesSection(
   app: App,
   filePath: string,
-  summary: SyncLogCycleSummary,
-  files?: SyncLogFileEntry[],
-  errors?: SyncLogErrorEntry[],
+  data: SyncChangesData,
 ): Promise<void> {
-  const appendLines = buildCompletionLines(summary, files, errors);
+  const lines: string[] = [];
+  lines.push('| Source | Files walked | Skipped |');
+  lines.push('| --- | --- | --- |');
+  lines.push('| Local | ' + data.localFiles + ' | ' + data.localSkipped + ' |');
+  lines.push('| Remote | ' + data.remoteFiles + ' | ' + data.remoteSkipped + ' |');
+  lines.push('| Record entries | ' + data.recordEntries + ' | — |');
+  lines.push('');
 
-  // Read existing content, append completion section
-  const existing = await app.vault.adapter.read(filePath);
-  const updated = existing + '\n' + appendLines.join('\n');
-  await app.vault.adapter.write(filePath, updated);
+  const content = await readLog(app, filePath);
+  const updated = content.replace(/\*Awaiting walk\.\.\.\*/, lines.join('\n'));
+  await writeLog(app, filePath, updated);
 }
 
-function buildCompletionLines(
-  summary: SyncLogCycleSummary,
-  files?: SyncLogFileEntry[],
-  errors?: SyncLogErrorEntry[],
-): string[] {
+export async function appendScheduledSection(
+  app: App,
+  filePath: string,
+  data: SyncScheduledData,
+): Promise<void> {
+  const lines: string[] = [];
+  lines.push('| Plan | Value |');
+  lines.push('| --- | --- |');
+  lines.push('| Total tasks | ' + data.totalTasks + ' |');
+  if (data.push > 0) lines.push('| Push (upload) | ' + data.push + ' |');
+  if (data.pull > 0) lines.push('| Pull (download) | ' + data.pull + ' |');
+  if (data.merge > 0) lines.push('| Merge | ' + data.merge + ' |');
+  if (data.mkdirRemote > 0) lines.push('| Mkdir remote | ' + data.mkdirRemote + ' |');
+  if (data.removeRemote > 0) lines.push('| Remove remote | ' + data.removeRemote + ' |');
+  if (data.removeLocal > 0) lines.push('| Remove local | ' + data.removeLocal + ' |');
+  if (data.conflicts > 0) lines.push('| Conflicts | ' + data.conflicts + ' |');
+  lines.push('| Concurrency | ' + data.concurrency + ' |');
+  lines.push('| Batch delay | ' + data.batchDelayMs + 'ms |');
+  lines.push('| Walk delay | ' + data.walkDelayMs + 'ms |');
+  lines.push('');
+
+  const content = await readLog(app, filePath);
+  const updated = content.replace(/\*Awaiting decision\.\.\.\*/, lines.join('\n'));
+  await writeLog(app, filePath, updated);
+}
+
+let actionTableHeaderWritten = false;
+export async function appendActionDetailRows(
+  app: App,
+  filePath: string,
+  actions: SyncActionLog[],
+): Promise<void> {
+  if (actions.length === 0) return;
+
   const lines: string[] = [];
 
-  // Update frontmatter (replace sync-status: STARTED → COMPLETED / ABORTED)
-  // Done via vault.adapter.write above; frontmatter line is embedded in existing content.
-  // For simplicity, we write the completion section after the existing content.
+  if (!actionTableHeaderWritten) {
+    lines.push('| # | Time | Path | Kind | Size | Duration | Result | Message |');
+    lines.push('| --- | --- | --- | --- | --- | --- | --- | --- |');
+    actionTableHeaderWritten = true;
+  }
 
-  lines.push('');
-  lines.push('---');
-  lines.push('');
+  for (const a of actions) {
+    const size = a.sizeBytes > 0 ? fmtSize(a.sizeBytes) : '—';
+    const dur = fmtDuration(a.durationMs);
+    const safeMsg = a.message ? a.message.replace(/\|/g, '\\|') : '';
+    lines.push('| ' + a.index + ' | ' + timeStr(a.timestamp) + ' | ' + a.path + ' | ' + a.kind + ' | ' + size + ' | ' + dur + ' | ' + a.result + ' | ' + safeMsg + ' |');
+  }
 
-  // Summary
-  lines.push('## Completion');
-  lines.push('');
+  await appendToLog(app, filePath, lines);
+}
+
+export async function finalizeSyncLog(
+  app: App,
+  filePath: string,
+  data: SyncResultData,
+): Promise<void> {
+  const status = data.aborted
+    ? 'ABORTED'
+    : data.failed > 0
+      ? 'COMPLETED WITH ERRORS'
+      : 'SUCCESS';
+
+  const lines: string[] = [];
   lines.push('| Field | Value |');
   lines.push('| --- | --- |');
-  lines.push(`| Completed | ${new Date(summary.completedAt).toISOString()} |`);
-  lines.push(`| Duration | ${summary.durationMs}ms |`);
-  lines.push(`| Local files walked | ${summary.localFiles} |`);
-  lines.push(`| Remote files walked | ${summary.remoteFiles} |`);
-  lines.push(`| Record entries | ${summary.recordEntries} |`);
-  lines.push(`| Status | ${summary.aborted ? 'ABORTED' : summary.errors.length > 0 ? 'COMPLETED WITH ERRORS' : 'SUCCESS'} |`);
-  if (summary.abortReason) {
-    lines.push(`| Abort reason | ${summary.abortReason} |`);
+  lines.push('| Trigger | ' + data.trigger + ' |');
+  lines.push('| Started | ' + new Date(data.startedAt).toISOString() + ' |');
+  lines.push('| Completed | ' + new Date(data.completedAt).toISOString() + ' |');
+  lines.push('| Duration | ' + fmtDuration(data.completedAt - data.startedAt) + ' |');
+  lines.push('| Total actions | ' + data.totalActions + ' |');
+  lines.push('| Succeeded | ' + data.succeeded + ' |');
+  lines.push('| Failed | ' + data.failed + ' |');
+  if (data.conflicts > 0) lines.push('| Conflicts | ' + data.conflicts + ' |');
+  lines.push('| Status | **' + status + '** |');
+  if (data.abortReason) {
+    lines.push('| Abort reason | ' + data.abortReason + ' |');
   }
   lines.push('');
-
-  // Task breakdown
-  lines.push('## Tasks');
-  lines.push('');
-  lines.push('| Type | Count |');
-  lines.push('| --- | --- |');
-  lines.push(`| Push (upload) | ${summary.tasks.push} |`);
-  lines.push(`| Pull (download) | ${summary.tasks.pull} |`);
-  lines.push(`| Merge (auto) | ${summary.tasks.merge} |`);
-  lines.push(`| Mkdir remote | ${summary.tasks.mkdirRemote} |`);
-  lines.push(`| Remove remote | ${summary.tasks.removeRemote} |`);
-  lines.push(`| Remove local | ${summary.tasks.removeLocal} |`);
-  lines.push(`| Conflicts | ${summary.conflicts} |`);
-  lines.push('');
-
-  // Per-file decisions
-  if (files && files.length > 0) {
-    lines.push('## File Decisions');
-    lines.push('');
-    lines.push('| Path | Action | Case | Reason |');
-    lines.push('| --- | --- | --- | --- |');
-    for (const f of files) {
-      lines.push(`| ${f.path} | ${f.action} | ${f.caseNumber} | ${f.reason} |`);
-    }
-    lines.push('');
-  }
-
-  // Errors
-  if (errors && errors.length > 0) {
-    lines.push('## Errors');
-    lines.push('');
-    lines.push('| Path | Task | Error | Retries |');
-    lines.push('| --- | --- | --- | --- |');
-    for (const e of errors) {
-      lines.push(`| ${e.path} | ${e.taskKind} | ${e.message.replace(/\|/g, '\\|')} | ${e.retryCount} |`);
-    }
-    lines.push('');
-  }
-
-  // Footer
   lines.push('---');
-  lines.push(`*Generated by WeWrite Sync at ${new Date().toISOString()}*`);
+  lines.push('*Generated by WeWrite Sync at ' + new Date().toISOString() + '*');
 
-  return lines;
+  const content = await readLog(app, filePath);
+  const updated = content.replace(/\*Awaiting completion\.\.\.\*/, lines.join('\n'));
+  await writeLog(app, filePath, updated);
+
+  actionTableHeaderWritten = false;
 }

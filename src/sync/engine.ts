@@ -2,7 +2,7 @@
 
 import type { App, Vault } from 'obsidian';
 import { createLogger } from '../utils/logger';
-import { writeSyncCycleStart, finalizeSyncCycleLog } from '../utils/sync-logger';
+import { createSyncLog, appendChangesSection, appendScheduledSection, appendActionDetailRows, finalizeSyncLog, type SyncActionLog } from '../utils/sync-logger';
 import type { SyncBackend } from './backend/interface';
 import { WebDAVBackend, ensureWebdavPatched } from './backend/webdav';
 import { decide } from './decide';
@@ -78,11 +78,33 @@ function tasksFromDecision(
   return result;
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function executeWithRetry(task: BaseTask, maxRetries = 3): Promise<TaskResult> {
+  // Exponential backoff: 5s → 15s → 30s
+  const BACKOFF_MS = [5000, 15000, 30000];
+  // 503/429 rate-limit cooldown in seconds
+  const RATE_LIMIT_COOLDOWN_MS = 60_000;
+
   for (let i = 0; i < maxRetries; i++) {
     const r = await task.exec();
     if (r.success) return r;
-    if (i < maxRetries - 1) await new Promise(resolve => setTimeout(resolve, 5000));
+
+    if (i < maxRetries - 1) {
+      const errMsg = r.error ? String(r.error.message || r.error) : '';
+      // Detect rate-limiting: 503 Service Unavailable, 429 Too Many Requests
+      const isRateLimited = /503|429/.test(errMsg);
+      const waitMs = isRateLimited ? RATE_LIMIT_COOLDOWN_MS : BACKOFF_MS[i];
+      log.debug(isRateLimited ? 'rate-limited, cooling down' : 'retry backoff', {
+        task: task.kind,
+        path: task.localPath,
+        waitMs,
+        attempt: i + 1,
+      });
+      await delay(waitMs);
+    }
   }
   return { success: false, error: new TaskError('Max retries exceeded', task.kind, task.localPath) };
 }
@@ -355,9 +377,9 @@ export class SyncEngine {
     let conflictCount = 0;
     let logFilePath: string | null = null;
 
-    // Write debug log at start so interrupted cycles leave a trace
+    // Create debug log at start — sections are appended as the cycle progresses
     if (this.syncSettings.logDebug) {
-      logFilePath = await writeSyncCycleStart(this.app, this.wewriteFolder, trigger, startedAt).catch(() => null);
+      logFilePath = await createSyncLog(this.app, this.wewriteFolder, trigger, startedAt).catch(() => null);
     }
 
     try {
@@ -405,6 +427,17 @@ export class SyncEngine {
         return { ok: false, message: cycleCheck.reason!, conflictCount: 0 };
       }
 
+      // Append [Changes] section
+      if (this.syncSettings.logDebug && logFilePath) {
+        appendChangesSection(this.app, logFilePath, {
+          localFiles: localStats.size,
+          localSkipped: localSkipped,
+          remoteFiles: remoteStats.size,
+          remoteSkipped: remoteSkipped,
+          recordEntries: Object.keys(this.record.files).length,
+        }).catch(() => {});
+      }
+
       // 3. Decide
       log.debug('deciding');
       const decision = decide({
@@ -430,14 +463,37 @@ export class SyncEngine {
       // Sort and optimize: deduplicate, resolve contradictory pairs, order by execution priority
       const { tasks: sorted } = optimizeTasks(tasks);
 
-      // Execute with limited concurrency
-      const CONCURRENCY = 3;
+      // Append [Scheduled] section
+      if (this.syncSettings.logDebug && logFilePath) {
+        appendScheduledSection(this.app, logFilePath, {
+          totalTasks: sorted.length,
+          push: sorted.filter(t => t.kind === 'push').length,
+          pull: sorted.filter(t => t.kind === 'pull').length,
+          merge: sorted.filter(t => t.kind === 'merge').length,
+          mkdirRemote: sorted.filter(t => t.kind === 'mkdir_remote').length,
+          removeRemote: sorted.filter(t => t.kind === 'remove_remote').length,
+          removeLocal: sorted.filter(t => t.kind === 'remove_local').length,
+          conflicts: decision.pendingConflicts.length,
+          concurrency: 2,
+          batchDelayMs: 500,
+          walkDelayMs: 300,
+        }).catch(() => {});
+      }
+
+      // Execute with limited concurrency (kept low to avoid server rate limits)
+      const CONCURRENCY = 2;
       let completed = 0;
       const errors: Array<{ path: string; kind: string; message: string }> = [];
+      let actionIndex = 0;
 
       for (let i = 0; i < sorted.length; i += CONCURRENCY) {
         if (this.cancelled) break;
+
+        // Pace task batches to avoid triggering server rate limits
+        if (i > 0) await delay(500);
+
         const batch = sorted.slice(i, i + CONCURRENCY);
+        const batchStart = Date.now();
 
         // Capture before-snapshots for each task
         const snapshots = batch.map(t => {
@@ -446,9 +502,16 @@ export class SyncEngine {
         });
 
         const results = await Promise.all(batch.map(t => executeWithRetry(t)));
+
+        // Collect action detail logs for this batch
+        const batchActions: SyncActionLog[] = [];
+
         for (let j = 0; j < results.length; j++) {
           const r = results[j];
           const task = batch[j];
+          actionIndex++;
+          const durationMs = Date.now() - batchStart;
+
           if (r.success) {
             // Append per-task journal with before-snapshot for rollback
             this.journal = appendJournal(this.journal, {
@@ -460,14 +523,41 @@ export class SyncEngine {
               remotePath: task.remotePath,
               beforeSnapshot: snapshots[j],
             });
+            batchActions.push({
+              index: actionIndex,
+              timestamp: Date.now(),
+              path: task.localPath,
+              kind: task.kind,
+              sizeBytes: 0,
+              durationMs,
+              result: 'ok',
+              message: '',
+            });
           } else {
+            const errMsg = 'error' in r ? r.error.message : 'Unknown error';
             errors.push({
               path: task.localPath,
               kind: task.kind,
-              message: 'error' in r ? r.error.message : 'Unknown error',
+              message: errMsg,
+            });
+            batchActions.push({
+              index: actionIndex,
+              timestamp: Date.now(),
+              path: task.localPath,
+              kind: task.kind,
+              sizeBytes: 0,
+              durationMs,
+              result: 'error',
+              message: errMsg,
             });
           }
         }
+
+        // Append action detail rows for this batch
+        if (this.syncSettings.logDebug && logFilePath && batchActions.length > 0) {
+          appendActionDetailRows(this.app, logFilePath, batchActions).catch(() => {});
+        }
+
         completed += batch.length;
       }
 
@@ -485,29 +575,19 @@ export class SyncEngine {
       const remotePaths = new Set(remoteStats.keys());
       garbageCollectRecord(this.record, localPaths, remotePaths);
 
-      // 6. Debug log — finalize the file we started at sync begin
+      // 6. Debug log — finalize with [Sync Result]
       if (this.syncSettings.logDebug && logFilePath) {
-        const summary = {
+        const succeeded = completed - errors.length;
+        await finalizeSyncLog(this.app, logFilePath, {
           trigger,
           startedAt,
           completedAt: Date.now(),
-          durationMs: Date.now() - startedAt,
-          localFiles: localStats.size,
-          remoteFiles: remoteStats.size,
-          recordEntries: Object.keys(this.record.files).length,
-          tasks: {
-            push: tasks.filter(t => t.kind === 'push').length,
-            pull: tasks.filter(t => t.kind === 'pull').length,
-            merge: tasks.filter(t => t.kind === 'merge').length,
-            mkdirRemote: tasks.filter(t => t.kind === 'mkdir_remote').length,
-            removeRemote: tasks.filter(t => t.kind === 'remove_remote').length,
-            removeLocal: tasks.filter(t => t.kind === 'remove_local').length,
-          },
+          totalActions: completed,
+          succeeded,
+          failed: errors.length,
           conflicts: decision.pendingConflicts.length,
-          errors: errors.map(e => e.message),
           aborted: false,
-        };
-        await finalizeSyncCycleLog(this.app, logFilePath, summary).catch(() => {});
+        }).catch(() => {});
       }
 
       conflictCount = decision.pendingConflicts.length;

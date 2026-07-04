@@ -448,6 +448,8 @@ describe('SyncEngine Integration', () => {
     });
 
     it('should reject sync when already running', async () => {
+      // 50 files with CONCURRENCY=2 + 500ms inter-batch delay ≈ 12s, needs longer timeout
+      jest.setTimeout(30000);
       const { backend, files: remoteFiles } = createMemoryBackend();
       for (let i = 0; i < 50; i++) {
         remoteFiles.set(`file${i}.md`, new TextEncoder().encode('content').buffer as ArrayBuffer);
@@ -466,9 +468,10 @@ describe('SyncEngine Integration', () => {
       expect(secondResult.message).toContain('already in progress');
 
       await firstSync;
-    });
+    }, 30000);
 
     it('should cancel in-progress sync', async () => {
+      jest.setTimeout(30000);
       const { backend, files: remoteFiles } = createMemoryBackend();
       for (let i = 0; i < 100; i++) {
         remoteFiles.set(`file${i}.md`, new TextEncoder().encode('content').buffer as ArrayBuffer);
@@ -485,7 +488,7 @@ describe('SyncEngine Integration', () => {
       const result = await syncPromise;
       expect(result.ok).toBe(false);
       expect(result.message).toContain('Cancelled');
-    });
+    }, 30000);
   });
 
   describe('Rollback', () => {

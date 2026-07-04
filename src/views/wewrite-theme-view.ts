@@ -209,6 +209,9 @@ export class WeWriteThemeView extends ItemView {
   private dragHandle!: HTMLElement;
   private collapseBtn!: HTMLElement;
   private propertiesCollapsed = false;
+  private previewCollapsed = false;
+  private previewCollapseBtnEl!: HTMLElement;
+  private previewPhoneEl!: HTMLElement;
   // Cached preview width (restored after collapse/expand)
   private previewWidth = 0;
 
@@ -486,23 +489,44 @@ export class WeWriteThemeView extends ItemView {
     setIcon(redoBtn, 'redo');
     redoBtn.addEventListener('click', () => this.redo());
 
-    this.collapseBtn = rightGroup.createEl('button', { cls: 'wewrite-btn-icon' });
-    this.collapseBtn.title = t('theme.toggle_properties');
-    setIcon(this.collapseBtn, 'chevron-down');
-    this.collapseBtn.addEventListener('click', () => this.togglePropertiesPanel());
-
     // Split: left editor + right preview with responsive layout
     const split = contentEl.createDiv({ cls: 'wewrite-theme-split' });
     split.style.display = 'flex';
     split.style.flex = '1';
     split.style.overflow = 'hidden';
 
-    // Left: scrollable editor
+    // Left: editor panel (flex column: toolbar at top, scrollable content below)
     const editorPanel = split.createDiv();
     editorPanel.style.flex = '1';
-    editorPanel.style.overflowY = 'auto';
+    editorPanel.style.display = 'flex';
+    editorPanel.style.flexDirection = 'column';
     editorPanel.style.minWidth = '280px';
-    this.scrollContainer = editorPanel;
+    editorPanel.style.overflow = 'hidden';
+
+    // Editor toolbar: top of the panel, stays visible when content is collapsed
+    const editorToolbar = editorPanel.createDiv();
+    editorToolbar.style.display = 'flex';
+    editorToolbar.style.alignItems = 'center';
+    editorToolbar.style.padding = '8px 12px';
+    editorToolbar.style.borderBottom = '1px solid #e8eaed';
+    editorToolbar.style.flexShrink = '0';
+
+    const toolbarCenter = editorToolbar.createDiv();
+    toolbarCenter.style.flex = '1';
+    toolbarCenter.style.display = 'flex';
+    toolbarCenter.style.justifyContent = 'center';
+    toolbarCenter.createSpan({ text: t('theme.config'), cls: '' }).style.cssText = 'font-size:13px;font-weight:600;';
+
+    this.collapseBtn = editorToolbar.createEl('button', { cls: 'wewrite-btn-icon' });
+    this.collapseBtn.title = t('theme.toggle_properties');
+    setIcon(this.collapseBtn, this.propertiesCollapsed ? 'chevron-right' : 'chevron-down');
+    this.collapseBtn.addEventListener('click', () => this.togglePropertiesPanel());
+
+    // Scrollable content area — hidden when properties collapsed
+    const scrollContent = editorPanel.createDiv();
+    scrollContent.style.flex = '1';
+    scrollContent.style.overflowY = 'auto';
+    this.scrollContainer = scrollContent;
 
     // Drag handle between editor and preview panels
     const handle = split.createDiv();
@@ -649,7 +673,7 @@ export class WeWriteThemeView extends ItemView {
 
     // Apply collapse state
     if (this.propertiesCollapsed) {
-      editorPanel.style.display = 'none';
+      this.scrollContainer.style.display = 'none';
       handle.style.display = 'none';
       previewPanel.style.flex = '1';
       previewPanel.style.width = '';
@@ -675,18 +699,18 @@ export class WeWriteThemeView extends ItemView {
     const split = this.contentEl.querySelector('.wewrite-theme-split') as HTMLElement;
     if (!split) return;
 
-    const editorPanel = this.scrollContainer;
+    const contentEl = this.scrollContainer;
     const previewPanel = this.previewContainer;
     const handle = this.dragHandle;
 
     if (this.propertiesCollapsed) {
-      editorPanel.style.display = 'none';
+      contentEl.style.display = 'none';
       handle.style.display = 'none';
       previewPanel.style.flex = '1';
       previewPanel.style.width = '';
       setIcon(this.collapseBtn, 'chevron-right');
     } else {
-      editorPanel.style.display = '';
+      contentEl.style.display = '';
       handle.style.display = '';
       if (this.previewWidth > 0) {
         previewPanel.style.flex = '';
@@ -698,6 +722,17 @@ export class WeWriteThemeView extends ItemView {
         previewPanel.style.flexShrink = '';
       }
       setIcon(this.collapseBtn, 'chevron-down');
+    }
+  }
+
+  private togglePreviewPanel(): void {
+    this.previewCollapsed = !this.previewCollapsed;
+    if (this.previewCollapsed) {
+      this.previewPhoneEl.style.display = 'none';
+      setIcon(this.previewCollapseBtnEl, 'chevron-right');
+    } else {
+      this.previewPhoneEl.style.display = '';
+      setIcon(this.previewCollapseBtnEl, 'chevron-down');
     }
   }
 
@@ -1107,22 +1142,34 @@ export class WeWriteThemeView extends ItemView {
       return;
     }
 
-    // Preview refresh button
+    // Preview header: [spacer] [Preview + refresh] [spacer] [collapse]
     const previewHeader = this.previewContainer.createDiv();
     previewHeader.style.display = 'flex';
     previewHeader.style.alignItems = 'center';
-    previewHeader.style.justifyContent = 'center';
     previewHeader.style.marginBottom = '12px';
 
-    const previewRefreshBtn = previewHeader.createEl('button', { cls: 'wewrite-btn' });
+    // Spacer + centered refresh button
+    const centerWrap = previewHeader.createDiv();
+    centerWrap.style.flex = '1';
+    centerWrap.style.display = 'flex';
+    centerWrap.style.justifyContent = 'center';
+
+    const previewRefreshBtn = centerWrap.createEl('button', { cls: 'wewrite-btn' });
     previewRefreshBtn.createSpan({ text: t('theme.preview') });
     const iconEl = previewRefreshBtn.createSpan();
     iconEl.style.marginLeft = '1rem';
     setIcon(iconEl, 'refresh-cw');
     previewRefreshBtn.addEventListener('click', () => this.buildPreview());
 
+    // Collapse toggle at far right
+    this.previewCollapseBtnEl = previewHeader.createEl('button', { cls: 'wewrite-btn-icon' });
+    this.previewCollapseBtnEl.title = t('misc.collapse_preview');
+    setIcon(this.previewCollapseBtnEl, this.previewCollapsed ? 'chevron-right' : 'chevron-down');
+    this.previewCollapseBtnEl.addEventListener('click', () => this.togglePreviewPanel());
+
     // Phone frame
     const phone = this.previewContainer.createDiv();
+    this.previewPhoneEl = phone;
     phone.style.border = '2px solid #333';
     phone.style.borderRadius = '20px';
     phone.style.padding = '8px';

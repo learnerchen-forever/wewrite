@@ -1,12 +1,16 @@
 // WebDAVBackend — WebDAV implementation of SyncBackend using the webdav npm package
 // Patches the webdav package to use Obsidian's requestUrl for mobile compatibility.
 
-import { requestUrl, Platform } from 'obsidian';
+import { requestUrl } from 'obsidian';
 import type { FileStat } from '../types';
 import type { SyncBackend, WriteOptions, ConnectionResult, WalkResult } from './interface';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('Sync:WebDAV');
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 // ── requestUrl patch for webdav npm package ──
 
@@ -18,42 +22,41 @@ export function ensureWebdavPatched(): void {
     // The webdav package uses fetch internally. We patch it via a global
     // fetch override that routes through Obsidian's requestUrl.
     // This is the same approach used by obsidian-webdav-sync and remotely-save.
-    const originalFetch = globalThis.fetch;
+    // Always override: native fetch on desktop Electron is blocked by CORS.
 
-    // Only override on platforms where fetch is unavailable or unreliable
-    if (Platform.isMobile || typeof originalFetch === 'undefined') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (globalThis as any).fetch = async (url: string, init?: RequestInit) => {
-        const method = init?.method || 'GET';
-        const body = init?.body as string | ArrayBuffer | undefined;
-        const headers: Record<string, string> = {};
-        if (init?.headers) {
-          if (init.headers instanceof Headers) {
-            init.headers.forEach((v, k) => { headers[k] = v; });
-          } else if (Array.isArray(init.headers)) {
-            for (const [k, v] of init.headers) headers[k] = v;
-          } else {
-            Object.assign(headers, init.headers);
-          }
+    // Always override fetch with Obsidian's requestUrl.
+    // Native fetch on desktop Electron is blocked by CORS for app:// → WebDAV.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = async (url: string, init?: RequestInit) => {
+      const method = init?.method || 'GET';
+      const body = init?.body as string | ArrayBuffer | undefined;
+      const headers: Record<string, string> = {};
+      if (init?.headers) {
+        if (init.headers instanceof Headers) {
+          init.headers.forEach((v, k) => { headers[k] = v; });
+        } else if (Array.isArray(init.headers)) {
+          for (const [k, v] of init.headers) headers[k] = v;
+        } else {
+          Object.assign(headers, init.headers);
         }
+      }
 
-        const result = await requestUrl({
-          url: url.toString(),
-          method,
-          body,
-          headers,
-          throw: false,
-        });
+      const result = await requestUrl({
+        url: url.toString(),
+        method,
+        body,
+        headers,
+        throw: false,
+      });
 
-        return new Response(result.arrayBuffer, {
-          status: result.status,
-          statusText: result.status.toString(),
-          headers: new Headers(result.headers as Record<string, string>),
-        });
-      };
+      return new Response(result.arrayBuffer, {
+        status: result.status,
+        statusText: result.status.toString(),
+        headers: new Headers(result.headers as Record<string, string>),
+      });
+    };
 
-      log.info('webdav patched for requestUrl');
-    }
+    log.info('webdav patched for requestUrl');
     patched = true;
   } catch (err) {
     log.warn('failed to patch webdav', { err: String(err) });
@@ -131,6 +134,11 @@ export class WebDAVBackend implements SyncBackend {
               hash: '', // hash computed separately by walkLocal
             });
           }
+        }
+
+        // Pace PROPFIND requests — avoid triggering rate limits (坚果云: 600 req/30min free)
+        if (queue.length > 0) {
+          await delay(300);
         }
       }
     } catch (err) {
