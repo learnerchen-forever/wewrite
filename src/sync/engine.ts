@@ -2,7 +2,7 @@
 
 import type { App, Vault } from 'obsidian';
 import { createLogger } from '../utils/logger';
-import { writeSyncCycleLog } from '../utils/sync-logger';
+import { writeSyncCycleStart, finalizeSyncCycleLog } from '../utils/sync-logger';
 import type { SyncBackend } from './backend/interface';
 import { WebDAVBackend, ensureWebdavPatched } from './backend/webdav';
 import { decide } from './decide';
@@ -107,6 +107,7 @@ export class SyncEngine {
       password: string;
       remoteDir: string;
       logDebug: boolean;
+      maxFileSizeMb: number;
     },
     backend?: SyncBackend,
   ) {
@@ -124,7 +125,7 @@ export class SyncEngine {
         this.syncSettings.webdavUrl,
         this.syncSettings.username,
         this.syncSettings.password,
-        this.syncSettings.remoteDir || this.app.vault.getName(),
+        this.syncSettings.remoteDir,
       );
     }
     return this.backend;
@@ -151,7 +152,7 @@ export class SyncEngine {
   /** Resolve one conflict and execute the chosen action. */
   async resolveConflict(conflict: PendingConflict, resolution: ConflictResolution): Promise<void> {
     const backend = this.getBackend();
-    const remoteDir = this.syncSettings.remoteDir || this.app.vault.getName();
+    const remoteDir = this.syncSettings.remoteDir;
 
     if (resolution === 'keep_local') {
       // Push local to remote
@@ -228,7 +229,7 @@ export class SyncEngine {
     const snapshot = entry.beforeSnapshot;
     const path = entry.localPath;
     const backend = this.getBackend();
-    const remoteDir = this.syncSettings.remoteDir || this.app.vault.getName();
+    const remoteDir = this.syncSettings.remoteDir;
 
     try {
       const op = entry.operation;
@@ -334,6 +335,14 @@ export class SyncEngine {
     };
   }
 
+  /** Reset all sync state to a clean slate. Local and remote files are untouched. */
+  resetState(): void {
+    this.record = createEmptyRecord();
+    initRecord(this.record, generateUUID());
+    this.journal = [];
+    this.pendingConflicts = [];
+  }
+
   /** Run one full sync cycle. */
   async sync(trigger: SyncTrigger): Promise<{ ok: boolean; message: string; conflictCount: number }> {
     if (this.running) return { ok: false, message: 'Sync already in progress', conflictCount: 0 };
@@ -344,10 +353,16 @@ export class SyncEngine {
     this.cancelled = false;
     const startedAt = Date.now();
     let conflictCount = 0;
+    let logFilePath: string | null = null;
+
+    // Write debug log at start so interrupted cycles leave a trace
+    if (this.syncSettings.logDebug) {
+      logFilePath = await writeSyncCycleStart(this.app, this.wewriteFolder, trigger, startedAt).catch(() => null);
+    }
 
     try {
       const backend = this.getBackend();
-      const remoteDir = this.syncSettings.remoteDir || this.app.vault.getName();
+      const remoteDir = this.syncSettings.remoteDir;
 
       // 1. Walk local
       log.debug('walking local');
@@ -373,8 +388,9 @@ export class SyncEngine {
       if (this.cancelled) { this.running = false; return { ok: false, message: 'Cancelled', conflictCount: 0 }; }
 
       // 2.5 Safety: filter unsafe paths and oversized files
-      const localSafety = filterUnsafePaths(localStats);
-      const remoteSafety = filterUnsafePaths(remoteStats);
+      const maxBytes = this.syncSettings.maxFileSizeMb * 1024 * 1024;
+      const localSafety = filterUnsafePaths(localStats, maxBytes);
+      const remoteSafety = filterUnsafePaths(remoteStats, maxBytes);
       const localSkipped = localStats.size - localSafety.safe.size;
       const remoteSkipped = remoteStats.size - remoteSafety.safe.size;
       if (localSkipped > 0) log.debug('local safety skipped', { count: localSkipped });
@@ -469,8 +485,8 @@ export class SyncEngine {
       const remotePaths = new Set(remoteStats.keys());
       garbageCollectRecord(this.record, localPaths, remotePaths);
 
-      // 6. Debug log
-      if (this.syncSettings.logDebug) {
+      // 6. Debug log — finalize the file we started at sync begin
+      if (this.syncSettings.logDebug && logFilePath) {
         const summary = {
           trigger,
           startedAt,
@@ -491,7 +507,7 @@ export class SyncEngine {
           errors: errors.map(e => e.message),
           aborted: false,
         };
-        await writeSyncCycleLog(this.app, this.wewriteFolder, summary).catch(() => {});
+        await finalizeSyncCycleLog(this.app, logFilePath, summary).catch(() => {});
       }
 
       conflictCount = decision.pendingConflicts.length;
@@ -527,7 +543,7 @@ export class SyncEngine {
   async testConnection(): Promise<{ ok: boolean; message: string }> {
     try {
       const backend = this.getBackend();
-      const result = await backend.checkConnection(this.syncSettings.remoteDir || this.app.vault.getName());
+      const result = await backend.checkConnection(this.syncSettings.remoteDir);
       return { ok: result.ok, message: result.error || 'Connection successful' };
     } catch (err) {
       return { ok: false, message: String(err) };

@@ -164,6 +164,8 @@ export function migrateLegacyToV2(legacy: LegacySettings): WeWriteSettings {
     syncRemoteDir: '',
     syncIntervalMinutes: 10,
     syncLogDebug: false,
+    syncMaxFileSizeMb: 50,
+    syncRiskAcknowledgedAt: '',
   };
 }
 

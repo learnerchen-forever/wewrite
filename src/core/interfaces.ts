@@ -65,6 +65,8 @@ export interface WeWriteSettings {
   syncRemoteDir: string;
   syncIntervalMinutes: number;
   syncLogDebug: boolean;
+  syncMaxFileSizeMb: number;
+  syncRiskAcknowledgedAt: string;
 }
 
 // ── Import / Export Types ──
@@ -204,6 +206,8 @@ export const DEFAULT_SETTINGS: WeWriteSettings = {
   syncRemoteDir: '',
   syncIntervalMinutes: 10,
   syncLogDebug: false,
+  syncMaxFileSizeMb: 50,
+  syncRiskAcknowledgedAt: '',
 };
 
 // ── WeWrite Directory Layout ──

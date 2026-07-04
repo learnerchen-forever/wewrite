@@ -1,10 +1,11 @@
 // Plugin Settings Tab — IP display, collapsible sections, auto-expand inputs
 
-import { PluginSettingTab, Setting, Notice, setIcon, requestUrl, SuggestModal, type TFolder } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, Modal, setIcon, requestUrl, SuggestModal, type TFolder } from 'obsidian';
 import type WeWritePlugin from '../main';
 import type { WeChatAccount, AITextAccount, AIImageGenAccount, AIProviderType, ImageGenProviderType, WeWriteSettings } from '../core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS, DEFAULT_SETTINGS } from '../core/interfaces';
 import { createLogger } from '../utils/logger';
+import { encryptValue } from '../utils/encryption';
 import { t, onLanguageChange } from '../i18n';
 import { WECHAT_ACCOUNT_HELP_IMAGE } from './settings-help-image';
 import { VIEW_TYPE_WECHAT_NEWS, WeChatNewsView } from './wechat-news-view';
@@ -27,6 +28,14 @@ const IMAGE_PROVIDER_DEFAULTS: Record<ImageGenProviderType, { baseUrl: string; m
     baseUrl: 'https://ark.cn-beijing.volces.com/api/v3/images/generations',
     model: 'doubao-seedream-5-0-260128',
   },
+};
+
+/** Community plugin IDs known to provide vault sync — must not coexist with WeWrite sync. */
+const SYNC_CONFLICT_PLUGINS: Record<string, string> = {
+  'remotely-save': 'Remotely Save',
+  'obsidian-livesync': 'Self-hosted LiveSync',
+  'syncthing-integration': 'Syncthing Integration',
+  'webdav-sync': 'WebDAV Sync',
 };
 
 function generateId(): string {
@@ -672,11 +681,48 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // ── Sync ──
     const syncBody = this.addCollapsibleSection(containerEl, t('settings.sync'), 'refresh-cw');
 
+    // Persistent warning box — always visible, including mobile
+    const warnBox = syncBody.createDiv({ cls: 'wewrite-sync-warn' });
+    warnBox.style.cssText = [
+      'margin-bottom:12px', 'padding:10px 12px',
+      'background:var(--background-modifier-error)', 'color:var(--text-error)',
+      'border-radius:6px', 'font-size:12px', 'line-height:1.7',
+    ].join(';');
+    const warnList = warnBox.createEl('ul');
+    warnList.style.cssText = 'margin:0;padding-left:16px;';
+    for (const msg of [
+      t('settings.sync_warn_data_risk'),
+      t('settings.sync_warn_webdav_only'),
+      t('settings.sync_warn_plugin_conflict'),
+    ]) {
+      warnList.createEl('li', { text: msg });
+    }
+
     new Setting(syncBody)
       .setName(t('settings.sync_enable'))
       .setDesc(t('settings.sync_enable_desc'))
       .addToggle((t) =>
         t.setValue(settings.syncEnabled).onChange(async (v) => {
+          if (v) {
+            const conflicts = this.detectSyncConflicts();
+            if (conflicts.length > 0) {
+              settings.syncEnabled = false;
+              this.save();
+              this.display();
+              new SyncConflictModal(this.app, conflicts).open();
+              return;
+            }
+            // Require risk acknowledgment
+            new RiskAcknowledgmentModal(this.app, async () => {
+              settings.syncRiskAcknowledgedAt = await encryptValue(
+                new Date().toISOString(),
+              );
+              settings.syncEnabled = true;
+              this.save();
+              this.display();
+            }).open();
+            return;
+          }
           settings.syncEnabled = v;
           this.save();
           this.display();
@@ -719,15 +765,16 @@ export class WeWriteSettingTab extends PluginSettingTab {
       new Setting(syncBody)
         .setName(t('settings.sync_remote_dir'))
         .setDesc(t('settings.sync_remote_dir_desc'))
-        .addText((t) =>
+        .addText((t) => {
+          t.setPlaceholder(this.app.vault.getName());
           t.setValue(settings.syncRemoteDir).onChange(async (v) => {
             settings.syncRemoteDir = v.trim();
             this.save();
-          }),
-        );
+          });
+        });
 
-      new Setting(syncBody)
-        .setName(t('settings.sync_interval'))
+      const intervalSetting = new Setting(syncBody)
+        .setName(this.intervalLabel(settings.syncIntervalMinutes))
         .setDesc(t('settings.sync_interval_desc'))
         .addSlider((slider) => {
           slider
@@ -737,6 +784,8 @@ export class WeWriteSettingTab extends PluginSettingTab {
             .onChange(async (value) => {
               settings.syncIntervalMinutes = value;
               this.save();
+              this.plugin.syncScheduler?.updateInterval(value);
+              intervalSetting.setName(this.intervalLabel(value));
             });
           slider.sliderEl.style.width = '100%';
           return slider;
@@ -765,6 +814,36 @@ export class WeWriteSettingTab extends PluginSettingTab {
           t.setValue(settings.syncLogDebug).onChange(async (v) => {
             settings.syncLogDebug = v;
             this.save();
+          }),
+        );
+
+      const maxFileSizeSetting = new Setting(syncBody)
+        .setName(this.maxFileSizeLabel(settings.syncMaxFileSizeMb))
+        .setDesc(t('settings.sync_max_file_size_desc'))
+        .addSlider((slider) => {
+          slider
+            .setLimits(1, 500, 1)
+            .setValue(settings.syncMaxFileSizeMb)
+            .setDynamicTooltip()
+            .onChange(async (value) => {
+              settings.syncMaxFileSizeMb = value;
+              this.save();
+              maxFileSizeSetting.setName(this.maxFileSizeLabel(value));
+            });
+          slider.sliderEl.style.width = '100%';
+          return slider;
+        });
+
+      new Setting(syncBody)
+        .setName(t('settings.sync_reset'))
+        .setDesc(t('settings.sync_reset_desc'))
+        .addButton((btn) =>
+          btn.setButtonText(t('settings.sync_reset_button')).setWarning().onClick(() => {
+            new SyncResetModal(this.app, () => {
+              void this.plugin.resetSync();
+              new Notice(t('notice.sync_reset_done'));
+              this.display();
+            }).open();
           }),
         );
     }
@@ -1022,6 +1101,31 @@ export class WeWriteSettingTab extends PluginSettingTab {
     });
   }
 
+  private detectSyncConflicts(): string[] {
+    const conflicts: string[] = [];
+
+    // Obsidian core sync
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const internalPlugins = (this.app as any).internalPlugins;
+    const coreSync = internalPlugins?.getPluginById?.('sync');
+    if (coreSync?.enabled) {
+      conflicts.push('Obsidian Sync');
+    }
+
+    // Community sync plugins
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const communityPlugins = (this.app as any).plugins?.plugins as Record<string, unknown> | undefined;
+    if (communityPlugins) {
+      for (const [id, name] of Object.entries(SYNC_CONFLICT_PLUGINS)) {
+        if (communityPlugins[id]) {
+          conflicts.push(name);
+        }
+      }
+    }
+
+    return conflicts;
+  }
+
   private async testSyncConnection(settings: WeWriteSettings): Promise<void> {
     if (!settings.syncWebdavUrl) {
       new Notice(t('notice.sync_no_url'));
@@ -1034,6 +1138,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
       const msg = err instanceof Error ? err.message : String(err);
       new Notice(t('notice.sync_connection_error', { error: msg }));
     }
+  }
+
+  private intervalLabel(minutes: number): string {
+    return `${t('settings.sync_interval')} (${minutes} min)`;
+  }
+
+  private maxFileSizeLabel(mb: number): string {
+    return `${t('settings.sync_max_file_size')} (${mb} MB)`;
   }
 
   private save(): void {
@@ -1065,5 +1177,156 @@ class FolderPickerModal extends SuggestModal<TFolder> {
 
   onChooseSuggestion(folder: TFolder): void {
     this.onSelect(folder.path || folder.name);
+  }
+}
+
+class RiskAcknowledgmentModal extends Modal {
+  private onConfirm: () => void;
+
+  constructor(app: App, onConfirm: () => void) {
+    super(app);
+    this.onConfirm = onConfirm;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.style.padding = '20px';
+    contentEl.style.maxWidth = '440px';
+
+    const titleEl = contentEl.createDiv();
+    titleEl.style.cssText = 'font-size:17px;font-weight:700;margin-bottom:16px;color:var(--text-error);';
+    titleEl.setText(t('settings.sync_risk_title'));
+
+    const listEl = contentEl.createEl('ul');
+    listEl.style.cssText = 'margin:0 0 20px 0;padding-left:20px;line-height:1.9;font-weight:600;font-size:14px;';
+    for (const msg of [
+      t('settings.sync_warn_data_risk'),
+      t('settings.sync_warn_webdav_only'),
+      t('settings.sync_warn_plugin_conflict'),
+    ]) {
+      listEl.createEl('li', { text: msg });
+    }
+
+    const confirmLabel = t('settings.sync_risk_confirm');
+    const btnRow = contentEl.createDiv();
+    btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+    const cancelBtn = btnRow.createEl('button');
+    cancelBtn.setText(t('misc.cancel'));
+    cancelBtn.addEventListener('click', () => this.close());
+    const confirmBtn = btnRow.createEl('button', { cls: 'mod-cta' });
+    confirmBtn.setText(confirmLabel);
+    confirmBtn.addEventListener('click', () => {
+      this.onConfirm();
+      this.close();
+    });
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+class SyncConflictModal extends Modal {
+  private conflicts: string[];
+
+  constructor(app: App, conflicts: string[]) {
+    super(app);
+    this.conflicts = conflicts;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.style.padding = '16px';
+    contentEl.style.maxWidth = '400px';
+
+    // Title
+    const titleEl = contentEl.createDiv({ cls: 'wewrite-sync-conflict-title' });
+    titleEl.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:12px;';
+    titleEl.setText(t('settings.sync_conflict_title'));
+
+    // Description
+    const descEl = contentEl.createDiv({ cls: 'wewrite-sync-conflict-desc' });
+    descEl.style.cssText = 'margin-bottom:12px;line-height:1.6;';
+    descEl.setText(t('settings.sync_conflict_desc'));
+
+    // List conflicting plugins
+    const listEl = contentEl.createEl('ul');
+    listEl.style.cssText = 'margin:0 0 16px 0;padding-left:20px;line-height:1.8;';
+    for (const name of this.conflicts) {
+      listEl.createEl('li', { text: name });
+    }
+
+    // Action hint
+    const actionEl = contentEl.createDiv();
+    actionEl.style.cssText = 'margin-bottom:16px;line-height:1.6;color:var(--text-muted);';
+    actionEl.setText(t('settings.sync_conflict_action'));
+
+    // Close button
+    const btnRow = contentEl.createDiv();
+    btnRow.style.cssText = 'display:flex;justify-content:flex-end;';
+    const closeBtn = btnRow.createEl('button', { cls: 'mod-cta' });
+    closeBtn.setText(t('misc.ok'));
+    closeBtn.addEventListener('click', () => this.close());
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+class SyncResetModal extends Modal {
+  private onConfirm: () => void;
+
+  constructor(app: App, onConfirm: () => void) {
+    super(app);
+    this.onConfirm = onConfirm;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.style.padding = '16px';
+    contentEl.style.maxWidth = '420px';
+
+    const titleEl = contentEl.createDiv();
+    titleEl.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:12px;';
+    titleEl.setText(t('settings.sync_reset_title'));
+
+    const descEl = contentEl.createDiv();
+    descEl.style.cssText = 'margin-bottom:12px;line-height:1.6;';
+    descEl.setText(t('settings.sync_reset_confirm_desc'));
+
+    const listEl = contentEl.createEl('ul');
+    listEl.style.cssText = 'margin:0 0 16px 0;padding-left:20px;line-height:1.8;';
+    for (const item of [
+      t('settings.sync_reset_item_record'),
+      t('settings.sync_reset_item_conflicts'),
+      t('settings.sync_reset_item_journal'),
+      t('settings.sync_reset_item_logs'),
+    ]) {
+      listEl.createEl('li', { text: item });
+    }
+
+    const warnEl = contentEl.createDiv();
+    warnEl.style.cssText = 'margin-bottom:16px;padding:8px 12px;background:var(--background-modifier-error);color:var(--text-error);border-radius:6px;font-size:13px;line-height:1.6;';
+    warnEl.setText(t('settings.sync_reset_warn'));
+
+    const btnRow = contentEl.createDiv();
+    btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+    const cancelBtn = btnRow.createEl('button');
+    cancelBtn.setText(t('misc.cancel'));
+    cancelBtn.addEventListener('click', () => this.close());
+    const confirmBtn = btnRow.createEl('button', { cls: 'mod-warning' });
+    confirmBtn.setText(t('settings.sync_reset_button'));
+    confirmBtn.addEventListener('click', () => {
+      this.onConfirm();
+      this.close();
+    });
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
   }
 }

@@ -43,13 +43,13 @@ export interface SyncLogErrorEntry {
 
 // ── Write Functions ──
 
-export async function writeSyncCycleLog(
+/** Write a partial log at sync start so interrupted cycles still leave a trace. */
+export async function writeSyncCycleStart(
   app: App,
   wewriteFolder: string,
-  summary: SyncLogCycleSummary,
-  files?: SyncLogFileEntry[],
-  errors?: SyncLogErrorEntry[],
-): Promise<void> {
+  trigger: string,
+  startedAt: number,
+): Promise<string> {
   const debugDir = getWeWriteSubPath(wewriteFolder, WEWRITE_SUBDIRS.debug);
 
   if (!(await app.vault.adapter.exists(debugDir))) {
@@ -57,36 +57,64 @@ export async function writeSyncCycleLog(
   }
 
   const ts = localTimestamp();
-  const baseName = `sync-${ts}`;
-  const filePath = await ensureUniqueName(app, debugDir, `${baseName}.md`);
+  const filePath = await ensureUniqueName(app, debugDir, `sync-${ts}.md`);
 
-  const lines = buildSyncLogLines(summary, files, errors);
+  const lines: string[] = [];
+  lines.push('---');
+  lines.push('wewrite-sync-log: true');
+  lines.push(`sync-time: ${new Date(startedAt).toISOString()}`);
+  lines.push(`sync-trigger: ${trigger}`);
+  lines.push('sync-status: STARTED');
+  lines.push('---');
+  lines.push('');
+  lines.push('# Sync Cycle Log');
+  lines.push('');
+  lines.push('| Field | Value |');
+  lines.push('| --- | --- |');
+  lines.push(`| Trigger | ${trigger} |`);
+  lines.push(`| Started | ${new Date(startedAt).toISOString()} |`);
+  lines.push(`| Status | **RUNNING** |`);
+
   await app.vault.create(filePath, lines.join('\n'));
+  return filePath;
 }
 
-function buildSyncLogLines(
+/** Finalize the log file with the full cycle summary. */
+export async function finalizeSyncCycleLog(
+  app: App,
+  filePath: string,
+  summary: SyncLogCycleSummary,
+  files?: SyncLogFileEntry[],
+  errors?: SyncLogErrorEntry[],
+): Promise<void> {
+  const appendLines = buildCompletionLines(summary, files, errors);
+
+  // Read existing content, append completion section
+  const existing = await app.vault.adapter.read(filePath);
+  const updated = existing + '\n' + appendLines.join('\n');
+  await app.vault.adapter.write(filePath, updated);
+}
+
+function buildCompletionLines(
   summary: SyncLogCycleSummary,
   files?: SyncLogFileEntry[],
   errors?: SyncLogErrorEntry[],
 ): string[] {
   const lines: string[] = [];
-  lines.push('---');
-  lines.push('wewrite-sync-log: true');
-  lines.push(`sync-time: ${new Date(summary.startedAt).toISOString()}`);
-  lines.push(`sync-trigger: ${summary.trigger}`);
-  lines.push(`sync-duration-ms: ${summary.durationMs}`);
-  lines.push('---');
+
+  // Update frontmatter (replace sync-status: STARTED → COMPLETED / ABORTED)
+  // Done via vault.adapter.write above; frontmatter line is embedded in existing content.
+  // For simplicity, we write the completion section after the existing content.
+
   lines.push('');
-  lines.push('# Sync Cycle Log');
+  lines.push('---');
   lines.push('');
 
-  // Summary table
-  lines.push('## Summary');
+  // Summary
+  lines.push('## Completion');
   lines.push('');
   lines.push('| Field | Value |');
   lines.push('| --- | --- |');
-  lines.push(`| Trigger | ${summary.trigger} |`);
-  lines.push(`| Started | ${new Date(summary.startedAt).toISOString()} |`);
   lines.push(`| Completed | ${new Date(summary.completedAt).toISOString()} |`);
   lines.push(`| Duration | ${summary.durationMs}ms |`);
   lines.push(`| Local files walked | ${summary.localFiles} |`);

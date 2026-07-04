@@ -164,6 +164,25 @@ export default class WeWritePlugin extends Plugin {
       }),
     );
 
+    // Visibility change — trigger sync when app comes back to foreground
+    this.registerDomEvent(document, 'visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this.syncScheduler?.isRunning) {
+        // Debounce: wait 3 seconds before syncing to avoid spamming on rapid switches
+        setTimeout(() => {
+          if (document.visibilityState === 'visible') {
+            void this.syncScheduler.syncNow('manual');
+          }
+        }, 3000);
+      }
+    });
+
+    // File-change watcher — debounced sync trigger when local files change
+    const onFileChange = () => this.onVaultFileChange();
+    this.registerEvent(this.app.vault.on('modify', onFileChange));
+    this.registerEvent(this.app.vault.on('create', onFileChange));
+    this.registerEvent(this.app.vault.on('delete', onFileChange));
+    this.registerEvent(this.app.vault.on('rename', onFileChange));
+
     // Register commands
     this.registerCommands();
 
@@ -174,8 +193,9 @@ export default class WeWritePlugin extends Plugin {
       get webdavUrl() { return plugin.settings.syncWebdavUrl; },
       get username() { return plugin.settings.syncUsername; },
       get password() { return plugin.settings.syncPassword; },
-      get remoteDir() { return plugin.settings.syncRemoteDir || plugin.app.vault.getName(); },
+      get remoteDir() { return plugin.settings.syncRemoteDir; },
       get logDebug() { return plugin.settings.syncLogDebug; },
+      get maxFileSizeMb() { return plugin.settings.syncMaxFileSizeMb; },
     } as any);
     const syncRawData = await this.loadData();
     await this.syncEngine.loadState(syncRawData);
@@ -282,6 +302,38 @@ export default class WeWritePlugin extends Plugin {
     if (conflicts > 0) {
       new Notice(t('sync.conflicts_pending', { count: String(conflicts) }));
     }
+  }
+
+  /** Debounced sync trigger on local file changes. Fires 30s after the last change. */
+  private fileChangeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly FILE_CHANGE_DEBOUNCE_MS = 30_000;
+
+  private onVaultFileChange(): void {
+    if (!this.syncScheduler?.isRunning) return;
+    if (this.fileChangeDebounceTimer) clearTimeout(this.fileChangeDebounceTimer);
+    this.fileChangeDebounceTimer = setTimeout(() => {
+      void this.syncScheduler.syncNow('manual');
+    }, this.FILE_CHANGE_DEBOUNCE_MS);
+  }
+
+  /** Reset sync state to a clean slate. Local and remote files are untouched. */
+  async resetSync(): Promise<void> {
+    // Clear engine state
+    this.syncEngine?.resetState();
+
+    // Delete debug log files
+    const debugDir = getWeWriteSubPath(this.settings.wewriteFolder, WEWRITE_SUBDIRS.debug);
+    try {
+      if (await this.app.vault.adapter.exists(debugDir)) {
+        const listing = await this.app.vault.adapter.list(debugDir);
+        for (const file of listing.files) {
+          try { await this.app.vault.adapter.remove(file); } catch { /* skip */ }
+        }
+      }
+    } catch { /* skip */ }
+
+    // Persist cleared state
+    await this.saveSettings();
   }
 
   /** Debounced save — coalesces rapid auto-save calls into a single write. */

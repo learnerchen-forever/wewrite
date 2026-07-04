@@ -102,13 +102,14 @@ export interface SizeCheckResult {
 /**
  * Check if a file size is within sync limits.
  */
-export function validateFileSize(sizeBytes: number): SizeCheckResult {
+export function validateFileSize(sizeBytes: number, maxFileSizeBytes = MAX_FILE_SIZE): SizeCheckResult {
   if (sizeBytes < 0) {
     return { allowed: false, reason: 'invalid file size' };
   }
-  if (sizeBytes > MAX_FILE_SIZE) {
+  if (sizeBytes > maxFileSizeBytes) {
     const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(1);
-    return { allowed: false, reason: `file too large (${sizeMB} MB, max ${MAX_FILE_SIZE / (1024 * 1024)} MB)` };
+    const maxMB = (maxFileSizeBytes / (1024 * 1024)).toFixed(0);
+    return { allowed: false, reason: `file too large (${sizeMB} MB, max ${maxMB} MB)` };
   }
   return { allowed: true };
 }
@@ -136,6 +137,7 @@ export function validateCycleSize(fileCount: number): SizeCheckResult {
  */
 export function filterUnsafePaths<T extends { size: number }>(
   stats: Map<string, T>,
+  maxFileSizeBytes = MAX_FILE_SIZE,
 ): { safe: Map<string, T>; skipped: Array<{ path: string; reason: string }> } {
   const safe = new Map<string, T>();
   const skipped: Array<{ path: string; reason: string }> = [];
@@ -148,7 +150,7 @@ export function filterUnsafePaths<T extends { size: number }>(
       continue;
     }
 
-    const sizeCheck = validateFileSize(stat.size);
+    const sizeCheck = validateFileSize(stat.size, maxFileSizeBytes);
     if (!sizeCheck.allowed) {
       skipped.push({ path, reason: sizeCheck.reason! });
       log.debug('skipping large file', { path, size: stat.size, reason: sizeCheck.reason });

@@ -67,6 +67,8 @@ export const WeWriteSettingsSchema = z.object({
   syncRemoteDir: z.string().catch(''),
   syncIntervalMinutes: z.number().int().min(1).max(1440).catch(10),
   syncLogDebug: z.boolean().catch(false),
+  syncMaxFileSizeMb: z.number().int().min(1).max(500).catch(50),
+  syncRiskAcknowledgedAt: z.string().catch(''),
 });
 
 // ── Migration Pipeline ──
@@ -138,7 +140,7 @@ function recoverPartialSettings(
     'activeAIImageGenAccountId', 'wewriteFolder', 'stylesDirectory', 'coverStorageMode',
     'coverStoragePath', 'dumpPublishContent',
     'logRenderPipeline', 'svgFallbackThresholdKb', 'showCopyButton', 'logAICalling',
-    'syncEnabled', 'syncWebdavUrl', 'syncUsername', 'syncPassword', 'syncRemoteDir', 'syncIntervalMinutes', 'syncLogDebug'] as const;
+    'syncEnabled', 'syncWebdavUrl', 'syncUsername', 'syncPassword', 'syncRemoteDir', 'syncIntervalMinutes', 'syncLogDebug', 'syncMaxFileSizeMb', 'syncRiskAcknowledgedAt'] as const;
 
   for (const key of scalarKeys) {
     const fieldSchema = WeWriteSettingsSchema.shape[key];
