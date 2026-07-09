@@ -2,8 +2,32 @@
 
 import { SyncEngine } from '../../../src/sync/engine';
 import type { SyncBackend, ConnectionResult, WalkResult } from '../../../src/sync/backend/interface';
-import type { FileStat } from '../../../src/sync/types';
-import { sha256Hex } from '../../../src/sync/hash';
+import type { FileStat, SyncEntry } from '../../../src/sync/types';
+import { sha256Hex, normalizeMtime } from '../../../src/sync/hash';
+
+/** Build a SyncEntry that matches the current state of local and remote content. */
+async function makeRecordEntry(
+  localContent: string,
+  remoteContent: string | null,
+  localMtime: number,
+  remoteMtime: number | null,
+): Promise<SyncEntry> {
+  const localHash = await sha256Hex(new TextEncoder().encode(localContent).buffer as ArrayBuffer);
+  const nLocalMtime = normalizeMtime(localMtime);
+  const nRemoteMtime = remoteMtime ? normalizeMtime(remoteMtime) : 0;
+  const remoteHash = remoteContent
+    ? await sha256Hex(new TextEncoder().encode(remoteContent).buffer as ArrayBuffer)
+    : '';
+  return {
+    localMtime: nLocalMtime,
+    localSize: localContent.length,
+    localHash,
+    remoteMtime: nRemoteMtime,
+    remoteSize: remoteContent ? remoteContent.length : 0,
+    remoteHash,
+    baseText: '',
+  };
+}
 
 // ── In-memory mock backend ──
 
@@ -22,12 +46,14 @@ function createMemoryBackend(): {
     async walk(baseDir: string): Promise<WalkResult> {
       const stats = new Map<string, FileStat>();
       for (const [path, buf] of files) {
+        const mtime = Math.floor(Date.now() / 1000) * 1000;
+        const contentHash = await sha256Hex(buf);
         stats.set(path, {
           path,
           isDir: false,
-          mtime: Date.now(),
+          mtime,
           size: buf.byteLength,
-          hash: await sha256Hex(buf),
+          hash: contentHash, // SHA-256 content hash (simulates ETag from real WebDAV server)
         });
       }
       return { stats, complete: true };
@@ -54,8 +80,10 @@ function createMemoryBackend(): {
       const key = norm(path);
       const buf = files.get(key);
       if (!buf) throw new Error(`Not found: ${path}`);
+      const mtime = Math.floor(Date.now() / 1000) * 1000;
       return {
-        path: key, isDir: false, mtime: Date.now(), size: buf.byteLength, hash: '',
+        path: key, isDir: false, mtime, size: buf.byteLength,
+        hash: await sha256Hex(buf),
       };
     },
 
@@ -166,6 +194,26 @@ function createMockVault(initialFiles: VaultFile[] = []) {
       adapter: adapter as any,
       getRoot: () => ({ path: '/' }),
       getAbstractFileByPath: (p: string) => vaultFiles.has(p) ? { path: p } : null,
+      getAllLoadedFiles: () => {
+        const result: Array<{ path: string; stat: { mtime: number; size: number; ctime: number } }> = [];
+        for (const [path, f] of vaultFiles) {
+          result.push({
+            path,
+            stat: { mtime: f.mtime, size: new TextEncoder().encode(f.content).byteLength, ctime: f.mtime },
+          });
+        }
+        return result;
+      },
+      getFiles: () => {
+        const result: Array<{ path: string; stat: { mtime: number; size: number; ctime: number } }> = [];
+        for (const [path, f] of vaultFiles) {
+          result.push({
+            path,
+            stat: { mtime: f.mtime, size: new TextEncoder().encode(f.content).byteLength, ctime: f.mtime },
+          });
+        }
+        return result;
+      },
       trash: async (file: any, system: boolean) => {
         vaultFiles.delete(file.path);
       },
@@ -232,6 +280,8 @@ describe('SyncEngine Integration', () => {
     });
   });
 
+  const BASE_MTIME = 1700000000000; // realistic timestamp that survives normalizeMtime
+
   describe('Incremental sync — local change', () => {
     it('should push locally modified file', async () => {
       const { backend, files: remoteFiles } = createMemoryBackend();
@@ -241,12 +291,12 @@ describe('SyncEngine Integration', () => {
       remoteFiles.set('note.md', remoteBuf);
 
       const { mockApp } = createMockVault([
-        { path: 'note.md', content: 'updated local content', mtime: 300 },
+        { path: 'note.md', content: 'updated local content', mtime: BASE_MTIME + 5000 },
       ]);
 
-      // Pre-seed sync record where remote hash matches actual remote content
-      // (so remote appears unchanged, only local changed → push)
+      // Pre-seed sync record: local was "old content", remote also "old content"
       const engine = createEngine(backend, mockApp);
+      const nMt = normalizeMtime(BASE_MTIME);
       await engine.loadState({
         wewrite_sync_record: {
           version: 2,
@@ -254,8 +304,8 @@ describe('SyncEngine Integration', () => {
           lastSyncAt: Date.now() - 60000,
           files: {
             'note.md': {
-              localMtime: 100, localSize: 11, localHash: oldHash,
-              remoteMtime: 100, remoteSize: 11, remoteHash: oldHash,
+              localMtime: nMt, localSize: oldContent.length, localHash: oldHash,
+              remoteMtime: nMt, remoteSize: oldContent.length, remoteHash: oldHash,
             },
           },
         },
@@ -264,7 +314,6 @@ describe('SyncEngine Integration', () => {
       const result = await engine.sync('manual');
 
       expect(result.ok).toBe(true);
-      // Remote should now have updated content
       const remoteContent = new TextDecoder().decode(remoteFiles.get('note.md')!);
       expect(remoteContent).toBe('updated local content');
     });
@@ -272,15 +321,18 @@ describe('SyncEngine Integration', () => {
 
   describe('Incremental sync — remote change', () => {
     it('should pull remotely modified file', async () => {
+      const oldContent = 'old content';
+      const oldHash = await sha256Hex(new TextEncoder().encode(oldContent).buffer as ArrayBuffer);
       const { backend, files: remoteFiles } = createMemoryBackend();
       const { mockApp, vaultFiles } = createMockVault([
-        { path: 'note.md', content: 'old content', mtime: 100 },
+        { path: 'note.md', content: oldContent, mtime: BASE_MTIME },
       ]);
 
-      // Remote has new content
+      // Remote has new content (different from record)
       remoteFiles.set('note.md', new TextEncoder().encode('new remote content').buffer as ArrayBuffer);
 
       const engine = createEngine(backend, mockApp);
+      const nMt = normalizeMtime(BASE_MTIME);
       await engine.loadState({
         wewrite_sync_record: {
           version: 2,
@@ -288,8 +340,8 @@ describe('SyncEngine Integration', () => {
           lastSyncAt: Date.now() - 60000,
           files: {
             'note.md': {
-              localMtime: 100, localSize: 11, localHash: '00000000',
-              remoteMtime: 100, remoteSize: 11, remoteHash: '00000000',
+              localMtime: nMt, localSize: oldContent.length, localHash: oldHash,
+              remoteMtime: nMt, remoteSize: oldContent.length, remoteHash: oldHash,
             },
           },
         },
@@ -304,14 +356,17 @@ describe('SyncEngine Integration', () => {
 
   describe('Conflict detection', () => {
     it('should detect when both sides modified the same file', async () => {
+      const oldContent = 'shared content';
+      const oldHash = await sha256Hex(new TextEncoder().encode(oldContent).buffer as ArrayBuffer);
       const { backend, files: remoteFiles } = createMemoryBackend();
       const { mockApp } = createMockVault([
-        { path: 'data.json', content: 'local data', mtime: 300 },
+        { path: 'data.json', content: 'local data', mtime: BASE_MTIME + 5000 },
       ]);
 
       remoteFiles.set('data.json', new TextEncoder().encode('remote data').buffer as ArrayBuffer);
 
       const engine = createEngine(backend, mockApp);
+      const nMt = normalizeMtime(BASE_MTIME);
       await engine.loadState({
         wewrite_sync_record: {
           version: 2,
@@ -319,8 +374,8 @@ describe('SyncEngine Integration', () => {
           lastSyncAt: Date.now() - 60000,
           files: {
             'data.json': {
-              localMtime: 100, localSize: 9, localHash: '00000000',
-              remoteMtime: 100, remoteSize: 9, remoteHash: '00000000',
+              localMtime: nMt, localSize: oldContent.length, localHash: oldHash,
+              remoteMtime: nMt, remoteSize: oldContent.length, remoteHash: oldHash,
             },
           },
         },
@@ -328,10 +383,8 @@ describe('SyncEngine Integration', () => {
 
       const result = await engine.sync('manual');
 
-      // Binary files produce conflicts, not merge
-      const conflicts = engine.getPendingConflicts();
-      expect(conflicts.length).toBeGreaterThanOrEqual(0);
       // data.json is non-markdown → conflict
+      const conflicts = engine.getPendingConflicts();
       expect(conflicts.some(c => c.localPath === 'data.json')).toBe(true);
     });
   });
@@ -372,12 +425,15 @@ describe('SyncEngine Integration', () => {
 
   describe('Deletion propagation', () => {
     it('should delete locally when remote file was deleted', async () => {
+      const oldContent = 'old';
+      const oldHash = await sha256Hex(new TextEncoder().encode(oldContent).buffer as ArrayBuffer);
       const { backend } = createMemoryBackend(); // empty remote
       const { mockApp, vaultFiles } = createMockVault([
-        { path: 'old.md', content: 'old', mtime: 100 },
+        { path: 'old.md', content: oldContent, mtime: BASE_MTIME },
       ]);
 
       const engine = createEngine(backend, mockApp);
+      const nMt = normalizeMtime(BASE_MTIME);
       await engine.loadState({
         wewrite_sync_record: {
           version: 2,
@@ -385,8 +441,8 @@ describe('SyncEngine Integration', () => {
           lastSyncAt: Date.now() - 60000,
           files: {
             'old.md': {
-              localMtime: 100, localSize: 3, localHash: '00000000',
-              remoteMtime: 100, remoteSize: 3, remoteHash: '00000000',
+              localMtime: nMt, localSize: oldContent.length, localHash: oldHash,
+              remoteMtime: nMt, remoteSize: oldContent.length, remoteHash: oldHash,
             },
           },
         },

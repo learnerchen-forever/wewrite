@@ -2,6 +2,7 @@
 // Log is written incrementally as the sync cycle progresses so interrupted cycles leave a trace.
 
 import type { App } from 'obsidian';
+import type { DecisionDetail } from '../sync/types';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { ensureUniqueName } from './dump-naming';
 
@@ -39,6 +40,8 @@ export interface SyncActionLog {
   durationMs: number;
   result: string;
   message: string;
+  /** HTTP status code from the server response (if an error occurred). */
+  httpStatus?: number;
 }
 
 export interface SyncChangesData {
@@ -55,12 +58,18 @@ export interface SyncScheduledData {
   pull: number;
   merge: number;
   mkdirRemote: number;
+  mkdirLocal: number;
   removeRemote: number;
   removeLocal: number;
   conflicts: number;
   concurrency: number;
   batchDelayMs: number;
   walkDelayMs: number;
+  /** Rate limiter configuration */
+  rateLimiterTokenCapacity?: number;
+  rateLimiterTokenPeriodMin?: number;
+  minIntervalMs?: number;
+  serverProvider?: string;
 }
 
 export interface SyncResultData {
@@ -73,6 +82,11 @@ export interface SyncResultData {
   conflicts: number;
   aborted: boolean;
   abortReason?: string;
+  /** Final rate limiter state at end of sync cycle. */
+  rateLimiterFinalState?: {
+    tokensRemaining: number;
+    bucketLevel: number;
+  };
 }
 
 // ── Internal helpers ──
@@ -124,9 +138,14 @@ export async function createSyncLog(
   lines.push('*Awaiting walk...*');
   lines.push('');
 
-  lines.push('## Scheduled');
+  lines.push('## Decision Detail');
   lines.push('');
   lines.push('*Awaiting decision...*');
+  lines.push('');
+
+  lines.push('## Scheduled');
+  lines.push('');
+  lines.push('*Awaiting scheduled...*');
   lines.push('');
 
   lines.push('## Sync Action Detail');
@@ -159,6 +178,39 @@ export async function appendChangesSection(
   await writeLog(app, filePath, updated);
 }
 
+export async function appendDecisionDetailSection(
+  app: App,
+  filePath: string,
+  details: DecisionDetail[],
+): Promise<void> {
+  if (details.length === 0) return;
+
+  const lines: string[] = [];
+  lines.push('| Path | Action | Reason | L-mtime | R-mtime | L-hash | R-hash | Rec-L-hash | Rec-R-hash | ⚠Fmt |');
+  lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+
+  for (const d of details) {
+    const fmt = d.remoteHashFormatMismatch ? '**YES**' : '—';
+    lines.push(
+      '| ' + d.path +
+      ' | ' + d.action +
+      ' | ' + d.reason +
+      ' | ' + (d.localMtime || '—') +
+      ' | ' + (d.remoteMtime || '—') +
+      ' | `' + d.localHashShort + '`' +
+      ' | `' + d.remoteHashShort + '`' +
+      ' | `' + d.recordLocalHashShort + '`' +
+      ' | `' + d.recordRemoteHashShort + '`' +
+      ' | ' + fmt + ' |'
+    );
+  }
+  lines.push('');
+
+  const existing = await readLog(app, filePath);
+  const updated = existing.replace(/\*Awaiting decision\.\.\.\*/, lines.join('\n'));
+  await writeLog(app, filePath, updated);
+}
+
 export async function appendScheduledSection(
   app: App,
   filePath: string,
@@ -173,15 +225,17 @@ export async function appendScheduledSection(
   if (data.merge > 0) lines.push('| Merge | ' + data.merge + ' |');
   if (data.mkdirRemote > 0) lines.push('| Mkdir remote | ' + data.mkdirRemote + ' |');
   if (data.removeRemote > 0) lines.push('| Remove remote | ' + data.removeRemote + ' |');
+  if (data.mkdirLocal > 0) lines.push('| Mkdir local | ' + data.mkdirLocal + ' |');
   if (data.removeLocal > 0) lines.push('| Remove local | ' + data.removeLocal + ' |');
   if (data.conflicts > 0) lines.push('| Conflicts | ' + data.conflicts + ' |');
   lines.push('| Concurrency | ' + data.concurrency + ' |');
-  lines.push('| Batch delay | ' + data.batchDelayMs + 'ms |');
-  lines.push('| Walk delay | ' + data.walkDelayMs + 'ms |');
+  lines.push('| Min request interval | ' + (data.minIntervalMs ?? data.batchDelayMs) + 'ms |');
+  if (data.serverProvider) lines.push('| Server provider | ' + data.serverProvider + ' |');
+  if (data.rateLimiterTokenCapacity) lines.push('| Rate limit tokens | ' + data.rateLimiterTokenCapacity + ' / ' + data.rateLimiterTokenPeriodMin + 'min |');
   lines.push('');
 
   const content = await readLog(app, filePath);
-  const updated = content.replace(/\*Awaiting decision\.\.\.\*/, lines.join('\n'));
+  const updated = content.replace(/\*Awaiting scheduled\.\.\.\*/, lines.join('\n'));
   await writeLog(app, filePath, updated);
 }
 
@@ -196,8 +250,8 @@ export async function appendActionDetailRows(
   const lines: string[] = [];
 
   if (!actionTableHeaderWritten) {
-    lines.push('| # | Time | Path | Kind | Size | Duration | Result | Message |');
-    lines.push('| --- | --- | --- | --- | --- | --- | --- | --- |');
+    lines.push('| # | Time | Path | Kind | Size | Duration | HTTP | Result | Message |');
+    lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
     actionTableHeaderWritten = true;
   }
 
@@ -205,10 +259,23 @@ export async function appendActionDetailRows(
     const size = a.sizeBytes > 0 ? fmtSize(a.sizeBytes) : '—';
     const dur = fmtDuration(a.durationMs);
     const safeMsg = a.message ? a.message.replace(/\|/g, '\\|') : '';
-    lines.push('| ' + a.index + ' | ' + timeStr(a.timestamp) + ' | ' + a.path + ' | ' + a.kind + ' | ' + size + ' | ' + dur + ' | ' + a.result + ' | ' + safeMsg + ' |');
+    const httpCol = a.httpStatus ? String(a.httpStatus) : '—';
+    lines.push('| ' + a.index + ' | ' + timeStr(a.timestamp) + ' | ' + a.path + ' | ' + a.kind + ' | ' + size + ' | ' + dur + ' | ' + httpCol + ' | ' + a.result + ' | ' + safeMsg + ' |');
   }
 
-  await appendToLog(app, filePath, lines);
+  // Insert action detail rows into the Sync Action Detail section,
+  // before the Sync Result section. Don't just append to end of file.
+  const existing = await readLog(app, filePath);
+  const syncResultMarker = '\n## Sync Result\n';
+  const idx = existing.indexOf(syncResultMarker);
+  if (idx >= 0) {
+    const before = existing.slice(0, idx);
+    const after = existing.slice(idx);
+    await writeLog(app, filePath, before + lines.join('\n') + '\n' + after);
+  } else {
+    // Fallback: append to end (shouldn't happen in normal flow)
+    await writeLog(app, filePath, existing + lines.join('\n') + '\n');
+  }
 }
 
 export async function finalizeSyncLog(
@@ -233,6 +300,9 @@ export async function finalizeSyncLog(
   lines.push('| Succeeded | ' + data.succeeded + ' |');
   lines.push('| Failed | ' + data.failed + ' |');
   if (data.conflicts > 0) lines.push('| Conflicts | ' + data.conflicts + ' |');
+  if (data.rateLimiterFinalState) {
+    lines.push('| RL tokens remaining | ' + data.rateLimiterFinalState.tokensRemaining + ' (' + data.rateLimiterFinalState.bucketLevel + '%) |');
+  }
   lines.push('| Status | **' + status + '** |');
   if (data.abortReason) {
     lines.push('| Abort reason | ' + data.abortReason + ' |');

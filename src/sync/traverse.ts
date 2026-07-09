@@ -1,75 +1,80 @@
-// Vault traversal — walk local vault and collect file stats with content hashing
+// Vault traversal — collect file stats with content hashing.
+// Pattern matches remotely-save's FakeFsLocal.walk(): uses Obsidian's built-in
+// vault index (vault.getFiles()) instead of manual vault.adapter.list() recursion.
+// vault.adapter.list() interprets "/" as filesystem root on Windows, escaping the vault.
 
-import type { Vault } from 'obsidian';
+import type { Vault, TAbstractFile } from 'obsidian';
 import type { FileStat, SyncEntry } from './types';
-import { sha256Hex } from './hash';
+import { sha256Hex, normalizeMtime } from './hash';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('Sync:Traverse');
 
 /**
- * Walk the local vault recursively, collecting FileStat for every file.
- * Computes SHA-256 hashes for files that are new or have changed (by mtime/size)
- * since last sync, reusing recorded hashes for unchanged files.
+ * Walk the local vault using Obsidian's internal file index.
+ * Includes both files (with content hashes) and empty directories.
  */
 export async function walkLocal(
   vault: Vault,
   records: Map<string, SyncEntry>,
 ): Promise<Map<string, FileStat>> {
   const stats = new Map<string, FileStat>();
-  const queue = [''];
-  const rootPath = vault.getRoot().path.replace(/\/$/, '') || '/';
 
-  while (queue.length > 0) {
-    const currentPath = queue.shift()!;
-    const fullPath = currentPath
-      ? `${rootPath === '/' ? '' : rootPath}/${currentPath}`
-      : rootPath;
+  // Use getAllLoadedFiles to include directories, not just files.
+  // Obsidian's Vault always loads all items; this is a cheap index lookup.
+  const allItems = (vault as any).getAllLoadedFiles?.() as TAbstractFile[] | undefined;
+  const items: TAbstractFile[] = allItems ?? (vault.getFiles() as any);
 
-    try {
-      const listing = await vault.adapter.list(fullPath);
-      for (const filePath of listing.files) {
-        const stat = await vault.adapter.stat(filePath);
-        if (!stat) continue;
+  let fileCount = 0;
+  let dirCount = 0;
 
-        // Compute vault-relative path: strip root prefix and leading slash
-        let normalized = filePath;
-        if (rootPath !== '/' && normalized.startsWith(rootPath + '/')) {
-          normalized = normalized.slice(rootPath.length + 1);
-        } else if (rootPath !== '/' && normalized === rootPath) {
-          normalized = '';
-        }
-        normalized = normalized.replace(/^\//, '');
+  for (const item of items) {
+    const vPath = item.path;
+    // Skip root
+    if (vPath === '' || vPath === '/') continue;
 
-        // Compute hash for changed/new files
-        const record = records.get(normalized);
-        let hash = '';
-        if (!record || stat.mtime !== record.localMtime || stat.size !== record.localSize) {
-          try {
-            const content = await vault.adapter.readBinary(filePath);
-            hash = await sha256Hex(content);
-          } catch { /* skip files we can't read */ }
-        } else {
-          hash = record.localHash;
-        }
+    // Check if this is a folder (TFolder has children, TFile has stat)
+    const isFolder = !('stat' in item && typeof item.stat === 'object');
 
-        stats.set(normalized, {
-          path: normalized,
-          isDir: false,
-          mtime: stat.mtime,
-          size: stat.size,
-          hash,
-        });
-      }
-      for (const folderPath of listing.folders) {
-        const relPath = folderPath
-          .replace(/^\//, '')
-          .replace(rootPath + '/', '')
-          .replace(rootPath, '');
-        queue.push(relPath || folderPath);
-      }
-    } catch { /* skip inaccessible directories */ }
+    if (isFolder) {
+      // Directory — no content, no hash
+      stats.set(vPath, {
+        path: vPath,
+        isDir: true,
+        mtime: 0,
+        size: 0,
+        hash: '',
+      });
+      dirCount++;
+      continue;
+    }
+
+    // File — compute hash as before
+    const file = item as any;
+    const stat = file.stat;
+    const mtime = normalizeMtime(stat.mtime > 0 ? stat.mtime : stat.ctime);
+
+    const record = records.get(vPath);
+    let hash = '';
+    if (!record || mtime !== record.localMtime || stat.size !== record.localSize) {
+      try {
+        const content = await vault.readBinary(file);
+        hash = await sha256Hex(content);
+      } catch { /* skip unreadable files */ }
+    } else {
+      hash = record.localHash;
+    }
+
+    stats.set(vPath, {
+      path: vPath,
+      isDir: false,
+      mtime,
+      size: stat.size,
+      hash,
+    });
+    fileCount++;
   }
 
+  log.info('walkLocal done', { files: fileCount, dirs: dirCount, recordEntries: records.size });
   return stats;
 }

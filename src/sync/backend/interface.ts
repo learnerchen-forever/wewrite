@@ -23,6 +23,9 @@ export interface SyncBackend {
   /** Recursively list all files under a base directory. */
   walk(baseDir: string): Promise<WalkResult>;
 
+  /** Access the rate limiter for error classification and diagnostics (optional). */
+  getLimiter?(): unknown;
+
   /** Read entire file content. */
   readFile(path: string): Promise<ArrayBuffer>;
 

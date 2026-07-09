@@ -65,7 +65,7 @@ export class MkdirRemoteTask extends BaseTask {
   async exec(): Promise<TaskResult> {
     try {
       // Create parent directories recursively
-      const parts = this.remotePath.split('/').filter(Boolean);
+      const parts = this.localPath.split('/').filter(Boolean);
       let current = '';
       for (const part of parts.slice(0, -1)) { // exclude filename
         current += '/' + part;
@@ -75,6 +75,34 @@ export class MkdirRemoteTask extends BaseTask {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { success: false, error: new TaskError(msg, 'mkdir_remote', this.localPath) };
+    }
+  }
+}
+
+export class MkdirLocalTask extends BaseTask {
+  readonly kind = 'mkdir_local' as const;
+  describe(): string { return `Create local dir ${this.localPath}`; }
+
+  async exec(): Promise<TaskResult> {
+    try {
+      // Build parent directories level by level
+      const parts = this.localPath.split('/').filter(Boolean);
+      let current = '';
+      for (const part of parts) {
+        current += (current ? '/' : '') + part;
+        const exists = await this.vault.adapter.exists(current);
+        if (!exists) {
+          await this.vault.createFolder(current);
+          log.debug('created local dir', { path: current });
+        }
+      }
+      return { success: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('already exists') || msg.includes('EEXIST')) {
+        return { success: true };
+      }
+      return { success: false, error: new TaskError(msg, 'mkdir_local', this.localPath) };
     }
   }
 }

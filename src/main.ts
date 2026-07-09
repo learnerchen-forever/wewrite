@@ -166,11 +166,13 @@ export default class WeWritePlugin extends Plugin {
 
     // Visibility change — trigger sync when app comes back to foreground
     this.registerDomEvent(document, 'visibilitychange', () => {
-      if (document.visibilityState === 'visible' && this.syncScheduler?.isRunning) {
+      if (document.visibilityState === 'visible' && this.settings.syncEnabled) {
         // Debounce: wait 3 seconds before syncing to avoid spamming on rapid switches
-        setTimeout(() => {
-          if (document.visibilityState === 'visible') {
-            void this.syncScheduler.syncNow('manual');
+        if (this.visibilityTimer) clearTimeout(this.visibilityTimer);
+        this.visibilityTimer = setTimeout(() => {
+          this.visibilityTimer = null;
+          if (document.visibilityState === 'visible' && !this.syncScheduler?.isInCooldown) {
+            void this.syncScheduler?.syncNow('manual');
           }
         }, 3000);
       }
@@ -221,6 +223,11 @@ export default class WeWritePlugin extends Plugin {
     // Cancel any in-progress sync
     this.syncScheduler?.stop();
     this.syncEngine?.cancel();
+
+    // Clear all pending timers
+    if (this.saveTimer !== null) { clearTimeout(this.saveTimer); this.saveTimer = null; }
+    if (this.fileChangeDebounceTimer) { clearTimeout(this.fileChangeDebounceTimer); this.fileChangeDebounceTimer = null; }
+    if (this.visibilityTimer) { clearTimeout(this.visibilityTimer); this.visibilityTimer = null; }
 
     // Detach material view leaves so they are not persisted in workspace state.
     this.app.workspace.getLeavesOfType(VIEW_TYPE_MATERIAL).forEach((leaf) => leaf.detach());
@@ -306,18 +313,24 @@ export default class WeWritePlugin extends Plugin {
 
   /** Debounced sync trigger on local file changes. Fires 30s after the last change. */
   private fileChangeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private visibilityTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly FILE_CHANGE_DEBOUNCE_MS = 30_000;
 
   private onVaultFileChange(): void {
-    if (!this.syncScheduler?.isRunning) return;
+    if (!this.settings.syncEnabled) return;
     if (this.fileChangeDebounceTimer) clearTimeout(this.fileChangeDebounceTimer);
     this.fileChangeDebounceTimer = setTimeout(() => {
-      void this.syncScheduler.syncNow('manual');
+      if (this.syncScheduler?.isInCooldown) return;
+      void this.syncScheduler?.syncNow('manual');
     }, this.FILE_CHANGE_DEBOUNCE_MS);
   }
 
   /** Reset sync state to a clean slate. Local and remote files are untouched. */
   async resetSync(): Promise<void> {
+    // Stop scheduler and cancel any in-progress sync cycle
+    this.syncScheduler?.stop();
+    this.syncEngine?.cancel();
+
     // Clear engine state
     this.syncEngine?.resetState();
 
@@ -334,6 +347,8 @@ export default class WeWritePlugin extends Plugin {
 
     // Persist cleared state
     await this.saveSettings();
+    // Scheduler is intentionally not restarted — reset clears state only.
+    // User starts sync manually via the [Start Sync] button, or on next plugin load.
   }
 
   /** Debounced save — coalesces rapid auto-save calls into a single write. */

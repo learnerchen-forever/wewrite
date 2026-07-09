@@ -91,7 +91,7 @@ export class MaterialView extends ItemView {
     }));
 
     // Re-render on language change so all labels update
-    onLanguageChange(() => { this.refreshView(); });
+    this._eventBusUnsubs.push(onLanguageChange(() => { this.refreshView(); }));
   }
 
   async onClose(): Promise<void> {

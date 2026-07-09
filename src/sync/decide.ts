@@ -5,6 +5,7 @@ import type {
   SyncEntry,
   DecisionInput,
   DecisionOutput,
+  DecisionDetail,
   ClassifyResult,
   PendingConflict,
   RenameDetection,
@@ -13,6 +14,9 @@ import type {
 } from './types';
 import { generateUUID } from './types';
 import { detectRenames, applyRenames } from './rename';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('Sync:Decide');
 
 // ── Changed Detection ──
 
@@ -29,7 +33,17 @@ export function isChanged(
   }
   // Slow path: metadata differs → compare hashes
   const recHash = side === 'local' ? recorded.localHash : recorded.remoteHash;
-  return current.hash !== recHash;
+  const changed = current.hash !== recHash;
+  if (side === 'remote' && changed) {
+    log.info('remote hash mismatch (may indicate format incompatibility)', {
+      path: current.path,
+      currentHash: current.hash?.slice(0, 20),
+      recordHash: recHash?.slice(0, 20),
+      currentMtime: current.mtime,
+      recordMtime: recMtime,
+    });
+  }
+  return changed;
 }
 
 // ── Helpers ──
@@ -95,7 +109,34 @@ function removeLocalTask(path: string, remoteBaseDir: string): DummyTask {
   return { kind: 'remove_local', localPath: path, remotePath: remotePath.replace(/\/\//g, '/') };
 }
 
-// ── classifyAndAct — Maps (local, remote, record) → ClassifyResult ──
+// ── Decision detail helper ──
+
+function makeDetail(
+  path: string,
+  action: string,
+  reason: string,
+  local: FileStat | undefined,
+  remote: FileStat | undefined,
+  record: SyncEntry | undefined,
+  remoteHashFmtMismatch = false,
+): DecisionDetail {
+  return {
+    path,
+    action,
+    reason,
+    localMtime: local?.mtime ?? 0,
+    remoteMtime: remote?.mtime ?? 0,
+    localSize: local?.size ?? 0,
+    remoteSize: remote?.size ?? 0,
+    localHashShort: (local?.hash || '-').slice(0, 12),
+    remoteHashShort: (remote?.hash || '-').slice(0, 12),
+    recordLocalHashShort: (record?.localHash || '-').slice(0, 12),
+    recordRemoteHashShort: (record?.remoteHash || '-').slice(0, 12),
+    remoteHashFormatMismatch: remoteHashFmtMismatch,
+  };
+}
+
+// ── classifyAndAct — Maps (local, remote, record) → ClassifyResult + DecisionDetail ──
 
 function classifyAndAct(
   path: string,
@@ -103,48 +144,79 @@ function classifyAndAct(
   remote: FileStat | undefined,
   record: SyncEntry | undefined,
   remoteBaseDir: string,
-): ClassifyResult {
+): { result: ClassifyResult; detail: DecisionDetail } {
   const hasLocal = !!local;
   const hasRemote = !!remote;
   const hasRecord = !!record;
 
   // Case 15: Both deleted
   if (!hasLocal && !hasRemote && hasRecord) {
-    return { type: 'auto', tasks: [], isDelete: false };  // clean record handled in decide()
+    return {
+      result: { type: 'auto', tasks: [], isDelete: false },
+      detail: makeDetail(path, 'no-op', 'Case 15: both deleted, clean record', local, remote, record),
+    };
   }
 
-  // Case 1: New local file
+  // Case 1: New local file or folder
   if (hasLocal && !hasRemote && !hasRecord) {
-    return { type: 'auto', tasks: [pushTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false };
+    if (local!.isDir) {
+      return {
+        result: { type: 'auto', tasks: [mkdirRemoteTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+        detail: makeDetail(path, 'mkdir_remote', 'Case 1: new local folder', local, remote, record),
+      };
+    }
+    return {
+      result: { type: 'auto', tasks: [pushTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+      detail: makeDetail(path, 'push', 'Case 1: new local file', local, remote, record),
+    };
   }
 
-  // Case 2: New remote file
+  // Case 2: New remote file or folder
   if (!hasLocal && hasRemote && !hasRecord) {
-    return { type: 'auto', tasks: [pullTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false };
+    if (remote!.isDir) {
+      return {
+        result: { type: 'auto', tasks: [{ kind: 'mkdir_local', localPath: path, remotePath: `${remoteBaseDir}/${path}`.replace(/\/\//g, '/') } as unknown as import('./types').BaseTask], isDelete: false },
+        detail: makeDetail(path, 'mkdir_local', 'Case 2: new remote folder', local, remote, record),
+      };
+    }
+    return {
+      result: { type: 'auto', tasks: [pullTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+      detail: makeDetail(path, 'pull', 'Case 2: new remote file', local, remote, record),
+    };
   }
 
   // Type mismatch cases
   if (hasLocal && hasRemote && local!.isDir !== remote!.isDir) {
-    // Case 16/17: file vs folder
-    return { type: 'conflict', reason: 'type_mismatch' };
+    return {
+      result: { type: 'conflict', reason: 'type_mismatch' },
+      detail: makeDetail(path, 'conflict', 'Case 16/17: file vs folder type mismatch', local, remote, record),
+    };
   }
 
   // Both exist, no record
   if (hasLocal && hasRemote && !hasRecord) {
     if (local!.hash === remote!.hash) {
-      // Case 3: Both sides agree → record only
-      return { type: 'auto', tasks: [], isDelete: false };
+      return {
+        result: { type: 'auto', tasks: [], isDelete: false },
+        detail: makeDetail(path, 'no-op', 'Case 3: both sides identical hash', local, remote, record),
+      };
     }
     if (local!.mtime > remote!.mtime) {
-      // Case 4: Local newer → push
-      return { type: 'auto', tasks: [pushTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false };
+      return {
+        result: { type: 'auto', tasks: [pushTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+        detail: makeDetail(path, 'push', 'Case 4: local newer (no record)', local, remote, record),
+      };
     }
     if (remote!.mtime > local!.mtime) {
-      // Case 5: Remote newer → pull
-      return { type: 'auto', tasks: [pullTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false };
+      return {
+        result: { type: 'auto', tasks: [pullTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+        detail: makeDetail(path, 'pull', 'Case 5: remote newer (no record)', local, remote, record),
+      };
     }
-    // Same mtime, different hash → genuine simultaneous edit or clock skew
-    return { type: 'conflict', reason: 'both_modified' };
+    return {
+      result: { type: 'conflict', reason: 'both_modified' },
+      detail: makeDetail(path, 'conflict', 'Case 6: same mtime, different hash — simultaneous edit', local, remote, record),
+    };
   }
 
   // Both exist, record exists
@@ -153,48 +225,75 @@ function classifyAndAct(
     const remoteChg = isChanged(remote!, record, 'remote');
 
     if (!localChg && !remoteChg) {
-      // Case 7: Nothing changed
-      return { type: 'auto', tasks: [], isDelete: false };
+      return {
+        result: { type: 'auto', tasks: [], isDelete: false },
+        detail: makeDetail(path, 'no-op', 'Case 7: both unchanged', local, remote, record),
+      };
     }
     if (localChg && !remoteChg) {
-      // Case 8: Local edited → push
-      return { type: 'auto', tasks: [pushTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false };
+      return {
+        result: { type: 'auto', tasks: [pushTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+        detail: makeDetail(path, 'push', 'Case 8: local edited, remote unchanged', local, remote, record),
+      };
     }
     if (!localChg && remoteChg) {
-      // Case 9: Remote edited → pull
-      return { type: 'auto', tasks: [pullTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false };
+      // Detect hash format mismatch for diagnostic purposes
+      const hashFmtMismatch = record.remoteHash.length === 64 && (remote?.hash?.length ?? 0) < 64
+        ? (record.remoteHash.match(/^[0-9a-f]{64}$/) !== null)  // record has SHA-256
+        : false;
+      return {
+        result: { type: 'auto', tasks: [pullTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+        detail: makeDetail(path, 'pull', 'Case 9: remote edited, local unchanged', local, remote, record, hashFmtMismatch),
+      };
     }
     // Case 10: Both changed → try merge
     if (isMarkdown(path)) {
-      return { type: 'auto', tasks: [{ kind: 'merge', localPath: path, remotePath: `${remoteBaseDir}/${path}`.replace(/\/\//g, '/'), exec: async () => ({ success: true }), describe: () => 'merge' } as unknown as import('./types').BaseTask], isDelete: false };
+      return {
+        result: { type: 'auto', tasks: [{ kind: 'merge', localPath: path, remotePath: `${remoteBaseDir}/${path}`.replace(/\/\//g, '/'), exec: async () => ({ success: true }), describe: () => 'merge' } as unknown as import('./types').BaseTask], isDelete: false },
+        detail: makeDetail(path, 'merge', 'Case 10: both changed, auto-merge', local, remote, record),
+      };
     }
-    return { type: 'conflict', reason: 'both_modified' };
+    return {
+      result: { type: 'conflict', reason: 'both_modified' },
+      detail: makeDetail(path, 'conflict', 'Case 10: both changed, not markdown — conflict', local, remote, record),
+    };
   }
 
   // Local exists, remote absent, record exists
   if (hasLocal && !hasRemote && hasRecord) {
     const localChg = isChanged(local!, record, 'local');
     if (!localChg) {
-      // Case 11: Remote deleted, local unchanged → delete local
-      return { type: 'auto', tasks: [removeLocalTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: true };
+      return {
+        result: { type: 'auto', tasks: [removeLocalTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: true },
+        detail: makeDetail(path, 'delete_local', 'Case 11: remote deleted, local unchanged — delete local', local, remote, record),
+      };
     }
-    // Case 12: Remote deleted, local modified → conflict
-    return { type: 'conflict', reason: 'remote_deleted_local_modified' };
+    return {
+      result: { type: 'conflict', reason: 'remote_deleted_local_modified' },
+      detail: makeDetail(path, 'conflict', 'Case 12: remote deleted, local modified', local, remote, record),
+    };
   }
 
   // Remote exists, local absent, record exists
   if (!hasLocal && hasRemote && hasRecord) {
     const remoteChg = isChanged(remote!, record, 'remote');
     if (!remoteChg) {
-      // Case 13: Local deleted, remote unchanged → delete remote
-      return { type: 'auto', tasks: [removeRemoteTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: true };
+      return {
+        result: { type: 'auto', tasks: [removeRemoteTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: true },
+        detail: makeDetail(path, 'delete_remote', 'Case 13: local deleted, remote unchanged — delete remote', local, remote, record),
+      };
     }
-    // Case 14: Local deleted, remote modified → conflict
-    return { type: 'conflict', reason: 'local_deleted_remote_modified' };
+    return {
+      result: { type: 'conflict', reason: 'local_deleted_remote_modified' },
+      detail: makeDetail(path, 'conflict', 'Case 14: local deleted, remote modified', local, remote, record),
+    };
   }
 
   // Fallback (should never reach here)
-  return { type: 'auto', tasks: [], isDelete: false };
+  return {
+    result: { type: 'auto', tasks: [], isDelete: false },
+    detail: makeDetail(path, 'unknown', 'fallback: unhandled case', local, remote, record),
+  };
 }
 
 // ── decide() — Pure function: (localStats, remoteStats, records) → DecisionOutput ──
@@ -205,6 +304,7 @@ export function decide(input: DecisionInput): DecisionOutput {
   const pendingConflicts: PendingConflict[] = [];
   const renameDetections: RenameDetection[] = [];
   const warnings: SyncWarning[] = [];
+  const details: DecisionDetail[] = [];
   let deleteCount = 0;
   let totalCount = 0;
 
@@ -278,17 +378,22 @@ export function decide(input: DecisionInput): DecisionOutput {
     const local = localStats.get(path);
     const remote = remoteStats.get(path);
 
-    // Skip folder-vs-folder
-    if (local?.isDir && remote?.isDir) continue;
-    // Skip empty local-only folders
-    if (local?.isDir && !remote) continue;
-    // Skip empty remote-only folders
-    if (remote?.isDir && !local) continue;
+    // For folders: both exist → no-op (record-only). Otherwise fall through
+    // to standard classification (new → mkdir, deleted → remove).
+    if (local?.isDir && remote?.isDir) {
+      if (!adjustedRecords.has(path)) {
+        details.push(makeDetail(path, 'no-op', 'both dirs exist, record only', local, remote, undefined));
+      } else {
+        details.push(makeDetail(path, 'no-op', 'Case 7: both dirs unchanged', local, remote, adjustedRecords.get(path)));
+      }
+      continue;
+    }
 
     const record = adjustedRecords.get(path);
     totalCount++;
 
-    const result = classifyAndAct(path, local, remote, record, remoteBaseDir);
+    const { result, detail } = classifyAndAct(path, local, remote, record, remoteBaseDir);
+    details.push(detail);
 
     if (result.type === 'auto') {
       autoTasks.push(...result.tasks);
@@ -339,8 +444,9 @@ export function decide(input: DecisionInput): DecisionOutput {
       warnings: [{ code: 'DELETION_THRESHOLD', deleteCount, totalCount }],
       aborted: true,
       abortReason: `Sync would delete ${deleteCount}/${totalCount} files (${Math.round(deleteCount / totalCount * 100)}%), exceeding ${Math.round(deletionThreshold * 100)}% threshold.`,
+      details,
     };
   }
 
-  return { autoTasks, pendingConflicts, renameDetections, warnings, aborted: false };
+  return { autoTasks, pendingConflicts, renameDetections, warnings, aborted: false, details };
 }

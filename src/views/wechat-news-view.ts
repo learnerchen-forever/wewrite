@@ -187,12 +187,12 @@ export class WeChatNewsView extends ItemView {
     // User must click Refresh or switch style from dropdown to re-render.
 
     // Hot-switch translations when language changes
-    onLanguageChange(() => {
+    this._eventBusUnsubs.push(onLanguageChange(() => {
       this.refreshTitle();
       if (this.filePath) {
         this.renderContent();
       }
-    });
+    }));
   }
 
   async onClose(): Promise<void> {

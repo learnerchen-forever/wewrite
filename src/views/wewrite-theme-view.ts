@@ -189,6 +189,7 @@ export class WeWriteThemeView extends ItemView {
   private noteBody = '';
   private lastExternalMtime = 0;
   private dirty = false;
+  private _langUnsub?: () => void;
   private themeName = '';
   private suppressWatcher = false;
   private themeFormat: 'theme' | 'style' = 'theme';
@@ -284,14 +285,18 @@ export class WeWriteThemeView extends ItemView {
       else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); this.redo(); }
     });
 
-    onLanguageChange(() => { this.render(); });
+    this._langUnsub = onLanguageChange(() => { this.render(); });
   }
 
   private render(): void {
     this.buildEditor();
   }
 
-  async onClose(): Promise<void> { if (this.dirty) await this.flushSave(); }
+  async onClose(): Promise<void> {
+    this._langUnsub?.();
+    this._langUnsub = undefined;
+    if (this.dirty) await this.flushSave();
+  }
 
   private startWatching(): void {
     this.registerEvent(

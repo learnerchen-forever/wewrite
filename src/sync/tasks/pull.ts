@@ -4,7 +4,7 @@ import type { Vault } from 'obsidian';
 import type { SyncBackend } from '../backend/interface';
 import type { SyncRecordData, TaskResult } from '../types';
 import { upsertRecordEntry } from '../record';
-import { sha256Hex } from '../hash';
+import { sha256Hex, normalizeMtime } from '../hash';
 import { BaseTask } from './base';
 import { TaskError } from '../types';
 import { createLogger } from '../../utils/logger';
@@ -51,16 +51,42 @@ export class PullTask extends BaseTask {
       }
 
       const content = await this.backend.readFile(this.localPath);
+      const downloadedHash = await sha256Hex(content);
+
+      // If local file exists with identical content, skip backup+write entirely
+      if (preStat) {
+        try {
+          const localContent = await this.vault.adapter.readBinary(this.localPath);
+          const localHash = await sha256Hex(localContent);
+          if (localHash === downloadedHash) {
+            log.info('pull skipped: content identical, updating record only', { path: this.localPath });
+            const record = this.getRecord();
+            const isMarkdown = this.localPath.toLowerCase().endsWith('.md');
+            const entry: import('../types').SyncEntry = {
+              localMtime: normalizeMtime(preStat.mtime),
+              localSize: preStat.size,
+              localHash: downloadedHash,
+              remoteMtime: normalizeMtime(this.remoteMtime),
+              remoteSize: this.remoteSize,
+              remoteHash: this.remoteHash,
+            };
+            if (isMarkdown) {
+              entry.baseText = new TextDecoder().decode(content);
+            }
+            upsertRecordEntry(record, this.localPath, entry);
+            return { success: true, message: 'content identical, record updated' };
+          }
+        } catch { /* proceed with normal pull if local hash fails */ }
+      }
 
       // Backup local file before overwriting
       if (preStat) {
+        const backupPath = backupName(this.localPath);
         try {
-          await this.vault.adapter.rename(this.localPath, backupName(this.localPath));
+          await this.vault.adapter.rename(this.localPath, backupPath);
+          log.info('backup created before pull', { path: this.localPath, backup: backupPath });
         } catch { /* backup may fail if file doesn't exist */ }
       }
-
-      // Verify downloaded content
-      const downloadedHash = await sha256Hex(content);
 
       await this.vault.adapter.writeBinary(this.localPath, content);
 
@@ -71,10 +97,10 @@ export class PullTask extends BaseTask {
       const record = this.getRecord();
       const isMarkdown = this.localPath.toLowerCase().endsWith('.md');
       const entry: import('../types').SyncEntry = {
-        localMtime: localStat.mtime,
+        localMtime: normalizeMtime(localStat.mtime),
         localSize: localStat.size,
         localHash: downloadedHash,
-        remoteMtime: this.remoteMtime,
+        remoteMtime: normalizeMtime(this.remoteMtime),
         remoteSize: this.remoteSize,
         remoteHash: this.remoteHash,
       };

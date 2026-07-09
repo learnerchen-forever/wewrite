@@ -20,11 +20,12 @@ export interface OptimizationStats {
  */
 const ORDER: Record<TaskKind, number> = {
   mkdir_remote: 0,
-  merge: 1,
-  pull: 2,
-  push: 3,
-  remove_remote: 4,
-  remove_local: 5,
+  mkdir_local: 1,
+  merge: 2,
+  pull: 3,
+  push: 4,
+  remove_remote: 5,
+  remove_local: 6,
 };
 
 /**

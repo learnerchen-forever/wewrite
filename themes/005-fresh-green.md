@@ -1,33 +1,24 @@
 ---
 wewrite_theme: true
-wewrite_theme_name: "Fresh Green"
-wewrite_theme_version: "2.1"
-
-palette.accent: "#10b981"
-palette.accentDeep: "#059669"
-palette.text: "#1f2937"
-palette.textMuted: "#6b7280"
-palette.accentPreset: "green"
-typography.family: "sans-serif"
-typography.baseSize: 16
+wewrite_theme_name: Fresh Green
+page.background: '#f8fdfb'
+heading.decoration: none
+heading.color: accentDeep
+heading.h1.decoration: leftBorder
+heading.h2.decoration: leftBorder
+heading.h3.decoration: pill
+blocks.blockquote.style: lightCard
+blocks.blockquote.icon: check
+blocks.code.theme: githubLight
+blocks.table.headerStyle: accent
+blocks.callout.style: solid
+inline.link.style: colored
+inline.strong.style: accentBg
+media.image.frame: card
+media.image.borderRadius: medium
+media.image.shadow: subtle
+palette.accent: '#10b981'
 typography.lineHeight: 1.85
-page.background: "#f8fdfb"
-
-heading.decoration: "none"
-heading.h1.decoration: "leftBorder"
-heading.h2.decoration: "leftBorder"
-heading.h3.decoration: "lightBg"
-heading.color: "accentDeep"
-blocks.blockquote.style: "lightCard"
-blocks.blockquote.icon: "check"
-blocks.code.theme: "githubLight"
-blocks.table.headerStyle: "accent"
-blocks.callout.style: "solid"
-inline.link.style: "colored"
-inline.strong.style: "accentBg"
-media.image.frame: "card"
-media.image.borderRadius: "medium"
-media.image.shadow: "subtle"
 ---
 
 ## 描述

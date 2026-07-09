@@ -50,7 +50,7 @@ function makeAdapter(overrides: Partial<MockAdapter> = {}): MockAdapter {
     readBinary: jest.fn().mockResolvedValue(new TextEncoder().encode('binary content').buffer as ArrayBuffer),
     writeBinary: jest.fn().mockResolvedValue(undefined),
     write: jest.fn().mockResolvedValue(undefined),
-    stat: jest.fn().mockResolvedValue({ mtime: 200, size: 100, ctime: 100 }),
+    stat: jest.fn().mockResolvedValue({ mtime: 1720000000000, size: 100, ctime: 1720000000000 }),
     rename: jest.fn().mockResolvedValue(undefined),
     list: jest.fn().mockResolvedValue({ files: [], folders: [] }),
     exists: jest.fn().mockResolvedValue(true),
@@ -90,22 +90,24 @@ describe('Sync Tasks', () => {
   describe('PushTask', () => {
     it('should upload file to remote and update record', async () => {
       const vault = makeVault();
+      const TEST_MTIME = 1720000000000;
       const backend = makeBackend({
         stat: jest.fn().mockResolvedValue({
-          path: 'note.md', isDir: false, mtime: 300, size: 14, hash: '',
+          path: 'note.md', isDir: false, mtime: TEST_MTIME, size: 14, hash: '',
         }),
       });
       const record = makeRecord();
       const getRecord = () => record;
 
-      const task = new PushTask(backend, vault as any, getRecord, 'note.md', '/vault/note.md', 200, 14, '');
+      const task = new PushTask(backend, vault as any, getRecord, 'note.md', '/vault/note.md', TEST_MTIME, 14, '');
       const result = await task.exec();
 
       expect(result.success).toBe(true);
       expect(vault.adapter.readBinary).toHaveBeenCalledWith('note.md');
       expect(backend.writeFile).toBeDefined();
       expect(record.files['note.md']).toBeDefined();
-      expect(record.files['note.md'].remoteMtime).toBe(300);
+      // normalized to second precision
+      expect(record.files['note.md'].remoteMtime).toBe(Math.floor(TEST_MTIME / 1000) * 1000);
     });
 
     it('should return failure on adapter error', async () => {
@@ -134,28 +136,31 @@ describe('Sync Tasks', () => {
       });
       const record = makeRecord();
       const getRecord = () => record;
+      const TEST_MTIME = 1720000000000;
 
-      const task = new PullTask(backend, vault as any, getRecord, 'note.md', '/vault/note.md', 300, 14, '', undefined);
+      const task = new PullTask(backend, vault as any, getRecord, 'note.md', '/vault/note.md', TEST_MTIME, 14, '', undefined);
       const result = await task.exec();
 
       expect(result.success).toBe(true);
       expect(vault.adapter.writeBinary).toHaveBeenCalled();
       expect(record.files['note.md']).toBeDefined();
-      expect(record.files['note.md'].remoteMtime).toBe(300);
+      expect(record.files['note.md'].remoteMtime).toBe(Math.floor(TEST_MTIME / 1000) * 1000);
     });
 
     it('should create backup before overwriting', async () => {
       const content = encoder.encode('new content').buffer as ArrayBuffer;
       const vault = makeVault({
-        stat: jest.fn().mockResolvedValue({ mtime: 100, size: 50, ctime: 100 }),
+        stat: jest.fn().mockResolvedValue({ mtime: 1720000000001, size: 50, ctime: 1720000000001 }),
       });
       const backend = makeBackend({
         readFile: jest.fn().mockResolvedValue(content),
       });
       const record = makeRecord();
 
-      // walkLocalMtime=200 >= stat.mtime=100 so TOCTOU guard won't block
-      const task = new PullTask(backend, vault as any, () => record, 'note.md', '/vault/note.md', 300, 11, '', 200);
+      // walkLocalMtime=1720000002000 < stat.mtime=1720000000001 ... wait, TOCTOU guard checks
+      // stat.mtime > walkLocalMtime for it to trigger. We want it NOT to trigger.
+      // walkLocalMtime bigger than file's mtime → guard passes (file wasn't modified during sync)
+      const task = new PullTask(backend, vault as any, () => record, 'note.md', '/vault/note.md', 1720000000000, 11, '', 1720000002000);
       await task.exec();
 
       expect(vault.adapter.rename).toHaveBeenCalled();
@@ -166,16 +171,16 @@ describe('Sync Tasks', () => {
 
     it('should skip pull when local modified during sync (TOCTOU guard)', async () => {
       const content = encoder.encode('remote').buffer as ArrayBuffer;
-      // Local stat returns mtime 200, but walkLocalMtime is 100 — file was modified since walk
+      // Local stat mtime > walkLocalMtime → file was modified since walk began
       const vault = makeVault({
-        stat: jest.fn().mockResolvedValue({ mtime: 200, size: 50, ctime: 200 }),
+        stat: jest.fn().mockResolvedValue({ mtime: 1720000002000, size: 50, ctime: 1720000002000 }),
       });
       const backend = makeBackend({
         readFile: jest.fn().mockResolvedValue(content),
       });
       const record = makeRecord();
 
-      const task = new PullTask(backend, vault as any, () => record, 'note.md', '/vault/note.md', 300, 10, '', 100);
+      const task = new PullTask(backend, vault as any, () => record, 'note.md', '/vault/note.md', 1720000000000, 10, '', 1720000001000);
       const result = await task.exec();
 
       expect(result.success).toBe(false);

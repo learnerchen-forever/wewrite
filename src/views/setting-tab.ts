@@ -1,6 +1,6 @@
 // Plugin Settings Tab — IP display, collapsible sections, auto-expand inputs
 
-import { App, PluginSettingTab, Setting, Notice, Modal, setIcon, requestUrl, SuggestModal, type TFolder } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, Modal, setIcon, requestUrl, SuggestModal, ButtonComponent, type TFolder } from 'obsidian';
 import type WeWritePlugin from '../main';
 import type { WeChatAccount, AITextAccount, AIImageGenAccount, AIProviderType, ImageGenProviderType, WeWriteSettings } from '../core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS, DEFAULT_SETTINGS } from '../core/interfaces';
@@ -48,6 +48,8 @@ function generateId(): string {
 
 export class WeWriteSettingTab extends PluginSettingTab {
   plugin: WeWritePlugin;
+  private _syncProgressTimer: ReturnType<typeof setInterval> | null = null;
+  private _langUnsub?: () => void;
 
   constructor(plugin: WeWritePlugin) {
     super(plugin.app, plugin);
@@ -56,6 +58,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
   async display(): Promise<void> {
     const { containerEl } = this;
+    // Clear any stale sync progress polling from a previous display() cycle
+    if (this._syncProgressTimer) {
+      clearInterval(this._syncProgressTimer);
+      this._syncProgressTimer = null;
+    }
+    this.plugin.syncEngine?.onProgress(null);
+
     // Preserve scroll position across rebuild so the user stays looking at
     // the section they were editing (add/remove account, change provider, etc.)
     const scrollAncestor = this.findScrollAncestor();
@@ -699,6 +708,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       warnList.createEl('li', { text: msg });
     }
 
+    // ── Enable toggle (always visible) ──
     new Setting(syncBody)
       .setName(t('settings.sync_enable'))
       .setDesc(t('settings.sync_enable_desc'))
@@ -721,131 +731,241 @@ export class WeWriteSettingTab extends PluginSettingTab {
               settings.syncEnabled = true;
               this.save();
               this.display();
+              this.plugin.startSyncTimer();
             }).open();
             return;
           }
-          settings.syncEnabled = v;
+          // Disable: stop scheduler, cancel running sync, hide frame
+          this.plugin.syncScheduler?.stop();
+          this.plugin.syncEngine?.cancel();
+          settings.syncEnabled = false;
           this.save();
           this.display();
         }),
       );
 
-    if (settings.syncEnabled) {
-      new Setting(syncBody)
-        .setName(t('settings.sync_webdav_url'))
-        .setDesc(t('settings.sync_webdav_url_desc'))
-        .addText((t) =>
-          t.setValue(settings.syncWebdavUrl).onChange(async (v) => {
-            settings.syncWebdavUrl = v.trim();
-            this.save();
-          }),
-        );
-
-      new Setting(syncBody)
-        .setName(t('settings.sync_username'))
-        .setDesc(t('settings.sync_username_desc'))
-        .addText((t) =>
-          t.setValue(settings.syncUsername).onChange(async (v) => {
-            settings.syncUsername = v.trim();
-            this.save();
-          }),
-        );
-
-      new Setting(syncBody)
-        .setName(t('settings.sync_password'))
-        .setDesc(t('settings.sync_password_desc'))
-        .addText((t) => {
-          t.setValue(settings.syncPassword)
-            .onChange(async (v) => {
-              settings.syncPassword = v;
-              this.save();
-            });
-          t.inputEl.type = 'password';
-        });
-
-      new Setting(syncBody)
-        .setName(t('settings.sync_remote_dir'))
-        .setDesc(t('settings.sync_remote_dir_desc'))
-        .addText((t) => {
-          t.setPlaceholder(this.app.vault.getName());
-          t.setValue(settings.syncRemoteDir).onChange(async (v) => {
-            settings.syncRemoteDir = v.trim();
-            this.save();
-          });
-        });
-
-      const intervalSetting = new Setting(syncBody)
-        .setName(this.intervalLabel(settings.syncIntervalMinutes))
-        .setDesc(t('settings.sync_interval_desc'))
-        .addSlider((slider) => {
-          slider
-            .setLimits(1, 120, 1)
-            .setValue(settings.syncIntervalMinutes)
-            .setDynamicTooltip()
-            .onChange(async (value) => {
-              settings.syncIntervalMinutes = value;
-              this.save();
-              this.plugin.syncScheduler?.updateInterval(value);
-              intervalSetting.setName(this.intervalLabel(value));
-            });
-          slider.sliderEl.style.width = '100%';
-          return slider;
-        });
-
-      new Setting(syncBody)
-        .setName(t('settings.sync_test_connection'))
-        .setDesc(t('settings.sync_test_connection_desc'))
-        .addButton((btn) =>
-          btn.setButtonText(t('settings.sync_test_button')).onClick(async () => {
-            btn.setButtonText(t('settings.loading'));
-            btn.setDisabled(true);
-            try {
-              await this.testSyncConnection(settings);
-            } finally {
-              btn.setButtonText(t('settings.sync_test_button'));
-              btn.setDisabled(false);
-            }
-          }),
-        );
-
-      new Setting(syncBody)
-        .setName(t('settings.sync_log_debug'))
-        .setDesc(t('settings.sync_log_debug_desc'))
-        .addToggle((t) =>
-          t.setValue(settings.syncLogDebug).onChange(async (v) => {
-            settings.syncLogDebug = v;
-            this.save();
-          }),
-        );
-
-      const maxFileSizeSetting = new Setting(syncBody)
-        .setName(this.maxFileSizeLabel(settings.syncMaxFileSizeMb))
-        .setDesc(t('settings.sync_max_file_size_desc'))
-        .addSlider((slider) => {
-          slider
-            .setLimits(1, 500, 1)
-            .setValue(settings.syncMaxFileSizeMb)
-            .setDynamicTooltip()
-            .onChange(async (value) => {
-              settings.syncMaxFileSizeMb = value;
-              this.save();
-              maxFileSizeSetting.setName(this.maxFileSizeLabel(value));
-            });
-          slider.sliderEl.style.width = '100%';
-          return slider;
-        });
+    // ── Sync frame (rounded container, visibility toggled by enable) ──
+    const frame = syncBody.createDiv({ cls: 'wewrite-sync-frame' });
+    if (!settings.syncEnabled) {
+      frame.style.display = 'none';
     }
 
-    new Setting(syncBody)
+    const isSyncRunning = () => this.plugin.syncEngine?.isRunning ?? false;
+
+    // Helper: enable/disable all form inputs and buttons inside the frame
+    const setFrameInputsEnabled = (enabled: boolean) => {
+      const selector = 'input, select, textarea, button:not(.wewrite-sync-action-btn)';
+      frame.querySelectorAll(selector).forEach(el => {
+        (el as HTMLInputElement | HTMLButtonElement).disabled = !enabled;
+      });
+    };
+
+    // ── WebDAV URL ──
+    new Setting(frame)
+      .setName(t('settings.sync_webdav_url'))
+      .setDesc(t('settings.sync_webdav_url_desc'))
+      .addText((t) =>
+        t.setValue(settings.syncWebdavUrl).onChange(async (v) => {
+          settings.syncWebdavUrl = v.trim();
+          this.save();
+        }),
+      );
+
+    // ── Username ──
+    new Setting(frame)
+      .setName(t('settings.sync_username'))
+      .setDesc(t('settings.sync_username_desc'))
+      .addText((t) =>
+        t.setValue(settings.syncUsername).onChange(async (v) => {
+          settings.syncUsername = v.trim();
+          this.save();
+        }),
+      );
+
+    // ── Password ──
+    new Setting(frame)
+      .setName(t('settings.sync_password'))
+      .setDesc(t('settings.sync_password_desc'))
+      .addText((t) => {
+        t.setValue(settings.syncPassword)
+          .onChange(async (v) => {
+            settings.syncPassword = v;
+            this.save();
+          });
+        t.inputEl.type = 'password';
+      });
+
+    // ── Remote Directory (change → reset sync state) ──
+    const oldRemoteDir = settings.syncRemoteDir;
+    const localT = t; // capture i18n function before it's shadowed by TextComponent
+    new Setting(frame)
+      .setName(t('settings.sync_remote_dir'))
+      .setDesc(t('settings.sync_remote_dir_desc'))
+      .addText((text) => {
+        text.setPlaceholder(this.app.vault.getName());
+        text.setValue(settings.syncRemoteDir).onChange(async (v) => {
+          const newVal = v.trim();
+          if (oldRemoteDir !== newVal && oldRemoteDir !== '') {
+            // Remote dir changed — reset sync state to avoid stale data
+            this.plugin.syncEngine?.resetState();
+            new Notice(localT('notice.sync_remote_dir_changed'));
+          }
+          settings.syncRemoteDir = newVal;
+          this.save();
+        });
+      });
+
+    // ── Sync Interval ──
+    const intervalSetting = new Setting(frame)
+      .setName(this.intervalLabel(settings.syncIntervalMinutes))
+      .setDesc(t('settings.sync_interval_desc'))
+      .addSlider((slider) => {
+        slider
+          .setLimits(1, 120, 1)
+          .setValue(settings.syncIntervalMinutes)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            settings.syncIntervalMinutes = value;
+            this.save();
+            this.plugin.syncScheduler?.updateInterval(value);
+            intervalSetting.setName(this.intervalLabel(value));
+          });
+        slider.sliderEl.style.width = '100%';
+        return slider;
+      });
+
+    // ── Max File Size ──
+    const maxFileSizeSetting = new Setting(frame)
+      .setName(this.maxFileSizeLabel(settings.syncMaxFileSizeMb))
+      .setDesc(t('settings.sync_max_file_size_desc'))
+      .addSlider((slider) => {
+        slider
+          .setLimits(1, 500, 1)
+          .setValue(settings.syncMaxFileSizeMb)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            settings.syncMaxFileSizeMb = value;
+            this.save();
+            maxFileSizeSetting.setName(this.maxFileSizeLabel(value));
+          });
+        slider.sliderEl.style.width = '100%';
+        return slider;
+      });
+
+    // ── Test Connection ──
+    new Setting(frame)
+      .setName(t('settings.sync_test_connection'))
+      .setDesc(t('settings.sync_test_connection_desc'))
+      .addButton((btn) =>
+        btn.setButtonText(t('settings.sync_test_button')).onClick(async () => {
+          btn.setButtonText(t('settings.loading'));
+          btn.setDisabled(true);
+          try {
+            await this.testSyncConnection(settings);
+          } finally {
+            btn.setButtonText(t('settings.sync_test_button'));
+            btn.setDisabled(false);
+          }
+        }),
+      );
+
+    // ── Sync Status + Start/Stop button ──
+    let syncActionBtn!: ButtonComponent;
+
+    const stopProgressPolling = () => {
+      if (this._syncProgressTimer) { clearInterval(this._syncProgressTimer); this._syncProgressTimer = null; }
+      this.plugin.syncEngine?.onProgress(null);
+    };
+
+    const updateStatusUI = (s: Setting) => {
+      stopProgressPolling();
+      setFrameInputsEnabled(true);
+      syncActionBtn.setButtonText(t('settings.sync_start'));
+      syncActionBtn.setDisabled(false);
+      syncActionBtn.buttonEl.classList.remove('mod-warning');
+      s.setDesc(t('settings.sync_status_idle'));
+    };
+
+    const startProgressPolling = (s: Setting) => {
+      stopProgressPolling();
+      this.plugin.syncEngine?.onProgress((p) => {
+        if (p.running && p.currentKind) {
+          s.setDesc(`${p.completed}/${p.total} · ${p.currentKind} ${p.currentPath || ''}`);
+        } else if (p.running) {
+          s.setDesc(`${p.completed}/${p.total} tasks`);
+        }
+      });
+      this._syncProgressTimer = setInterval(() => {
+        if (!isSyncRunning()) {
+          updateStatusUI(s);
+        }
+      }, 500);
+    };
+
+    const statusSetting = new Setting(frame)
+      .setName('Sync Status')
+      .setDesc(t('settings.sync_status_idle'))
+      .addButton((btn) => {
+        syncActionBtn = btn;
+        btn.setButtonText(t('settings.sync_start'));
+        btn.buttonEl.addClass('wewrite-sync-action-btn');
+
+        btn.onClick(() => {
+          if (isSyncRunning()) {
+            // Stop: cancel the engine and immediately restore the UI.
+            // The engine signals cancellation cooperatively — it will stop at
+            // the next interruptibleDelay / loop checkpoint. In-flight network
+            // requests cannot be aborted, so the engine may take a few more
+            // seconds to actually reach `running = false`. That's fine — the
+            // user can start a new sync when ready; if the old one is still
+            // winding down, sync() will return 'Sync already in progress'.
+            this.plugin.syncEngine?.cancel();
+            updateStatusUI(statusSetting);
+          } else {
+            // Start
+            syncActionBtn.setButtonText(t('settings.sync_stop'));
+            syncActionBtn.buttonEl.classList.add('mod-warning');
+            setFrameInputsEnabled(false);
+            statusSetting.setDesc('0/0 tasks');
+            startProgressPolling(statusSetting);
+            void this.plugin.syncScheduler?.syncNow('manual').finally(() => {
+              updateStatusUI(statusSetting);
+            });
+          }
+        });
+        return btn;
+      });
+
+    // If sync was already running (e.g., on display refresh), restore the active state
+    if (isSyncRunning()) {
+      syncActionBtn.setButtonText(t('settings.sync_stop'));
+      syncActionBtn.buttonEl.classList.add('mod-warning');
+      setFrameInputsEnabled(false);
+      startProgressPolling(statusSetting);
+    }
+
+    // ── Reset Sync ──
+    new Setting(frame)
       .setName(t('settings.sync_reset'))
       .setDesc(t('settings.sync_reset_desc'))
       .addButton((btn) =>
         btn.setButtonText(t('settings.sync_reset_button')).setWarning().onClick(() => {
+          if (isSyncRunning()) return; // blocked while running
           new SyncResetModal(this.app, () => {
             void this.plugin.resetSync();
             new Notice(t('notice.sync_reset_done'));
-            this.display();
           }).open();
+        }),
+      );
+
+    // ── Log Sync Debug ──
+    new Setting(frame)
+      .setName(t('settings.sync_log_debug'))
+      .setDesc(t('settings.sync_log_debug_desc'))
+      .addToggle((t) =>
+        t.setValue(settings.syncLogDebug).onChange(async (v) => {
+          settings.syncLogDebug = v;
+          this.save();
         }),
       );
 
@@ -949,10 +1069,24 @@ export class WeWriteSettingTab extends PluginSettingTab {
       });
     }
 
-    onLanguageChange(() => {
+    // Unsubscribe previous listener to prevent compounding leaks on re-display
+    this._langUnsub?.();
+    this._langUnsub = onLanguageChange(() => {
       this.containerEl.empty();
       this.display();
     });
+  }
+
+  override hide(): void {
+    this._langUnsub?.();
+    this._langUnsub = undefined;
+    // Clean up sync progress polling when leaving settings tab
+    if (this._syncProgressTimer) {
+      clearInterval(this._syncProgressTimer);
+      this._syncProgressTimer = null;
+    }
+    this.plugin.syncEngine?.onProgress(null);
+    super.hide();
   }
 
   // ── IP Display ──
@@ -1311,7 +1445,7 @@ class SyncResetModal extends Modal {
     }
 
     const warnEl = contentEl.createDiv();
-    warnEl.style.cssText = 'margin-bottom:16px;padding:8px 12px;background:var(--background-modifier-error);color:var(--text-error);border-radius:6px;font-size:13px;line-height:1.6;';
+    warnEl.style.cssText = 'margin-bottom:16px;padding:8px 12px;background:var(--background-modifier-warning);color:var(--text-normal);border-radius:6px;font-size:13px;line-height:1.6;border:1px solid var(--background-modifier-border);';
     warnEl.setText(t('settings.sync_reset_warn'));
 
     const btnRow = contentEl.createDiv();

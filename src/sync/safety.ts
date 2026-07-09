@@ -66,6 +66,11 @@ export function validatePath(vaultPath: string): PathCheckResult {
   }
 
   // Check excluded directories
+  // Exclude sync backup/conflict files from entering the sync cycle
+  if (vaultPath.includes('.wewrite-backup.') || vaultPath.includes('.conflict-merge.')) {
+    return { allowed: false, reason: 'sync artifact file' };
+  }
+
   const parts = vaultPath.replace(/\\/g, '/').split('/');
   for (const part of parts) {
     if (ALWAYS_EXCLUDED.has(part)) {

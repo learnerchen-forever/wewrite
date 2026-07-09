@@ -4,10 +4,10 @@
 
 export interface FileStat {
   path: string;       // vault-relative, normalized (no leading /)
-  isDir: false;
+  isDir: boolean;
   mtime: number;      // ms since epoch
   size: number;       // bytes
-  hash: string;       // SHA-256 hex of content
+  hash: string;       // SHA-256 hex of content (empty for directories)
 }
 
 // ── Sync Record ──
@@ -40,6 +40,7 @@ export type TaskKind =
   | 'pull'
   | 'merge'
   | 'mkdir_remote'
+  | 'mkdir_local'
   | 'remove_remote'
   | 'remove_local';
 
@@ -56,7 +57,7 @@ export class TaskError extends Error {
 }
 
 export type TaskResult =
-  | { success: true }
+  | { success: true; message?: string }
   | { success: false; error: TaskError };
 
 export interface BaseTask {
@@ -113,6 +114,23 @@ export interface DecisionOutput {
   warnings: SyncWarning[];
   aborted: boolean;
   abortReason?: string;
+  /** Per-file decision reasoning for debug logging. */
+  details: DecisionDetail[];
+}
+
+export interface DecisionDetail {
+  path: string;
+  action: string;
+  reason: string;
+  localMtime: number;
+  remoteMtime: number;
+  localSize: number;
+  remoteSize: number;
+  localHashShort: string;
+  remoteHashShort: string;
+  recordLocalHashShort: string;
+  recordRemoteHashShort: string;
+  remoteHashFormatMismatch: boolean;
 }
 
 export interface RenameDetection {

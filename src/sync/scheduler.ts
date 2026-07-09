@@ -25,6 +25,9 @@ const DEFAULT_OPTIONS: SchedulerOptions = {
   backoffBaseMs: 60_000,
 };
 
+/** Maximum duration for rate-limit cooldown. After this, sync is forced through. */
+const MAX_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
 export class SyncScheduler {
   private timer: ReturnType<typeof setInterval> | null = null;
   private startupTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,6 +48,11 @@ export class SyncScheduler {
     return this.timer !== null;
   }
 
+  /** True when sync is temporarily blocked by a rate-limit penalty. Persists across restarts. */
+  get isInCooldown(): boolean {
+    return Date.now() < this.engine.getCooldownUntil();
+  }
+
   /** Start periodic sync and schedule initial startup sync. */
   start(): void {
     this.stop();
@@ -52,15 +60,34 @@ export class SyncScheduler {
     const opts = { ...DEFAULT_OPTIONS, ...this.options };
     this.currentIntervalMs = opts.intervalMinutes * 60 * 1000;
 
+    const cooldownUntil = this.engine.getCooldownUntil();
+
     // Periodic sync
     this.timer = setInterval(() => {
+      if (Date.now() < this.engine.getCooldownUntil()) {
+        const elapsed = Date.now() - (cooldownUntil - 30 * 60 * 1000);
+        if (elapsed > MAX_COOLDOWN_MS) {
+          log.info('cooldown max duration reached, forcing sync');
+          this.engine.setCooldownUntil(0);
+        } else {
+          const remainingMin = Math.round((this.engine.getCooldownUntil() - Date.now()) / 60000);
+          log.info('skipping scheduled sync during rate-limit cooldown', { remainingMin });
+          return;
+        }
+      }
+      log.info('interval sync triggered');
       void this.syncNow('interval');
     }, this.currentIntervalMs);
 
-    // Startup sync (delayed to let Obsidian finish loading)
-    this.startupTimer = setTimeout(() => {
-      void this.syncNow('startup');
-    }, opts.startupDelaySeconds * 1000);
+    // Startup sync — skip if persistent cooldown is still active
+    if (Date.now() < cooldownUntil) {
+      const remainingMin = Math.round((cooldownUntil - Date.now()) / 60000);
+      log.info('skipping startup sync — cooldown active from previous session', { remainingMin });
+    } else {
+      this.startupTimer = setTimeout(() => {
+        void this.syncNow('startup');
+      }, opts.startupDelaySeconds * 1000);
+    }
 
     log.info('scheduler started', {
       intervalMs: this.currentIntervalMs,
@@ -109,6 +136,17 @@ export class SyncScheduler {
 
     if (result.ok) {
       this.consecutiveFailures = 0;
+      this.engine.setCooldownUntil(0);
+      // Reset timer to configured interval (undo any backoff extension)
+      if (this.timer && this.currentIntervalMs !== (this.options.intervalMinutes || 10) * 60 * 1000) {
+        const opts = { ...DEFAULT_OPTIONS, ...this.options };
+        this.currentIntervalMs = opts.intervalMinutes * 60 * 1000;
+        clearInterval(this.timer);
+        this.timer = setInterval(() => {
+          void this.syncNow('interval');
+        }, this.currentIntervalMs);
+        log.info('timer reset to configured interval after successful sync');
+      }
       const conflicts = this.engine.getPendingConflicts().length;
       if (conflicts > 0) {
         this.onStatus?.(`${conflicts} sync conflict(s)`);
@@ -116,10 +154,32 @@ export class SyncScheduler {
         this.onStatus?.('');
       }
     } else {
-      this.consecutiveFailures++;
+      // Rate-limit failures are not "real" errors — don't count them.
+      const isRateLimitAbort = result.message.includes('rate limit') ||
+        result.message.includes('traffic quota') ||
+        result.message.includes('TrafficRateExhausted');
+      if (!isRateLimitAbort) {
+        this.consecutiveFailures++;
+      }
       this.onStatus?.(`Sync: ${result.message}`);
 
-      // Apply backoff on repeated failures
+      if (isRateLimitAbort) {
+        // Traffic quota exhaustion: wait for full token refill period (~30 min).
+        // Persist so the cooldown survives restarts.
+        const isQuotaExhausted = result.message.includes('traffic quota') ||
+          result.message.includes('TrafficRateExhausted');
+        if (isQuotaExhausted) {
+          const penaltyMin = 30;
+          const until = Date.now() + penaltyMin * 60 * 1000;
+          this.engine.setCooldownUntil(until);
+          log.warn('rate-limit cooldown activated (quota exhausted)', {
+            until: new Date(until).toLocaleString(),
+            penaltyMin,
+          });
+        }
+      }
+
+      // Apply backoff on repeated (non-rate-limit) failures
       if (trigger === 'interval' && this.consecutiveFailures > 1) {
         this.applyBackoff();
       }

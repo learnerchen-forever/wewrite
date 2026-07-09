@@ -4,7 +4,7 @@ import type { Vault } from 'obsidian';
 import type { SyncBackend } from '../backend/interface';
 import type { SyncRecordData, TaskResult } from '../types';
 import { upsertRecordEntry } from '../record';
-import { sha256Hex } from '../hash';
+import { sha256Hex, normalizeMtime } from '../hash';
 import { BaseTask } from './base';
 import { TaskError } from '../types';
 import { createLogger } from '../../utils/logger';
@@ -32,11 +32,11 @@ export class PushTask extends BaseTask {
   async exec(): Promise<TaskResult> {
     try {
       const content = await this.vault.adapter.readBinary(this.localPath);
-      await this.backend.writeFile(this.remotePath, content, { overwrite: true });
+      await this.backend.writeFile(this.localPath, content, { overwrite: true });
 
-      // Verify upload by getting remote stat
+      // Verify upload by getting remote stat (includes ETag for compatible hashing)
       const remoteStat = await this.backend.stat(this.localPath);
-      const remoteHash = await sha256Hex(content);
+      const remoteMtime = normalizeMtime(remoteStat.mtime);
 
       const record = this.getRecord();
       const isMarkdown = this.localPath.toLowerCase().endsWith('.md');
@@ -44,9 +44,9 @@ export class PushTask extends BaseTask {
         localMtime: this.localMtime,
         localSize: this.localSize,
         localHash: this.localHash,
-        remoteMtime: remoteStat.mtime,
+        remoteMtime,
         remoteSize: remoteStat.size,
-        remoteHash,
+        remoteHash: remoteStat.hash, // ETag or mtime:size — matches walk() format
       };
       if (isMarkdown) {
         entry.baseText = new TextDecoder().decode(content);
