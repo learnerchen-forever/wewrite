@@ -44,8 +44,12 @@ export class PullTask extends BaseTask {
       // Check local file state before any operations
       const preStat = await this.vault.adapter.stat(this.localPath).catch(() => null);
 
-      // Guard: check if local file was modified during sync (TOCTOU)
-      if (preStat && this.walkLocalMtime !== undefined && preStat.mtime > this.walkLocalMtime) {
+      // Guard: check if local file was modified during sync (TOCTOU).
+      // walkLocalMtime comes from traverse's normalizeMtime() (second
+      // precision); preStat.mtime is the raw ms value — normalize before
+      // comparing or the guard fires on every file with a non-zero ms part
+      // and pulls are skipped forever.
+      if (preStat && this.walkLocalMtime !== undefined && normalizeMtime(preStat.mtime) > this.walkLocalMtime) {
         log.warn('pull skipped: local modified during sync', { path: this.localPath });
         return { success: false, error: new TaskError('Local file modified during sync', 'pull', this.localPath) };
       }

@@ -11,22 +11,26 @@ import { WECHAT_ACCOUNT_HELP_IMAGE } from './settings-help-image';
 import { VIEW_TYPE_WECHAT_NEWS, WeChatNewsView } from './wechat-news-view';
 import { VIEW_TYPE_WECHAT_NEWSPIC } from './wechat-newspic-view';
 import { VIEW_TYPE_WEWRITE_THEME } from './wewrite-theme-view';
+import { formatBytes, storageUsedPercent, type ServerQuotaInfo } from '../sync/quota';
 
 const log = createLogger('Views:Settings');
 
-const IMAGE_PROVIDER_DEFAULTS: Record<ImageGenProviderType, { baseUrl: string; model: string; taskUrl?: string }> = {
+const IMAGE_PROVIDER_DEFAULTS: Record<ImageGenProviderType, { baseUrl: string; model: string; taskUrl?: string; defaultSize?: string }> = {
   dashscope: {
     baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
     model: 'wanx2.1-t2i-turbo',
     taskUrl: 'https://dashscope.aliyuncs.com/api/v1/tasks',
+    defaultSize: '1024*1024',
   },
   openai: {
     baseUrl: 'https://api.openai.com/v1/images/generations',
     model: 'dall-e-3',
+    defaultSize: '1024x1024',
   },
   seedream: {
     baseUrl: 'https://ark.cn-beijing.volces.com/api/v3/images/generations',
     model: 'doubao-seedream-5-0-260128',
+    defaultSize: '2K',
   },
 };
 
@@ -50,6 +54,12 @@ export class WeWriteSettingTab extends PluginSettingTab {
   plugin: WeWritePlugin;
   private _syncProgressTimer: ReturnType<typeof setInterval> | null = null;
   private _langUnsub?: () => void;
+  /** Server info (quota/plan) display — rebuilt on display(), updated by testConnection & sync. */
+  private _serverInfoEl?: HTMLElement;
+  /** Progress bar + status line — rebuilt on display(). */
+  private _progressEl?: HTMLElement;
+  private _progressBarEl?: HTMLElement;
+  private _progressTextEl?: HTMLElement;
 
   constructor(plugin: WeWritePlugin) {
     super(plugin.app, plugin);
@@ -334,7 +344,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       if (isActive) {
         const badge = card.createSpan({ cls: 'wewrite-active-badge', text: t('settings.active') });
         Object.assign(badge.style, {
-          position: 'absolute', top: '8px', right: '8px',
+          position: 'absolute', top: '-10px', right: '10px', zIndex: '1',
           fontSize: '11px', fontWeight: '600',
           color: 'var(--text-on-accent)', background: 'var(--interactive-accent)',
           padding: '2px 8px', borderRadius: '10px',
@@ -421,7 +431,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       if (isActive) {
         const badge = card.createSpan({ cls: 'wewrite-active-badge', text: t('settings.active') });
         Object.assign(badge.style, {
-          position: 'absolute', top: '8px', right: '8px',
+          position: 'absolute', top: '-10px', right: '10px', zIndex: '1',
           fontSize: '11px', fontWeight: '600',
           color: 'var(--text-on-accent)', background: 'var(--interactive-accent)',
           padding: '2px 8px', borderRadius: '10px',
@@ -526,7 +536,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       if (isActive) {
         const badge = card.createSpan({ cls: 'wewrite-active-badge', text: t('settings.active') });
         Object.assign(badge.style, {
-          position: 'absolute', top: '8px', right: '8px',
+          position: 'absolute', top: '-10px', right: '10px', zIndex: '1',
           fontSize: '11px', fontWeight: '600',
           color: 'var(--text-on-accent)', background: 'var(--interactive-accent)',
           padding: '2px 8px', borderRadius: '10px',
@@ -547,6 +557,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             account.baseUrl = defs.baseUrl;
             account.model = defs.model;
             account.taskUrl = defs.taskUrl || '';
+            account.defaultSize = defs.defaultSize;
             this.save();
             this.display();
           });
@@ -560,6 +571,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
       new Setting(card).setName(t('settings.model')).addText((t) =>
         t.setValue(account.model).onChange((v) => { account.model = v; this.save(); }),
       );
+
+      new Setting(card)
+        .setName(t('settings.default_size'))
+        .setDesc(t('settings.default_size_desc'))
+        .addText((t) =>
+          t.setValue(account.defaultSize || '').onChange((v) => { account.defaultSize = v; this.save(); }),
+        );
 
       // Test connection
       new Setting(card)
@@ -619,7 +637,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           id: generateId(), name: t('settings.new_provider'), provider: 'dashscope',
           baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
           taskUrl: 'https://dashscope.aliyuncs.com/api/v1/tasks',
-          apiKey: '', model: 'wanx2.1-t2i-turbo',
+          apiKey: '', model: 'wanx2.1-t2i-turbo', defaultSize: '1024*1024',
         });
         this.save();
         this.display();
@@ -690,7 +708,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // ── Sync ──
     const syncBody = this.addCollapsibleSection(containerEl, t('settings.sync'), 'refresh-cw');
 
-    // Persistent warning box — always visible, including mobile
+    // Persistent warning box — always visible, including mobile.
+    // Explains that Vault Sync is an EXPERIMENTAL feature, its limitations
+    // (WebDAV only, 坚果云 free-plan caps) and the risks (data loss).
     const warnBox = syncBody.createDiv({ cls: 'wewrite-sync-warn' });
     warnBox.style.cssText = [
       'margin-bottom:12px', 'padding:10px 12px',
@@ -698,12 +718,18 @@ export class WeWriteSettingTab extends PluginSettingTab {
       'border:1px solid var(--text-error)',
       'border-radius:6px', 'font-size:12px', 'line-height:1.7',
     ].join(';');
+    const warnTitle = warnBox.createEl('div');
+    warnTitle.style.cssText = 'font-weight:700;margin-bottom:4px;';
+    warnTitle.setText(t('settings.sync_warn_experimental'));
     const warnList = warnBox.createEl('ul');
     warnList.style.cssText = 'margin:0;padding-left:16px;';
     for (const msg of [
       t('settings.sync_warn_data_risk'),
       t('settings.sync_warn_webdav_only'),
+      t('settings.sync_warn_jgy_free'),
+      t('settings.sync_warn_auto_resume'),
       t('settings.sync_warn_plugin_conflict'),
+      t('settings.sync_warn_multidevice'),
     ]) {
       warnList.createEl('li', { text: msg });
     }
@@ -869,12 +895,68 @@ export class WeWriteSettingTab extends PluginSettingTab {
         }),
       );
 
+    // ── Server info (provider / storage quota / plan hint) ──
+    const serverInfoEl = frame.createDiv({ cls: 'wewrite-sync-server-info' });
+    serverInfoEl.style.cssText = [
+      'margin:8px 0 12px', 'padding:8px 10px',
+      'font-size:12px', 'line-height:1.7',
+      'border:1px solid var(--background-modifier-border)',
+      'border-radius:6px', 'display:none',
+    ].join(';');
+    this._serverInfoEl = serverInfoEl;
+    const renderServerInfo = (quota: ServerQuotaInfo | null | undefined) => {
+      if (!quota) {
+        serverInfoEl.style.display = 'none';
+        return;
+      }
+      serverInfoEl.empty();
+      serverInfoEl.style.display = '';
+      const provider = quota.provider === 'jianguoyun'
+        ? t('sync.provider_jianguoyun')
+        : t('sync.provider_generic');
+      const plan = quota.planHint === 'free'
+        ? t('sync.plan_free')
+        : quota.planHint === 'paid' ? t('sync.plan_paid') : t('sync.plan_unknown');
+      const line1 = serverInfoEl.createDiv();
+      line1.createSpan({ text: `${t('settings.sync_server_info')} ` });
+      line1.createSpan({ text: `${provider} · ${plan}`, cls: 'wewrite-sync-server-info-value' });
+      if (quota.quotaSupported && quota.usedBytes !== undefined && quota.totalBytes !== undefined) {
+        const pct = storageUsedPercent(quota.usedBytes, quota.totalBytes);
+        const line2 = serverInfoEl.createDiv();
+        line2.setText(`${t('settings.sync_server_info_quota', {
+          used: formatBytes(quota.usedBytes),
+          total: formatBytes(quota.totalBytes),
+          pct: String(pct),
+        })}`);
+        if (quota.availableBytes !== undefined && quota.availableBytes < 100 * 1024 * 1024) {
+          const warn = serverInfoEl.createDiv();
+          warn.style.color = 'var(--text-error)';
+          warn.setText(t('settings.sync_server_info_low_space'));
+        }
+      }
+    };
+    renderServerInfo(this.plugin.syncEngine?.getLastQuotaInfo());
+
+    // ── Progress bar + status line (visible while a cycle runs) ──
+    const progressEl = frame.createDiv({ cls: 'wewrite-sync-progress' });
+    progressEl.style.cssText = 'margin:8px 0 4px;display:none;';
+    this._progressEl = progressEl;
+    const barWrap = progressEl.createDiv();
+    barWrap.style.cssText = 'height:6px;background:var(--background-modifier-border);border-radius:3px;overflow:hidden;margin-bottom:6px;';
+    const progressBar = barWrap.createDiv();
+    progressBar.style.cssText = 'height:6px;background:var(--interactive-accent);width:0%;border-radius:3px;transition:width .2s;';
+    this._progressBarEl = progressBar;
+    const progressText = progressEl.createDiv();
+    progressText.style.cssText = 'font-size:12px;color:var(--text-muted);line-height:1.6;';
+    this._progressTextEl = progressText;
+
     // ── Sync Status + Start/Stop button ──
     let syncActionBtn!: ButtonComponent;
 
     const stopProgressPolling = () => {
       if (this._syncProgressTimer) { clearInterval(this._syncProgressTimer); this._syncProgressTimer = null; }
       this.plugin.syncEngine?.onProgress(null);
+      if (progressEl) progressEl.style.display = 'none';
     };
 
     const updateStatusUI = (s: Setting) => {
@@ -886,24 +968,78 @@ export class WeWriteSettingTab extends PluginSettingTab {
       s.setDesc(t('settings.sync_status_idle'));
     };
 
+    // Engine task kinds → human-readable labels (kinds are internal names).
+    const TASK_KIND_LABELS: Record<string, string> = {
+      push: t('sync.task_push'),
+      pull: t('sync.task_pull'),
+      merge: t('sync.task_merge'),
+      remove_remote: t('sync.task_remove_remote'),
+      remove_local: t('sync.task_remove_local'),
+      mkdir_remote: t('sync.task_mkdir_remote'),
+      mkdir_local: t('sync.task_mkdir_local'),
+    };
+
+    // Sync phases → human-readable labels.
+    const PHASE_LABELS: Record<string, string> = {
+      walk_local: t('sync.phase.walk_local'),
+      walk_remote: t('sync.phase.walk_remote'),
+      sync: t('sync.phase.sync'),
+      finalizing: t('sync.phase.finalizing'),
+      quota_wait: t('sync.phase.quota_wait'),
+      done: t('sync.phase.done'),
+      error: t('sync.phase.error'),
+    };
+
     const startProgressPolling = (s: Setting) => {
       stopProgressPolling();
       this.plugin.syncEngine?.onProgress((p) => {
-        if (p.running && p.currentKind) {
-          s.setDesc(`${p.completed}/${p.total} · ${p.currentKind} ${p.currentPath || ''}`);
+        if (p.quota) renderServerInfo(p.quota);
+        const phaseLabel = PHASE_LABELS[p.phase] || '';
+        if (p.phase === 'quota_wait' && p.rateLimit) {
+          // Paused — show the wait state prominently.
+          progressEl.style.display = '';
+          progressBar.style.width = '100%';
+          progressBar.style.background = 'var(--text-warning)';
+          const deferredText = p.deferred ? ` · ${t('sync.deferred_count', { count: String(p.deferred) })}` : '';
+          progressText.setText(`${phaseLabel} ${t('sync.status_waiting_quota', { min: String(p.rateLimit.remainingMin) })}${deferredText}`);
         } else if (p.running) {
-          s.setDesc(`${p.completed}/${p.total} tasks`);
+          progressEl.style.display = '';
+          progressBar.style.background = 'var(--interactive-accent)';
+          const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
+          progressBar.style.width = `${pct}%`;
+          if (p.currentKind) {
+            const kindLabel = TASK_KIND_LABELS[p.currentKind] || p.currentKind;
+            progressText.setText(`${phaseLabel} ${p.completed}/${p.total} · ${kindLabel} ${p.currentPath || ''}`);
+          } else if (p.total > 0) {
+            progressText.setText(`${phaseLabel} ${p.completed}/${p.total}`);
+          } else {
+            progressText.setText(`${phaseLabel}${p.currentPath ? ' ' + p.currentPath : ''}`);
+          }
+        } else {
+          // Cycle finished (done/error) — hide the bar, keep the desc text.
+          progressEl.style.display = 'none';
         }
       });
       this._syncProgressTimer = setInterval(() => {
         if (!isSyncRunning()) {
           updateStatusUI(s);
+          // Persist the quota-wait state after a paused (partial) cycle: the
+          // auto-resume timer is armed, so keep showing the wait message
+          // instead of collapsing back to idle.
+          const cooldown = this.plugin.syncEngine?.getCooldownUntil() ?? 0;
+          if (cooldown > Date.now() && progressEl) {
+            const min = Math.max(1, Math.ceil((cooldown - Date.now()) / 60000));
+            progressEl.style.display = '';
+            progressBar.style.width = '100%';
+            progressBar.style.background = 'var(--text-warning)';
+            progressText.setText(`${PHASE_LABELS.quota_wait} ${t('sync.status_waiting_quota', { min: String(min) })}`);
+          }
         }
       }, 500);
     };
 
     const statusSetting = new Setting(frame)
-      .setName('Sync Status')
+      .setName(t('settings.sync_status'))
       .setDesc(t('settings.sync_status_idle'))
       .addButton((btn) => {
         syncActionBtn = btn;
@@ -926,7 +1062,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             syncActionBtn.setButtonText(t('settings.sync_stop'));
             syncActionBtn.buttonEl.classList.add('mod-warning');
             setFrameInputsEnabled(false);
-            statusSetting.setDesc('0/0 tasks');
+            statusSetting.setDesc(t('sync.tasks_progress', { completed: '0', total: '0' }));
             startProgressPolling(statusSetting);
             void this.plugin.syncScheduler?.syncNow('manual').finally(() => {
               updateStatusUI(statusSetting);
@@ -950,7 +1086,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
       .setDesc(t('settings.sync_reset_desc'))
       .addButton((btn) =>
         btn.setButtonText(t('settings.sync_reset_button')).setWarning().onClick(() => {
-          if (isSyncRunning()) return; // blocked while running
+          if (isSyncRunning()) {
+            new Notice(t('notice.sync_in_progress'));
+            return; // blocked while running
+          }
           new SyncResetModal(this.app, () => {
             void this.plugin.resetSync();
             new Notice(t('notice.sync_reset_done'));
@@ -1240,16 +1379,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const conflicts: string[] = [];
 
     // Obsidian core sync
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const internalPlugins = (this.app as any).internalPlugins;
+    const internalPlugins = (this.app as unknown as { internalPlugins?: { getPluginById?: (id: string) => { enabled?: boolean } | undefined } }).internalPlugins;
     const coreSync = internalPlugins?.getPluginById?.('sync');
     if (coreSync?.enabled) {
       conflicts.push('Obsidian Sync');
     }
 
     // Community sync plugins
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const communityPlugins = (this.app as any).plugins?.plugins as Record<string, unknown> | undefined;
+    const communityPlugins = (this.app as unknown as { plugins?: { plugins?: Record<string, unknown> } }).plugins?.plugins;
     if (communityPlugins) {
       for (const [id, name] of Object.entries(SYNC_CONFLICT_PLUGINS)) {
         if (communityPlugins[id]) {
@@ -1268,6 +1405,28 @@ export class WeWriteSettingTab extends PluginSettingTab {
     }
     try {
       const result = await this.plugin.syncEngine.testConnection();
+      // Show server quota/plan info in the settings frame.
+      if (this._serverInfoEl && result.quota) {
+        this._serverInfoEl.empty();
+        this._serverInfoEl.style.display = '';
+        const provider = result.quota.provider === 'jianguoyun'
+          ? t('sync.provider_jianguoyun')
+          : t('sync.provider_generic');
+        const plan = result.quota.planHint === 'free'
+          ? t('sync.plan_free')
+          : result.quota.planHint === 'paid' ? t('sync.plan_paid') : t('sync.plan_unknown');
+        const line1 = this._serverInfoEl.createDiv();
+        line1.createSpan({ text: `${t('settings.sync_server_info')} ` });
+        line1.createSpan({ text: `${provider} · ${plan}`, cls: 'wewrite-sync-server-info-value' });
+        if (result.quota.quotaSupported && result.quota.usedBytes !== undefined && result.quota.totalBytes !== undefined) {
+          const pct = storageUsedPercent(result.quota.usedBytes, result.quota.totalBytes);
+          this._serverInfoEl.createDiv().setText(t('settings.sync_server_info_quota', {
+            used: formatBytes(result.quota.usedBytes),
+            total: formatBytes(result.quota.totalBytes),
+            pct: String(pct),
+          }));
+        }
+      }
       new Notice(result.ok ? t('notice.sync_connection_ok') : result.message);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1291,15 +1450,15 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
 class FolderPickerModal extends SuggestModal<TFolder> {
   constructor(
-    app: { vault: { getAllLoadedFiles: () => (TFolder | { path: string; name: string })[] } },
+    app: App,
     private onSelect: (path: string) => void,
   ) {
-    super(app as any);
+    super(app);
           this.setPlaceholder(t('settings.type_folder_name'));
   }
 
   getSuggestions(query: string): TFolder[] {
-    const items = (this.app as any).vault.getAllLoadedFiles() as (TFolder | { children?: unknown; path: string; name: string })[];
+    const items = this.app.vault.getAllLoadedFiles() as (TFolder | { children?: unknown; path: string; name: string })[];
     return items
       .filter((f): f is TFolder => 'children' in f)
       .filter((f) => f.path.toLowerCase().includes(query.toLowerCase()))
@@ -1338,7 +1497,9 @@ class RiskAcknowledgmentModal extends Modal {
     for (const msg of [
       t('settings.sync_warn_data_risk'),
       t('settings.sync_warn_webdav_only'),
+      t('settings.sync_warn_jgy_free'),
       t('settings.sync_warn_plugin_conflict'),
+      t('settings.sync_warn_multidevice'),
     ]) {
       listEl.createEl('li', { text: msg });
     }

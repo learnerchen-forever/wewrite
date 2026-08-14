@@ -99,11 +99,6 @@ async function writeLog(app: App, filePath: string, content: string): Promise<vo
   await app.vault.adapter.write(filePath, content);
 }
 
-async function appendToLog(app: App, filePath: string, lines: string[]): Promise<void> {
-  const existing = await readLog(app, filePath);
-  await writeLog(app, filePath, existing + lines.join('\n') + '\n');
-}
-
 // ── Public API ──
 
 export async function createSyncLog(

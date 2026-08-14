@@ -2,6 +2,7 @@
 
 import { setIcon, type IconName } from 'obsidian';
 import { createLogger } from '../utils/logger';
+import { t } from '../i18n';
 import type { SyncEngine } from './engine';
 import type { SyncTrigger } from './types';
 
@@ -25,12 +26,11 @@ const DEFAULT_OPTIONS: SchedulerOptions = {
   backoffBaseMs: 60_000,
 };
 
-/** Maximum duration for rate-limit cooldown. After this, sync is forced through. */
-const MAX_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
-
 export class SyncScheduler {
   private timer: ReturnType<typeof setInterval> | null = null;
   private startupTimer: ReturnType<typeof setTimeout> | null = null;
+  /** One-shot timer that resumes a paused (quota-exhausted) sync as soon as the cooldown expires. */
+  private resumeTimer: ReturnType<typeof setTimeout> | null = null;
   private consecutiveFailures = 0;
   private currentIntervalMs: number;
 
@@ -60,28 +60,14 @@ export class SyncScheduler {
     const opts = { ...DEFAULT_OPTIONS, ...this.options };
     this.currentIntervalMs = opts.intervalMinutes * 60 * 1000;
 
-    const cooldownUntil = this.engine.getCooldownUntil();
-
     // Periodic sync
     this.timer = setInterval(() => {
-      if (Date.now() < this.engine.getCooldownUntil()) {
-        const elapsed = Date.now() - (cooldownUntil - 30 * 60 * 1000);
-        if (elapsed > MAX_COOLDOWN_MS) {
-          log.info('cooldown max duration reached, forcing sync');
-          this.engine.setCooldownUntil(0);
-        } else {
-          const remainingMin = Math.round((this.engine.getCooldownUntil() - Date.now()) / 60000);
-          log.info('skipping scheduled sync during rate-limit cooldown', { remainingMin });
-          return;
-        }
-      }
-      log.info('interval sync triggered');
-      void this.syncNow('interval');
+      this.intervalTick();
     }, this.currentIntervalMs);
 
     // Startup sync — skip if persistent cooldown is still active
-    if (Date.now() < cooldownUntil) {
-      const remainingMin = Math.round((cooldownUntil - Date.now()) / 60000);
+    if (Date.now() < this.engine.getCooldownUntil()) {
+      const remainingMin = Math.round((this.engine.getCooldownUntil() - Date.now()) / 60000);
       log.info('skipping startup sync — cooldown active from previous session', { remainingMin });
     } else {
       this.startupTimer = setTimeout(() => {
@@ -95,6 +81,25 @@ export class SyncScheduler {
     });
   }
 
+  /**
+   * One periodic sync tick. Re-reads the cooldown state EVERY tick — the old
+   * implementation captured `cooldownUntil` once in start() and used it inside
+   * the closure, so a cooldown activated mid-session was either bypassed
+   * immediately (stale value 0 → force-through fired) or could never trigger
+   * its force-through branch at all. Manual syncs (syncNow) intentionally
+   * ignore the cooldown, so users always retain an escape hatch.
+   */
+  private intervalTick(): void {
+    const cooldownUntil = this.engine.getCooldownUntil();
+    if (Date.now() < cooldownUntil) {
+      const remainingMin = Math.round((cooldownUntil - Date.now()) / 60000);
+      log.info('skipping scheduled sync during rate-limit cooldown', { remainingMin });
+      return;
+    }
+    log.info('interval sync triggered');
+    void this.syncNow('interval');
+  }
+
   /** Stop periodic sync. */
   stop(): void {
     if (this.timer) {
@@ -105,7 +110,40 @@ export class SyncScheduler {
       clearTimeout(this.startupTimer);
       this.startupTimer = null;
     }
+    this.clearResumeTimer();
     this.engine.cancel();
+  }
+
+  private clearResumeTimer(): void {
+    if (this.resumeTimer) {
+      clearTimeout(this.resumeTimer);
+      this.resumeTimer = null;
+    }
+  }
+
+  /**
+   * Schedule an automatic resume once the cooldown (rate-limit penalty)
+   * expires. Called after a paused sync so the remaining tasks continue
+   * without any user action. Capped at 30 min to stay safe.
+   */
+  private scheduleAutoResume(): void {
+    this.clearResumeTimer();
+    const cooldownUntil = this.engine.getCooldownUntil();
+    const remainingMs = Math.max(0, cooldownUntil - Date.now());
+    if (remainingMs <= 0) return;
+    const waitMs = Math.min(remainingMs + 5000, 30 * 60 * 1000);
+    const resumeAt = Date.now() + waitMs;
+    log.info('auto-resume scheduled after rate-limit cooldown', {
+      remainingMin: Math.round(remainingMs / 60000),
+      resumeAt: new Date(resumeAt).toLocaleString(),
+    });
+    this.resumeTimer = setTimeout(() => {
+      this.resumeTimer = null;
+      if (Date.now() >= this.engine.getCooldownUntil()) {
+        log.info('auto-resume: cooldown expired, resuming sync');
+        void this.syncNow('interval');
+      }
+    }, waitMs);
   }
 
   /** Update the sync interval without restarting. */
@@ -116,14 +154,14 @@ export class SyncScheduler {
       this.currentIntervalMs = minutes * 60 * 1000;
       clearInterval(this.timer);
       this.timer = setInterval(() => {
-        void this.syncNow('interval');
+        this.intervalTick();
       }, this.currentIntervalMs);
       log.debug('interval updated', { minutes });
     }
   }
 
   /** Run one sync cycle with UI feedback and backoff. Returns the sync result. */
-  async syncNow(trigger: SyncTrigger): Promise<{ ok: boolean; message: string; conflictCount: number }> {
+  async syncNow(trigger: SyncTrigger): Promise<{ ok: boolean; message: string; conflictCount: number; rateLimited?: boolean; partial?: boolean; deferredCount?: number }> {
     if (this.ribbonEl) {
       setIcon(this.ribbonEl, 'loader-2' as IconName);
     }
@@ -134,39 +172,48 @@ export class SyncScheduler {
       setIcon(this.ribbonEl, 'refresh-cw' as IconName);
     }
 
-    if (result.ok) {
+    if (result.ok && !result.partial) {
       this.consecutiveFailures = 0;
       this.engine.setCooldownUntil(0);
+      this.clearResumeTimer();
       // Reset timer to configured interval (undo any backoff extension)
       if (this.timer && this.currentIntervalMs !== (this.options.intervalMinutes || 10) * 60 * 1000) {
         const opts = { ...DEFAULT_OPTIONS, ...this.options };
         this.currentIntervalMs = opts.intervalMinutes * 60 * 1000;
         clearInterval(this.timer);
         this.timer = setInterval(() => {
-          void this.syncNow('interval');
+          this.intervalTick();
         }, this.currentIntervalMs);
         log.info('timer reset to configured interval after successful sync');
       }
       const conflicts = this.engine.getPendingConflicts().length;
       if (conflicts > 0) {
-        this.onStatus?.(`${conflicts} sync conflict(s)`);
+        this.onStatus?.(t('sync.status_conflicts', { count: String(conflicts) }));
       } else {
         this.onStatus?.('');
       }
+    } else if (result.ok && result.partial) {
+      // Paused mid-cycle (rate-limit with long penalty): the engine already
+      // persisted the cooldown. Show status, avoid backoff, and auto-resume
+      // once the cooldown expires — the remaining tasks are deferred, not lost.
+      this.consecutiveFailures = 0;
+      this.onStatus?.(result.message);
+      this.scheduleAutoResume();
     } else {
       // Rate-limit failures are not "real" errors — don't count them.
-      const isRateLimitAbort = result.message.includes('rate limit') ||
-        result.message.includes('traffic quota') ||
+      // Detection is structured (rateLimited) with a raw-text fallback for
+      // server error strings that still contain the quota marker.
+      const isRateLimitAbort = result.rateLimited === true ||
         result.message.includes('TrafficRateExhausted');
       if (!isRateLimitAbort) {
         this.consecutiveFailures++;
       }
-      this.onStatus?.(`Sync: ${result.message}`);
+      this.onStatus?.(`${t('sync.status_label')}: ${result.message}`);
 
       if (isRateLimitAbort) {
         // Traffic quota exhaustion: wait for full token refill period (~30 min).
         // Persist so the cooldown survives restarts.
-        const isQuotaExhausted = result.message.includes('traffic quota') ||
+        const isQuotaExhausted = result.rateLimited === true ||
           result.message.includes('TrafficRateExhausted');
         if (isQuotaExhausted) {
           const penaltyMin = 30;

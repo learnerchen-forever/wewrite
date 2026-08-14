@@ -1,7 +1,20 @@
 // API key encryption using platform-appropriate mechanisms
-// Desktop: Electron safeStorage (when available)
-// Mobile/Web: Web Crypto API (AES-GCM)
-// Fallback: Base64 obfuscation (not cryptographically secure, last resort)
+//
+// IMPORTANT — security posture: the AES key below ships inside the plugin
+// bundle, so this is NOT cryptographically strong protection against someone
+// with access to the vault + the plugin code. It exists to (a) avoid storing
+// plaintext secrets in data.json, (b) defeat casual reading / fingerprinting.
+// Random per-value IVs ensure identical secrets never produce identical
+// ciphertext.
+//
+// Formats:
+//   enc_web2_  — AES-256-GCM with a random 12-byte IV; value = base64(iv || ct)
+//   enc_web_   — LEGACY: AES-256-GCM with a fixed zero IV; value = base64(ct)
+//                (still decrypted for backward compatibility)
+//   enc_desk_  — LEGACY: Electron safeStorage (desktop). Modern Electron
+//                removed the `remote` module, so these can no longer be
+//                decrypted; decryptValue() returns '' to force re-entry.
+//   enc_       — LEGACY fallback: plain base64 (not encrypted at all)
 
 import { createLogger } from './logger';
 
@@ -9,11 +22,12 @@ const log = createLogger('Encryption');
 
 const DESKTOP_PREFIX = 'enc_desk_';
 const WEBCRYPTO_PREFIX = 'enc_web_';
+const WEBCRYPTO2_PREFIX = 'enc_web2_';
 const ENCRYPTION_PREFIX = 'enc_';
 const DECRYPTION_PREFIX = 'dec_';
 
-// Web Crypto constants
-// Exactly 32 chars = 32 bytes for AES-256-GCM
+// Exactly 32 chars = 32 bytes for AES-256-GCM. Ships in the bundle — see the
+// security note at the top of this file.
 const KEY_STRING = 'wewrite.v2.obsidian-plugin.aesxx';
 const ENCRYPTION_KEY_BYTES = new TextEncoder().encode(KEY_STRING);
 const ALGORITHM: AesGcmParams = { name: 'AES-GCM', iv: new Uint8Array(12) };
@@ -40,19 +54,9 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-// Detect if we're in an Electron environment with safeStorage available
-function hasElectronSafeStorage(): boolean {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const electron = require('electron');
-    return electron?.remote?.safeStorage?.isEncryptionAvailable?.() ?? false;
-  } catch {
-    return false;
-  }
-}
-
 function isEncrypted(value: string): boolean {
-  return value.startsWith(DESKTOP_PREFIX) || value.startsWith(WEBCRYPTO_PREFIX) || value.startsWith(ENCRYPTION_PREFIX);
+  return value.startsWith(DESKTOP_PREFIX) || value.startsWith(WEBCRYPTO_PREFIX)
+    || value.startsWith(WEBCRYPTO2_PREFIX) || value.startsWith(ENCRYPTION_PREFIX);
 }
 
 function isDecrypted(value: string): boolean {
@@ -62,7 +66,7 @@ function isDecrypted(value: string): boolean {
 /**
  * Encrypt an API key or secret value.
  * Idempotent: if already encrypted, returns as-is.
- * Uses Electron safeStorage if available, falls back to Web Crypto AES-GCM.
+ * Uses AES-256-GCM with a random IV (new format enc_web2_).
  */
 export async function encryptValue(value: string): Promise<string> {
   if (!value || isEncrypted(value)) return value;
@@ -70,21 +74,16 @@ export async function encryptValue(value: string): Promise<string> {
   const rawValue = isDecrypted(value) ? value.slice(DECRYPTION_PREFIX.length) : value;
 
   try {
-    // Try Electron safeStorage first
-    if (hasElectronSafeStorage()) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const safeStorage = require('electron').remote.safeStorage;
-      // safeStorage returns Buffer (Node.js); convert to base64 safely
-      const encrypted = safeStorage.encryptString(rawValue);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return DESKTOP_PREFIX + (encrypted as any).toString('base64');
-    }
-
-    // Fallback to Web Crypto API
     const key = await getWebCryptoKey();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(rawValue);
-    const encrypted = await crypto.subtle.encrypt(ALGORITHM, key, encoded);
-    return WEBCRYPTO_PREFIX + arrayBufferToBase64(encrypted);
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+
+    // iv || ciphertext, base64-encoded
+    const combined = new Uint8Array(iv.length + encrypted.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(encrypted), iv.length);
+    return WEBCRYPTO2_PREFIX + arrayBufferToBase64(combined.buffer);
   } catch (err) {
     log.warn('encryption failed, fallback to base64', { err: String(err) });
     return ENCRYPTION_PREFIX + btoa(rawValue);
@@ -93,32 +92,38 @@ export async function encryptValue(value: string): Promise<string> {
 
 /**
  * Decrypt a previously encrypted value.
- * Returns the decrypted string, or the original if not encrypted.
+ * Returns the decrypted string, '' for legacy values that can no longer be
+ * decrypted (enc_desk_), or the original if not encrypted.
  */
 export async function decryptValue(value: string): Promise<string> {
   if (!value) return value;
   if (isDecrypted(value)) return value.slice(DECRYPTION_PREFIX.length);
 
   try {
-    if (value.startsWith(DESKTOP_PREFIX)) {
-      if (hasElectronSafeStorage()) {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const safeStorage = require('electron').remote.safeStorage;
-        // typeof Buffer is safe — returns 'undefined' on mobile without throwing
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const buf: any = typeof (globalThis as any).Buffer !== 'undefined'
-          ? (globalThis as any).Buffer.from(value.slice(DESKTOP_PREFIX.length), 'base64')
-          : base64ToArrayBuffer(value.slice(DESKTOP_PREFIX.length));
-        return safeStorage.decryptString(buf);
-      }
-      return value; // can't decrypt without Electron
+    if (value.startsWith(WEBCRYPTO2_PREFIX)) {
+      const key = await getWebCryptoKey();
+      const combined = base64ToArrayBuffer(value.slice(WEBCRYPTO2_PREFIX.length));
+      const iv = combined.slice(0, 12);
+      const ct = combined.slice(12);
+      const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+      return new TextDecoder().decode(decrypted);
     }
 
     if (value.startsWith(WEBCRYPTO_PREFIX)) {
+      // Legacy: fixed zero IV
       const key = await getWebCryptoKey();
       const encrypted = base64ToArrayBuffer(value.slice(WEBCRYPTO_PREFIX.length));
       const decrypted = await crypto.subtle.decrypt(ALGORITHM, key, encrypted);
       return new TextDecoder().decode(decrypted);
+    }
+
+    if (value.startsWith(DESKTOP_PREFIX)) {
+      // Legacy Electron safeStorage values — the `remote` module was removed
+      // from modern Electron, so these are undecryptable. Return '' so the
+      // account is flagged invalid and the user re-enters the secret instead
+      // of silently shipping the ciphertext as a credential.
+      log.warn('legacy enc_desk_ value cannot be decrypted on this platform — clearing secret, please re-enter it');
+      return '';
     }
 
     if (value.startsWith(ENCRYPTION_PREFIX)) {

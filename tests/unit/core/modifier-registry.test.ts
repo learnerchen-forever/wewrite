@@ -6,8 +6,8 @@ describe('getModifierRegistry', () => {
     const expected = [
       'article', 'heading',
       'heading.h1', 'heading.h2', 'heading.h3', 'heading.h4', 'heading.h5', 'heading.h6',
-      'blocks.blockquote', 'blocks.code', 'blocks.table', 'blocks.callout', 'blocks.list', 'blocks.hr',
-      'media.image', 'media.mermaid', 'media.math', 'media.excalidraw',
+      'blocks.code', 'blocks.table', 'blocks.list', 'blocks.hr',
+      'media.mermaid',
       'inline.link', 'inline.strong', 'inline.code',
     ];
     for (const p of expected) expect(paths).toContain(p);
@@ -34,12 +34,19 @@ describe('getModifierRegistry', () => {
       expect(vars).toContain(v));
   });
 
-  test('blocks.code.theme has 5 values', () => {
+  test('blocks.code.theme has 12 builtin values (6 dark + 6 light)', () => {
     const theme = getModifierRegistry()['blocks.code'].theme;
-    expect(theme.values).toHaveLength(5);
+    expect(theme.values).toHaveLength(12);
     expect(theme.values.map(v => v.id)).toEqual([
-      'oneDark', 'githubLight', 'slateDark', 'warmPaper', 'nord',
+      'oneDark', 'githubDark', 'nord', 'dracula', 'monokai', 'slateDark',
+      'githubLight', 'oneLight', 'solarizedLight', 'warmPaper', 'vsLight', 'rosePineDawn',
     ]);
+  });
+
+  test('blocks.code has font, fontSize, padding, wrap, shadow variables', () => {
+    const vars = Object.keys(getModifierRegistry()['blocks.code']);
+    ['font', 'fontSize', 'padding', 'wrap', 'shadow'].forEach(v =>
+      expect(vars).toContain(v));
   });
 
   test('blocks.list has bullet, bulletSpacing, indent, taskChecked, taskUnchecked', () => {

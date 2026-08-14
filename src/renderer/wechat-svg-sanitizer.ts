@@ -134,9 +134,10 @@ function inlineUseReferences(root: Element): void {
       g.setAttribute(attr.name, attr.value);
     }
 
-    // Copy referenced element's children
-    while (refEl.firstChild) {
-      g.appendChild(refEl.firstChild.cloneNode(true));
+    // Copy referenced element's children. Snapshot first: cloneNode does not
+    // detach the source, so `while (refEl.firstChild)` would loop forever.
+    for (const child of Array.from(refEl.childNodes)) {
+      g.appendChild(child.cloneNode(true));
     }
 
     // Apply <use> positioning: x, y, transform

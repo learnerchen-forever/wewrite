@@ -1,316 +1,301 @@
-// Built-in style preset definitions (WeWrite_Style 2.0)
-// 8 presets defined as ArticleTheme overrides, converted to ThemePreset for runtime use
+// Built-in theme presets (WeWrite Theme v3 — slot-based)
+// Each preset is a partial ThemePreset with palette + typography + slot config.
 
 import type { ThemePreset } from '../core/interfaces';
-import type { ArticleTheme } from '../core/theme-types';
-import { defaultArticleTheme } from '../core/theme-types';
-import { themeToThemePreset } from '../core/theme-mapper';
+import { FONT_FAMILIES } from '../core/interfaces';
+import { t } from '../i18n';
 
-// Simple deep merge: src values override dst values recursively
-function mergeTheme(dst: ArticleTheme, src: Record<string, unknown>): ArticleTheme {
-  const result = structuredClone(dst);
-  mergeObj(result as unknown as Record<string, unknown>, src);
-  return result;
+interface PresetDef {
+	id: string;
+	/** i18n key for the display name (resolved lazily at render). */
+	nameKey: string;
+	palette: { accent: string };
+	typography: { family?: string; baseSize?: number; lineHeight?: number; letterSpacing?: number; paragraphGap?: number };
+	slots: Record<string, Record<string, string>>;
+	/** New callout decoration config (replaces legacy blocks.callout.* slots). */
+	callout?: { decoration?: string; decorationParams?: Record<string, string> };
+	/** New image + caption decoration config (replaces legacy media.image.* slots). */
+	image?: { decoration?: string; decorationParams?: Record<string, string> };
 }
 
-function mergeObj(target: Record<string, unknown>, source: Record<string, unknown>): void {
-  for (const key of Object.keys(source)) {
-    const sv = source[key];
-    if (sv && typeof sv === 'object' && !Array.isArray(sv) && typeof target[key] === 'object' && target[key] !== null) {
-      mergeObj(target[key] as Record<string, unknown>, sv as Record<string, unknown>);
-    } else {
-      target[key] = sv;
-    }
-  }
+function buildPreset(def: PresetDef): ThemePreset {
+	const sans = FONT_FAMILIES['sans-serif'];
+	const slots = { ...def.slots };
+
+	return {
+		name: t(def.nameKey),
+		nameKey: def.nameKey,
+		margin: 16,
+		background: '#ffffff',
+		sectionBg: '#ffffff',
+		fontFamily: def.typography.family ? FONT_FAMILIES[def.typography.family as keyof typeof FONT_FAMILIES] || sans : sans,
+		fontSize: def.typography.baseSize || 16,
+		lineHeight: def.typography.lineHeight || 1.8,
+		letterSpacing: def.typography.letterSpacing || 1,
+		textColor: '#3f3f3f',
+		mutedTextColor: '#888888',
+		linkColor: def.palette.accent,
+		linkDecoration: 'none',
+		accentColor: def.palette.accent,
+		accentColorDeep: '#004795',
+		accentColorPreset: 'blue',
+		coloredHeader: false,
+		paragraphGap: def.typography.paragraphGap || 14,
+		headings: {
+			h1: { fontSize: 28, fontWeight: 700, color: '#3f3f3f', marginBottom: 16 },
+			h2: { fontSize: 22, fontWeight: 700, color: '#3f3f3f', marginBottom: 12 },
+			h3: { fontSize: 18, fontWeight: 600, color: '#3f3f3f', marginBottom: 10 },
+			h4: { fontSize: 16, fontWeight: 600, color: '#3f3f3f', marginBottom: 8 },
+			h5: { fontSize: 15, fontWeight: 600, color: '#3f3f3f', marginBottom: 6 },
+			h6: { fontSize: 14, fontWeight: 600, color: '#888888', marginBottom: 4 },
+		},
+		headingDecorations: { h1: 'none', h2: 'none', h3: 'none', h4: 'none', h5: 'none', h6: 'none' },
+		blockquoteStyle: 'soft',
+		blockquote: { borderColor: '#d0d7de', borderWidth: 4, color: '#555555', backgroundColor: '#f6f8fa', paddingTop: 8, paddingBottom: 8 },
+		code: { fontSize: 14, color: '#abb2bf', backgroundColor: '#282c34', paddingTop: 10, paddingBottom: 10 },
+		codeLineNumbers: false,
+		codeMacStyle: false,
+		table: { fontSize: 14, borderColor: '#e8eaed', headerBg: '#f6f8fa', cellPadding: 10 },
+		image: { borderRadius: 4, figureBorderColor: '#e8eaed', figurePadding: 8 },
+		list: { indent: 24, gap: 4, bullet: 'disc', bulletSpacing: 8, taskUnchecked: '⬜', taskChecked: '✅' },
+		footnote: { fontSize: 12, color: '#888888' },
+		caption: { fontSize: 13, color: '#888888', textAlign: 'center', letterSpacing: 0, marginTop: 4, showTriangle: false },
+		dividerColor: 'rgba(0,0,0,0.08)',
+		dividerMargin: 40,
+		modifierConfig: slots,
+		...(def.callout ? { calloutConfig: def.callout } : {}),
+		...(def.image ? { imageConfig: def.image } : {}),
+	} as ThemePreset;
 }
 
-function buildPreset(id: string, name: string, overrides: Record<string, unknown>, modifierConfig?: Record<string, Record<string, string>>): ThemePreset {
-  const theme = mergeTheme(defaultArticleTheme(), overrides);
-  theme.id = id;
-  theme.name = name;
-  const preset = themeToThemePreset(theme);
-  if (modifierConfig) {
-    preset.modifierConfig = modifierConfig;
-  }
-  return preset;
+// ── 10 built-in presets ──
+
+export const BUILTIN_PRESETS: Record<string, ThemePreset> = {};
+
+const PRESET_DEFS: PresetDef[] = [
+	{
+		id: 'github', nameKey: 'preset.github',
+		palette: { accent: '#0366d6' },
+		typography: { baseSize: 16, lineHeight: 1.82 },
+		slots: {
+			'blocks.code': { theme: 'githubLight', titleBar: 'lightDots' },
+			'blocks.blockquote': { background: 'lightGray', border: 'accentBar' },
+			'inline.code': { style: 'lightGray' },
+		},
+	},
+	{
+		id: 'wechat', nameKey: 'preset.wechat',
+		palette: { accent: '#07c160' },
+		typography: { baseSize: 16, lineHeight: 1.8 },
+		slots: {
+			'heading': { border: 'none', color: 'text' },
+			'blocks.code': { theme: 'oneDark', titleBar: 'darkDots' },
+			'blocks.blockquote': { background: 'lightGray', border: 'accentBar' },
+			'blocks.table': { headerStyle: 'gray' },
+		},
+	},
+	{
+		id: 'serif', nameKey: 'preset.serif',
+		palette: { accent: '#e83e8c' },
+		typography: { family: 'serif', baseSize: 17, lineHeight: 1.9, letterSpacing: 1 },
+		slots: {
+			'heading': { border: 'leftBar', color: 'accentDeep' },
+			'heading.h1': { border: 'none', background: 'none' },
+			'blocks.code': { theme: 'warmPaper', titleBar: 'none' },
+			'blocks.blockquote': { background: 'warmGray', border: 'none', fontStyle: 'italic' },
+			'inline.strong': { style: 'accentColor' },
+		},
+		image: { decoration: 'lightShadow' },
+	},
+	{
+		id: 'paper', nameKey: 'preset.paper',
+		palette: { accent: '#d97706' },
+		typography: { family: 'serif', baseSize: 17, lineHeight: 1.92, letterSpacing: 0.5 },
+		slots: {
+			'article': { background: 'warm' },
+			'heading': { border: 'none', color: 'text' },
+			'heading.h1': { border: 'none' },
+			'heading.h2': { border: 'leftBar' },
+			'blocks.code': { theme: 'warmPaper', titleBar: 'none' },
+			'blocks.blockquote': { background: 'warmGray', border: 'accentBar', icon: 'bookmark' },
+			'blocks.table': { headerStyle: 'gray', borderStyle: 'horizontal' },
+			'inline.link': { style: 'subtle' },
+			'inline.strong': { style: 'boldOnly' },
+		},
+		callout: { decorationParams: { radius: '4px' } },
+		image: { decoration: 'lightShadow', decorationParams: { radius: '4px' } },
+	},
+	{
+		id: 'grid', nameKey: 'preset.grid',
+		palette: { accent: '#14b8a6' },
+		typography: { baseSize: 16, lineHeight: 1.8 },
+		slots: {
+			'article': { background: 'grid' },
+			'heading': { border: 'bottomLine', color: 'accentDeep' },
+			'blocks.code': { theme: 'githubLight', titleBar: 'lightDots' },
+			'blocks.blockquote': { background: 'lightGray', border: 'accentBar' },
+			'blocks.table': { headerStyle: 'accent', borderStyle: 'all' },
+		},
+		image: { decoration: 'lightShadow', decorationParams: { shadow: '0 4px 10px rgba(0,0,0,0.05)' } },
+	},
+	{
+		id: 'typo', nameKey: 'preset.typo',
+		palette: { accent: '#6c757d' },
+		typography: { baseSize: 16, lineHeight: 1.9, letterSpacing: 1.5, paragraphGap: 18 },
+		slots: {
+			'heading': { border: 'none', color: 'text', prefix: 'decimal' },
+			'blocks.code': { theme: 'slateDark', titleBar: 'darkDots' },
+			'blocks.blockquote': { background: 'lightGray', border: 'thickBar', fontStyle: 'serif' },
+			'blocks.table': { headerStyle: 'gray', borderStyle: 'minimal' },
+			'blocks.list': { bullet: 'dash' },
+			'inline.link': { style: 'underlined' },
+		},
+	},
+	{
+		id: 'media', nameKey: 'preset.media',
+		palette: { accent: '#0ea5e9' },
+		typography: { baseSize: 16, lineHeight: 1.8 },
+		slots: {
+			'heading': { border: 'bottomLine', color: 'accentDeep' },
+			'blocks.code': { theme: 'slateDark', titleBar: 'darkDots', corner: 'small' },
+			'blocks.blockquote': { background: 'lightGray', border: 'accentBar' },
+			'blocks.table': { headerStyle: 'accent', striped: 'striped' },
+			'inline.strong': { style: 'accentBg' },
+		},
+		image: { decoration: 'lightShadow', decorationParams: { radius: '8px', shadow: '0 4px 10px rgba(0,0,0,0.05)' } },
+	},
+	{
+		id: 'colorful', nameKey: 'preset.colorful',
+		palette: { accent: '#8b5cf6' },
+		typography: { baseSize: 16, lineHeight: 1.8 },
+		slots: {
+			'heading': { border: 'bottomLine', background: 'accentFill', color: 'accent' },
+			'heading.h1': { background: 'gradient' },
+			'blocks.code': { theme: 'oneDark', titleBar: 'darkDots', corner: 'medium' },
+			'blocks.blockquote': { background: 'gradient', border: 'accentBar', corner: 'medium' },
+			'inline.strong': { style: 'accentBg' },
+			'inline.code': { style: 'accentColor' },
+		},
+		image: { decoration: 'lightShadow', decorationParams: { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8', radius: '8px' } },
+		callout: {
+			decoration: 'accentGlow',
+			decorationParams: { radius: '8px', shadow: '0 2px 8px rgba(0,0,0,0.06)' },
+		},
+	},
+	{
+		id: 'warm', nameKey: 'preset.warm',
+		palette: { accent: '#f97316' },
+		typography: { family: 'serif', baseSize: 16, lineHeight: 1.85 },
+		slots: {
+			'article': { background: 'warm' },
+			'heading': { border: 'none', color: 'text' },
+			'heading.h2': { border: 'bottomLine' },
+			'blocks.code': { theme: 'warmPaper', titleBar: 'none' },
+			'blocks.blockquote': { background: 'warmGray', border: 'none', corner: 'soft', icon: 'pin' },
+			'blocks.table': { headerStyle: 'gray' },
+			'inline.strong': { style: 'accentColor' },
+		},
+		image: { decoration: 'lightShadow', decorationParams: { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8', radius: '4px' } },
+	},
+	{
+		id: 'dark', nameKey: 'preset.dark',
+		palette: { accent: '#58a6ff' },
+		typography: { baseSize: 16, lineHeight: 1.8 },
+		slots: {
+			'article': { background: 'dark' },
+			'heading': { color: 'accent' },
+			'heading.h1': { border: 'bottomLine' },
+			'heading.h2': { border: 'leftBar' },
+			'blocks.code': { theme: 'slateDark', titleBar: 'darkDots' },
+			'blocks.blockquote': { background: 'darkFill', border: 'accentBar', corner: 'medium', icon: 'warning' },
+			'blocks.table': { headerStyle: 'accent' },
+			'inline.link': { style: 'colored' },
+			'inline.strong': { style: 'accentColor' },
+		},
+		image: { decoration: 'lightShadow', decorationParams: { radius: '4px' } },
+		callout: {
+			decoration: 'accentGlow',
+			decorationParams: { radius: '8px', shadow: '0 2px 8px rgba(0,0,0,0.06)' },
+		},
+	},
+];
+
+for (const def of PRESET_DEFS) {
+	BUILTIN_PRESETS[def.id] = buildPreset(def);
 }
 
-export const BUILTIN_PRESETS: Record<string, ThemePreset> = {
-  github: buildPreset('github', '简约 GitHub', {
-    typography: { lineHeight: 1.82 },
-    heading: {
-      levels: {
-        h1: { fontSize: 30, fontWeight: 800 },
-        h2: { fontSize: 22, fontWeight: 800 },
-      },
-      decorations: { h3: 'bottom-line-left' },
-    },
-    blocks: {
-      codeBlock: { textColor: '#24292e', backgroundColor: '#f6f8fa' },
-    },
-  }, {
-    'blocks.blockquote': { style: 'lightGray' },
-    'blocks.code': { theme: 'githubLight' },
-    'inline.link': { style: 'colored' },
-  }),
+/** Fixed content template with all 15 element types for theme preview */
+export const CONTENT_TEMPLATE = `# 一级标题
 
-  wechat: buildPreset('wechat', '经典微信', {
-    palette: { linkDecoration: 'none' },
-    heading: {
-      decorations: { h1: 'classic-title', h2: 'classic-title', h3: 'classic-subhead', h4: 'classic-minor' },
-    },
-    blocks: {
-      blockquote: {
-        custom: { borderColor: '#0366d6', borderWidth: 3, textColor: '#595959', backgroundColor: '#f8fafc' },
-      },
-      table: { cellPadding: 12 },
-    },
-  }, {
-    'blocks.blockquote': { style: 'leftLine' },
-    'blocks.code': { theme: 'oneDark' },
-    'inline.link': { style: 'colored' },
-    'media.image': { frame: 'rounded', borderRadius: 'medium' },
-  }),
+## 二级标题
 
-  serif: buildPreset('serif', '优雅衬线', {
-    typography: { family: 'serif', letterSpacing: 1 },
-    palette: {
-      accent: '#e83e8c', accentDeep: '#b81f66', accentPreset: 'rose',
-      link: '#e83e8c', linkDecoration: 'none', headingColored: true,
-    },
-    heading: {
-      decorations: { h1: 'editorial-h1', h2: 'editorial-h1', h3: 'editorial-h3' },
-    },
-    blocks: {
-      blockquote: {
-        style: 'center',
-        custom: { borderColor: '#e83e8c', borderWidth: 0, textColor: '#4f4a45', backgroundColor: '#fdf2f7' },
-      },
-    },
-  }, {
-    'blocks.blockquote': { style: 'gradient' },
-    'blocks.code': { theme: 'warmPaper' },
-    'inline.link': { style: 'colored' },
-    'media.image': { frame: 'rounded' },
-  }),
+### 三级标题
 
-  paper: buildPreset('paper', '纸张长文', {
-    page: { background: '#fffdf8', padding: 20 },
-    typography: { family: 'serif', baseSize: 17, lineHeight: 1.90 },
-    palette: {
-      text: '#3f3a33', textMuted: '#786f63',
-      accent: '#e83e8c', accentDeep: '#b81f66', accentPreset: 'rose',
-      link: '#e83e8c', linkDecoration: 'none', headingColored: true,
-    },
-    heading: {
-      decorations: { h1: 'paper-title', h2: 'paper-chapter', h3: 'paper-section', h4: 'paper-kicker' },
-      shiftDecorations: true,
-    },
-    blocks: {
-      codeBlock: { textColor: '#3f3a33', backgroundColor: '#f7f1e7' },
-      table: { borderColor: '#e6dccd', headerBackground: '#f7f1e7', cellPadding: 12 },
-      blockquote: {
-        style: 'paper',
-        custom: { borderColor: '#e83e8c', borderWidth: 0, textColor: '#5f574c', backgroundColor: '#f7f1e7' },
-      },
-    },
-    media: {
-      image: { borderRadius: 2, figure: { borderColor: '#eadfce', padding: 10 } },
-    },
-  }, {
-    'blocks.blockquote': { style: 'warm' },
-    'blocks.code': { theme: 'warmPaper' },
-    'inline.link': { style: 'subtle' },
-    'media.image': { frame: 'bordered' },
-  }),
+#### 四级标题
 
-  grid: buildPreset('grid', '网格文档', {
-    palette: {
-      text: '#344054', textMuted: '#667085',
-      accent: '#20c997', accentDeep: '#158765', accentPreset: 'teal',
-      link: '#20c997', linkDecoration: 'none', headingColored: true,
-    },
-    heading: {
-      levels: {
-        h1: { fontSize: 28, fontWeight: 800 },
-        h2: { fontSize: 22, fontWeight: 800 },
-      },
-      decorations: { h1: 'grid-title', h2: 'grid-chapter', h3: 'grid-section', h4: 'grid-kicker', h5: 'light-bg' },
-      shiftDecorations: true,
-    },
-    blocks: {
-      codeBlock: { textColor: '#344054', backgroundColor: '#f3f7fb' },
-      table: { borderColor: '#dbe5ef', headerBackground: '#f3f7fb' },
-      blockquote: {
-        custom: { borderColor: '#20c997', borderWidth: 4, textColor: '#595959', backgroundColor: '#f6f9fc' },
-      },
-    },
-    media: {
-      image: { figure: { borderColor: '#dbe5ef', padding: 10 } },
-    },
-  }, {
-    'heading.h1': { decoration: 'underline' },
-    'blocks.blockquote': { style: 'lightCard' },
-    'blocks.code': { theme: 'githubLight' },
-    'inline.link': { style: 'colored' },
-    'media.image': { frame: 'rounded', borderRadius: 'small' },
-  }),
+##### 五级标题
 
-  typo: buildPreset('typo', '排版美学', {
-    page: { padding: 20 },
-    typography: { lineHeight: 1.92, paragraph: { textIndent: '2em' } },
-    palette: {
-      text: '#333333', textMuted: '#6b6b6b',
-      accent: '#6c757d', accentDeep: '#495057', accentPreset: 'slate',
-      link: '#6c757d',
-    },
-    heading: {
-      decorations: { h1: 'typo-title', h2: 'typo-title', h3: 'typo-section', h4: 'typo-subhead', h5: 'dashed-bottom' },
-      shiftDecorations: true,
-    },
-    blocks: {
-      codeBlock: { textColor: '#333333', backgroundColor: '#f7f7f7' },
-      table: { borderColor: '#e0e0e0', headerBackground: '#f7f7f7' },
-      blockquote: {
-        custom: { borderColor: '#6c757d', borderWidth: 2, textColor: '#595959', backgroundColor: '#fafafa' },
-      },
-    },
-    media: {
-      image: { borderRadius: 2, figure: { borderColor: '#ededed', padding: 10 } },
-    },
-  }, {
-    'blocks.blockquote': { style: 'leftLine' },
-    'blocks.code': { theme: 'githubLight' },
-    'inline.link': { style: 'subtle' },
-    'media.image': { frame: 'none' },
-  }),
+###### 六级标题
 
-  media: buildPreset('media', '清爽媒体', {
-    palette: {
-      text: '#3b4648', textMuted: '#667476',
-      accent: '#20c997', accentDeep: '#158765', accentPreset: 'teal',
-      link: '#20c997', linkDecoration: 'none', headingColored: true,
-    },
-    heading: {
-      decorations: { h1: 'media-title', h2: 'media-chapter', h3: 'media-section', h4: 'left-border', h5: 'light-bg' },
-      shiftDecorations: true,
-    },
-    blocks: {
-      codeBlock: { textColor: '#3b4648', backgroundColor: '#f3fbf8' },
-      table: { borderColor: '#dbeee8', headerBackground: '#f3fbf8' },
-      blockquote: {
-        custom: { borderColor: '#20c997', borderWidth: 3, textColor: '#595959', backgroundColor: '#f3fbf8' },
-      },
-    },
-    media: {
-      image: { borderRadius: 8, figure: { borderColor: '#dcefeb', padding: 12 } },
-    },
-  }, {
-    'blocks.blockquote': { style: 'lightCard' },
-    'blocks.code': { theme: 'slateDark' },
-    'inline.link': { style: 'colored' },
-    'media.image': { frame: 'card', borderRadius: 'medium', shadow: 'subtle' },
-  }),
+这是一段正文段落，包含**加粗文字**、*斜体文字*、***粗斜文字***、~~删除线~~、==高亮==、\`行内代码\`、[外链](https://example.com)、<https://example.com>、[[内部笔记|别名]]、#标签 和行内公式 $E=mc^2$。
 
-  colorful: buildPreset('colorful', '彩色强调', {
-    palette: {
-      textMuted: '#6b7280',
-      accent: '#6f42c1', accentDeep: '#4a2b82', accentPreset: 'purple',
-      link: '#6f42c1', linkDecoration: 'none', headingColored: true,
-    },
-    heading: {
-      levels: {
-        h1: { fontSize: 30, fontWeight: 800 },
-        h2: { fontSize: 22, fontWeight: 800 },
-      },
-      decorations: { h1: 'colorful-title', h2: 'colorful-chapter', h3: 'colorful-section', h4: 'colorful-kicker', h5: 'light-bg' },
-      shiftDecorations: true,
-    },
-    typography: {
-      inline: { strongBackground: true },
-    },
-    blocks: {
-      codeBlock: { textColor: '#3e3e3e', backgroundColor: '#fff8ed' },
-      table: { borderColor: '#f0e4d4', headerBackground: '#fff8ed' },
-      blockquote: {
-        custom: { borderColor: '#6f42c1', borderWidth: 4, textColor: '#595959', backgroundColor: '#fffaf5' },
-      },
-    },
-    media: {
-      image: { borderRadius: 6, figure: { borderColor: '#f0e4d4', padding: 10 } },
-    },
-  }, {
-    'blocks.blockquote': { style: 'gradient' },
-    'blocks.code': { theme: 'oneDark', macBar: 'dark' },
-    'inline.link': { style: 'colored' },
-    'inline.strong': { style: 'accentBg' },
-    'media.image': { frame: 'rounded', borderRadius: 'medium' },
-  }),
+> 这是一段引用块内容，可以跨越多行。引用块通常用于展示引文、补充说明或强调内容。
 
-  warm: buildPreset('warm', '暖色日常', {
-    page: { background: '#fffdf8', padding: 16 },
-    typography: { family: 'sans-serif', baseSize: 16, lineHeight: 1.85, letterSpacing: 0.5 },
-    palette: {
-      text: '#3f3f3f', textMuted: '#999999',
-      accent: '#fd7e14', accentDeep: '#c75e0b', accentPreset: 'orange',
-      link: '#fd7e14', linkDecoration: 'none', headingColored: true,
-    },
-    heading: {
-      decorations: { h1: 'bottom-line', h2: 'left-border', h3: 'left-border', h4: 'simple', h5: 'simple', h6: 'quiet' },
-    },
-    blocks: {
-      codeBlock: { textColor: '#3f3f3f', backgroundColor: '#fdf6f0' },
-      table: { borderColor: '#f0e4d4', headerBackground: '#fdf6f0', cellPadding: 12 },
-      blockquote: { style: 'warm', custom: { borderColor: '#fd7e14', borderWidth: 3, textColor: '#595959', backgroundColor: '#fef9f3' } },
-    },
-    media: { image: { borderRadius: 8, figure: { borderColor: '#f0e4d4', padding: 10 } } },
-  }, {
-    'blocks.blockquote': { style: 'warm', icon: 'bulb' },
-    'blocks.code': { theme: 'warmPaper' },
-    'inline.link': { style: 'colored' },
-    'media.image': { frame: 'rounded', borderRadius: 'medium' },
-  }),
+> 这是另一种引用风格。
 
-  dark: buildPreset('dark', '暗色科技', {
-    page: { background: '#0d1117', padding: 16 },
-    typography: { family: 'sans-serif', baseSize: 16, lineHeight: 1.8, letterSpacing: 0.5 },
-    palette: {
-      text: '#c9d1d9', textMuted: '#8b949e',
-      accent: '#58a6ff', accentDeep: '#79c0ff', accentPreset: 'blue',
-      link: '#58a6ff', linkDecoration: 'none', headingColored: true,
-    },
-    heading: {
-      decorations: { h1: 'bottom-line', h2: 'left-border', h3: 'simple', h4: 'simple', h5: 'simple', h6: 'quiet' },
-    },
-    blocks: {
-      codeBlock: { textColor: '#c9d1d9', backgroundColor: '#161b22' },
-      table: { borderColor: '#30363d', headerBackground: '#161b22', cellPadding: 12 },
-      blockquote: { style: 'dark-card', custom: { borderColor: '#58a6ff', borderWidth: 3, textColor: '#c9d1d9', backgroundColor: '#161b22' } },
-    },
-    media: { image: { borderRadius: 6, figure: { borderColor: '#30363d', padding: 8 } } },
-  }, {
-    'blocks.blockquote': { style: 'darkCard' },
-    'blocks.code': { theme: 'slateDark', macBar: 'dark' },
-    'inline.link': { style: 'colored' },
-    'media.image': { frame: 'rounded', borderRadius: 'small' },
-  }),
-};
+\`\`\`python
+def hello():
+    print("Hello, WeWrite!")
 
-/** Generate CSS custom properties for caption styling from a ThemePreset */
-export function generateCaptionCssVars(preset: ThemePreset): string {
-  const cap = preset.caption;
-  return [
-    `--wewrite-caption-font-size: ${cap?.fontSize ?? 13}px`,
-    `--wewrite-caption-color: ${cap?.color ?? '#888888'}`,
-    `--wewrite-caption-text-align: ${cap?.textAlign ?? 'center'}`,
-    `--wewrite-caption-letter-spacing: ${cap?.letterSpacing ?? 0}px`,
-    `--wewrite-caption-margin-top: ${cap?.marginTop ?? 4}px`,
-    cap?.fontFamily ? `--wewrite-caption-font-family: ${cap.fontFamily}` : '',
-  ].filter(Boolean).join(';');
-}
+# 多行代码示例
+for i in range(10):
+    hello()
+\`\`\`
 
-export const BUILTIN_STYLE_LIST = Object.entries(BUILTIN_PRESETS).map(([id, preset]) => ({
-  id,
-  name: preset.name,
-  preset,
-}));
+\`\`\`javascript
+const greeting = "Hello";
+console.log(greeting + " World");
+\`\`\`
+
+| 特性 | 说明 | 示例 |
+|------|------|------|
+| 加粗 | 强调文字 | **重要** |
+| 斜体 | 次要强调 | *注释* |
+| 代码 | 行内代码块 | \`print()\` |
+
+> [!info] 这是信息提示框
+> 用于展示补充信息或背景知识。
+
+> [!tip] 这是技巧提示框
+> 提供实用的建议或快捷操作。
+
+> [!warning] 这是警告提示框
+> 提醒注意事项或潜在风险。
+
+- 无序列表项一
+- 无序列表项二
+  - 嵌套列表项
+  - 另一个嵌套项
+- 无序列表项三
+
+1. 有序列表项一
+2. 有序列表项二
+3. 有序列表项三
+
+- [ ] 待完成的任务
+- [x] 已完成的任务
+- [ ] 另一个待办事项
+
+---
+
+![图片示例](https://via.placeholder.com/400x200/009688/ffffff?text=WeWrite)
+
+\`\`\`mermaid
+graph TD
+    A[开始] --> B{判断}
+    B -->|是| C[执行]
+    B -->|否| D[结束]
+\`\`\`
+
+$$E = mc^2$$
+`;

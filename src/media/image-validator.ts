@@ -12,6 +12,7 @@ import { canvasToBlobSafe, clampCanvasDimensions } from './diagram-renderer';
 import { createLogger } from '../utils/logger';
 import { readLocalImage } from './local-image-resolver';
 import { mimeFromExtension } from '../utils/fingerprint';
+import { t } from '../i18n';
 
 const log = createLogger('MediaValidator');
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -258,7 +259,7 @@ export class ImageValidator {
     for (const target of targets) {
       try {
         const idx = targets.indexOf(target) + 1;
-        onProgress?.(`Scanning ${idx}/${targets.length}: ${target.name}`);
+        onProgress?.(t('validate.img.scanning', { current: String(idx), total: String(targets.length), name: target.name }));
         let buf: ArrayBuffer;
         let mimeType: string;
 
@@ -270,7 +271,7 @@ export class ImageValidator {
           const resp = await requestUrl({ url: target.url });
           if (resp.status < 200 || resp.status >= 300) {
             issues.push(this.makeIssue(target, 0, 'unknown', ['unsupported_format'],
-              'Failed to download remote file.'));
+              t('validate.img.download_failed')));
             continue;
           }
           buf = resp.arrayBuffer;
@@ -284,7 +285,7 @@ export class ImageValidator {
           const resolved = await readLocalImage(this.app, target.url!);
           if (!resolved) {
             issues.push(this.makeIssue(target, 0, 'unknown', ['file_not_found'],
-              `Localhost file not found in vault: ${target.url}`));
+              t('validate.img.localhost_not_found', { url: target.url! })));
             continue;
           }
           buf = resolved.buf;
@@ -293,7 +294,7 @@ export class ImageValidator {
           const read = await this.tryReadFile(target.vaultPath);
           if (!read) {
             issues.push(this.makeIssue(target, 0, 'unknown', ['file_not_found'],
-              'File not found in vault.'));
+              t('validate.img.file_not_found')));
             continue;
           }
           buf = read.buf;
@@ -307,39 +308,42 @@ export class ImageValidator {
         if (mediaType === 'image') {
           if (!isSupportedFormat(mimeType)) {
             mediaIssues.push('unsupported_format');
-            suggestion = `Format ${mimeType || 'unknown'} is not supported by WeChat. Convert to PNG.`;
+            suggestion = t('validate.img.format_unsupported', { mime: mimeType || 'unknown' });
           }
           if (!isWithinSizeLimit(buf.byteLength)) {
             mediaIssues.push('oversized');
             const sizeMB = (buf.byteLength / (1024 * 1024)).toFixed(2);
             suggestion = mediaIssues.length > 1
-              ? `File is ${sizeMB}MB (>10MB) and format unsupported. Convert to JPEG with compression.`
-              : `File is ${sizeMB}MB (>10MB limit). Compress to JPEG.`;
+              ? t('validate.img.format_and_size', { size: sizeMB })
+              : t('validate.img.too_large', { size: sizeMB });
           }
           // Dimension check for images — cover images must meet WeChat minimums
           if (target.minWidth && target.minHeight) {
             const dims = await getImageDimensions(buf, mimeType);
             if (dims && (dims.width < target.minWidth || dims.height < target.minHeight)) {
               mediaIssues.push('dimension');
-              const dimSuggestion = `Image dimensions (${dims.width}x${dims.height}) do not meet WeChat minimum (${target.minWidth}x${target.minHeight}). Use a larger image.`;
+              const dimSuggestion = t('validate.img.dimension', {
+                width: String(dims.width), height: String(dims.height),
+                minWidth: String(target.minWidth), minHeight: String(target.minHeight),
+              });
               suggestion = suggestion ? `${suggestion} ${dimSuggestion}` : dimSuggestion;
             } else if (!dims) {
               mediaIssues.push('unsupported_format');
-              suggestion = 'Cannot decode image to check dimensions. The file may be corrupted.';
+              suggestion = t('validate.img.corrupted');
             }
           }
         } else if (mediaType === 'video') {
           if (!isWithinSizeLimit(buf.byteLength)) {
             mediaIssues.push('oversized');
             const sizeMB = (buf.byteLength / (1024 * 1024)).toFixed(2);
-            suggestion = `Video is ${sizeMB}MB (>10MB limit). Use external tools (FFmpeg/HandBrake) to compress or split, then re-embed.`;
+            suggestion = t('validate.img.video_too_large', { size: sizeMB });
           }
         } else {
           // Audio
           if (!isWithinSizeLimit(buf.byteLength)) {
             mediaIssues.push('oversized');
             const sizeMB = (buf.byteLength / (1024 * 1024)).toFixed(2);
-            suggestion = `Audio is ${sizeMB}MB (>10MB limit). Use external tools to compress, then re-embed.`;
+            suggestion = t('validate.img.audio_too_large', { size: sizeMB });
           }
         }
 
@@ -358,8 +362,8 @@ export class ImageValidator {
           || errStr.includes('Request Failed');
         const issueType: IssueType = isNetworkError ? 'file_not_found' : 'unsupported_format';
         const suggestion = isNetworkError
-          ? `Cannot read file (network/connect error): ${errStr}`
-          : `Error reading file: ${errStr}`;
+          ? t('validate.img.network_error', { error: errStr })
+          : t('validate.img.read_error', { error: errStr });
         issues.push(this.makeIssue(target, 0, 'unknown', [issueType],
           suggestion, target.mediaType || 'image'));
         log.warn('validation error', { identifier: target.identifier, err: errStr });
@@ -395,10 +399,10 @@ export class ImageValidator {
     for (const issue of report.issues) {
       try {
         const idx = report.issues.indexOf(issue) + 1;
-        onProgress?.(`Converting ${idx}/${report.issues.length}: ${issue.name}`);
+        onProgress?.(t('validate.img.converting', { current: String(idx), total: String(report.issues.length), name: issue.name }));
         const target = targets.find((t) => t.identifier === issue.identifier);
         if (!target) {
-          errors.push(`Cannot find target for ${issue.identifier}`);
+          errors.push(t('validate.img.target_not_found', { id: issue.identifier }));
           continue;
         }
 
@@ -408,10 +412,15 @@ export class ImageValidator {
           continue;
         }
 
-        // Check if this source already has a conversion from an earlier phase
+        // Check if this source already has a conversion from an earlier phase.
+        // Self-path guard: a record whose convertedPath IS the source file
+        // (ingested webp/bmp/svg) is not a finished conversion — reusing it
+        // would "fix" nothing and the invalid format would still be published.
         if (!target.isRemote && target.vaultPath) {
           const existingRecord = this.mediaRegistry.lookupByPath(target.vaultPath);
-          if (existingRecord?.convertedPath && await this.app.vault.adapter.exists(existingRecord.convertedPath)) {
+          if (existingRecord?.convertedPath &&
+              existingRecord.convertedPath !== target.vaultPath &&
+              await this.app.vault.adapter.exists(existingRecord.convertedPath)) {
             const cachedBuf = await this.app.vault.adapter.readBinary(existingRecord.convertedPath);
             convertedData.set(issue.identifier, cachedBuf);
             outputMimeTypes.set(issue.identifier, existingRecord.mimeType);
@@ -436,7 +445,7 @@ export class ImageValidator {
         } else {
           const read = await this.tryReadFile(target.vaultPath);
           if (!read) {
-            errors.push(`${issue.name}: file not found in vault`);
+            errors.push(t('validate.img.file_not_found_named', { name: issue.name }));
             continue;
           }
           buf = read.buf;
@@ -449,7 +458,9 @@ export class ImageValidator {
           const sourceExt = resolvedPath.split('.').pop()?.toLowerCase() || '';
           sourceFp = this.mediaRegistry.computeFingerprint(mimeFromExtension(sourceExt), buf);
           const sourceRecord = this.mediaRegistry.lookupBySourceFingerprint(sourceFp);
-          if (sourceRecord?.convertedPath && await this.app.vault.adapter.exists(sourceRecord.convertedPath)) {
+          if (sourceRecord?.convertedPath &&
+              sourceRecord.convertedPath !== resolvedPath &&
+              await this.app.vault.adapter.exists(sourceRecord.convertedPath)) {
             const cachedBuf = await this.app.vault.adapter.readBinary(sourceRecord.convertedPath);
             convertedData.set(issue.identifier, cachedBuf);
             outputMimeTypes.set(issue.identifier, sourceRecord.mimeType);

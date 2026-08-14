@@ -127,6 +127,31 @@ describe('Task Optimization', () => {
       expect(result[1].localPath).toBe('b.md');
       expect(result[2].localPath).toBe('c.md');
     });
+
+    it('should put .md notes before non-markdown files (same kind)', () => {
+      const tasks = [
+        makeTask('push', 'a-image.png'),
+        makeTask('push', 'z-note.md'),
+        makeTask('push', 'b-data.bin'),
+        makeTask('push', 'm-note.md'),
+      ];
+      const { tasks: result } = optimizeTasks(tasks);
+      const paths = result.map(t => t.localPath);
+      // All .md before all non-.md; within each class, path order.
+      expect(paths).toEqual(['m-note.md', 'z-note.md', 'a-image.png', 'b-data.bin']);
+    });
+
+    it('should keep mkdirs before .md notes', () => {
+      const tasks = [
+        makeTask('push', 'nested/note.md'),
+        makeTask('mkdir_remote', 'nested'),
+        makeTask('push', 'image.png'),
+      ];
+      const { tasks: result } = optimizeTasks(tasks);
+      const kinds = result.map(t => t.kind);
+      expect(kinds).toEqual(['mkdir_remote', 'push', 'push']);
+      expect(result[1].localPath).toBe('nested/note.md'); // md before image.png
+    });
   });
 
   describe('empty input', () => {

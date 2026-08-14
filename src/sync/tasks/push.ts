@@ -23,6 +23,9 @@ export class PushTask extends BaseTask {
     private readonly localMtime: number,
     private readonly localSize: number,
     private readonly localHash: string,
+    /** Remote stat (mtime/size) captured during the walk. 0 = remote absent. */
+    private readonly walkRemoteMtime = 0,
+    private readonly walkRemoteSize = 0,
   ) {
     super(backend, vault, getRecord, localPath, remotePath);
   }
@@ -32,6 +35,22 @@ export class PushTask extends BaseTask {
   async exec(): Promise<TaskResult> {
     try {
       const content = await this.vault.adapter.readBinary(this.localPath);
+
+      // TOCTOU guard: if the remote changed since the walk (another device
+      // pushed while we were syncing), do NOT silently overwrite it — that
+      // would destroy the other device's changes. Surface a conflict instead.
+      if (this.walkRemoteMtime > 0) {
+        const remoteStat = await this.backend.stat(this.localPath);
+        if (remoteStat &&
+            (remoteStat.mtime !== this.walkRemoteMtime || remoteStat.size !== this.walkRemoteSize)) {
+          log.warn('push skipped: remote changed during sync', { path: this.localPath });
+          return {
+            success: false,
+            error: new TaskError('Remote file changed during sync — resolve before pushing', 'push', this.localPath),
+          };
+        }
+      }
+
       await this.backend.writeFile(this.localPath, content, { overwrite: true });
 
       // Verify upload by getting remote stat (includes ETag for compatible hashing)

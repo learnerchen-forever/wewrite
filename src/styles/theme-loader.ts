@@ -4,10 +4,26 @@
 import { type Vault, type TFile } from 'obsidian';
 import type { ThemePreset } from '../core/interfaces';
 import { frontmatterToThemePreset, DEFAULT_PRESET } from '../renderer/theme-resolver';
-import { parseFlatFrontmatter } from '../core/frontmatter-parser';
+import { parseFlatFrontmatter, registerCustomValues } from '../core/frontmatter-parser';
+import { parseHeadingFrontmatter } from '../core/heading-config';
+import { parseBlockquoteFrontmatter } from '../core/blockquote-config';
+import { parseCalloutFrontmatter } from '../core/callout-config';
+import { parseMermaidFrontmatter } from '../core/mermaid-config';
+import { parseImageFrontmatter } from '../core/image-config';
+import { parseMathFrontmatter } from '../core/math-config';
+import { parseExcalidrawFrontmatter } from '../core/excalidraw-config';
+import { parseTableFrontmatter } from '../core/table-config';
+import { parseDividerFrontmatter } from '../core/divider-config';
+import {
+  parseOrderedFrontmatter,
+  parseUnorderedFrontmatter,
+  parseTaskFrontmatter,
+} from '../core/list-config';
+import { parseInlineFrontmatter } from '../core/inline-config';
 import { BUILTIN_PRESETS } from './style-template';
 import { createLogger } from '../utils/logger';
 import matter from 'gray-matter';
+import { t } from '../i18n';
 
 const log = createLogger('Themes');
 
@@ -15,26 +31,29 @@ export interface ThemeDescriptor {
   source: 'builtin' | 'vault';
   id: string;            // unique: 'builtin:github' or vault path
   name: string;          // display name
+  /** i18n key for built-in presets; render with t(nameKey) to honor hot-switch. */
+  nameKey?: string;
   description: string;   // one-line description
   preset: ThemePreset;   // resolved theme preset
 }
 
-type ThemeChangeCallback = (descriptor: ThemeDescriptor) => void;
-
 export class ThemeLoader {
   private vault: Vault;
   private themesDir: string;
+  /** Legacy vault-root themes/ dir, scanned for backward compatibility. */
+  private fallbackDir: string | null;
   private cache: Map<string, ThemeDescriptor> = new Map();
-  private changeCallbacks: ThemeChangeCallback[] = [];
 
   constructor(vault: Vault, themesDir: string) {
     this.vault = vault;
     this.themesDir = themesDir;
+    this.fallbackDir = themesDir !== 'themes' ? 'themes' : null;
   }
 
   /** Update the themes directory and re-scan */
   setDirectory(dir: string): void {
     this.themesDir = dir;
+    this.fallbackDir = dir !== 'themes' ? 'themes' : null;
   }
 
   /** Scan themes directory and rebuild cache */
@@ -52,7 +71,7 @@ export class ThemeLoader {
     // Primary scan: {wewriteFolder}/themes
     const dir = this.vault.getAbstractFileByPath(this.themesDir);
     // Fallback: vault root themes/ for backward compatibility
-    const fallbackDir = (this.themesDir !== 'themes') ? this.vault.getAbstractFileByPath('themes') : null;
+    const fallbackDir = this.fallbackDir ? this.vault.getAbstractFileByPath(this.fallbackDir) : null;
 
     if (!dir && !fallbackDir) {
       log.info('scanThemes: themes directory not found (primary + fallback)', { primary: this.themesDir, fallback: 'themes' });
@@ -74,8 +93,11 @@ export class ThemeLoader {
   }
 
   private async scanDirectory(dir: import('obsidian').TAbstractFile): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const children = (dir as any).children as TFile[] | undefined;
+    if (!('children' in dir) || !Array.isArray(dir.children)) {
+      log.info('scanThemes: directory has no children');
+      return;
+    }
+    const children = dir.children as TFile[] | undefined;
     if (!children) {
       log.info('scanThemes: directory has no children');
       return;
@@ -111,11 +133,25 @@ export class ThemeLoader {
         }
 
         // Inject modifier config from v2 theme format
-        const { config: modifierConfig } = parseFlatFrontmatter(fm);
+        const { config: modifierConfig, customValues } = parseFlatFrontmatter(fm);
+        if (customValues.length > 0) registerCustomValues(customValues);
         if (Object.keys(modifierConfig).length > 0) {
           preset.modifierConfig = modifierConfig;
           log.info('scanThemes: injected modifier config', { path: childPath, modifierKeys: Object.keys(modifierConfig).length });
         }
+        this.applyHeadingConfig(preset, fm);
+        this.applyBlockquoteConfig(preset, fm);
+        this.applyCalloutConfig(preset, fm);
+        this.applyMermaidConfig(preset, fm);
+        this.applyImageConfig(preset, fm);
+        this.applyMathConfig(preset, fm);
+        this.applyExcalidrawConfig(preset, fm);
+        this.applyTableConfig(preset, fm);
+        this.applyDividerConfig(preset, fm);
+        this.applyOrderedListConfig(preset, fm);
+        this.applyUnorderedListConfig(preset, fm);
+        this.applyTaskListConfig(preset, fm);
+        this.applyInlineConfig(preset, fm);
 
         const name = (fm.wewrite_theme_name as string) || preset.name || (child as TFile).basename;
         const description = (fm.wewrite_theme_description as string) || '';
@@ -154,33 +190,6 @@ export class ThemeLoader {
     return this.getThemes().filter((s) => s.source === 'vault');
   }
 
-  /** Look up a theme by its id */
-  getThemeById(id: string): ThemeDescriptor | undefined {
-    return this.cache.get(id);
-  }
-
-  /** Load a specific theme note and return its ThemePreset */
-  async loadTheme(path: string): Promise<ThemePreset | null> {
-    const cached = this.cache.get(path);
-    if (cached) return cached.preset;
-
-    try {
-      const content = await this.vault.adapter.read(path);
-      const fm = this.parseFrontmatter(content);
-      if (!fm || (fm.wewrite_theme !== true && fm.wewrite_style !== true)) return null;
-      const preset = frontmatterToThemePreset(fm);
-      if (preset) {
-        const { config: modifierConfig } = parseFlatFrontmatter(fm);
-        if (Object.keys(modifierConfig).length > 0) {
-          preset.modifierConfig = modifierConfig;
-        }
-      }
-      return preset;
-    } catch {
-      return null;
-    }
-  }
-
   /** Resolve a theme reference (path or builtin id) to a ThemePreset */
   resolveTheme(ref: string): ThemePreset | null {
     const cached = this.cache.get(ref);
@@ -189,15 +198,6 @@ export class ThemeLoader {
     if (BUILTIN_PRESETS[ref]) return BUILTIN_PRESETS[ref];
 
     return null;
-  }
-
-  /** Register a change callback. Returns unsubscribe function. */
-  onThemeChanged(callback: ThemeChangeCallback): () => void {
-    this.changeCallbacks.push(callback);
-    return () => {
-      const idx = this.changeCallbacks.indexOf(callback);
-      if (idx >= 0) this.changeCallbacks.splice(idx, 1);
-    };
   }
 
   /** Start watching the themes directory for file changes */
@@ -214,8 +214,132 @@ export class ThemeLoader {
   }
 
   destroy(): void {
-    this.changeCallbacks = [];
     this.cache.clear();
+  }
+
+  /** Inject the new heading variable config + custom decorations onto a preset. */
+  private applyHeadingConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseHeadingFrontmatter(fm);
+    preset.headingConfig = config;
+    if (customDecorations.length > 0) {
+      preset.customHeadingDecorations = customDecorations;
+    }
+  }
+
+  /** Inject the new blockquote decoration config + custom decorations onto a preset. */
+  private applyBlockquoteConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseBlockquoteFrontmatter(fm);
+    preset.blockquoteConfig = config;
+    if (customDecorations.length > 0) {
+      preset.customBlockquoteDecorations = customDecorations;
+    }
+  }
+
+  /** Inject the new callout decoration config + custom decorations onto a preset. */
+  private applyCalloutConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseCalloutFrontmatter(fm);
+    preset.calloutConfig = config;
+    if (customDecorations.length > 0) {
+      preset.customCalloutDecorations = customDecorations;
+    }
+  }
+
+  /** Inject the Mermaid decoration config + custom decorations onto a preset. */
+  private applyMermaidConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseMermaidFrontmatter(fm);
+    if (config.decoration || config.decorationParams) {
+      preset.mermaidConfig = config;
+    }
+    if (customDecorations.length > 0) {
+      preset.customMermaidDecorations = customDecorations;
+    }
+  }
+
+  /** Inject the image + caption decoration config + custom decorations onto a preset. */
+  private applyImageConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseImageFrontmatter(fm);
+    if (config.decoration || config.decorationParams) {
+      preset.imageConfig = config;
+    }
+    if (customDecorations.length > 0) {
+      preset.customImageDecorations = customDecorations;
+    }
+  }
+
+  /** Inject the block-math decoration config + custom decorations onto a preset. */
+  private applyMathConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseMathFrontmatter(fm);
+    if (config.decoration || config.decorationParams) {
+      preset.mathConfig = config;
+    }
+    if (customDecorations.length > 0) {
+      preset.customMathDecorations = customDecorations;
+    }
+  }
+
+  /** Inject the Excalidraw decoration config + custom decorations onto a preset. */
+  private applyExcalidrawConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseExcalidrawFrontmatter(fm);
+    if (config.decoration || config.decorationParams) {
+      preset.excalidrawConfig = config;
+    }
+    if (customDecorations.length > 0) {
+      preset.customExcalidrawDecorations = customDecorations;
+    }
+  }
+
+  /** Inject the new table decoration config + custom decorations onto a preset. */
+  private applyTableConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseTableFrontmatter(fm);
+    preset.tableConfig = config;
+    if (customDecorations.length > 0) {
+      preset.customTableDecorations = customDecorations;
+    }
+  }
+
+  /** Inject the new divider decoration config + custom decorations onto a preset. */
+  private applyDividerConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseDividerFrontmatter(fm);
+    preset.dividerConfig = config;
+    if (customDecorations.length > 0) {
+      preset.customDividerDecorations = customDecorations;
+    }
+  }
+
+  /** Inject the three independent list decoration configs (+ legacy migration). */
+  private applyOrderedListConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseOrderedFrontmatter(fm);
+    preset.orderedListConfig = config.decoration
+      ? config
+      : { decoration: 'classicOrder' };
+    if (customDecorations.length > 0) preset.customOrderedDecorations = customDecorations;
+  }
+
+  private applyUnorderedListConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseUnorderedFrontmatter(fm);
+    preset.unorderedListConfig = config.decoration
+      ? config
+      : { decoration: 'classicList' };
+    if (customDecorations.length > 0) preset.customUnorderedDecorations = customDecorations;
+  }
+
+  private applyTaskListConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseTaskFrontmatter(fm);
+    preset.taskListConfig = config.decoration
+      ? config
+      : { decoration: 'taskList' };
+    if (customDecorations.length > 0) preset.customTaskDecorations = customDecorations;
+  }
+
+  /** Inject the new inline-element decoration config + custom decorations. */
+  private applyInlineConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
+    const { config, customDecorations } = parseInlineFrontmatter(fm);
+    if (Object.keys(config.types || {}).length > 0) {
+      preset.inlineConfig = config;
+    }
+    if (customDecorations.length > 0) {
+      preset.customInlineDecorations = customDecorations;
+    }
   }
 
   private addBuiltins(): void {
@@ -224,6 +348,7 @@ export class ThemeLoader {
         source: 'builtin',
         id: `builtin:${id}`,
         name: preset.name,
+        nameKey: preset.nameKey,
         description: 'Built-in preset',
         preset,
       });
@@ -239,7 +364,12 @@ export class ThemeLoader {
   }
 
   private async handleFileChange(file: TFile): Promise<void> {
-    if (!file.path.startsWith(this.themesDir) || file.extension !== 'md') return;
+    // Watch BOTH the primary directory and the legacy fallback — previously
+    // the fallback was scanned at startup but never refreshed on modify,
+    // so edits there stayed stale until restart (while deletes applied).
+    const inPrimary = file.path.startsWith(this.themesDir);
+    const inFallback = this.fallbackDir ? file.path.startsWith(this.fallbackDir) : false;
+    if ((!inPrimary && !inFallback) || file.extension !== 'md') return;
 
     try {
       const content = await this.vault.read(file);
@@ -253,10 +383,24 @@ export class ThemeLoader {
       if (!preset) return;
 
       // Inject modifier config from v2 theme format
-      const { config: modifierConfig } = parseFlatFrontmatter(fm);
+      const { config: modifierConfig, customValues } = parseFlatFrontmatter(fm);
+      if (customValues.length > 0) registerCustomValues(customValues);
       if (Object.keys(modifierConfig).length > 0) {
         preset.modifierConfig = modifierConfig;
       }
+      this.applyHeadingConfig(preset, fm);
+      this.applyBlockquoteConfig(preset, fm);
+      this.applyCalloutConfig(preset, fm);
+      this.applyMermaidConfig(preset, fm);
+      this.applyImageConfig(preset, fm);
+      this.applyMathConfig(preset, fm);
+      this.applyExcalidrawConfig(preset, fm);
+      this.applyTableConfig(preset, fm);
+      this.applyDividerConfig(preset, fm);
+      this.applyOrderedListConfig(preset, fm);
+      this.applyUnorderedListConfig(preset, fm);
+      this.applyTaskListConfig(preset, fm);
+      this.applyInlineConfig(preset, fm);
 
       const name = (fm.wewrite_theme_name as string) || preset.name || file.basename;
       const description = (fm.wewrite_theme_description as string) || '';
@@ -266,7 +410,6 @@ export class ThemeLoader {
       };
 
       this.cache.set(file.path, descriptor);
-      for (const cb of this.changeCallbacks) cb(descriptor);
     } catch (err) {
       log.warn('failed to reload theme note', { path: file.path, err: String(err) });
     }
@@ -279,9 +422,6 @@ export class ThemeLoader {
   private handleFileDelete(file: TFile): void {
     if (this.cache.has(file.path)) {
       this.cache.delete(file.path);
-      for (const cb of this.changeCallbacks) {
-        cb({ source: 'vault', id: file.path, name: '', description: '', preset: DEFAULT_PRESET });
-      }
     }
   }
 }

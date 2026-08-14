@@ -92,14 +92,24 @@ export class DeleteProgressModal extends Modal {
     // Cancel / Close button
     const footer = contentEl.createDiv({ cls: 'wewrite-delete-progress-footer' });
     this.cancelBtn = footer.createEl('button', { text: t('misc.cancel') });
-    this.cancelBtn.addEventListener('click', () => {
-      this.cancelled = true;
-      this.cancelBtn.setAttribute('disabled', 'true');
-      this.cancelBtn.textContent = t('material.deleting_stopping');
+    this.cancelBtn.addEventListener('click', () => this.cancel());
+
+    // ESC must behave exactly like the Cancel button. The default Modal ESC
+    // handler only closes the modal — without flagging cancellation, the
+    // delete loop would keep running in the background after the modal is gone.
+    this.scope.register([], 'Escape', (evt) => {
+      evt.preventDefault();
+      this.cancel();
     });
 
     // Start
     this.run();
+  }
+
+  private cancel(): void {
+    this.cancelled = true;
+    this.cancelBtn.setAttribute('disabled', 'true');
+    this.cancelBtn.textContent = t('material.deleting_stopping');
   }
 
   onClose(): void {

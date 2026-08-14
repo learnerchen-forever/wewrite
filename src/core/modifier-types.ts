@@ -73,8 +73,8 @@ export interface ElementModifier {
  * Element paths follow the frontmatter convention:
  *   'heading', 'heading.h1'...'heading.h6',
  *   'blocks.blockquote', 'blocks.code', 'blocks.table',
- *   'blocks.callout', 'blocks.list', 'blocks.hr',
- *   'media.image', 'media.mermaid', 'media.math', 'media.excalidraw',
+ *   'blocks.list', 'blocks.hr',
+ *   'media.mermaid',
  *   'inline.link', 'inline.strong', 'inline.code',
  *   'article'
  */

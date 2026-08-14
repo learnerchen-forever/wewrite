@@ -15,6 +15,7 @@
 .wewrite-material-view,
 .wewrite-newspic-view,
 .wewrite-style-view,
+.wewrite-theme-view,
 .wewrite-modal {
   --ww-ctrl-h: 30px;
   --ww-ctrl-font: 13px;
@@ -2654,5 +2655,230 @@ button.wewrite-btn-icon.spinning svg {
 
   .wewrite-material-toolbar {
     padding: 4px 4px;
+  }
+}
+
+/* ── Decoration edit modals: 44px touch targets on small screens ──
+   The param rows set 11px inline styles on inputs/selects/buttons; on touch
+   devices those are too small to tap reliably. Override height + padding via
+   CSS (inline font-size is left alone so the row still fits). */
+@media (max-width: 760px) {
+  .wewrite-heading-deco-modal,
+  .wewrite-blockquote-deco-modal,
+  .wewrite-divider-deco-modal,
+  .wewrite-inline-deco-modal,
+  .wewrite-list-deco-modal,
+  .wewrite-table-deco-modal {
+    max-width: 94vw;
+  }
+  .wewrite-heading-deco-modal input,
+  .wewrite-heading-deco-modal select,
+  .wewrite-heading-deco-modal button,
+  .wewrite-blockquote-deco-modal input,
+  .wewrite-blockquote-deco-modal select,
+  .wewrite-blockquote-deco-modal button,
+  .wewrite-divider-deco-modal input,
+  .wewrite-divider-deco-modal select,
+  .wewrite-divider-deco-modal button,
+  .wewrite-inline-deco-modal input,
+  .wewrite-inline-deco-modal select,
+  .wewrite-inline-deco-modal button,
+  .wewrite-list-deco-modal input,
+  .wewrite-list-deco-modal select,
+  .wewrite-list-deco-modal button,
+  .wewrite-table-deco-modal input,
+  .wewrite-table-deco-modal select,
+  .wewrite-table-deco-modal button {
+    min-height: 44px;
+    font-size: 14px !important;
+  }
+  .wewrite-heading-deco-modal textarea,
+  .wewrite-blockquote-deco-modal textarea,
+  .wewrite-divider-deco-modal textarea,
+  .wewrite-inline-deco-modal textarea,
+  .wewrite-list-deco-modal textarea,
+  .wewrite-table-deco-modal textarea {
+    min-height: 64px;
+    font-size: 14px;
+  }
+  /* Paste-HTML extraction modals: param-toggle chips + name input + buttons */
+  .wewrite-paste-html-modal {
+    max-width: 94vw;
+  }
+  .wewrite-paste-html-modal label {
+    min-height: 44px;
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+    box-sizing: border-box;
+  }
+  .wewrite-paste-html-modal input[type='text'],
+  .wewrite-paste-html-modal textarea,
+  .wewrite-paste-html-modal button {
+    min-height: 44px;
+    font-size: 14px !important;
+    box-sizing: border-box;
+  }
+  /* Theme wizard + publish dialogs: buttons and inputs reach 44px */
+  .wewrite-wizard-modal button,
+  .wewrite-publish-modal button,
+  .wewrite-publish-modal input,
+  .wewrite-publish-modal select {
+    min-height: 44px;
+  }
+}
+
+/* ── AI writing tool modals (proofread / synonyms / translate / generate) ── */
+
+/* WeWrite AI context-menu parent item: hover chevron hint */
+.menu-item.wewrite-ai-submenu::after {
+  content: '▸';
+  margin-left: 12px;
+  opacity: 0.6;
+  font-size: 12px;
+  align-self: center;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-progress {
+  font-weight: 600;
+  margin: 4px 0 8px;
+  color: var(--text-muted);
+}
+
+.wewrite-proofread-modal .wewrite-proofread-body {
+  margin: 8px 0;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-type {
+  font-weight: 600;
+  color: var(--text-error);
+  margin-bottom: 4px;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-desc {
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-original-text {
+  text-decoration: line-through;
+  color: var(--text-error);
+  background: rgba(255, 0, 0, 0.06);
+  padding: 0 4px;
+  border-radius: 3px;
+  word-break: break-all;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-suggestion-text {
+  color: var(--color-green, #4caf50);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-label {
+  color: var(--text-muted);
+  margin-right: 6px;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.wewrite-synonyms-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.wewrite-synonym-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  margin: 2px 0;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+
+.wewrite-synonym-item.selected {
+  background: var(--background-modifier-hover);
+}
+
+.wewrite-synonyms-empty {
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+.wewrite-translate-label,
+.wewrite-generate-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 8px 0 4px;
+}
+
+.wewrite-translate-source,
+.wewrite-translate-result {
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+.wewrite-translate-result.wewrite-translate-error {
+  color: var(--text-error);
+}
+
+.wewrite-translate-lang {
+  width: 100%;
+}
+
+.wewrite-translate-actions,
+.wewrite-generate-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.wewrite-generate-desc,
+.wewrite-generate-result {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.wewrite-generate-result {
+  font-family: var(--font-monospace);
+}
+
+.wewrite-generate-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+
+.wewrite-generate-result-section {
+  margin-top: 12px;
+}
+
+@media (max-width: 760px) {
+  .wewrite-proofread-modal button,
+  .wewrite-synonyms-modal button,
+  .wewrite-translate-modal button,
+  .wewrite-translate-modal select,
+  .wewrite-ai-generate-modal button,
+  .wewrite-ai-generate-modal textarea {
+    min-height: 44px;
+    font-size: 14px !important;
+    box-sizing: border-box;
   }
 }

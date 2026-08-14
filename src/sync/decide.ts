@@ -6,6 +6,7 @@ import type {
   DecisionInput,
   DecisionOutput,
   DecisionDetail,
+  DecisionAction,
   ClassifyResult,
   PendingConflict,
   RenameDetection,
@@ -75,36 +76,30 @@ function createPendingConflict(
   };
 }
 
-// Dummy task constructors — replaced with real task classes in Phase 3.
-// The decider returns decision metadata; task objects are constructed by the engine.
+// Decision metadata constructors — plain {kind, localPath, remotePath}
+// records. The engine maps each kind to a real task class in Phase 3.
 
-interface DummyTask {
-  kind: string;
-  localPath: string;
-  remotePath: string;
-}
-
-function pushTask(path: string, remoteBaseDir: string): DummyTask {
+function pushTask(path: string, remoteBaseDir: string): DecisionAction {
   const remotePath = path.startsWith('/') ? remoteBaseDir + path : `${remoteBaseDir}/${path}`;
   return { kind: 'push', localPath: path, remotePath: remotePath.replace(/\/\//g, '/') };
 }
 
-function pullTask(path: string, remoteBaseDir: string): DummyTask {
+function pullTask(path: string, remoteBaseDir: string): DecisionAction {
   const remotePath = path.startsWith('/') ? remoteBaseDir + path : `${remoteBaseDir}/${path}`;
   return { kind: 'pull', localPath: path, remotePath: remotePath.replace(/\/\//g, '/') };
 }
 
-function mkdirRemoteTask(path: string, remoteBaseDir: string): DummyTask {
+function mkdirRemoteTask(path: string, remoteBaseDir: string): DecisionAction {
   const remotePath = path.startsWith('/') ? remoteBaseDir + path : `${remoteBaseDir}/${path}`;
   return { kind: 'mkdir_remote', localPath: path, remotePath: remotePath.replace(/\/\//g, '/') };
 }
 
-function removeRemoteTask(path: string, remoteBaseDir: string): DummyTask {
+function removeRemoteTask(path: string, remoteBaseDir: string): DecisionAction {
   const remotePath = path.startsWith('/') ? remoteBaseDir + path : `${remoteBaseDir}/${path}`;
   return { kind: 'remove_remote', localPath: path, remotePath: remotePath.replace(/\/\//g, '/') };
 }
 
-function removeLocalTask(path: string, remoteBaseDir: string): DummyTask {
+function removeLocalTask(path: string, remoteBaseDir: string): DecisionAction {
   const remotePath = path.startsWith('/') ? remoteBaseDir + path : `${remoteBaseDir}/${path}`;
   return { kind: 'remove_local', localPath: path, remotePath: remotePath.replace(/\/\//g, '/') };
 }
@@ -161,12 +156,12 @@ function classifyAndAct(
   if (hasLocal && !hasRemote && !hasRecord) {
     if (local!.isDir) {
       return {
-        result: { type: 'auto', tasks: [mkdirRemoteTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+        result: { type: 'auto', tasks: [mkdirRemoteTask(path, remoteBaseDir)], isDelete: false },
         detail: makeDetail(path, 'mkdir_remote', 'Case 1: new local folder', local, remote, record),
       };
     }
     return {
-      result: { type: 'auto', tasks: [pushTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+      result: { type: 'auto', tasks: [pushTask(path, remoteBaseDir)], isDelete: false },
       detail: makeDetail(path, 'push', 'Case 1: new local file', local, remote, record),
     };
   }
@@ -175,12 +170,12 @@ function classifyAndAct(
   if (!hasLocal && hasRemote && !hasRecord) {
     if (remote!.isDir) {
       return {
-        result: { type: 'auto', tasks: [{ kind: 'mkdir_local', localPath: path, remotePath: `${remoteBaseDir}/${path}`.replace(/\/\//g, '/') } as unknown as import('./types').BaseTask], isDelete: false },
+        result: { type: 'auto', tasks: [{ kind: 'mkdir_local', localPath: path, remotePath: `${remoteBaseDir}/${path}`.replace(/\/\//g, '/') }], isDelete: false },
         detail: makeDetail(path, 'mkdir_local', 'Case 2: new remote folder', local, remote, record),
       };
     }
     return {
-      result: { type: 'auto', tasks: [pullTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+      result: { type: 'auto', tasks: [pullTask(path, remoteBaseDir)], isDelete: false },
       detail: makeDetail(path, 'pull', 'Case 2: new remote file', local, remote, record),
     };
   }
@@ -203,13 +198,13 @@ function classifyAndAct(
     }
     if (local!.mtime > remote!.mtime) {
       return {
-        result: { type: 'auto', tasks: [pushTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+        result: { type: 'auto', tasks: [pushTask(path, remoteBaseDir)], isDelete: false },
         detail: makeDetail(path, 'push', 'Case 4: local newer (no record)', local, remote, record),
       };
     }
     if (remote!.mtime > local!.mtime) {
       return {
-        result: { type: 'auto', tasks: [pullTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+        result: { type: 'auto', tasks: [pullTask(path, remoteBaseDir)], isDelete: false },
         detail: makeDetail(path, 'pull', 'Case 5: remote newer (no record)', local, remote, record),
       };
     }
@@ -232,7 +227,7 @@ function classifyAndAct(
     }
     if (localChg && !remoteChg) {
       return {
-        result: { type: 'auto', tasks: [pushTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+        result: { type: 'auto', tasks: [pushTask(path, remoteBaseDir)], isDelete: false },
         detail: makeDetail(path, 'push', 'Case 8: local edited, remote unchanged', local, remote, record),
       };
     }
@@ -242,14 +237,14 @@ function classifyAndAct(
         ? (record.remoteHash.match(/^[0-9a-f]{64}$/) !== null)  // record has SHA-256
         : false;
       return {
-        result: { type: 'auto', tasks: [pullTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: false },
+        result: { type: 'auto', tasks: [pullTask(path, remoteBaseDir)], isDelete: false },
         detail: makeDetail(path, 'pull', 'Case 9: remote edited, local unchanged', local, remote, record, hashFmtMismatch),
       };
     }
     // Case 10: Both changed → try merge
     if (isMarkdown(path)) {
       return {
-        result: { type: 'auto', tasks: [{ kind: 'merge', localPath: path, remotePath: `${remoteBaseDir}/${path}`.replace(/\/\//g, '/'), exec: async () => ({ success: true }), describe: () => 'merge' } as unknown as import('./types').BaseTask], isDelete: false },
+        result: { type: 'auto', tasks: [{ kind: 'merge', localPath: path, remotePath: `${remoteBaseDir}/${path}`.replace(/\/\//g, '/') }], isDelete: false },
         detail: makeDetail(path, 'merge', 'Case 10: both changed, auto-merge', local, remote, record),
       };
     }
@@ -264,7 +259,7 @@ function classifyAndAct(
     const localChg = isChanged(local!, record, 'local');
     if (!localChg) {
       return {
-        result: { type: 'auto', tasks: [removeLocalTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: true },
+        result: { type: 'auto', tasks: [removeLocalTask(path, remoteBaseDir)], isDelete: true },
         detail: makeDetail(path, 'delete_local', 'Case 11: remote deleted, local unchanged — delete local', local, remote, record),
       };
     }
@@ -279,7 +274,7 @@ function classifyAndAct(
     const remoteChg = isChanged(remote!, record, 'remote');
     if (!remoteChg) {
       return {
-        result: { type: 'auto', tasks: [removeRemoteTask(path, remoteBaseDir) as unknown as import('./types').BaseTask], isDelete: true },
+        result: { type: 'auto', tasks: [removeRemoteTask(path, remoteBaseDir)], isDelete: true },
         detail: makeDetail(path, 'delete_remote', 'Case 13: local deleted, remote unchanged — delete remote', local, remote, record),
       };
     }
@@ -300,7 +295,7 @@ function classifyAndAct(
 
 export function decide(input: DecisionInput): DecisionOutput {
   const { localStats, remoteStats, records, deletionThreshold } = input;
-  const autoTasks: import('./types').BaseTask[] = [];
+  const autoTasks: DecisionAction[] = [];
   const pendingConflicts: PendingConflict[] = [];
   const renameDetections: RenameDetection[] = [];
   const warnings: SyncWarning[] = [];
@@ -414,13 +409,13 @@ export function decide(input: DecisionInput): DecisionOutput {
   // --- Pass 2.5: Add rename tasks ---
   for (const r of localRenames.matched) {
     if (crossSideConflicts.has(r.oldPath)) continue;
-    autoTasks.push(pushTask(r.newPath, remoteBaseDir) as unknown as import('./types').BaseTask);
-    autoTasks.push(removeRemoteTask(r.oldPath, remoteBaseDir) as unknown as import('./types').BaseTask);
+    autoTasks.push(pushTask(r.newPath, remoteBaseDir));
+    autoTasks.push(removeRemoteTask(r.oldPath, remoteBaseDir));
   }
   for (const r of remoteRenames.matched) {
     if (crossSideConflicts.has(r.oldPath)) continue;
-    autoTasks.push(pullTask(r.newPath, remoteBaseDir) as unknown as import('./types').BaseTask);
-    autoTasks.push(removeLocalTask(r.oldPath, remoteBaseDir) as unknown as import('./types').BaseTask);
+    autoTasks.push(pullTask(r.newPath, remoteBaseDir));
+    autoTasks.push(removeLocalTask(r.oldPath, remoteBaseDir));
   }
 
   // --- Pass 3: Clean records for case 15 (both deleted) ---

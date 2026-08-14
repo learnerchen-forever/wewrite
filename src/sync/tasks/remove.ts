@@ -64,10 +64,13 @@ export class MkdirRemoteTask extends BaseTask {
 
   async exec(): Promise<TaskResult> {
     try {
-      // Create parent directories recursively
+      // Create ALL path segments. localPath here is a DIRECTORY path (decide
+      // Case 1 — new local folder), so the last segment is the folder itself,
+      // not a filename; excluding it meant empty folders were never created on
+      // the remote side. Mirrors MkdirLocalTask.
       const parts = this.localPath.split('/').filter(Boolean);
       let current = '';
-      for (const part of parts.slice(0, -1)) { // exclude filename
+      for (const part of parts) {
         current += '/' + part;
         try { await this.backend.mkdir(current); } catch { /* may exist */ }
       }

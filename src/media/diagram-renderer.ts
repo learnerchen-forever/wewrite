@@ -2,6 +2,8 @@
 
 import { MarkdownRenderer, Component, type App } from 'obsidian';
 import { createLogger } from '../utils/logger';
+import type { MermaidSvgStyle } from '../renderer/mermaid-svg-themer';
+import { applyMermaidSvgStyle } from '../renderer/mermaid-svg-themer';
 
 const log = createLogger('Media:DiagramRenderer');
 const CACHE_DIR = 'WeWrite/cache';
@@ -172,6 +174,7 @@ export async function renderMermaidToPng(
   code: string,
   app: App,
   sourcePath: string,
+  style?: MermaidSvgStyle,
 ): Promise<ArrayBuffer | null> {
   const markdown = '```mermaid\n' + code + '\n```';
   const el = document.createElement('div');
@@ -193,8 +196,18 @@ export async function renderMermaidToPng(
       return null;
     }
 
-    // Add white background + ensure dimensions for canvas rendering
-    const processedSvg = prepareSvgForCanvas(svg, true);
+    // Apply the theme palette + shape params (rewrites :root CSS variables),
+    // then ensure dimensions + opaque background for canvas rendering.
+    let themedSvg = svg;
+    if (style) {
+      const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+      const svgEl = doc.querySelector('svg');
+      if (svgEl) {
+        applyMermaidSvgStyle(svgEl, style);
+        themedSvg = new XMLSerializer().serializeToString(svgEl);
+      }
+    }
+    const processedSvg = prepareSvgForCanvas(themedSvg, style?.colors.bg ?? true);
     return svgStringToPng(processedSvg);
   } catch (err) {
     log.warn('mermaid render failed', { err: String(err), codePreview: code.slice(0, 80) });
@@ -266,8 +279,7 @@ export async function renderExcalidrawToPng(
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (!(app as any).plugins?.plugins?.['obsidian-excalidraw-plugin']) {
+  if (!(app as unknown as { plugins?: { plugins?: Record<string, unknown> } }).plugins?.plugins?.['obsidian-excalidraw-plugin']) {
     log.info('excalidraw: plugin not active, enable auto-export or install Excalidraw plugin');
     return null;
   }
@@ -362,7 +374,7 @@ export async function cacheDiagramPng(
   app: App,
   data: ArrayBuffer,
   prefix: string,
-  key: string,
+  _key: string,
   cacheDir?: string,
 ): Promise<string> {
   const dir = cacheDir || CACHE_DIR;
@@ -400,10 +412,11 @@ async function waitForSvg(container: HTMLElement, timeoutMs: number): Promise<st
 
 /**
  * Prepare SVG for canvas rendering: ensure explicit width/height and
- * optionally inject a white background rect so transparent SVGs
- * (e.g. mermaid) don't render invisible on dark backgrounds.
+ * optionally inject an opaque background rect so transparent SVGs
+ * (e.g. mermaid) don't render invisible on dark article backgrounds.
+ * `bg` may be true (white), a color string, or false/undefined (no rect).
  */
-function prepareSvgForCanvas(svgString: string, whiteBackground = false): string {
+function prepareSvgForCanvas(svgString: string, bg: string | boolean = false): string {
   const parser = new DOMParser();
   const doc = parser.parseFromString(svgString, 'image/svg+xml');
   const root = doc.documentElement;
@@ -424,12 +437,12 @@ function prepareSvgForCanvas(svgString: string, whiteBackground = false): string
 
   // Inject opaque white background before all other children so the
   // rasterized PNG is never transparent.
-  if (whiteBackground) {
-    const bg = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bg.setAttribute('width', '100%');
-    bg.setAttribute('height', '100%');
-    bg.setAttribute('fill', '#ffffff');
-    root.insertBefore(bg, root.firstChild);
+  if (bg !== false && bg !== undefined) {
+    const bgRect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('width', '100%');
+    bgRect.setAttribute('height', '100%');
+    bgRect.setAttribute('fill', bg === true ? '#ffffff' : bg);
+    root.insertBefore(bgRect, root.firstChild);
   }
 
   return new XMLSerializer().serializeToString(root);
@@ -446,13 +459,4 @@ function contentHash16(data: ArrayBuffer): string {
     hash |= 0;
   }
   return Math.abs(hash).toString(16).padStart(8, '0') + view.length.toString(16).padStart(8, '0');
-}
-
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(16);
 }

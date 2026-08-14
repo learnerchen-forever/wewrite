@@ -215,24 +215,32 @@ function mergeThreeWayLines(
     return { merged: result.join('\n'), hasConflicts: false, conflictCount: 0 };
   }
 
-  // Conflict
+  // Conflict. Each side's block shows that side's ACTUAL content of the
+  // affected region (base[minStart, maxEnd) with that side's edit applied).
+  // Never include the deleted base lines inside a side's block: users copy
+  // these blocks verbatim when resolving, and base lines that a side deleted
+  // would be resurrected or duplicated in the resolved file.
+  const minStart = Math.min(localHunk.baseStart, remoteHunk.baseStart);
+  const maxEnd = Math.max(localHunk.baseEnd, remoteHunk.baseEnd);
   const result: string[] = [];
-  result.push(...baseLines.slice(0, Math.min(localHunk.baseStart, remoteHunk.baseStart)));
+  result.push(...baseLines.slice(0, minStart));
 
   result.push('<<<<<<< LOCAL');
-  if (localHunk.deletedCount > 0) {
-    result.push(...baseLines.slice(localHunk.baseStart, localHunk.baseEnd));
-  }
-  result.push(...localHunk.inserted);
+  result.push(
+    ...baseLines.slice(minStart, localHunk.baseStart),
+    ...localHunk.inserted,
+    ...baseLines.slice(localHunk.baseEnd, maxEnd),
+  );
 
   result.push('=======');
-  if (remoteHunk.deletedCount > 0) {
-    result.push(...baseLines.slice(remoteHunk.baseStart, remoteHunk.baseEnd));
-  }
-  result.push(...remoteHunk.inserted);
+  result.push(
+    ...baseLines.slice(minStart, remoteHunk.baseStart),
+    ...remoteHunk.inserted,
+    ...baseLines.slice(remoteHunk.baseEnd, maxEnd),
+  );
 
   result.push('>>>>>>> REMOTE');
-  result.push(...baseLines.slice(Math.max(localHunk.baseEnd, remoteHunk.baseEnd)));
+  result.push(...baseLines.slice(maxEnd));
 
   return { merged: result.join('\n'), hasConflicts: true, conflictCount: 1 };
 }

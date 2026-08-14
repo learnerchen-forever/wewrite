@@ -29,6 +29,17 @@ const ORDER: Record<TaskKind, number> = {
 };
 
 /**
+ * Priority class: directories first (parents must exist), then .md notes
+ * (the primary content — they must sync even when the request budget is
+ * tight), then everything else (images, attachments, ...). Within a class
+ * the ORDER map above applies.
+ */
+function priorityClass(t: BaseTask): number {
+  if (t.kind === 'mkdir_remote' || t.kind === 'mkdir_local') return 0;
+  return t.localPath.toLowerCase().endsWith('.md') ? 1 : 2;
+}
+
+/**
  * Optimize a list of tasks: deduplicate, resolve contradictory pairs, sort.
  */
 export function optimizeTasks(tasks: BaseTask[]): { tasks: BaseTask[]; stats: OptimizationStats } {
@@ -118,8 +129,11 @@ export function optimizeTasks(tasks: BaseTask[]): { tasks: BaseTask[]; stats: Op
     resolved.push(...pathTasks);
   }
 
-  // ── Pass 3: Sort by execution order ──
+  // ── Pass 3: Sort by execution order (mkdir → .md notes → other files) ──
   resolved.sort((a, b) => {
+    const classA = priorityClass(a);
+    const classB = priorityClass(b);
+    if (classA !== classB) return classA - classB;
     const orderA = ORDER[a.kind] ?? 99;
     const orderB = ORDER[b.kind] ?? 99;
     if (orderA !== orderB) return orderA - orderB;

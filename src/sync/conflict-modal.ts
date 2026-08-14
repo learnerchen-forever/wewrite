@@ -1,12 +1,10 @@
 // ConflictModal — user resolves sync conflicts
 
-import { Modal, Notice, type App } from 'obsidian';
+import { Modal, type App } from 'obsidian';
 import type { PendingConflict, ConflictResolution } from './types';
 import { t } from '../i18n';
 
 export class ConflictModal extends Modal {
-  private resolveAll: ConflictResolution | null = null;
-
   constructor(
     app: App,
     private conflicts: PendingConflict[],
@@ -41,10 +39,10 @@ export class ConflictModal extends Modal {
 
       const info = item.createDiv({ cls: 'wewrite-conflict-info' });
       if (conflict.localMtime) {
-        info.createSpan({ text: `Local: ${new Date(conflict.localMtime).toLocaleString()}` });
+        info.createSpan({ text: `${t('sync.conflict_side_local')}: ${new Date(conflict.localMtime).toLocaleString()}` });
       }
       if (conflict.remoteMtime) {
-        info.createSpan({ text: `  Remote: ${new Date(conflict.remoteMtime).toLocaleString()}` });
+        info.createSpan({ text: `  ${t('sync.conflict_side_remote')}: ${new Date(conflict.remoteMtime).toLocaleString()}` });
       }
 
       const actions = item.createDiv({ cls: 'wewrite-conflict-actions' });

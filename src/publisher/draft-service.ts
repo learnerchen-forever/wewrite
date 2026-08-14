@@ -128,6 +128,9 @@ export class DraftService {
       method: 'POST',
       url: DRAFT_ADD_ENDPOINT,
       body: body as unknown as Record<string, unknown>,
+      // /draft/add is non-idempotent: an auto-retry after a network error that
+      // reached the server would create a duplicate draft. Mirrors createDraft.
+      retry: { maxRetries: 1 },
     });
 
     if (!response.success) {

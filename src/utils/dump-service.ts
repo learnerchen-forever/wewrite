@@ -31,10 +31,6 @@ export class DumpService {
     this.dumpDir = dumpDir;
   }
 
-  private async ensureDir(): Promise<void> {
-    return this.ensureDirAt(this.dumpDir);
-  }
-
   private async ensureDirAt(dir: string): Promise<void> {
     const existing = this.app.vault.getAbstractFileByPath(dir);
     if (existing) return;
@@ -59,7 +55,7 @@ export class DumpService {
   }
 
   async createDumpNote(params: DumpCreateParams): Promise<TFile> {
-    await this.ensureDir();
+    await this.ensureDirAt(this.dumpDir);
 
     const ts = formatTimestamp(new Date());
     const suffix = params.draftType === 'newspic' ? 'newspic-publish' : 'news-publish';

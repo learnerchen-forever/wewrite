@@ -125,6 +125,47 @@ describe('Sync Tasks', () => {
         expect(result.error.taskKind).toBe('push');
       }
     });
+
+    it('should skip push when remote changed during sync (TOCTOU guard)', async () => {
+      const content = encoder.encode('local content').buffer as ArrayBuffer;
+      const vault = makeVault({ readBinary: jest.fn().mockResolvedValue(content) });
+      // Walk saw the remote at mtime 1720000000000 / size 10; it is now newer
+      // (another device pushed mid-sync) → must not overwrite it.
+      const backend = makeBackend({
+        writeFile: jest.fn().mockResolvedValue(undefined),
+        stat: jest.fn().mockResolvedValue({
+          path: 'note.md', isDir: false, mtime: 1720000005000, size: 99, hash: 'etag-new',
+        }),
+      });
+      const record = makeRecord();
+
+      const task = new PushTask(backend, vault as any, () => record, 'note.md', '/vault/note.md', 1720000000000, 14, '', 1720000000000, 10);
+      const result = await task.exec();
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toContain('Remote file changed during sync');
+      }
+      expect(backend.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('should push when remote is unchanged since the walk (no false positive)', async () => {
+      const content = encoder.encode('local content').buffer as ArrayBuffer;
+      const vault = makeVault({ readBinary: jest.fn().mockResolvedValue(content) });
+      const backend = makeBackend({
+        writeFile: jest.fn().mockResolvedValue(undefined),
+        stat: jest.fn().mockResolvedValue({
+          path: 'note.md', isDir: false, mtime: 1720000000000, size: 10, hash: 'etag',
+        }),
+      });
+      const record = makeRecord();
+
+      const task = new PushTask(backend, vault as any, () => record, 'note.md', '/vault/note.md', 1720000000000, 14, '', 1720000000000, 10);
+      const result = await task.exec();
+
+      expect(result.success).toBe(true);
+      expect(backend.writeFile).toHaveBeenCalled();
+    });
   });
 
   describe('PullTask', () => {
@@ -189,6 +230,26 @@ describe('Sync Tasks', () => {
       }
       // Should not have written anything
       expect(vault.adapter.writeBinary).not.toHaveBeenCalled();
+    });
+
+    it('should NOT skip pull when mtime has sub-second precision (C4 regression)', async () => {
+      // In production walkLocalMtime comes from traverse's normalizeMtime(),
+      // i.e. the same file's mtime floored to seconds. Comparing the raw ms
+      // value against it would always be true and skip every pull.
+      const content = encoder.encode('remote').buffer as ArrayBuffer;
+      const vault = makeVault({
+        stat: jest.fn().mockResolvedValue({ mtime: 1720000000123, size: 50, ctime: 1720000000123 }),
+      });
+      const backend = makeBackend({
+        readFile: jest.fn().mockResolvedValue(content),
+      });
+      const record = makeRecord();
+
+      const task = new PullTask(backend, vault as any, () => record, 'note.md', '/vault/note.md', 1720000000000, 10, '', 1720000000000);
+      const result = await task.exec();
+
+      expect(result.success).toBe(true);
+      expect(vault.adapter.writeBinary).toHaveBeenCalled();
     });
   });
 

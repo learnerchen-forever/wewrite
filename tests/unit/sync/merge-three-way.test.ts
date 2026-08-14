@@ -136,6 +136,51 @@ describe('Three-Way Merge', () => {
     });
   });
 
+  describe('conflict marker content (C11 regression)', () => {
+    it('each side block shows only that side\'s actual content, not deleted base lines', () => {
+      // base = [A,B,C,D,E]; both sides replace the same region [B,C]:
+      // local inserts [X,Y], remote inserts [X,Z] → overlapping, conflicting.
+      const result = mergeThreeWay('A\nB\nC\nD\nE', 'A\nX\nY\nD\nE', 'A\nX\nZ\nD\nE');
+      expect(result.hasConflicts).toBe(true);
+
+      const lines = result.merged.split('\n');
+      const localIdx = lines.indexOf('<<<<<<< LOCAL');
+      const eqIdx = lines.indexOf('=======');
+      const remoteIdx = lines.indexOf('>>>>>>> REMOTE');
+      expect(localIdx).toBeGreaterThanOrEqual(0);
+
+      const localBlock = lines.slice(localIdx + 1, eqIdx);
+      const remoteBlock = lines.slice(eqIdx + 1, remoteIdx);
+      // LOCAL's content of the affected region is [X, Y]; REMOTE's is [X, Z].
+      // The deleted base lines B and C must NOT appear in either block —
+      // users copy these blocks verbatim when resolving.
+      expect(localBlock).toEqual(['X', 'Y']);
+      expect(remoteBlock).toEqual(['X', 'Z']);
+      expect(localBlock).not.toContain('B');
+      expect(localBlock).not.toContain('C');
+      expect(remoteBlock).not.toContain('B');
+      expect(remoteBlock).not.toContain('C');
+    });
+
+    it('never resurrects a line the side deleted (local deletes B,C; remote edits C)', () => {
+      const result = mergeThreeWay('A\nB\nC\nD', 'A\nX\nD', 'A\nB\nY\nD');
+      expect(result.hasConflicts).toBe(true);
+
+      const lines = result.merged.split('\n');
+      const localIdx = lines.indexOf('<<<<<<< LOCAL');
+      const eqIdx = lines.indexOf('=======');
+      const remoteIdx = lines.indexOf('>>>>>>> REMOTE');
+      const localBlock = lines.slice(localIdx + 1, eqIdx);
+      const remoteBlock = lines.slice(eqIdx + 1, remoteIdx);
+
+      expect(localBlock).toEqual(['X']);
+      expect(remoteBlock).toEqual(['B', 'Y']);
+      expect(localBlock).not.toContain('B');
+      expect(localBlock).not.toContain('C');
+      expect(remoteBlock).not.toContain('C');
+    });
+  });
+
   describe('mergeMarkdown', () => {
     it('should include conflictCopy when conflicts exist', () => {
       const local = 'a\nlocal\nc';

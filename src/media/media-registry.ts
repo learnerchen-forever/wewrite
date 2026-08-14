@@ -103,33 +103,6 @@ export class MediaRegistry {
 
   // ── Convenience mutators ──
 
-  setMediaIdForAccount(fingerprint: string, accountId: string, mediaId: string): void {
-    const record = this.lookup(fingerprint);
-    if (record) {
-      record.accountMediaIds[accountId] = mediaId;
-      record.updatedAt = Date.now();
-    }
-  }
-
-  setUrlForAccount(fingerprint: string, accountId: string, url: string): void {
-    const record = this.lookup(fingerprint);
-    if (record) {
-      record.accountUrls[accountId] = url;
-      record.updatedAt = Date.now();
-    }
-  }
-
-  /** Remove a fingerprint record entirely (self-clean on API errors). */
-  removeRecord(fingerprint: string): boolean {
-    const idx = this.records.findIndex((r) => r.fingerprint === fingerprint);
-    if (idx >= 0) {
-      this.records.splice(idx, 1);
-      log.debug('removed stale record', { fingerprint: fingerprint.slice(0, 16) });
-      return true;
-    }
-    return false;
-  }
-
   setConvertedPath(fingerprint: string, path: string): void {
     const record = this.lookup(fingerprint);
     if (record) {

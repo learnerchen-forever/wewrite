@@ -11,6 +11,9 @@ import { TeX } from 'mathjax-full/js/input/tex';
 import { AllPackages } from 'mathjax-full/js/input/tex/AllPackages';
 import { mathjax } from 'mathjax-full/js/mathjax';
 import { SVG } from 'mathjax-full/js/output/svg';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('MathToSvg');
 
 // ── Lazy-initialized MathJax document ──
 
@@ -45,11 +48,10 @@ export function latexToSvg(math: string, display: boolean): string {
     const node = mjDoc.convert(math, options);
     return adaptor.innerHTML(node);
   } catch (err) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mjErr = err as any;
     // MathJax throws on invalid LaTeX syntax — return empty
-    if (mjErr?.message) {
-      console.warn('[math-to-svg] conversion failed:', mjErr.message.slice(0, 120));
+    const message = (err as { message?: unknown } | null)?.message;
+    if (typeof message === 'string') {
+      log.warn('math conversion failed', { message: message.slice(0, 120) });
     }
     return '';
   }

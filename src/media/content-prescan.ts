@@ -453,9 +453,14 @@ export async function prescanImages(
         if (isSvg) svgText = await app.vault.read(file as TFile);
       }
 
-      // Check if this source was already converted in an earlier phase
+      // Check if this source was already converted in an earlier phase.
+      // Self-path guard: a record whose convertedPath IS the source file
+      // itself (ingested webp/bmp/svg, data-URI extraction output) is NOT a
+      // finished conversion — reusing it would ship the unconverted file.
       const existingRecord = registry.lookupByPath(match.vaultPath);
-      if (existingRecord?.convertedPath && await app.vault.adapter.exists(existingRecord.convertedPath)) {
+      if (existingRecord?.convertedPath &&
+          existingRecord.convertedPath !== match.vaultPath &&
+          await app.vault.adapter.exists(existingRecord.convertedPath)) {
         const resourcePath = app.vault.adapter.getResourcePath(existingRecord.convertedPath);
         const newTag = match.fullTag.replace(`src="${match.src}"`, `src="${resourcePath}"`);
         resultHtml = resultHtml.split(match.fullTag).join(newTag);
@@ -476,9 +481,13 @@ export async function prescanImages(
         ? registry.computeSvgFingerprint(svgText)
         : registry.computeFingerprint(sourceMime, buf);
 
-      // Fallback: check by original content hash (handles moved/renamed files)
+      // Fallback: check by original content hash (handles moved/renamed files).
+      // Same self-path guard as above — the source's own ingest record must
+      // not be mistaken for a finished conversion.
       const sourceRecord = registry.lookupBySourceFingerprint(sourceFp);
-      if (sourceRecord?.convertedPath && await app.vault.adapter.exists(sourceRecord.convertedPath)) {
+      if (sourceRecord?.convertedPath &&
+          sourceRecord.convertedPath !== match.vaultPath &&
+          await app.vault.adapter.exists(sourceRecord.convertedPath)) {
         const resourcePath = app.vault.adapter.getResourcePath(sourceRecord.convertedPath);
         const newTag = match.fullTag.replace(`src="${match.src}"`, `src="${resourcePath}"`);
         resultHtml = resultHtml.split(match.fullTag).join(newTag);

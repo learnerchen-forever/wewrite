@@ -25,11 +25,6 @@ export function fixMathJaxTags(html: string): string {
   return result;
 }
 
-/** Flatten nested lists into inline spans (WeChat doesn't support nested lists well) */
-export function flattenNestedLists(html: string): string {
-  return html;
-}
-
 /** Remove empty elements */
 export function cleanupEmptyElements(html: string): string {
   let result = html;
@@ -118,12 +113,19 @@ export function extractAndReplaceLinks(html: string): { html: string; links: Lin
   return { html: result, links };
 }
 
+/** Escape text for safe insertion into the final article HTML. */
+function escapeHtmlText(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 /** Build the reference list section appended at the end of the article. */
 export function buildLinkReferenceSection(links: LinkEntry[]): string {
   if (links.length === 0) return '';
 
+  // Link text/URL come from user content — escape before inserting into the
+  // published article, otherwise `<`/`&`/quotes produce malformed HTML.
   const items = links.map((l) =>
-    `<li style="font-size:14px;color:#666;line-height:1.8;word-break:break-all">${l.text}: ${l.url}</li>`,
+    `<li style="font-size:14px;color:#666;line-height:1.8;word-break:break-all">${escapeHtmlText(l.text)}: ${escapeHtmlText(l.url)}</li>`,
   ).join('');
 
   return [

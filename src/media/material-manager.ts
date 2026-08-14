@@ -137,7 +137,9 @@ export class MaterialManager {
         type,
         name: raw.name as string || '',
         url: raw.url as string || '',
-        updateTime: raw.update_time as number || 0,
+        // WeChat returns Unix SECONDS; updateTime is stored in ms to match
+        // syncDrafts (which multiplies by 1000) and Date.now()-based fields.
+        updateTime: (raw.update_time as number || 0) * 1000,
         usedBy: [],
         syncedAt: Date.now(),
       }));
@@ -201,7 +203,8 @@ export class MaterialManager {
       type,
       name: raw.name as string || '',
       url: raw.url as string || '',
-      updateTime: raw.update_time as number || 0,
+      // Unix seconds → ms (see syncType comment)
+      updateTime: (raw.update_time as number || 0) * 1000,
       usedBy: [],
       syncedAt: Date.now(),
     }));

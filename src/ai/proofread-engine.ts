@@ -1,132 +1,189 @@
-// Proofreading engine — LLM-based text correction with structured JSON output
+// proofread-engine.ts — LLM proofreading: structured corrections + position resolution.
+//
+// The LLM returns corrections as JSON with character offsets that are often
+// slightly off. This module parses the response robustly and re-anchors every
+// correction onto the source text via indexOf(original) so the editor can
+// apply suggestions exactly.
 
-import type { AITextAccount } from '../core/interfaces';
-import type { LLMProviderManager } from './provider-manager';
-import { createLogger } from '../utils/logger';
+import type { AITextAccountLike, TextCallOptions } from './text-client';
+import { chatComplete } from './text-client';
+import { buildProofreadMessages } from './prompt-templates';
+import { stripCodeFence, extractOuterJsonObject } from './parse-utils';
 
-const log = createLogger('AI:Proofread');
-
-export interface Correction {
-  type: 'spelling' | 'grammar' | 'style';
-  severity: 'major' | 'minor' | 'style';
+export interface ProofCorrection {
+  type: string;
   start: number;
   end: number;
   original: string;
-  suggestion: string;
   description: string;
+  suggestion: string;
 }
 
-export interface ProofreadResult {
-  corrections: Correction[];
+export interface ProofreadOptions extends TextCallOptions {
+  contextBefore?: string;
+  contextAfter?: string;
 }
 
-const PROOFREAD_SYSTEM_PROMPT = `You are a precise proofreading assistant for Chinese text. Find spelling errors, grammar mistakes, and awkward phrasing. Output ONLY valid JSON.
+// ── JSON extraction ──
 
-For each issue found, provide:
-- type: "spelling", "grammar", or "style"
-- severity: "major" (must fix), "minor" (should fix), or "style" (optional improvement)
-- start: character position (0-indexed) in the original text
-- end: character position after the error
-- original: the exact erroneous text
-- suggestion: the corrected text
-- description: brief explanation in Chinese
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 
-Rules:
-1. Only flag genuine errors — if text is correct, return empty corrections array
-2. Do NOT add content or rewrite style — proofreading only
-3. Keep tone and meaning exactly as original
-4. For each correction, provide exact character positions
+function toCorrection(item: unknown): ProofCorrection | null {
+  if (!isRecord(item)) return null;
+  const original = typeof item.original === 'string' ? item.original : '';
+  const suggestion = typeof item.suggestion === 'string' ? item.suggestion : '';
+  if (!original || !suggestion) return null;
+  const start = typeof item.start === 'number' ? item.start : NaN;
+  const end = typeof item.end === 'number' ? item.end : NaN;
+  return {
+    type: typeof item.type === 'string' ? item.type : '',
+    start: Number.isFinite(start) ? start : -1,
+    end: Number.isFinite(end) ? end : -1,
+    original,
+    description: typeof item.description === 'string' ? item.description : '',
+    suggestion,
+  };
+}
 
-Return format: {"corrections": [...]}`;
+/**
+ * Parse an LLM proofread response into corrections. Handles:
+ *  - ```json fences
+ *  - {"corrections": [...]} wrapper
+ *  - a bare [...] array
+ *  - per-item regex fallback (best effort)
+ */
+export function parseProofreadResponse(raw: string): ProofCorrection[] {
+  if (!raw) return [];
+  const cleaned = stripCodeFence(raw);
 
-export class ProofreadEngine {
-  private providerManager: LLMProviderManager;
+  const corrections: ProofCorrection[] = [];
 
-  constructor(providerManager: LLMProviderManager) {
-    this.providerManager = providerManager;
+  // 1. Full object with "corrections" key.
+  const objText = extractOuterJsonObject(cleaned);
+  if (objText) {
+    try {
+      const parsed = JSON.parse(objText) as unknown;
+      if (isRecord(parsed)) {
+        const list = parsed.corrections;
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            const c = toCorrection(item);
+            if (c) corrections.push(c);
+          }
+          return corrections;
+        }
+      }
+    } catch { /* fall through to array / regex */ }
   }
 
-  async proofread(
-    account: AITextAccount,
-    text: string,
-    leftContext?: string,
-    rightContext?: string,
-    signal?: AbortSignal,
-  ): Promise<ProofreadResult> {
-    if (!text.trim()) return { corrections: [] };
+  // 2. Bare array.
+  const firstBracket = cleaned.indexOf('[');
+  const lastBracket = cleaned.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    const arrText = cleaned.slice(firstBracket, lastBracket + 1);
+    try {
+      const parsed = JSON.parse(arrText) as unknown;
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          const c = toCorrection(item);
+          if (c) corrections.push(c);
+        }
+        if (corrections.length > 0) return corrections;
+      }
+    } catch { /* fall through to regex */ }
+  }
 
-    const userPrompt = buildProofreadPrompt(text, leftContext, rightContext);
-
-    const response = await this.providerManager.chat(account, {
-      messages: [
-        { role: 'system', content: PROOFREAD_SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt },
-      ],
-      model: account.model,
-      temperature: 0.2,
-      responseFormat: 'json_object',
-      signal,
+  // 3. Per-item regex fallback: { "start":N, "end":N, "original":"..", "suggestion":"..", ... }.
+  const itemPattern = /\{\s*"start"\s*:\s*(\d+)[\s\S]*?"end"\s*:\s*(\d+)[\s\S]*?"original"\s*:\s*"([^"]*)"[\s\S]*?"suggestion"\s*:\s*"([^"]*)"[\s\S]*?\}/g;
+  let match = itemPattern.exec(cleaned);
+  while (match) {
+    corrections.push({
+      type: '',
+      start: parseInt(match[1], 10),
+      end: parseInt(match[2], 10),
+      original: match[3],
+      description: '',
+      suggestion: match[4],
     });
-
-    const corrections = parseCorrections(response.content, text);
-    return { corrections };
+    match = itemPattern.exec(cleaned);
   }
+  return corrections;
 }
 
-function buildProofreadPrompt(text: string, leftCtx?: string, rightCtx?: string): string {
-  let prompt = 'Please proofread the following text:\n\n"""\n';
-  if (leftCtx) prompt += `...${leftCtx.slice(-50)}`;
-  prompt += text;
-  if (rightCtx) prompt += rightCtx.slice(0, 50);
-  prompt += '\n"""';
-  return prompt;
+// ── Position resolution ──
+
+/**
+ * Re-anchor correction offsets onto the source text. Returns a new array
+ * sorted by start position with overlapping/duplicate entries removed and
+ * entries whose original cannot be located dropped.
+ */
+export function resolveCorrectionOffsets(
+  corrections: ProofCorrection[],
+  text: string,
+): ProofCorrection[] {
+  const resolved: ProofCorrection[] = [];
+
+  for (const c of corrections) {
+    // Exact offset already matches the original text.
+    if (
+      Number.isInteger(c.start) && Number.isInteger(c.end) &&
+      c.start >= 0 && c.end > c.start && c.end <= text.length &&
+      text.slice(c.start, c.end) === c.original
+    ) {
+      resolved.push(c);
+      continue;
+    }
+
+    // Re-anchor: search for the original substring.
+    const searchFrom = Number.isInteger(c.start) && c.start > 0 ? c.start : 0;
+    let idx = text.indexOf(c.original, searchFrom);
+    if (idx === -1) idx = text.indexOf(c.original);
+    if (idx === -1) {
+      // Leniency: leading/trailing whitespace mismatch.
+      const trimmed = c.original.trim();
+      if (trimmed && trimmed !== c.original) {
+        idx = text.indexOf(trimmed);
+        if (idx !== -1) {
+          resolved.push({ ...c, start: idx, end: idx + trimmed.length, original: trimmed });
+          continue;
+        }
+      }
+      continue; // cannot locate — drop
+    }
+    resolved.push({ ...c, start: idx, end: idx + c.original.length });
+  }
+
+  // Sort by start, then drop overlaps (keep the first / earliest).
+  resolved.sort((a, b) => a.start - b.start || a.end - b.end);
+  const deduped: ProofCorrection[] = [];
+  let lastEnd = -1;
+  for (const c of resolved) {
+    if (c.start < lastEnd) continue; // overlaps a previously kept correction
+    deduped.push(c);
+    lastEnd = c.end;
+  }
+  return deduped;
 }
 
-function parseCorrections(rawJson: string, originalText: string): Correction[] {
-  try {
-    // Extract JSON from possible markdown code blocks
-    let json = rawJson.trim();
-    if (json.startsWith('```json')) json = json.slice(7);
-    if (json.startsWith('```')) json = json.slice(3);
-    if (json.endsWith('```')) json = json.slice(0, -3);
-    json = json.trim();
+// ── Engine entry ──
 
-    const parsed = JSON.parse(json);
-    const corrections: Correction[] = (parsed.corrections || []).map(
-      (c: Record<string, unknown>) => ({
-        type: (c.type as Correction['type']) || 'grammar',
-        severity: (c.severity as Correction['severity']) || 'minor',
-        start: c.start as number,
-        end: c.end as number,
-        original: c.original as string,
-        suggestion: c.suggestion as string,
-        description: c.description as string || '',
-      }),
-    );
-
-    // Remap positions — LLM positions are often inaccurate
-    for (const correction of corrections) {
-      const actualStart = originalText.indexOf(correction.original, correction.start);
-      if (actualStart >= 0) {
-        correction.start = actualStart;
-        correction.end = actualStart + correction.original.length;
-      }
-    }
-
-    // Sort by position, remove overlaps
-    corrections.sort((a, b) => a.start - b.start);
-    const filtered: Correction[] = [];
-    for (const c of corrections) {
-      if (c.start >= 0 && c.start < c.end && c.original !== c.suggestion) {
-        // Remove overlapping corrections
-        if (filtered.length > 0 && c.start < filtered[filtered.length - 1].end) continue;
-        filtered.push(c);
-      }
-    }
-
-    return filtered;
-  } catch (err) {
-    log.warn('failed to parse proofread response', { err: String(err) });
-    return [];
-  }
+/**
+ * Run a full proofread: build messages → chat → parse → resolve offsets.
+ * Returns corrections sorted by position, ready for the review UI.
+ */
+export async function proofreadCorrections(
+  account: AITextAccountLike,
+  text: string,
+  opts: ProofreadOptions = {},
+): Promise<ProofCorrection[]> {
+  const messages = buildProofreadMessages(text, opts.contextBefore, opts.contextAfter);
+  const raw = await chatComplete(account, messages, {
+    temperature: opts.temperature ?? 0.2,
+    jsonMode: true,
+    onCall: opts.onCall,
+  });
+  const parsed = parseProofreadResponse(raw);
+  return resolveCorrectionOffsets(parsed, text);
 }

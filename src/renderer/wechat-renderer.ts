@@ -3,8 +3,34 @@
 
 import type { ThemePreset, RenderResult, RenderWarning, RenderContext, ImageCaption, ImageDimension } from '../core/interfaces';
 import { ThemeResolver } from './theme-resolver';
+import { renderHeadings } from './heading-renderer';
+import { renderBlockquotes } from './blockquote-renderer';
+import { renderCallouts } from './callout-renderer';
+import {
+	buildCaptionStyle,
+	buildFigureStyle,
+	buildImageStyle,
+	expandImageTokens,
+	hasImageConfig,
+	resolveImageDecorationStyle,
+} from './image-renderer';
+import { renderInlineElements } from './inline-renderer';
+import { renderTables } from './table-renderer';
+import { renderDividers } from './divider-renderer';
+import { renderTaskLists, renderOrderedLists, renderUnorderedLists } from './list-renderer';
 import { parseEmbedParams } from './extensions/embed';
 import { cleanWeChatHtml } from './wechat-cleaner';
+import { getCodeLanguageFromClassList } from '../core/code-theme-library';
+import { applyMermaidSvgStyle, extractCssVars, isMermaidSvg, resolveCssVarValue } from './mermaid-svg-themer';
+import { buildMathStyle, expandMathTokens, hasMathConfig, resolveMathDecorationStyle } from './math-renderer';
+import { escapeHtmlAttr } from './shared';
+import {
+	buildExcalidrawContainerStyle,
+	expandExcalidrawTokens,
+	hasExcalidrawConfig,
+	isExcalidrawImage,
+	resolveExcalidrawDecorationStyle,
+} from './excalidraw-renderer';
 
 // ── Mermaid SVG style inlining ──
 // Mermaid generates SVGs with <style> blocks that define visual properties
@@ -36,6 +62,14 @@ function inlineMermaidSvgStyles(svg: Element): boolean {
   const styleNodes = Array.from(svg.querySelectorAll('style'));
   if (styleNodes.length === 0) return false;
 
+  // Collect CSS variables from :root rules so var(--x) references can be
+  // resolved to literal values before the <style> block is stripped.
+  const varMap: Record<string, string> = {};
+  for (const styleNode of styleNodes) {
+    const cssText = styleNode.textContent || '';
+    Object.assign(varMap, extractCssVars(cssText));
+  }
+
   for (const styleNode of styleNodes) {
     const cssText = styleNode.textContent || '';
     const ruleRegex = /([^{}]+)\{([^{}]+)\}/g;
@@ -62,7 +96,7 @@ function inlineMermaidSvgStyles(svg: Element): boolean {
         }
 
         for (const target of targets) {
-          appendStyleDecl(target, declarations);
+          appendStyleDecl(target, resolveCssVarValue(declarations, varMap));
         }
       }
     }
@@ -123,23 +157,26 @@ export class WechatRenderer {
       const { html: cleanHtml, warnings: cleanWarnings } = cleanWeChatHtml(styled);
       this.warnings.push(...cleanWarnings);
 
-      // Step 3: Section wrapper — inherit text styling from preset
+      // Step 3: Section wrapper — inherit text styling from preset + article slots
       const p = this.themeResolver.getPreset();
       const font = p.fontFamily;
       const baseFontSize = p.fontSize;
       const lh = p.lineHeight;
       const textColor = p.textColor;
+      const articleCss = this.themeResolver.resolveSlotCSS('article');
       const wrapperStyle = [
         `font-family:${font}`,
         `font-size:${baseFontSize}px`,
         `line-height:${lh}`,
         `color:${textColor}`,
         `background:${p.background}`,
+        'box-sizing:border-box',
         'max-width:100%',
         'word-wrap:break-word',
         'text-align:justify',
-      ].join(';');
-      const finalHtml = `<section style="${wrapperStyle}">${cleanHtml}</section>`;
+        articleCss, // article background/pattern/margin/radius/border override the base
+      ].filter(Boolean).join(';');
+      const finalHtml = `<section style="${escapeHtmlAttr(wrapperStyle)}">${cleanHtml}</section>`;
 
       return { html: finalHtml, warnings: this.warnings };
     } catch (err) {
@@ -158,163 +195,74 @@ export class WechatRenderer {
     const r = this.themeResolver;
     const self = this;
 
-    // Replace <input type="checkbox"> with configured emoji — WeChat strips <input>
-    const listPreset = r.getPreset().list;
-    // Bridge from modifier config: blocks.list.taskChecked/taskUnchecked override preset values
-    const uncheckedEmoji = r.resolveModifierValueName('blocks.list', 'taskUnchecked')
-      || listPreset?.taskUnchecked || '🔲';
-    const checkedEmoji = r.resolveModifierValueName('blocks.list', 'taskChecked')
-      || listPreset?.taskChecked || '✅';
-    const taskBulletSpacing = listPreset?.bulletSpacing ?? 8;
-    const accent = r.resolveAccent();
-    doc.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-      const el = input as HTMLInputElement;
-      const checked = el.checked || el.hasAttribute('checked');
-      const li = el.closest('li') as HTMLElement | null;
+    // Task lists — independent pipeline: checkbox replacement (params-driven
+    // icons/size/gap/color) + section flattening for WeChat compatibility.
+    renderTaskLists(doc, r);
 
-      const cb = document.createElement('span');
-      cb.setAttribute('style',
-        `font-size:16px;line-height:1;margin-right:${taskBulletSpacing}px;` +
-        `color:${checked ? accent : '#8b949e'}`);
-      cb.textContent = checked ? checkedEmoji : uncheckedEmoji;
-      el.parentNode?.replaceChild(cb, el);
-
-      // Unwrap <label> inside the same <li>
-      if (li) {
-        li.querySelectorAll('label').forEach((label) => {
-          const lp = label.parentNode;
-          if (lp) {
-            while (label.firstChild) lp.insertBefore(label.firstChild, label);
-            lp.removeChild(label);
-          }
-        });
-      }
-
-      // Checked items: strikethrough + muted color on trailing siblings
-      if (checked && li) {
-        let next = cb.nextSibling;
-        while (next) {
-          const sib = next;
-          next = next.nextSibling;
-          if (sib.nodeType === Node.TEXT_NODE) {
-            const wrap = doc.createElement('span');
-            wrap.setAttribute('style', 'text-decoration:line-through;color:#8b949e');
-            sib.parentNode!.replaceChild(wrap, sib);
-            wrap.appendChild(sib);
-          } else if (sib.nodeType === Node.ELEMENT_NODE && sib !== cb) {
-            const elem = sib as HTMLElement;
-            const cur = elem.getAttribute('style') || '';
-            elem.setAttribute('style', cur + ';text-decoration:line-through;color:#8b949e');
-          }
-        }
-      }
-    });
-
-    // Convert task-list <ul>/<ol> to flat <section> elements.
-    // WeChat adds auto-bullets to <li> (conflicting with emoji) and may re-wrap
-    // <li> content into blocks (causing unwanted line breaks). <section> avoids both.
-    //
-    // Process deepest-first so nested task lists are flattened before their
-    // parent lists. Each flattened item carries margin-left proportional to its
-    // nesting depth, preserving visual hierarchy after flattening.
-    const taskLists = Array.from(doc.querySelectorAll('ul.contains-task-list, ol.contains-task-list'));
-    const countAncestorLi = (el: Element): number => {
-      let d = 0;
-      let p = el.parentElement;
-      while (p) {
-        if (p.tagName === 'LI') d++;
-        p = p.parentElement;
-      }
-      return d;
-    };
-    taskLists.sort((a, b) => countAncestorLi(b) - countAncestorLi(a));
-
-    const indentPerLevel = r.getPreset().list?.indent || 24;
-
-    taskLists.forEach((list) => {
-      const parent = list.parentNode;
-      if (!parent) return;
-      const depth = countAncestorLi(list);
-      const items = list.querySelectorAll(':scope > li');
-      items.forEach((li) => {
-        const section = doc.createElement('section');
-        let style = r.getStyle('p');
-        if (depth > 0) {
-          // Strip default paragraph margins, then add one indent unit for this level.
-          // Flattened sections are nested inside each other (deepest-first), so
-          // margin-left accumulates across levels — each level contributes exactly
-          // indentPerLevel, not indentPerLevel * depth.
-          style = style.replace(/margin[^;]*;?/gi, '');
-          style += `;margin:0;margin-left:${indentPerLevel}px`;
-        }
-        section.setAttribute('style', style);
-        while (li.firstChild) section.appendChild(li.firstChild);
-        parent.insertBefore(section, list);
-      });
-      parent.removeChild(list);
-    });
-
-    // Headings
-    for (let i = 1; i <= 6; i++) {
-      const level = `h${i}`;
-      doc.querySelectorAll(level).forEach((el) => {
-        const htmlEl = el as HTMLElement;
-        htmlEl.setAttribute('style', r.getStyle(level));
-
-        // Apply DOM transform from modifier engine (wrap/prepend/append)
-        const domTransform = r.getHeadingDomTransform(level);
-        if (domTransform && el.parentNode) {
-          const parent = el.parentNode;
-
-          // Prepend: insert before the heading
-          if (domTransform.prepend) {
-            const prependSpan = doc.createElement('span');
-            prependSpan.innerHTML = domTransform.prepend;
-            parent.insertBefore(prependSpan, el);
-          }
-
-          // Wrap: enclose heading in a wrapper
-          if (domTransform.wrap) {
-            const wrapper = doc.createElement(domTransform.wrap);
-            if (domTransform.wrapStyle) {
-              wrapper.setAttribute('style', domTransform.wrapStyle);
-            }
-            parent.insertBefore(wrapper, el);
-            wrapper.appendChild(el);
-          }
-
-          // Append: insert after the heading (or after wrapper)
-          if (domTransform.append) {
-            const appendSpan = doc.createElement('span');
-            appendSpan.innerHTML = domTransform.append;
-            const refNode = domTransform.wrap
-              ? el.parentNode  // heading is now inside wrapper
-              : el;
-            refNode.parentNode?.insertBefore(appendSpan, refNode.nextSibling);
-          }
-        }
-      });
-    }
-
-    // Apply heading numbering from modifier config (per-level sequential counting)
-    const mc = r.getPreset().modifierConfig;
-    if (mc) {
-      const globalNumbering = mc['heading']?.numbering;
-      const counters: Record<string, number> = { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 };
+    // Headings — new template pipeline when headingConfig is present,
+    // otherwise fall back to the v3 slot + DOM transform path.
+    if (!renderHeadings(doc, r)) {
       for (let i = 1; i <= 6; i++) {
         const level = `h${i}`;
-        const levelNumbering = mc[`heading.${level}`]?.numbering;
-        const numberingStyle = levelNumbering || globalNumbering;
-        if (!numberingStyle || numberingStyle === 'none') continue;
         doc.querySelectorAll(level).forEach((el) => {
-          counters[level]++;
-          const formatted = formatHeadingNumber(counters[level], numberingStyle);
-          const numSpan = doc.createElement('span');
-          numSpan.setAttribute('style', 'margin-right:0.5em;user-select:none;');
-          numSpan.setAttribute('data-wewrite-numbering', 'true');
-          numSpan.textContent = formatted;
-          el.insertBefore(numSpan, el.firstChild);
+          const htmlEl = el as HTMLElement;
+          htmlEl.setAttribute('style', r.getStyle(level));
+
+          // Apply DOM transform from modifier engine (wrap/prepend/append)
+          const domTransform = r.getHeadingDomTransform(level);
+          if (domTransform && el.parentNode) {
+            const parent = el.parentNode;
+
+            // Prepend: insert before the heading
+            if (domTransform.prepend) {
+              const prependSpan = doc.createElement('span');
+              prependSpan.innerHTML = domTransform.prepend;
+              parent.insertBefore(prependSpan, el);
+            }
+
+            // Wrap: enclose heading in a wrapper
+            if (domTransform.wrap) {
+              const wrapper = doc.createElement(domTransform.wrap);
+              if (domTransform.wrapStyle) {
+                wrapper.setAttribute('style', domTransform.wrapStyle);
+              }
+              parent.insertBefore(wrapper, el);
+              wrapper.appendChild(el);
+            }
+
+            // Append: insert after the heading (or after wrapper)
+            if (domTransform.append) {
+              const appendSpan = doc.createElement('span');
+              appendSpan.innerHTML = domTransform.append;
+              const refNode = domTransform.wrap
+                ? el.parentNode  // heading is now inside wrapper
+                : el;
+              refNode.parentNode?.insertBefore(appendSpan, refNode.nextSibling);
+            }
+          }
         });
+      }
+
+      // Apply heading numbering from modifier config (per-level sequential counting)
+      const mc = r.getPreset().modifierConfig;
+      if (mc) {
+        const globalNumbering = mc['heading']?.prefix;
+        const counters: Record<string, number> = { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 };
+        for (let i = 1; i <= 6; i++) {
+          const level = `h${i}`;
+          const levelNumbering = mc[`heading.${level}`]?.prefix;
+          const numberingStyle = levelNumbering || globalNumbering;
+          if (!numberingStyle || numberingStyle === 'none') continue;
+          doc.querySelectorAll(level).forEach((el) => {
+            counters[level]++;
+            const formatted = formatHeadingNumber(counters[level], numberingStyle);
+            const numSpan = doc.createElement('span');
+            numSpan.setAttribute('style', 'margin-right:0.5em;user-select:none;');
+            numSpan.setAttribute('data-wewrite-numbering', 'true');
+            numSpan.textContent = formatted;
+            el.insertBefore(numSpan, el.firstChild);
+          });
+        }
       }
     }
 
@@ -323,45 +271,65 @@ export class WechatRenderer {
       (el as HTMLElement).setAttribute('style', r.getStyle('p'));
     });
 
-    // Blockquotes
-    doc.querySelectorAll('blockquote').forEach((el) => {
-      const htmlEl = el as HTMLElement;
-      htmlEl.setAttribute('style', r.getStyle('blockquote'));
-      // Icon modifier — insert emoji as first child
-      const iconName = r.resolveModifierValueName('blocks.blockquote', 'icon');
-      if (iconName) {
-        const iconSpan = doc.createElement('span');
-        iconSpan.setAttribute('style', 'margin-right:8px;font-size:1.1em');
-        iconSpan.textContent = iconName;
-        el.insertBefore(iconSpan, el.firstChild);
-      }
-    });
+    // Blockquotes — new template pipeline when blockquoteConfig is present,
+    // otherwise keep Obsidian's original look (default margins only).
+    if (!renderBlockquotes(doc, r)) {
+      doc.querySelectorAll('blockquote').forEach((el) => {
+        const htmlEl = el as HTMLElement;
+        htmlEl.setAttribute('style', r.getStyle('blockquote'));
+      });
+    }
 
-    // Code blocks: wrap <pre> in styled <section> for container appearance
+    // Inline elements — new template pipeline (bold/italic/code/link/tag/math).
+    // When active it owns every inline type; otherwise the v3 slot paths below
+    // (inline code / links / strong / em / inline-math) style them.
+    const inlineHandled = renderInlineElements(doc, r);
+
+    // Code blocks: wrap <pre> in a styled <section> for container appearance.
+    // The section is a zero-padding box (background/radius/shadow); the <pre>
+    // owns the padding, so a title bar inserted above it sits flush against
+    // the box's top/left/right edges instead of being inset by code padding.
     doc.querySelectorAll('pre').forEach((el) => {
+      // Mermaid diagrams are not code blocks: Obsidian wraps the SVG in
+      // <pre class="mermaid">. Keep them transparent and unwrapped so the
+      // diagram colors come from the Mermaid themer, not the code theme.
+      const isMermaidPre = (el.classList?.contains('mermaid') ?? false) || el.querySelector('svg') !== null;
+      if (isMermaidPre) {
+        el.setAttribute('style', 'background:transparent;padding:0;margin:0;overflow:visible;text-align:center');
+        return;
+      }
       const section = document.createElement('section');
-      section.setAttribute('style', r.getStyle('pre'));
+      section.setAttribute('style', r.getCodeBlockBoxStyle());
       el.parentNode?.insertBefore(section, el);
+      // Neutralize the UA default <pre> margin; the pre carries the code
+      // typography + padding and scrolls horizontally inside the rounded box.
+      const preStyle = (el.getAttribute('style') || '').trim();
+      const codeStyle = r.getCodeBlockPreStyle();
+      el.setAttribute('style', preStyle ? `${preStyle};${codeStyle};margin:0` : `${codeStyle};margin:0`);
       section.appendChild(el);
-      // MacBar DOM transform — prepend Mac-style dots before <pre> inside section
-      const macBarDom = r.resolveModifierDom('blocks.code');
-      if (macBarDom?.prepend) {
+      // Title bar — Mac-style dots + right-aligned language label
+      const codeEl = el.querySelector('code');
+      const language = codeEl ? getCodeLanguageFromClassList(Array.from(codeEl.classList)) : null;
+      const titleBarHtml = r.buildCodeTitleBarHtml(language);
+      if (titleBarHtml) {
         const prependEl = doc.createElement('span');
-        prependEl.innerHTML = macBarDom.prepend;
+        prependEl.innerHTML = titleBarHtml;
         section.insertBefore(prependEl, el);
       }
     });
     // Inline code only — block code (<pre><code>) is handled by
     // processCodeBlocksInPlace() which preserves Obsidian's syntax highlighting
-    doc.querySelectorAll('code').forEach((el) => {
-      if (el.closest('pre')) return;
-      (el as HTMLElement).setAttribute('style', r.getStyle('code'));
-    });
+    if (!inlineHandled) {
+      doc.querySelectorAll('code').forEach((el) => {
+        if (el.closest('pre')) return;
+        (el as HTMLElement).setAttribute('style', r.getStyle('code'));
+      });
 
-    // Links
-    doc.querySelectorAll('a').forEach((el) => {
-      (el as HTMLElement).setAttribute('style', r.getStyle('a'));
-    });
+      // Links
+      doc.querySelectorAll('a').forEach((el) => {
+        (el as HTMLElement).setAttribute('style', r.getStyle('a'));
+      });
+    }
 
     // Images → figure only when a caption is present, otherwise inline
     doc.querySelectorAll('img').forEach((img) => {
@@ -416,33 +384,59 @@ export class WechatRenderer {
       const captionEntry = self.imageCaptions?.find(c => src.includes(c.imageKey) || c.imageKey.includes(src.split('/').pop() || ''));
       const captionSource = captionEntry?.text || '';
 
-      // Build img style
-      const borderRadius = r.getPreset().image.borderRadius ?? 4;
-      let imgStyle = `max-width:100%;height:auto;border-radius:${borderRadius}px;vertical-align:middle`;
-      if (params.width) {
-        imgStyle += `;width:${params.width}px`;
+      // Build img style — the new image decoration system when imageConfig is
+      // present (per-image width/height/align stay highest priority), otherwise
+      // the v3 preset + media.image slot path.
+      // Excalidraw PNGs (cache prefix "excalidraw-") get the excalidraw
+      // decoration; everything else uses the image decoration.
+      let imageDeco: { decoration: { id: string } | null; params: Record<string, string> } | null = null;
+      if (isExcalidrawImage(src) && hasExcalidrawConfig(r)) {
+        imageDeco = resolveExcalidrawDecorationStyle(r);
+      } else if (hasImageConfig(r)) {
+        imageDeco = resolveImageDecorationStyle(r);
       }
-      if (params.height) {
-        imgStyle += `;height:${params.height}px`;
-        imgStyle = imgStyle.replace('height:auto;', '');
+      if (imageDeco) {
+        imageDeco = { ...imageDeco, params: expandImageTokens(imageDeco.params, r.getTokens()) };
+      }
+      let imgStyle: string;
+      if (imageDeco) {
+        imgStyle = buildImageStyle(imageDeco.params, {
+          width: params.width,
+          height: params.height,
+          align: params.align,
+        });
+      } else {
+        const borderRadius = r.getPreset().image.borderRadius ?? 4;
+        imgStyle = `max-width:100%;height:auto;border-radius:${borderRadius}px;vertical-align:middle`;
+        if (params.width) {
+          imgStyle += `;width:${params.width}px`;
+        }
+        if (params.height) {
+          imgStyle += `;height:${params.height}px`;
+          imgStyle = imgStyle.replace('height:auto;', '');
+        }
       }
 
       if (captionSource) {
         // Only wrap in <figure> when there is an intentional caption
         const figure = document.createElement('figure');
-        const figureStyle = r.getStyle('figure');
-        if (params.align) {
-          imgStyle += ';display:block';
-          if (params.align === 'left') {
-            imgStyle += ';margin:0 auto 0 0';
-          } else if (params.align === 'right') {
-            imgStyle += ';margin:0 0 0 auto';
-          } else {
-            imgStyle += ';margin:0 auto';
-          }
-          figure.setAttribute('style', figureStyle + `;text-align:${params.align}`);
+        if (imageDeco) {
+          figure.setAttribute('style', buildFigureStyle(imageDeco.params, params.align));
         } else {
-          figure.setAttribute('style', figureStyle);
+          const figureStyle = r.getStyle('figure');
+          if (params.align) {
+            imgStyle += ';display:block';
+            if (params.align === 'left') {
+              imgStyle += ';margin:0 auto 0 0';
+            } else if (params.align === 'right') {
+              imgStyle += ';margin:0 0 0 auto';
+            } else {
+              imgStyle += ';margin:0 auto';
+            }
+            figure.setAttribute('style', figureStyle + `;text-align:${params.align}`);
+          } else {
+            figure.setAttribute('style', figureStyle);
+          }
         }
         (img as HTMLElement).setAttribute('style', imgStyle);
 
@@ -450,14 +444,16 @@ export class WechatRenderer {
         figure.appendChild(img);
 
         const showTriangle = r.getPreset().caption?.showTriangle;
-        const displayText = showTriangle ? `▲ ${captionSource}` : captionSource;
+        const useTriangle = imageDeco ? imageDeco.params.captionTriangle === 'triangle' : showTriangle;
+        const displayText = useTriangle ? `▲ ${captionSource}` : captionSource;
         const caption = document.createElement('figcaption');
-        caption.setAttribute('style', r.getStyle('figcaption'));
+        const captionStyle = imageDeco ? buildCaptionStyle(imageDeco.params) : '';
+        caption.setAttribute('style', captionStyle || r.getStyle('figcaption'));
         caption.textContent = displayText;
         figure.parentNode?.insertBefore(caption, figure.nextSibling);
       } else {
         // No caption — keep image inline, no frame
-        if (params.align) {
+        if (!imageDeco && params.align) {
           imgStyle += ';display:block';
           if (params.align === 'left') {
             imgStyle += ';margin:0 auto 0 0';
@@ -473,73 +469,81 @@ export class WechatRenderer {
 
     // Tables — wrap in scrollable section for overflow when wider than article
     doc.querySelectorAll('table').forEach((table) => {
-      (table as HTMLElement).setAttribute('style', r.getStyle('table'));
       const wrapper = document.createElement('section');
       wrapper.setAttribute('style', r.getStyle('table-wrapper'));
       table.parentNode?.insertBefore(wrapper, table);
       wrapper.appendChild(table);
     });
-    doc.querySelectorAll('th').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('th')));
-    doc.querySelectorAll('td').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('td')));
 
-    // Zebra striping — apply alternating row background via DOM (nth-child not
-    // supported in WeChat inline styles), using modifier config accentBg token.
-    const tableConfig = r.getPreset().modifierConfig?.['blocks.table'];
-    if (tableConfig?.striped === 'striped') {
-      const zebraBg = r.resolveAccentBg();
+    // Tables — new decoration pipeline when tableConfig is present, otherwise
+    // fall back to the v3 slot path (+ zebra striping via DOM).
+    if (!renderTables(doc, r)) {
       doc.querySelectorAll('table').forEach((table) => {
-        const rows = table.querySelectorAll('tr');
-        rows.forEach((row, idx) => {
-          if (idx % 2 === 0) return; // skip header + odd rows
-          row.querySelectorAll('td').forEach((td) => {
-            const cur = (td as HTMLElement).getAttribute('style') || '';
-            (td as HTMLElement).setAttribute('style', cur + `;background-color:${zebraBg}`);
+        (table as HTMLElement).setAttribute('style', r.getStyle('table'));
+      });
+      doc.querySelectorAll('th').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('th')));
+      doc.querySelectorAll('td').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('td')));
+
+      // Zebra striping — apply alternating row background via DOM (nth-child not
+      // supported in WeChat inline styles), using modifier config accentBg token.
+      const tableConfig = r.getPreset().modifierConfig?.['blocks.table'];
+      if (tableConfig?.striped === 'striped') {
+        const zebraBg = r.resolveAccentBg();
+        doc.querySelectorAll('table').forEach((table) => {
+          const rows = table.querySelectorAll('tbody tr');
+          rows.forEach((row, idx) => {
+            if (idx % 2 === 0) return;
+            row.querySelectorAll('td').forEach((td) => {
+              const cur = (td as HTMLElement).getAttribute('style') || '';
+              (td as HTMLElement).setAttribute('style', cur + `;background-color:${zebraBg}`);
+            });
           });
         });
+      }
+    }
+
+    // Block math — new decoration pipeline when mathConfig is present; inline
+    // math belongs to the inline decoration system (legacy media.math slots
+    // were removed). MathJax SVG uses currentColor + ex units, so the wrapper's
+    // color / font-size / background / borders scale and style the formula.
+    const mathDeco = hasMathConfig(r) ? resolveMathDecorationStyle(r) : null;
+    doc.querySelectorAll('svg.wewrite-math').forEach((svg) => {
+      // Block math is wrapped in a <section> by math-processor; inline math is
+      // wrapped in a <span>. `closest('section')` is WRONG here — callouts are
+      // also <section> elements, so inline math inside a callout would be
+      // misclassified as block math.
+      const isBlock = svg.parentElement?.tagName === 'SECTION';
+      if (!isBlock) return;
+      const parent = svg.parentElement;
+      if (!parent) return;
+      // Only override the wrapper when an actual decoration resolved.
+      // With decoration 'none'/missing, resolveMathDecorationStyle returns
+      // params:{} and buildMathStyle({}) would emit bare `display:block`,
+      // wiping the wrapper's centering + vertical margins.
+      if (mathDeco?.decoration) {
+        parent.setAttribute('style', buildMathStyle(expandMathTokens(mathDeco.params, r.getTokens())));
+      }
+    });
+
+    // Excalidraw inline containers (editor preview / plugin SVG output).
+    if (hasExcalidrawConfig(r)) {
+      const excalDeco = resolveExcalidrawDecorationStyle(r);
+      const excalParams = expandExcalidrawTokens(excalDeco.params, r.getTokens());
+      doc.querySelectorAll('.excalidraw, [class*="excalidraw"]').forEach((el) => {
+        (el as HTMLElement).setAttribute('style', buildExcalidrawContainerStyle(excalParams));
       });
     }
 
     // Bold, italic — apply base styles first, then <li>-specific overrides
-    doc.querySelectorAll('strong, b').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('strong')));
-    doc.querySelectorAll('em, i').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('em')));
-
-    // Lists — listPreset & bulletSpacing already extracted above for task checkboxes
-    const listLh = r.getPreset().lineHeight;
-
-    // Custom bullet rendering: for 'dash' or custom emoji, WeChat doesn't support
-    // ::marker pseudo-elements, so we replace bullets with actual <span> elements.
-    const bulletChar = listPreset?.bullet || 'disc';
-    const bulletSpacing = listPreset?.bulletSpacing || 8;
-    const needsCustomBullet = !['disc', 'circle', 'square'].includes(bulletChar) && bulletChar !== 'none';
-
-    doc.querySelectorAll('ul, ol').forEach((el) => {
-      const htmlEl = el as HTMLElement;
-      htmlEl.setAttribute('style', r.getStyle(el.tagName.toLowerCase()));
-      // For custom bullets, remove native list-style
-      if (needsCustomBullet && el.tagName === 'UL') {
-        htmlEl.style.listStyleType = 'none';
-      }
-    });
-
-    // Insert custom bullet spans into <li> elements
-    if (needsCustomBullet) {
-      doc.querySelectorAll('ul > li').forEach((li) => {
-        // Check if already has a bullet span
-        const firstChild = li.firstChild;
-        if (firstChild && firstChild.nodeType === Node.ELEMENT_NODE
-            && (firstChild as Element).getAttribute('data-wewrite-bullet') === 'true') {
-          return;
-        }
-        const bulletSpan = doc.createElement('span');
-        bulletSpan.setAttribute('data-wewrite-bullet', 'true');
-        bulletSpan.setAttribute('style',
-          `margin-right:${bulletSpacing}px;display:inline;user-select:none`);
-        bulletSpan.textContent = bulletChar === 'dash' ? '—' : bulletChar;
-        li.insertBefore(bulletSpan, li.firstChild);
-      });
+    if (!inlineHandled) {
+      doc.querySelectorAll('strong, b').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('strong')));
+      doc.querySelectorAll('em, i').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('em')));
     }
 
-    doc.querySelectorAll('li').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('li')));
+    // Lists — structural WeChat-compatibility steps only (p unwrap /
+    // stabilization). Appearance is owned by the three independent list
+    // decoration pipelines below; nested hierarchy is preserved.
+    const listLh = r.getPreset().lineHeight;
 
     // Unwrap <p> inside <li> — Obsidian wraps list items in <p>, which WeChat
     // renders with paragraph-level spacing, breaking list compactness.
@@ -591,114 +595,38 @@ export class WechatRenderer {
         cur + ';display:inline !important;width:auto !important;float:none !important');
     });
 
-    // Zero out margins on nested <ul>/<ol> inside <li> — prevents extra gap
-    // between the parent item text and the nested list.
-    doc.querySelectorAll('li > ul, li > ol').forEach((nl) => {
-      const cur = (nl as HTMLElement).getAttribute('style') || '';
-      (nl as HTMLElement).setAttribute('style', cur.replace(/margin[^;]*;?/gi, '') + ';margin:0');
-    });
-
-    // Flatten nested regular lists into a flat sequence of <ul>/<ol> elements.
-    // WeChat's editor doesn't support deeply nested lists — it extracts and
-    // flattens them, losing hierarchy and scrambling order. Pre-flatten here
-    // so that indentation is expressed via progressive padding-left on flat,
-    // non-nested <ul>/<ol> elements.
-    //
-    // Single-pass tree walk: each <li> is emitted in document order with its
-    // depth recorded. Nested lists are temporarily detached to get clean <li>
-    // content, then walked recursively. Consecutive items at the same depth
-    // and tag type are grouped into one list. No splitting artifacts — the
-    // output is built from scratch in a single forward pass.
-    (function flattenRegularLists() {
-      const baseIndent = r.getPreset().list?.indent || 24;
-
-      // Find root lists: <ul>/<ol> whose ancestor chain contains no <li>
-      const allLists = Array.from(
-        doc.querySelectorAll('ul:not(.contains-task-list), ol:not(.contains-task-list)'),
-      );
-      const rootLists = allLists.filter((list) => {
-        let p = list.parentElement;
-        while (p) {
-          if (p.tagName === 'LI') return false;
-          p = p.parentElement;
-        }
-        return true;
+    // Ordered / unordered lists — two independent template pipelines. Nested
+    // structure is kept; each level gains margin-left in the renderers.
+    // Without a list config the renderers return false — fall back to the
+    // legacy getStyle() path (themes without ordered/unorderedListConfig used
+    // to ship with raw browser list styling).
+    if (!renderOrderedLists(doc, r)) {
+      doc.querySelectorAll('ol:not(.contains-task-list)').forEach((el) => {
+        (el as HTMLElement).setAttribute('style', r.getStyle('ol'));
       });
+      doc.querySelectorAll('ol:not(.contains-task-list) > li').forEach((el) => {
+        (el as HTMLElement).setAttribute('style', r.getStyle('li'));
+      });
+    }
+    if (!renderUnorderedLists(doc, r)) {
+      doc.querySelectorAll('ul:not(.contains-task-list)').forEach((el) => {
+        (el as HTMLElement).setAttribute('style', r.getStyle('ul'));
+      });
+      doc.querySelectorAll('ul:not(.contains-task-list) > li').forEach((el) => {
+        (el as HTMLElement).setAttribute('style', r.getStyle('li'));
+      });
+    }
 
-      interface FlatItem { li: HTMLElement; depth: number; tag: string; }
-      for (const root of rootLists) {
-        const flat: FlatItem[] = [];
+    // Horizontal rules — new template pipeline when dividerConfig is present,
+    // otherwise fall back to the v3 slot / legacy divider style path.
+    if (!renderDividers(doc, r)) {
+      doc.querySelectorAll('hr').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('hr')));
+    }
 
-        // Walk tree in document order. For each <li>, detach nested child
-        // lists to get clean content, emit the <li> with its depth, then
-        // recursively walk the detached nested lists at depth + 1.
-        function walk(list: Element, depth: number): void {
-          const items = Array.from(list.querySelectorAll(':scope > li')) as HTMLElement[];
-          for (const li of items) {
-            const nested = Array.from(
-              li.querySelectorAll(':scope > ul:not(.contains-task-list), :scope > ol:not(.contains-task-list)'),
-            );
-            if (nested.length > 0) {
-              const detached: Element[] = [];
-              for (const nl of nested) { nl.remove(); detached.push(nl); }
-
-              // Only emit the li if it still has meaningful content
-              if (li.textContent?.trim()) {
-                flat.push({ li, depth, tag: list.tagName });
-              }
-
-              for (const nl of detached) { walk(nl, depth + 1); }
-            } else {
-              flat.push({ li, depth, tag: list.tagName });
-            }
-          }
-        }
-
-        walk(root, 0);
-
-        // Rebuild: group consecutive items at same depth AND same tag type
-        // into flat <ul>/<ol> elements. Each group gets progressive padding-left
-        // and zero vertical margins (compact vertical rhythm).
-        const parentNode = root.parentNode!;
-        const anchor = root.nextSibling;
-
-        let i = 0;
-        while (i < flat.length) {
-          const { depth, tag } = flat[i];
-          const group: HTMLElement[] = [];
-          while (i < flat.length && flat[i].depth === depth && flat[i].tag === tag) {
-            group.push(flat[i].li);
-            i++;
-          }
-
-          const newList = doc.createElement(tag);
-          let listStyle = r.getStyle(tag);
-          listStyle = listStyle.replace(/padding-left:\s*\d+px/,
-            `padding-left: ${baseIndent * (depth + 1)}px`);
-          listStyle = listStyle.replace(/margin[^;]*;?/gi, '');
-          listStyle += ';margin:0';
-          newList.setAttribute('style', listStyle);
-
-          for (const li of group) { newList.appendChild(li); }
-          parentNode.insertBefore(newList, anchor);
-        }
-
-        parentNode.removeChild(root);
-      }
-    })();
-
-    // Horizontal rules
-    doc.querySelectorAll('hr').forEach((el) => (el as HTMLElement).setAttribute('style', r.getStyle('hr')));
-
-    // Callout sections — overlay blocks.callout modifier CSS on top of
-    // the Obsidian-computed styles already inlined by processCalloutsAndAdmonitions.
-    doc.querySelectorAll('section[data-wewrite-callout]').forEach((section) => {
-      const modifierCss = r.resolveModifierCSS('blocks.callout');
-      if (modifierCss) {
-        const cur = (section as HTMLElement).getAttribute('style') || '';
-        (section as HTMLElement).setAttribute('style', cur + ';' + modifierCss);
-      }
-    });
+    // Callout sections — per-type decoration pipeline. Legacy blocks.callout.*
+    // themes are migrated onto the new system by the theme loader; the
+    // renderer enforces default vertical margins for every path.
+    renderCallouts(doc, r);
 
     // Replace <div> with <section> for WeChat compatibility
     doc.querySelectorAll('div').forEach((div) => {
@@ -710,11 +638,15 @@ export class WechatRenderer {
       div.parentNode?.replaceChild(section, div);
     });
 
-    // Inline Mermaid SVG <style> rules as inline style attributes before
-    // stripping <style> blocks. Mermaid uses CSS classes to define all visual
-    // properties (fills, strokes, line colors); without inlining, diagrams
-    // render with black fills and invisible lines after style removal.
-    doc.querySelectorAll('svg').forEach((svg) => inlineMermaidSvgStyles(svg));
+    // Mermaid SVGs: apply the resolved palette + shape params first (rewrites
+    // the :root CSS variables), then inline every <style> rule as inline style
+    // attributes before <style> blocks are stripped. var(--x) references are
+    // resolved to literal values during inlining so colors survive WeChat.
+    const mermaidStyle = r.resolveMermaidStyle();
+    doc.querySelectorAll('svg').forEach((svg) => {
+      if (isMermaidSvg(svg)) applyMermaidSvgStyle(svg, mermaidStyle);
+      inlineMermaidSvgStyles(svg);
+    });
 
     // Preserve Obsidian plugin icons (Remix, Iconize) with inline styles
     // matching Obsidian's default .obsidian-icon CSS rules. We can't use

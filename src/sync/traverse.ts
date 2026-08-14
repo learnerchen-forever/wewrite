@@ -3,7 +3,7 @@
 // vault index (vault.getFiles()) instead of manual vault.adapter.list() recursion.
 // vault.adapter.list() interprets "/" as filesystem root on Windows, escaping the vault.
 
-import type { Vault, TAbstractFile } from 'obsidian';
+import type { Vault, TAbstractFile, TFile } from 'obsidian';
 import type { FileStat, SyncEntry } from './types';
 import { sha256Hex, normalizeMtime } from './hash';
 import { createLogger } from '../utils/logger';
@@ -22,8 +22,8 @@ export async function walkLocal(
 
   // Use getAllLoadedFiles to include directories, not just files.
   // Obsidian's Vault always loads all items; this is a cheap index lookup.
-  const allItems = (vault as any).getAllLoadedFiles?.() as TAbstractFile[] | undefined;
-  const items: TAbstractFile[] = allItems ?? (vault.getFiles() as any);
+  const allItems = (vault as unknown as { getAllLoadedFiles?: () => TAbstractFile[] }).getAllLoadedFiles?.();
+  const items: TAbstractFile[] = allItems ?? vault.getFiles();
 
   let fileCount = 0;
   let dirCount = 0;
@@ -50,7 +50,7 @@ export async function walkLocal(
     }
 
     // File — compute hash as before
-    const file = item as any;
+    const file = item as TFile;
     const stat = file.stat;
     const mtime = normalizeMtime(stat.mtime > 0 ? stat.mtime : stat.ctime);
 

@@ -14,7 +14,7 @@ import { ImageValidator, type ValidationTarget, type ConversionResult, type Vali
 import { ImageValidationModal } from './image-validation-modal';
 import { removeFrontMatter, isIosVersionBelow17 } from '../utils/vault-helpers';
 import type { DraftNewsPicArticle } from '../publisher/draft-service';
-import { NewsPicPreview, NEWSPIC_DEVICE_PRESETS, type DeviceSizeKey } from './newspic-preview';
+import { NewsPicPreview, NEWSPIC_DEVICE_PRESETS, devicePresetLabel, type DeviceSizeKey } from './newspic-preview';
 import { extractMermaidBlocks, extractExcalidrawEmbeds, renderMermaidToPng, renderExcalidrawToPng, cacheDiagramPng, canvasToBlobSafe, clampCanvasDimensions } from '../media/diagram-renderer';
 import { sanitizeSvgElement, canInlineSvg } from '../renderer/wechat-svg-sanitizer';
 import { extractSvgs } from '../media/svg-fallback';
@@ -148,7 +148,7 @@ export class WeChatNewsPicView extends ItemView {
     // Hide Obsidian's built-in view header — the title is already shown on the tab
     this.hideViewHeader();
 
-    this.configStore = new NoteConfigStore(this.app.vault.adapter as any);
+    this.configStore = new NoteConfigStore(this.app.vault.adapter);
 
     this._eventBusUnsubs.push(onLanguageChange(() => {
       this.refreshTitle();
@@ -248,7 +248,7 @@ export class WeChatNewsPicView extends ItemView {
     this.deviceSelectEl = row.createEl('select', { cls: 'dropdown wewrite-select wewrite-newspic-device-select' });
     for (const [key, preset] of Object.entries(NEWSPIC_DEVICE_PRESETS) as [DeviceSizeKey, typeof NEWSPIC_DEVICE_PRESETS['small']][]) {
       const opt = document.createElement('option');
-      opt.value = key; opt.text = preset.label;
+      opt.value = key; opt.text = devicePresetLabel(key);
       if (key === this.deviceSizeKey) opt.selected = true;
       this.deviceSelectEl.appendChild(opt);
     }
@@ -443,7 +443,7 @@ export class WeChatNewsPicView extends ItemView {
         if (Array.isArray(val)) {
           const nm: Record<string, string> = {};
           (val as string[]).forEach((mid, i) => { if (config!.images[i]) nm[config!.images[i].vaultPath] = mid; });
-          config.imageMediaIds[accountId] = nm as any;
+          config.imageMediaIds[accountId] = nm;
         }
       }
     }
@@ -499,7 +499,7 @@ export class WeChatNewsPicView extends ItemView {
         }
 
         const alreadyAdded = this.config.images.some(
-          (i) => (i as any)._svgHtml === svg.html,
+          (i) => i._svgHtml === svg.html,
         );
         if (alreadyAdded) continue;
 
@@ -558,7 +558,7 @@ export class WeChatNewsPicView extends ItemView {
         } catch (err) {
           log.warn('SVG→PNG conversion failed during extraction', { err: String(err) });
           // Fallback: add raw SVG for publish-time conversion
-          (this.config!.images as any[]).push({
+          (this.config!.images as NewsPicImage[]).push({
             vaultPath: '',
             url: '',
             order: this.config.images.length,
@@ -622,7 +622,7 @@ export class WeChatNewsPicView extends ItemView {
 
   private refreshTitle(): void {
     const t = this.getDisplayText();
-    const th = (this.leaf as any).tabHeaderEl as HTMLElement | undefined;
+    const th = (this.leaf as unknown as { tabHeaderEl?: HTMLElement }).tabHeaderEl;
     if (th) { const te = th.querySelector('.workspace-tab-header-inner-title'); if (te) te.textContent = t; }
     const nv = this.containerEl.parentElement?.querySelector('.view-header-title');
     if (nv) nv.textContent = t;
@@ -791,9 +791,9 @@ export class WeChatNewsPicView extends ItemView {
       if (report.issues.length > 0) {
         const validateModal = new ImageValidationModal(report);
         const action = await validateModal.show();
-        if (action === 'cancel') { modal.close(); globalSpinner.hide(); void publishLogger.flush(false, 'User cancelled validation'); return; }
+        if (action === 'cancel') { modal.close(); globalSpinner.hide(); void publishLogger.flush(false, t('publish.cancelled_validation')); return; }
 
-        globalSpinner.show('Converting media...');
+        globalSpinner.show(t('publish.converting_media'));
         try {
           const conversion = await validator.convertAll(report, validationTargets, baseDir,
             (text) => globalSpinner.updateText(text),
@@ -801,12 +801,12 @@ export class WeChatNewsPicView extends ItemView {
           pendingConversions = conversion;
 
           if (conversion.errors.length > 0) {
-            const msg = `Conversion failed: ${conversion.errors.slice(0, 3).join('; ')}`;
+            const msg = t('publish.conversion_failed', { errors: conversion.errors.slice(0, 3).join('; ') });
             new Notice(msg);
             log.error('conversion errors — aborting publish', { errors: conversion.errors });
             globalSpinner.hide();
             modal.close();
-            void publishLogger.flush(false, `Conversion failed: ${conversion.errors.slice(0, 3).join('; ')}`);
+            void publishLogger.flush(false, msg);
             return;
           }
 
@@ -871,7 +871,7 @@ export class WeChatNewsPicView extends ItemView {
       modal.setTaskRunning(taskIdx, displayName);
 
       // SVG items: convert to PNG first, check SVG registry for dedup
-      let svgStr = (img as any)._svgHtml as string | undefined;
+      let svgStr = img._svgHtml;
       let isSvgItem = false;
       let svgFp = '';
 
@@ -881,7 +881,7 @@ export class WeChatNewsPicView extends ItemView {
           const svgFile = this.app.vault.getAbstractFileByPath(img.vaultPath);
           if (svgFile) {
             svgStr = await this.app.vault.read(svgFile as TFile);
-            (img as any)._svgHtml = svgStr;
+            img._svgHtml = svgStr;
           }
         } catch { /* file unreadable — fall through to regular upload */ }
       }
@@ -889,7 +889,7 @@ export class WeChatNewsPicView extends ItemView {
       if (svgStr) {
         isSvgItem = true;
         svgFp = this.plugin.mediaRegistry.computeSvgFingerprint(svgStr);
-        (img as any)._svgFingerprint = svgFp;
+        img._svgFingerprint = svgFp;
 
         const cachedSvgMediaId = this.plugin.mediaRegistry.lookupMediaIdForAccount(svgFp, acct.appId);
         if (cachedSvgMediaId) {
@@ -972,7 +972,7 @@ export class WeChatNewsPicView extends ItemView {
           cleanUrl.searchParams.delete('watermark');
           const resp = await requestUrl({ url: cleanUrl.toString() });
           if (resp.status < 200 || resp.status >= 300) {
-            modal.setTaskError(taskIdx, `下载失败: HTTP ${resp.status}`);
+            modal.setTaskError(taskIdx, t('publish.download_failed', { status: String(resp.status) }));
             modal.setFinished(false);
             return;
           }
@@ -986,7 +986,7 @@ export class WeChatNewsPicView extends ItemView {
         } else {
           const file = this.app.vault.getAbstractFileByPath(img.vaultPath);
           if (!file) {
-            modal.setTaskError(taskIdx, `图片不存在: ${img.vaultPath}`);
+            modal.setTaskError(taskIdx, t('publish.image_missing', { path: img.vaultPath }));
             modal.setFinished(false);
             return;
           }
@@ -1031,7 +1031,7 @@ export class WeChatNewsPicView extends ItemView {
           });
 
         if (!response.success || !response.data?.media_id) {
-          modal.setTaskError(taskIdx, response.error?.errmsg || '上传失败');
+          modal.setTaskError(taskIdx, response.error?.errmsg || t('publish.upload_failed'));
           modal.setFinished(false);
           return;
         }
@@ -1108,7 +1108,7 @@ export class WeChatNewsPicView extends ItemView {
           responseBody: { error: result.error || {} },
           errorMessage: result.error?.errmsg,
         });
-        modal.setTaskError(taskIdx, result.error?.errmsg || '创建草稿失败');
+        modal.setTaskError(taskIdx, result.error?.errmsg || t('publish.draft_create_failed'));
         modal.setFinished(false);
         return;
       }
@@ -1257,8 +1257,13 @@ export class WeChatNewsPicView extends ItemView {
         log.debug('validateAndFixImages: processing', { name, ext, isSvg: fixSvg, isOversized });
 
         if (fixSvg) {
-          // Convert SVG to PNG
-          const svgText = await this.app.vault.read(file as import('obsidian').TFile);
+          // Convert SVG to PNG. Read the source via the vault when the file is
+          // indexed; otherwise via the adapter (the fallback path above leaves
+          // `file` null — casting it to TFile and calling vault.read would
+          // throw a TypeError and silently skip every mobile SVG).
+          const svgText = file
+            ? await this.app.vault.read(file as import('obsidian').TFile)
+            : await this.app.vault.adapter.read(img.vaultPath);
           const svgFp = this.plugin.mediaRegistry.computeSvgFingerprint(svgText);
           const fpHash = svgFp.split(':').pop() || svgFp.replace(/[^a-f0-9]/gi, '').slice(0, 16);
           const pngPath = `${cacheDir}/wewrite_svg_${fpHash}.png`;
@@ -1424,8 +1429,7 @@ class NewsPicPublishModal {
     this.taskListEl = this.modalEl.querySelector('.wewrite-publish-tasks')!;
     this.cancelBtn = this.modalEl.querySelector('.wewrite-publish-cancel')!;
     this.cancelBtn.addEventListener('click', () => { this._cancelled = true; this.close(); });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.modalEl.querySelector('.wewrite-publish-overlay')!.addEventListener('click', (e: any) => { e.stopPropagation(); });
+    this.modalEl.querySelector('.wewrite-publish-overlay')!.addEventListener('click', (e: Event) => { e.stopPropagation(); });
     this.renderAllTasks();
   }
 

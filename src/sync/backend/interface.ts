@@ -1,6 +1,7 @@
 // SyncBackend — abstraction over storage providers (WebDAV, S3, etc.)
 
 import type { FileStat } from '../types';
+import type { ServerQuotaInfo } from '../quota';
 
 export interface WriteOptions {
   overwrite?: boolean;
@@ -11,12 +12,16 @@ export interface ConnectionResult {
   ok: boolean;
   error?: string;
   httpStatus?: number;
+  /** Server quota metadata probed during the connection check (optional). */
+  quota?: ServerQuotaInfo | null;
 }
 
 export interface WalkResult {
   stats: Map<string, FileStat>;
   complete: boolean;
   reason?: string;
+  /** True when the walk was cut short by a rate limit (pause, don't abort). */
+  rateLimited?: boolean;
 }
 
 export interface SyncBackend {
@@ -46,6 +51,9 @@ export interface SyncBackend {
 
   /** Copy a file (used for backups). */
   copyFile(src: string, dst: string): Promise<void>;
+
+  /** Probe server quota / plan metadata (RFC 4331). Returns null when unsupported. */
+  getQuotaInfo?(): Promise<ServerQuotaInfo | null>;
 
   /** Test connectivity and permissions. */
   checkConnection(baseDir: string): Promise<ConnectionResult>;

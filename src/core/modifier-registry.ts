@@ -1,10 +1,11 @@
 import type { ModifierRegistry } from './modifier-types';
 import {
-  getHeadingDecorations, getBlockquoteStyles, getCodeThemes,
-  getCodeMacBars, getCalloutStyles, getLinkStyles,
-  getOnOffValues, getBorderRadiusValues, getFontStyleValues,
-  getAlignValues, getShadowValues, getBulletValues,
-  getTaskCheckedValues, getTaskUncheckedValues, getBlockquoteIcons,
+  getHeadingDecorations, getCodeThemes,
+  getCodeMacBars, getCodeFonts, getCodeFontSizes, getCodePaddings,
+  getCodeWraps, getCodeShadows, getLinkStyles,
+  getOnOffValues, getBorderRadiusValues,
+  getAlignValues, getBulletValues,
+  getTaskCheckedValues, getTaskUncheckedValues,
 } from './modifier-values';
 import { t } from '../i18n';
 
@@ -88,34 +89,37 @@ export function getModifierRegistry(): ModifierRegistry {
       },
     },
 
-    'blocks.blockquote': {
-      style: {
-        id: 'style', name: t('modifier.blockquote.style_label'), defaultValue: 'lightGray',
-        values: toList(getBlockquoteStyles()),
-        allowCustom: true,
-      },
-      icon: {
-        id: 'icon', name: t('modifier.blockquote.icon_label'), defaultValue: 'none',
-        values: toList(getBlockquoteIcons()),
-        allowCustom: true,
-      },
-      fontStyle: {
-        id: 'fontStyle', name: t('modifier.blockquote.fontStyle_label'), defaultValue: 'normal',
-        values: toList(getFontStyleValues()),
-        allowCustom: false,
-      },
-      borderRadius: {
-        id: 'borderRadius', name: t('modifier.blockquote.borderRadius_label'), defaultValue: 'small',
-        values: [borderRadiusValues.sharp, borderRadiusValues.small, borderRadiusValues.medium],
-        allowCustom: false,
-      },
-    },
 
     'blocks.code': {
       theme: {
         id: 'theme', name: t('modifier.code.theme_label'), defaultValue: 'oneDark',
         values: toList(getCodeThemes()),
         allowCustom: true,
+      },
+      font: {
+        id: 'font', name: t('modifier.code.font_label'), defaultValue: 'monospace',
+        values: toList(getCodeFonts()),
+        allowCustom: false,
+      },
+      fontSize: {
+        id: 'fontSize', name: t('modifier.code.fontSize_label'), defaultValue: 'px14',
+        values: toList(getCodeFontSizes()),
+        allowCustom: false,
+      },
+      padding: {
+        id: 'padding', name: t('modifier.code.padding_label'), defaultValue: 'normal',
+        values: toList(getCodePaddings()),
+        allowCustom: false,
+      },
+      wrap: {
+        id: 'wrap', name: t('modifier.code.wrap_label'), defaultValue: 'nowrap',
+        values: toList(getCodeWraps()),
+        allowCustom: false,
+      },
+      shadow: {
+        id: 'shadow', name: t('modifier.code.shadow_label'), defaultValue: 'auto',
+        values: toList(getCodeShadows()),
+        allowCustom: false,
       },
       macBar: {
         id: 'macBar', name: t('modifier.code.macBar_label'), defaultValue: 'none',
@@ -170,28 +174,6 @@ export function getModifierRegistry(): ModifierRegistry {
           { id: 'compact', name: t('modifier.table.size.compact'), description: t('modifier.table.size.compact_desc'), css: 'font-size:14px', builtin: true },
           { id: 'normal', name: t('modifier.table.size.normal'), description: t('modifier.table.size.normal_desc'), css: 'font-size:16px', builtin: true },
         ],
-        allowCustom: false,
-      },
-    },
-
-    'blocks.callout': {
-      colorMode: {
-        id: 'colorMode', name: t('modifier.callout.colorMode_label'), defaultValue: 'semantic',
-        values: [
-          { id: 'semantic', name: t('modifier.callout.colorMode.semantic'), description: t('modifier.callout.colorMode.semantic_desc'), css: '', builtin: true },
-          { id: 'neutral', name: t('modifier.callout.colorMode.neutral'), description: t('modifier.callout.colorMode.neutral_desc'), css: '', builtin: true },
-          { id: 'accent', name: t('modifier.callout.colorMode.accent'), description: t('modifier.callout.colorMode.accent_desc'), css: '', builtin: true },
-        ],
-        allowCustom: false,
-      },
-      style: {
-        id: 'style', name: t('modifier.callout.style_label'), defaultValue: 'gradient',
-        values: toList(getCalloutStyles()),
-        allowCustom: false,
-      },
-      borderRadius: {
-        id: 'borderRadius', name: t('modifier.callout.borderRadius_label'), defaultValue: 'small',
-        values: [borderRadiusValues.sharp, borderRadiusValues.small, borderRadiusValues.medium],
         allowCustom: false,
       },
     },
@@ -255,45 +237,6 @@ export function getModifierRegistry(): ModifierRegistry {
       },
     },
 
-    'media.image': {
-      frame: {
-        id: 'frame', name: t('modifier.image.frame_label'), defaultValue: 'none',
-        values: [
-          { id: 'none', name: t('modifier.image.frame.none'), description: t('modifier.image.frame.none_desc'), css: '', builtin: true },
-          { id: 'rounded', name: t('modifier.image.frame.rounded'), description: t('modifier.image.frame.rounded_desc'), css: 'border-radius:8px', builtin: true },
-          { id: 'card', name: t('modifier.image.frame.card'), description: t('modifier.image.frame.card_desc'), css: 'border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,0.05)', builtin: true },
-          { id: 'bordered', name: t('modifier.image.frame.bordered'), description: t('modifier.image.frame.bordered_desc'), css: 'border:1px solid ${accentBorder};border-radius:8px;padding:8px', builtin: true },
-          { id: 'coloredBg', name: t('modifier.image.frame.coloredBg'), description: t('modifier.image.frame.coloredBg_desc'), css: 'background:${accent};border-radius:10px;overflow:hidden', builtin: true },
-        ],
-        allowCustom: true,
-      },
-      borderRadius: {
-        id: 'borderRadius', name: t('modifier.image.borderRadius_label'), defaultValue: 'medium',
-        values: toList(borderRadiusValues),
-        allowCustom: false,
-      },
-      shadow: {
-        id: 'shadow', name: t('modifier.image.shadow_label'), defaultValue: 'none',
-        values: toList(getShadowValues()),
-        allowCustom: false,
-      },
-      captionStyle: {
-        id: 'captionStyle', name: t('modifier.image.captionStyle_label'), defaultValue: 'muted',
-        values: [
-          { id: 'muted', name: t('modifier.image.captionStyle.muted'), description: t('modifier.image.captionStyle.muted_desc'), css: 'font-size:12px;color:${textMuted}', builtin: true },
-          { id: 'accent', name: t('modifier.image.captionStyle.accent'), description: t('modifier.image.captionStyle.accent_desc'), css: 'font-size:12px;color:${accent}', builtin: true },
-          { id: 'bold', name: t('modifier.image.captionStyle.bold'), description: t('modifier.image.captionStyle.bold_desc'), css: 'font-size:12px;color:${textMuted};font-weight:bold', builtin: true },
-          { id: 'none', name: t('modifier.image.captionStyle.none'), description: t('modifier.image.captionStyle.none_desc'), css: 'display:none', builtin: true },
-        ],
-        allowCustom: false,
-      },
-      captionAlign: {
-        id: 'captionAlign', name: t('modifier.image.captionAlign_label'), defaultValue: 'center',
-        values: toList(alignValues),
-        allowCustom: false,
-      },
-    },
-
     'media.mermaid': {
       theme: {
         id: 'theme', name: t('modifier.mermaid.theme_label'), defaultValue: 'default',
@@ -303,44 +246,6 @@ export function getModifierRegistry(): ModifierRegistry {
           { id: 'dark', name: t('modifier.mermaid.theme.dark'), description: t('modifier.mermaid.theme.dark_desc'), css: '', builtin: true },
           { id: 'forest', name: t('modifier.mermaid.theme.forest'), description: t('modifier.mermaid.theme.forest_desc'), css: '', builtin: true },
           { id: 'base', name: t('modifier.mermaid.theme.base'), description: t('modifier.mermaid.theme.base_desc'), css: '', builtin: true },
-        ],
-        allowCustom: false,
-      },
-    },
-
-    'media.math': {
-      color: {
-        id: 'color', name: t('modifier.math.color_label'), defaultValue: 'followText',
-        values: [
-          { id: 'followText', name: t('modifier.math.color.followText'), description: t('modifier.math.color.followText_desc'), css: '', builtin: true },
-          { id: 'black', name: t('modifier.math.color.black'), description: t('modifier.math.color.black_desc'), css: '', builtin: true },
-          { id: 'accent', name: t('modifier.math.color.accent'), description: t('modifier.math.color.accent_desc'), css: '', builtin: true },
-        ],
-        allowCustom: false,
-      },
-      scale: {
-        id: 'scale', name: t('modifier.math.scale_label'), defaultValue: 'normal',
-        values: [
-          { id: 'small', name: t('modifier.math.scale.small'), description: t('modifier.math.scale.small_desc'), css: '', builtin: true },
-          { id: 'normal', name: t('modifier.math.scale.normal'), description: t('modifier.math.scale.normal_desc'), css: '', builtin: true },
-          { id: 'large', name: t('modifier.math.scale.large'), description: t('modifier.math.scale.large_desc'), css: '', builtin: true },
-        ],
-        allowCustom: false,
-      },
-    },
-
-    'media.excalidraw': {
-      align: {
-        id: 'align', name: t('modifier.excalidraw.align_label'), defaultValue: 'center',
-        values: toList(alignValues),
-        allowCustom: false,
-      },
-      maxWidth: {
-        id: 'maxWidth', name: t('modifier.excalidraw.maxWidth_label'), defaultValue: 'full',
-        values: [
-          { id: 'full', name: t('modifier.excalidraw.maxWidth.full'), description: t('modifier.excalidraw.maxWidth.full_desc'), css: '', builtin: true },
-          { id: 'content', name: t('modifier.excalidraw.maxWidth.content'), description: t('modifier.excalidraw.maxWidth.content_desc'), css: '', builtin: true },
-          { id: 'fixed', name: t('modifier.excalidraw.maxWidth.fixed'), description: t('modifier.excalidraw.maxWidth.fixed_desc'), css: '', builtin: true },
         ],
         allowCustom: false,
       },

@@ -3,6 +3,7 @@
 import type { Vault } from 'obsidian';
 import type { NewsPicArticleConfig, CoverCropPercent, CropPercentCoords } from '../core/interfaces';
 import { createLogger } from '../utils/logger';
+import { t } from '../i18n';
 
 const log = createLogger('Views:NewsPicPreview');
 
@@ -10,15 +11,21 @@ export interface CropModeState { active: boolean; ratio: '1_1' | '16_9' | '235_1
 export type PreviewStatus = 'empty' | 'idle' | 'rebuilding' | 'ready' | 'error';
 export interface PreviewState { status: PreviewStatus; errorPath?: string; }
 export type DeviceSizeKey = 'small' | 'medium' | 'large' | 'desktop' | 'none';
-export interface DevicePreset { label: string; width: number; height: number; isNone?: boolean; }
+export interface DevicePreset { labelKey: string; width: number; height: number; isNone?: boolean; }
 
 export const NEWSPIC_DEVICE_PRESETS: Record<DeviceSizeKey, DevicePreset> = {
-  small:   { label: 'iPhone SE', width: 320, height: 568 },
-  medium:  { label: 'iPhone 14 / Pro', width: 390, height: 700 },
-  large:   { label: 'iPhone 14 Pro Max', width: 430, height: 780 },
-  desktop: { label: 'Desktop / PC Max', width: 520, height: 860 },
-  none:    { label: 'No Screen Simulation', width: 0, height: 0, isNone: true },
+  small:   { labelKey: 'misc.device_iphone_se', width: 320, height: 568 },
+  medium:  { labelKey: 'misc.device_iphone_6_8', width: 390, height: 700 },
+  large:   { labelKey: 'misc.device_iphone_11_pro_max', width: 430, height: 780 },
+  desktop: { labelKey: 'misc.device_desktop_max', width: 520, height: 860 },
+  none:    { labelKey: 'misc.device_no_simulation', width: 0, height: 0, isNone: true },
 };
+
+/** Resolve a device preset's display label in the current language. */
+export function devicePresetLabel(key: DeviceSizeKey): string {
+  const preset = NEWSPIC_DEVICE_PRESETS[key];
+  return preset ? t(preset.labelKey) : key;
+}
 
 const CROP_LABELS: Record<string, string> = { '1_1': '1:1', '16_9': '16:9', '235_1': '2.35:1' };
 
@@ -166,7 +173,9 @@ export class NewsPicPreview {
     this.cropOverlayEl.addEventListener('mousedown', (e) => {
       if (!this.cropMode.active) return;
       const t = e.target as HTMLElement;
-      dragging = t.classList.contains('newspic-crop-handle') ? (t.dataset.handle as any) : 'center';
+      dragging = t.classList.contains('newspic-crop-handle')
+        ? (t.dataset.handle === 'tl' || t.dataset.handle === 'tr' || t.dataset.handle === 'bl' || t.dataset.handle === 'br' ? t.dataset.handle : 'center')
+        : 'center';
       sx = e.clientX; sy = e.clientY; sc = getCoords();
       e.preventDefault();
 
@@ -361,7 +370,7 @@ export class NewsPicPreview {
     this.slideEls = [];
 
     if (total === 0) {
-      this.stackEl.createDiv({ cls: 'newspic-empty-hint', text: '添加图片后在此预览' });
+      this.stackEl.createDiv({ cls: 'newspic-empty-hint', text: t('newspic.empty_hint') });
       this.pageIndicatorEl.textContent = '';
       return;
     }
@@ -423,7 +432,12 @@ export class NewsPicPreview {
     this._status = status;
     this.statusEl.removeClass('newspic-status-empty', 'newspic-status-idle', 'newspic-status-rebuilding', 'newspic-status-ready', 'newspic-status-error');
     const icons: Record<string, string> = { rebuilding: '⏳', ready: '✓', error: '⚠' };
-    const texts: Record<string, string> = { empty: '', rebuilding: '刷新预览中...', ready: '预览就绪', error: `图片加载失败: ${errorPath || ''}` };
+    const texts: Record<string, string> = {
+      empty: '',
+      rebuilding: t('newspic.rebuilding'),
+      ready: t('newspic.ready'),
+      error: t('newspic.load_failed', { path: errorPath || '' }),
+    };
     this.statusEl.addClass(`newspic-status-${status}`);
     this.statusEl.textContent = icons[status] ? `${icons[status]} ${texts[status]}` : texts[status] || '';
     if (this._statusTimer) clearTimeout(this._statusTimer);

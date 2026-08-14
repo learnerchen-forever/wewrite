@@ -37,13 +37,16 @@ const AIImageGenAccountSchema = z.object({
   taskUrl: z.string().optional(),
   apiKey: z.string().min(1),
   model: z.string().min(1),
-  defaultSize: z.string().catch('1440*613'),
+  // Empty default → the generate dialog falls back to a provider-specific example.
+  defaultSize: z.string().catch(''),
 });
 
 export const WeWriteSettingsSchema = z.object({
   version: z.string().catch('1.1.0'),
   ipAddress: z.string().catch(''),
-  useCenterToken: z.boolean().catch(true),
+  // Keep in sync with DEFAULT_SETTINGS.useCenterToken (false): a fresh or
+  // corrupted install must not silently enable the central token server.
+  useCenterToken: z.boolean().catch(false),
   wechatAccounts: z.array(WeChatAccountSchema).catch([]),
   aiTextAccounts: z.array(AITextAccountSchema).catch([]),
   aiImageGenAccounts: z.array(AIImageGenAccountSchema).catch([]),
@@ -105,8 +108,14 @@ export function migrateSettings(data: Record<string, unknown>): Record<string, u
     }
   }
 
+  // Bump the stored version to the latest migration target ONLY when the
+  // data is older than it — a higher version (e.g. from a newer plugin or a
+  // hand-edited file) must not be silently downgraded.
   if (MIGRATIONS.length > 0) {
-    current.version = MIGRATIONS[MIGRATIONS.length - 1].to;
+    const latest = MIGRATIONS[MIGRATIONS.length - 1].to;
+    if (compareVersions(currentVersion, latest) < 0) {
+      current.version = latest;
+    }
   }
 
   return current;

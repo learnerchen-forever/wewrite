@@ -5,9 +5,14 @@ import type { ValidationReport } from '../media/image-validator';
 
 export type ValidationAction = 'convert' | 'cancel';
 
-/** Capitalize first letter. */
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
+/** Media type → localized display label. */
+function mediaTypeLabel(mediaType: string): string {
+  switch (mediaType) {
+    case 'image': return t('modal.media_label_image');
+    case 'video': return t('modal.media_label_video');
+    case 'audio': return t('modal.media_label_audio');
+    default: return mediaType;
+  }
 }
 
 export class ImageValidationModal {
@@ -34,7 +39,7 @@ export class ImageValidationModal {
     const issueList = this.report.issues
       .map((i) => {
         const sizeMB = (i.currentSize / (1024 * 1024)).toFixed(2);
-        const typeLabel = cap(i.mediaType);
+        const typeLabel = mediaTypeLabel(i.mediaType);
         const typeCls = i.mediaType === 'video' ? 'wewrite-validate-badge-video'
           : i.mediaType === 'audio' ? 'wewrite-validate-badge-audio' : '';
 
@@ -71,7 +76,7 @@ export class ImageValidationModal {
         </div>
         <p class="wewrite-validate-summary">
           ${t('modal.media_validation_summary', { issues: this.report.issues.length, total: this.report.total, fileLabel: fileLabel })}
-          ${hasImages ? 'Images will be converted/compressed.' : ''}
+          ${hasImages ? t('modal.media_validation_convert_note') : ''}
         </p>
         ${vNote}
         <div class="wewrite-validate-issue-list">

@@ -3,6 +3,7 @@
 import { Modal, Notice, type App } from 'obsidian';
 import type { JournalEntry } from './journal';
 import { createLogger } from '../utils/logger';
+import { t } from '../i18n';
 
 const log = createLogger('Sync:JournalViewer');
 
@@ -13,9 +14,9 @@ function formatTime(ts: number): string {
 }
 
 function operationLabel(op: string): string {
-  if (op.startsWith('sync:')) return `Sync (${op.slice(5)})`;
-  if (op.startsWith('conflict_resolved:')) return `Resolved: ${op.slice(19)}`;
-  if (op.startsWith('rollback:')) return `Rollback: ${op.slice(9)}`;
+  if (op.startsWith('sync:')) return `${t('journal.op_sync')} (${op.slice(5)})`;
+  if (op.startsWith('conflict_resolved:')) return `${t('journal.op_resolved')}: ${op.slice(19)}`;
+  if (op.startsWith('rollback:')) return `${t('journal.op_rollback')}: ${op.slice(9)}`;
   return op;
 }
 
@@ -44,25 +45,25 @@ export class JournalViewer extends Modal {
     contentEl.empty();
     contentEl.addClass('wewrite-journal-viewer');
 
-    contentEl.createEl('h2', { text: 'Sync Journal' });
+    contentEl.createEl('h2', { text: t('journal.title') });
 
     if (this.entries.length === 0) {
       contentEl.createEl('p', {
-        text: 'No sync history yet. Run a sync to populate the journal.',
+        text: t('journal.empty'),
         cls: 'wewrite-journal-empty',
       });
       return;
     }
 
     const count = contentEl.createEl('div', { cls: 'wewrite-journal-count' });
-    count.createSpan({ text: `${this.entries.length} entries` });
+    count.createSpan({ text: t('journal.entry_count', { count: String(this.entries.length) }) });
 
     const table = contentEl.createEl('table', { cls: 'wewrite-journal-table' });
 
     // Header
     const thead = table.createEl('thead');
     const headerRow = thead.createEl('tr');
-    ['Time', 'Operation', 'Path', 'Details', ''].forEach(h => {
+    [t('journal.col_time'), t('journal.col_operation'), t('journal.col_path'), t('journal.col_details'), ''].forEach(h => {
       headerRow.createEl('th', { text: h });
     });
 
@@ -83,22 +84,22 @@ export class JournalViewer extends Modal {
           text: '↩',
           cls: 'wewrite-journal-rollback-btn',
         });
-        btn.setAttribute('title', 'Rollback this operation');
+        btn.setAttribute('title', t('journal.rollback_title'));
         btn.addEventListener('click', async () => {
           btn.disabled = true;
           btn.setText('...');
           try {
             const result = await this.onRollback!(entry.id);
-            new Notice(result.ok ? result.message : `Rollback failed: ${result.message}`);
+            new Notice(result.ok ? result.message : t('journal.rollback_failed', { message: result.message }));
             if (result.ok) {
               // Reload: remove entry from list and update count
               row.remove();
               this.entries = this.entries.filter(e => e.id !== entry.id);
               const countEl = this.contentEl.querySelector('.wewrite-journal-count span');
-              if (countEl) countEl.textContent = `${this.entries.length} entries`;
+              if (countEl) countEl.textContent = t('journal.entry_count', { count: String(this.entries.length) });
             }
           } catch (err) {
-            new Notice(`Rollback error: ${String(err)}`);
+            new Notice(t('journal.rollback_error', { error: String(err) }));
           } finally {
             btn.disabled = false;
             btn.setText('↩');
@@ -109,7 +110,7 @@ export class JournalViewer extends Modal {
 
     // Footer
     const footer = contentEl.createDiv({ cls: 'wewrite-journal-footer' });
-    footer.createSpan({ text: `Vault: ${this.entries[0]?.deviceId?.slice(0, 8) ?? 'unknown'}...` });
+    footer.createSpan({ text: `${t('journal.vault_label')}: ${this.entries[0]?.deviceId?.slice(0, 8) ?? t('journal.vault_unknown')}...` });
   }
 
   onClose(): void {

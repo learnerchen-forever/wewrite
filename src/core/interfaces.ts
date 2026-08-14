@@ -1,5 +1,28 @@
 // Core type definitions for WeWrite plugin
 
+import type { HeadingConfig } from './heading-config';
+import type { HeadingDecoration } from './heading-decoration-types';
+import type { BlockquoteConfig } from './blockquote-config';
+import type { BlockquoteDecoration } from './blockquote-decoration-types';
+import type { CalloutConfig } from './callout-config';
+import type { CalloutDecoration } from './callout-decoration-types';
+import type { MermaidConfig } from './mermaid-config';
+import type { MermaidDecoration } from './mermaid-decoration-types';
+import type { ImageConfig } from './image-config';
+import type { ImageDecoration } from './image-decoration-types';
+import type { MathConfig } from './math-config';
+import type { MathDecoration } from './math-decoration-types';
+import type { ExcalidrawConfig } from './excalidraw-config';
+import type { ExcalidrawDecoration } from './excalidraw-decoration-types';
+import type { TableConfig } from './table-config';
+import type { TableDecoration } from './table-decoration-types';
+import type { DividerConfig } from './divider-config';
+import type { DividerDecoration } from './divider-decoration-types';
+import type { ListKindConfig } from './list-config';
+import type { ListDecoration } from './list-decoration-types';
+import type { InlineConfig } from './inline-config';
+import type { InlineDecoration } from './inline-decoration-types';
+
 // ── WeChat Account ──
 export interface WeChatAccount {
   id: string;
@@ -57,6 +80,8 @@ export interface WeWriteSettings {
   showCopyButton: boolean;
   logAICalling: boolean;
   lastDeviceSize?: string;
+  /** Last selected render theme (styleId); used as the default for new notes. */
+  lastStyleId?: string;
   // ── Sync ──
   syncEnabled: boolean;
   syncWebdavUrl: string;
@@ -225,6 +250,8 @@ export function getWeWriteSubPath(folder: string, sub: string): string {
 // ── Style Preset ──
 export interface ThemePreset {
   name: string;
+  /** i18n key for the display name (built-in presets; resolved lazily). */
+  nameKey?: string;
   margin: number;
   background: string;
   fontFamily: string;
@@ -240,15 +267,16 @@ export interface ThemePreset {
   accentColor?: string;
   accentColorDeep?: string;
   accentColorPreset?: string;
+  accentBg?: string;
+  accentBorder?: string;
   coloredHeader?: boolean;
-  calloutStyleMode?: 'theme' | 'neutral';
+  headingColor?: string;
   code: CodeElementStyle;
   codeLineNumbers?: boolean;
   codeMacStyle?: boolean;
   table: TableElementStyle;
   blockquote: BlockquoteElementStyle;
   blockquoteStyle?: 'soft' | 'center' | 'paper' | 'neutral';
-  callouts: Record<string, ElementStyle>;
   image: ImageElementStyle;
   caption?: CaptionElementStyle;
   list: ListElementStyle;
@@ -262,11 +290,65 @@ export interface ThemePreset {
   strongBg?: boolean;
   dividerColor?: string;
   dividerMargin?: number;
-  mermaidTheme?: string;
-  formulaColor?: string;
-  formulaScale?: number;
-  /** Modifier config from v2 theme: elementPath → { variableId: valueId } */
+  /** Slot config from v3 theme: elementPath → { slotId: valueId } */
   modifierConfig?: Record<string, Record<string, string>>;
+  /** New heading variable system config (docs/design/heading-hx-redesign.md §4). */
+  headingConfig?: HeadingConfig;
+  /** User-defined heading decorations (custom_values.heading.decoration). */
+  customHeadingDecorations?: HeadingDecoration[];
+  /** New blockquote decoration system config (docs/design/blockquote-decoration-redesign.md). */
+  blockquoteConfig?: BlockquoteConfig;
+  /** User-defined blockquote decorations (custom_values.blockquote.decoration). */
+  customBlockquoteDecorations?: BlockquoteDecoration[];
+  /** New per-type callout decoration system config (docs/design/callout-decoration-redesign.md). */
+  calloutConfig?: CalloutConfig;
+  /** User-defined callout decorations (custom_values.callout.decoration). */
+  customCalloutDecorations?: CalloutDecoration[];
+  /** New Mermaid decoration system config (docs/design/mermaid-decoration-redesign.md). */
+  mermaidConfig?: MermaidConfig;
+  /** User-defined Mermaid decorations (custom_values.media.mermaid.decoration). */
+  customMermaidDecorations?: MermaidDecoration[];
+  /** New image + caption decoration system config (docs/design/image-caption-decoration-redesign.md). */
+  imageConfig?: ImageConfig;
+  /** User-defined image decorations (custom_values.media.image.decoration). */
+  customImageDecorations?: ImageDecoration[];
+  /** New block-math decoration system config (docs/design/math-excalidraw-decoration-redesign.md). */
+  mathConfig?: MathConfig;
+  /** User-defined math decorations (custom_values.media.math.decoration). */
+  customMathDecorations?: MathDecoration[];
+  /** New Excalidraw decoration system config (docs/design/math-excalidraw-decoration-redesign.md). */
+  excalidrawConfig?: ExcalidrawConfig;
+  /** User-defined Excalidraw decorations (custom_values.media.excalidraw.decoration). */
+  customExcalidrawDecorations?: ExcalidrawDecoration[];
+  /** New table decoration system config. */
+  tableConfig?: TableConfig;
+  /** User-defined table decorations (custom_values.table.decoration). */
+  customTableDecorations?: TableDecoration[];
+  /** New divider (hr) decoration system config. */
+  dividerConfig?: DividerConfig;
+  /** User-defined divider decorations (custom_values.divider.decoration). */
+  customDividerDecorations?: DividerDecoration[];
+  /** New ordered-list (ol) decoration system config. */
+  orderedListConfig?: ListKindConfig;
+  /** User-defined ordered-list decorations (custom_values.ol.decoration). */
+  customOrderedDecorations?: ListDecoration[];
+  /** New unordered-list (ul) decoration system config. */
+  unorderedListConfig?: ListKindConfig;
+  /** User-defined unordered-list decorations (custom_values.ul.decoration). */
+  customUnorderedDecorations?: ListDecoration[];
+  /** New task-list decoration system config. */
+  taskListConfig?: ListKindConfig;
+  /** User-defined task-list decorations (custom_values.task.decoration). */
+  customTaskDecorations?: ListDecoration[];
+  /** New inline-element decoration system config (docs/design/inline-decoration-redesign.md). */
+  inlineConfig?: InlineConfig;
+  /** User-defined inline decorations (custom_values.inline.decoration). */
+  customInlineDecorations?: InlineDecoration[];
+  /** Explicitly overridden palette colors (palette.* frontmatter keys) */
+  paletteOverrides?: Partial<Record<
+    'accent' | 'accentDeep' | 'accentBg' | 'accentBorder' | 'text' | 'textMuted',
+    string
+  >>;
 }
 
 export interface ElementStyle {
@@ -350,12 +432,63 @@ export const ACCENT_COLORS: Record<string, AccentColorPreset> = {
   slate: { color: '#6c757d', deep: '#495057' },
 };
 
-// Font family presets → full CSS font stacks
-export const FONT_FAMILIES: Record<string, string> = {
-  'sans-serif': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif',
-  'serif': '"Times New Roman", Georgia, "Noto Serif SC", "SimSun", serif',
-  'monospace': '"SF Mono", Consolas, "Liberation Mono", Menlo, "Fira Code", monospace',
-};
+// ── Font family catalog ──
+// Web-safe + WeChat-friendly fonts commonly available on Windows/macOS/Android/iOS.
+// Each option is a full CSS font stack; the three legacy ids ('sans-serif',
+// 'serif', 'monospace') keep their original stacks for backward compatibility.
+
+export type FontFamilyCategory = 'sans' | 'serif' | 'mono';
+
+export interface FontFamilyOption {
+  id: string;
+  /** Display name shown in pickers */
+  name: string;
+  /** Full CSS font stack */
+  css: string;
+  category: FontFamilyCategory;
+}
+
+export const FONT_FAMILY_OPTIONS: FontFamilyOption[] = [
+  // ── Sans-serif ──
+  { id: 'system', name: '系统默认 (System UI)', category: 'sans', css: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif' },
+  { id: 'sans-serif', name: '无衬线 (Sans-serif)', category: 'sans', css: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif' },
+  { id: 'microsoft-yahei', name: '微软雅黑 (Microsoft YaHei)', category: 'sans', css: '"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Segoe UI", Roboto, Arial, sans-serif' },
+  { id: 'pingfang', name: '苹方 (PingFang SC)', category: 'sans', css: '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif' },
+  { id: 'simhei', name: '黑体 (SimHei)', category: 'sans', css: 'SimHei, "Microsoft YaHei", "PingFang SC", sans-serif' },
+  { id: 'noto-sans-sc', name: '思源黑体 (Noto Sans SC)', category: 'sans', css: '"Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif' },
+  { id: 'arial', name: 'Arial', category: 'sans', css: 'Arial, "Helvetica Neue", Helvetica, sans-serif' },
+  { id: 'helvetica', name: 'Helvetica', category: 'sans', css: '"Helvetica Neue", Helvetica, Arial, sans-serif' },
+  { id: 'tahoma', name: 'Tahoma', category: 'sans', css: 'Tahoma, Verdana, "Segoe UI", sans-serif' },
+  { id: 'verdana', name: 'Verdana', category: 'sans', css: 'Verdana, Geneva, Tahoma, sans-serif' },
+  { id: 'segoe-ui', name: 'Segoe UI', category: 'sans', css: '"Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, Arial, sans-serif' },
+  { id: 'roboto', name: 'Roboto', category: 'sans', css: 'Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif' },
+
+  // ── Serif ──
+  { id: 'serif', name: '衬线 (Serif)', category: 'serif', css: '"Times New Roman", Georgia, "Noto Serif SC", "SimSun", serif' },
+  { id: 'simsun', name: '宋体 (SimSun)', category: 'serif', css: 'SimSun, "Songti SC", "Noto Serif SC", "Times New Roman", serif' },
+  { id: 'kaiti', name: '楷体 (KaiTi)', category: 'serif', css: 'KaiTi, "Kaiti SC", STKaiti, "Noto Serif SC", serif' },
+  { id: 'fangsong', name: '仿宋 (FangSong)', category: 'serif', css: 'FangSong, "FangSong SC", STFangsong, "Noto Serif SC", serif' },
+  { id: 'noto-serif-sc', name: '思源宋体 (Noto Serif SC)', category: 'serif', css: '"Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, serif' },
+  { id: 'georgia', name: 'Georgia', category: 'serif', css: 'Georgia, "Times New Roman", "Songti SC", SimSun, serif' },
+  { id: 'times-new-roman', name: 'Times New Roman', category: 'serif', css: '"Times New Roman", Times, Georgia, "Songti SC", SimSun, serif' },
+  { id: 'palatino', name: 'Palatino', category: 'serif', css: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif' },
+
+  // ── Monospace ──
+  { id: 'monospace', name: '等宽 (Monospace)', category: 'mono', css: '"SF Mono", Consolas, "Liberation Mono", Menlo, "Fira Code", monospace' },
+  { id: 'consolas', name: 'Consolas', category: 'mono', css: 'Consolas, "Courier New", monospace' },
+  { id: 'courier-new', name: 'Courier New', category: 'mono', css: '"Courier New", Courier, monospace' },
+  { id: 'menlo', name: 'Menlo', category: 'mono', css: 'Menlo, Monaco, Consolas, "Courier New", monospace' },
+  { id: 'monaco', name: 'Monaco', category: 'mono', css: 'Monaco, Menlo, Consolas, "Courier New", monospace' },
+];
+
+/** Legacy map: font id → full CSS font stack (kept for backward compatibility) */
+export const FONT_FAMILIES: Record<string, string> = FONT_FAMILY_OPTIONS.reduce(
+  (acc, font) => {
+    acc[font.id] = font.css;
+    return acc;
+  },
+  {} as Record<string, string>,
+);
 
 // ── Unified Media Record (v1 schema) ──
 /** Single fingerprint database for all media: images, SVGs, converted PNGs.
@@ -468,6 +601,10 @@ export interface NewsPicImage {
   /** Remote URL for images not stored locally in the vault */
   url?: string;
   order: number;
+  /** Inline SVG markup for SVGs extracted from the note (publish-time conversion). */
+  _svgHtml?: string;
+  /** Fingerprint of the SVG source (dedup + media-id cache key). */
+  _svgFingerprint?: string;
 }
 
 // ── NewsPic Article Config (cold-storage, per-note) ──
@@ -511,4 +648,3 @@ export const NEWSPIC_CONFIG_DEFAULT: Pick<
 
 /** Callback for per-item progress updates during batch image processing. */
 export type ProgressCallback = (text: string) => void;
-

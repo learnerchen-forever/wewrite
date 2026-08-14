@@ -85,7 +85,7 @@ describe('registerCustomValues', () => {
     const originalLength = getModifierRegistry()['heading.h2'].decoration.values.length;
     registerCustomValues([{
       elementPath: 'heading.h2',
-      variableId: 'decoration',
+      slotId: 'decoration',
       value: { id: 'testCustom', name: 'Test', css: 'color:red' },
     }]);
     const values = getModifierRegistry()['heading.h2'].decoration.values;
@@ -100,7 +100,7 @@ describe('registerCustomValues', () => {
     const before = getModifierRegistry()['heading.h2'].decoration.values.length;
     registerCustomValues([{
       elementPath: 'heading.h2',
-      variableId: 'decoration',
+      slotId: 'decoration',
       value: { id: 'testCustom', name: 'Test', css: 'color:red' },
     }]);
     expect(getModifierRegistry()['heading.h2'].decoration.values.length).toBe(before);
@@ -110,7 +110,7 @@ describe('registerCustomValues', () => {
     const before = getModifierRegistry()['heading.h2'].size.values.length;
     registerCustomValues([{
       elementPath: 'heading.h2',
-      variableId: 'size',
+      slotId: 'size',
       value: { id: 'huge', name: 'Huge', css: '' },
     }]);
     expect(getModifierRegistry()['heading.h2'].size.values.length).toBe(before);

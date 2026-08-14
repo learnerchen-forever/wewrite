@@ -1,9 +1,9 @@
 // WeChatNews ItemView — three-part layout: publish toolbar, article properties, phone-frame preview
 
-import { ItemView, Menu, setIcon, Notice, requestUrl, MarkdownRenderer, type WorkspaceLeaf, type TFile } from 'obsidian';
+import { ItemView, Menu, setIcon, Notice, requestUrl, MarkdownRenderer, type App, type EventRef, type WorkspaceLeaf, type TFile } from 'obsidian';
 import type WeWritePlugin from '../main';
 import { WechatRenderer } from '../renderer/wechat-renderer';
-import type { ThemePreset, NewsArticleConfig, CoverZoneState, ImageGenProviderType } from '../core/interfaces';
+import type { ThemePreset, NewsArticleConfig, CoverZoneState } from '../core/interfaces';
 import { NEWS_CONFIG_DEFAULT, getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { DEFAULT_PRESET } from '../renderer/theme-resolver';
 import type { ThemeLoader } from '../styles/theme-loader';
@@ -15,15 +15,17 @@ import { PublishLogBuilder } from '../utils/publish-logger';
 import { writeAICallLog, AIImageGenLogger } from '../utils/ai-logger';
 import { createLogger, redact } from '../utils/logger';
 import { buildMultipartBody } from '../publisher/api-manager';
+import { generateImage, AIImageSizeError, sizeHintExample, type AIImageAccountLike } from '../publisher/ai-image-client';
 import { guessMimeType, extractMimeType } from '../media/image-validator';
 import { compactBlockWhitespace } from '../renderer/wechat-cleaner';
 import { waitForCalloutPlugins, processCalloutsAndAdmonitions } from '../utils/callout-processor';
+import { processCodeBlocksInPlace } from '../utils/code-block-utils';
 import { sanitizeSvgElement } from '../renderer/wechat-svg-sanitizer';
 import { applySvgFallback, MAX_CONTENT_BYTES, type FallbackResult, type SvgConversionItem } from '../media/svg-fallback';
 import { prescanSvgs, prescanImages } from '../media/content-prescan';
 import { RenderLogger, type SvgProcessResult, type ImageProcessResult, type MermaidProcessResult, type ExcalidrawProcessResult, type SvgInlineResult } from '../utils/render-logger';
 import { extractMermaidBlocks, renderMermaidToPng, cacheDiagramPng, extractExcalidrawEmbeds, renderExcalidrawToPng, canvasToBlobSafe } from '../media/diagram-renderer';
-import { latexToSvg } from '../renderer/math-to-svg';
+import { processMathToSvg } from '../utils/math-processor';
 import { CoverComposer, type CoverComposerState } from './cover-composer';
 import type { CoverZone } from './cover-zone';
 import type { MediaRegistry } from '../media/media-registry';
@@ -45,6 +47,8 @@ export class WeChatNewsView extends ItemView {
   renderer: WechatRenderer;
   private themeLoader: ThemeLoader;
   private currentStyleId = 'builtin:github';
+  /** Monotonic counter for setFile/loadConfig race protection. */
+  private _loadToken = 0;
 
   // DOM refs
   private toolbarEl!: HTMLElement;
@@ -73,6 +77,8 @@ export class WeChatNewsView extends ItemView {
   private fallbackResult: FallbackResult | null = null;
   private propsTitleEl!: HTMLElement;
   private isRendering = false;
+  /** Set when renderContent is called mid-render — one more pass runs after. */
+  private renderPending = false;
   private isPublishing = false;
   private deviceRowEl!: HTMLElement;
   private coverComposer!: CoverComposer;
@@ -154,14 +160,13 @@ export class WeChatNewsView extends ItemView {
     // Hide Obsidian's built-in view header — the title is already shown on the tab
     this.hideViewHeader();
 
-    this.configStore = new NoteConfigStore(this.app.vault.adapter as any);
+    this.configStore = new NoteConfigStore(this.app.vault.adapter);
 
     // Hide Obsidian status bar + sync button while this view is active
     this.hideBottomBars();
 
     // Restore when user switches away from this view
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this._leafChangeRef = this.app.workspace.on('active-leaf-change', (leaf: any) => {
+    this._leafChangeRef = this.app.workspace.on('active-leaf-change', (leaf: WorkspaceLeaf | null) => {
       if (leaf?.view === this) {
         this.hideBottomBars();
         if (this._pendingFilePath) {
@@ -211,7 +216,7 @@ export class WeChatNewsView extends ItemView {
   private _statusBarOrigDisplay: string | undefined;
   private _syncStatusOrigDisplay: string | undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _leafChangeRef: any = null;
+  private _leafChangeRef: EventRef | null = null;
 
   private hideViewHeader(): void {
     const leafEl = this.containerEl.closest('.workspace-leaf');
@@ -247,12 +252,17 @@ export class WeChatNewsView extends ItemView {
   }
 
   async setFile(filePath: string): Promise<void> {
+    // Monotonic load token — discards stale async loads when the user
+    // switches files faster than configStore.load resolves, so file A's
+    // config can never be applied (or saved) while file B is displayed.
+    const token = ++this._loadToken;
     this.filePath = filePath;
 
     // Propagate note path to cover composer for attachment folder resolution
     if (this.coverComposer) this.coverComposer.updateNotePath(filePath);
 
-    await this.loadConfig();
+    await this.loadConfig(token);
+    if (token !== this._loadToken) return; // superseded by a newer setFile
     this.refreshTitle();
   }
 
@@ -261,7 +271,7 @@ export class WeChatNewsView extends ItemView {
 
     // A: Tab header title
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const th = (this.leaf as any).tabHeaderEl as HTMLElement | undefined;
+    const th = (this.leaf as unknown as { tabHeaderEl?: HTMLElement }).tabHeaderEl;
     if (th) {
       const te = th.querySelector('.workspace-tab-header-inner-title');
       if (te) te.textContent = title;
@@ -320,7 +330,7 @@ export class WeChatNewsView extends ItemView {
     // Publish button
     this.publishBtnEl = this.toolbarEl.createEl('button', {
       cls: 'wewrite-btn-icon wewrite-toolbar-btn wewrite-publish-btn',
-      attr: { 'aria-label': 'Publish to WeChat drafts' },
+      attr: { 'aria-label': t('misc.publish_drafts') },
     });
     setIcon(this.publishBtnEl, 'send-horizontal');
     this.publishBtnEl.addEventListener('click', () => this.publishToDraft());
@@ -328,7 +338,7 @@ export class WeChatNewsView extends ItemView {
     // Copy HTML button (visibility controlled by settings)
     this.copyBtnEl = this.toolbarEl.createEl('button', {
       cls: 'wewrite-btn-icon wewrite-toolbar-btn',
-      attr: { 'aria-label': 'Copy HTML to clipboard' },
+      attr: { 'aria-label': t('misc.copy_html') },
     });
     setIcon(this.copyBtnEl, 'clipboard-copy');
     this.copyBtnEl.addEventListener('click', () => this.copyHtmlToClipboard());
@@ -396,12 +406,12 @@ export class WeChatNewsView extends ItemView {
     while (this.styleSelectEl.options.length > 0) this.styleSelectEl.remove(0);
     for (const s of styles.filter((s) => s.source === 'builtin')) {
       const opt = document.createElement('option');
-      opt.value = s.id; opt.text = `[内置] ${s.name}`;
+      opt.value = s.id; opt.text = `[${t('misc.style_builtin')}] ${s.nameKey ? t(s.nameKey) : s.name}`;
       this.styleSelectEl.appendChild(opt);
     }
     for (const s of styles.filter((s) => s.source === 'vault')) {
       const opt = document.createElement('option');
-      opt.value = s.id; opt.text = `[自定义] ${s.name}`;
+      opt.value = s.id; opt.text = `[${t('misc.style_custom')}] ${s.name}`;
       this.styleSelectEl.appendChild(opt);
     }
     this.styleSelectEl.value = this.currentStyleId;
@@ -760,32 +770,28 @@ export class WeChatNewsView extends ItemView {
     this.deviceRowEl = styleRow;
 
     const themeLabel = styleRow.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
-    themeLabel.setAttribute('title', 'Theme:');
+    themeLabel.setAttribute('title', t('misc.theme_label'));
     setIcon(themeLabel, 'palette');
     this.styleSelectEl = styleRow.createEl('select', { cls: 'dropdown wewrite-select wewrite-device-select' });
     this.populateStyleDropdownDirect();
     this.styleSelectEl.addEventListener('change', () => {
+      // Persist as global preference so new notes reuse the last theme.
+      this.plugin.settingsManager.updateSettings({ lastStyleId: this.styleSelectEl.value });
+      void this.plugin.saveSettings();
       void this.applyStyle(this.styleSelectEl.value);
     });
 
-    // Spacer
-    styleRow.createDiv({ cls: 'wewrite-device-spacer' });
-
-    // Screen toggle chevron button
+    // Screen selector toggle chevron button
     const screenToggleBtn = styleRow.createEl('button', {
       cls: 'wewrite-btn-icon wewrite-screen-toggle-btn',
       attr: { 'aria-label': 'Toggle screen selector' },
     });
     setIcon(screenToggleBtn, 'chevron-right');
 
-    // Preview panel collapse toggle
-    this.previewCollapseBtnEl = styleRow.createEl('button', {
-      cls: 'wewrite-btn-icon wewrite-preview-collapse-btn',
-      attr: { 'aria-label': t('misc.collapse_preview') },
-    });
-    setIcon(this.previewCollapseBtnEl, 'chevron-down');
-    this.previewCollapseBtnEl.addEventListener('click', () => this.togglePreviewPanel());
+    // Spacer
+    // styleRow.createDiv({ cls: 'wewrite-device-spacer' });
 
+    
     // Row 2: Screen selector (collapsible)
     const screenRow = container.createDiv({ cls: 'wewrite-device-selector-row wewrite-screen-row' });
     this.screenRowEl = screenRow;
@@ -808,6 +814,17 @@ export class WeChatNewsView extends ItemView {
       this.plugin.settingsManager.updateSettings({ lastDeviceSize: this.deviceSelectEl.value });
       void this.plugin.saveSettings();
     });
+
+
+
+    // Preview panel collapse toggle
+    this.previewCollapseBtnEl = screenRow.createEl('button', {
+      cls: 'wewrite-btn-icon wewrite-screen-toggle-btn',
+      attr: { 'aria-label': t('misc.collapse_preview') },
+    });
+    setIcon(this.previewCollapseBtnEl, 'chevron-down');
+    this.previewCollapseBtnEl.addEventListener('click', () => this.togglePreviewPanel());
+
 
     // Toggle handler
     screenToggleBtn.addEventListener('click', () => {
@@ -845,7 +862,7 @@ export class WeChatNewsView extends ItemView {
   private togglePreviewPanel(): void {
     this.previewCollapsed = !this.previewCollapsed;
     if (this.previewCollapsed) {
-      this.screenRowEl.classList.add('collapsed');
+      // this.screenRowEl.classList.add('collapsed');
       this.phoneScrollEl.style.display = 'none';
       setIcon(this.previewCollapseBtnEl, 'chevron-right');
     } else {
@@ -929,8 +946,17 @@ export class WeChatNewsView extends ItemView {
   }
 
   async renderContent(): Promise<void> {
-    if (this.isRendering || this.isPublishing || !this.filePath) return;
+    if (this.isPublishing || !this.filePath) return;
+    if (this.isRendering) {
+      // A render is in flight — queue one more pass so the LATEST file/content
+      // wins instead of the request being silently dropped.
+      this.renderPending = true;
+      return;
+    }
     this.isRendering = true;
+    // Render token: discard the result if the user switched files while this
+    // async render was in flight (stale preview overwriting the new file).
+    const renderToken = this._loadToken;
     this.setActionButtonsEnabled(false);
     globalSpinner.show(t('publish.news_rendering'));
     const startTime = Date.now();
@@ -982,7 +1008,8 @@ export class WeChatNewsView extends ItemView {
         mermaidIdx++;
         globalSpinner.updateText(t('publish.news_rendering_mermaid', { current: String(mermaidIdx), total: String(mermaidTotal) }));
         try {
-          const pngData = await renderMermaidToPng(block.code, this.plugin.app, this.filePath);
+          const mermaidStyle = this.renderer.getThemeResolver().resolveMermaidStyle();
+          const pngData = await renderMermaidToPng(block.code, this.plugin.app, this.filePath, mermaidStyle);
           if (pngData) {
             const cacheDir = getWeWriteSubPath(this.plugin.settingsManager.getSettings().wewriteFolder, WEWRITE_SUBDIRS.cache);
             const cachedPath = await cacheDiagramPng(this.plugin.app, pngData, 'mermaid', block.code, cacheDir);
@@ -1082,6 +1109,9 @@ export class WeChatNewsView extends ItemView {
       // deprioritized, causing async plugin post-processors to never fire.
       const tempDiv = document.createElement('div');
       tempDiv.style.cssText = 'position:fixed;left:0;top:0;width:677px;opacity:0.01;pointer-events:none;z-index:-1';
+      // Marker so the finally-block safety net can remove this container even
+      // when an exception skips the removeChild below (leak prevention).
+      tempDiv.setAttribute('data-wewrite-pass1', '1');
       document.body.appendChild(tempDiv);
 
       await MarkdownRenderer.render(
@@ -1100,12 +1130,19 @@ export class WeChatNewsView extends ItemView {
 
       // Convert code block syntax-highlighting token spans to inline styles
       // and strip dynamic UI elements (copy buttons) that WeChat rejects.
-      this.processCodeBlocksInPlace(tempDiv);
+      const codeResolver = this.renderer.getThemeResolver();
+      processCodeBlocksInPlace(tempDiv, {
+        theme: codeResolver.resolveCodeTheme(),
+        lineNumbers: codeResolver.resolveCodeLineNumbers(),
+        fontFamily: codeResolver.resolveCodeFontFamily(),
+        fontSize: codeResolver.resolveCodeFontSize(),
+        wrap: codeResolver.resolveCodeWrap(),
+      });
 
       // Convert MathJax CHTML formulas to SVG so they survive WeChat
       // publishing (WeChat strips custom <mjx-*> elements).
       // Uses bundled mathjax-full (SVG output) — no dependency on window.MathJax.
-      await this.processMathToSvg(tempDiv, content);
+      await processMathToSvg(tempDiv, content);
 
       // Convert <img src="...svg"> references to inline SVGs so they
       // go through the SVG sanitization and fallback pipeline properly.
@@ -1144,7 +1181,7 @@ export class WeChatNewsView extends ItemView {
       this.renderedHtml = result.html;
 
       // ── Content prescan: SVG dedup + large SVG → PNG ──
-      globalSpinner.updateText('Optimizing SVGs...');
+      globalSpinner.updateText(t('publish.optimizing_svgs'));
       const prescanCacheDir = getWeWriteSubPath(
         this.plugin.settingsManager.getSettings().wewriteFolder,
         WEWRITE_SUBDIRS.cache,
@@ -1156,7 +1193,7 @@ export class WeChatNewsView extends ItemView {
       this.renderedHtml = svgPrescan.html;
 
       // ── Content prescan: data URI extraction + vault image fix ──
-      globalSpinner.updateText('Optimizing images...');
+      globalSpinner.updateText(t('publish.optimizing_images'));
       const imgPrescan = await prescanImages(
         this.renderedHtml, this.plugin.app, prescanCacheDir, this.plugin.mediaRegistry,
         (text) => globalSpinner.updateText(text),
@@ -1164,7 +1201,7 @@ export class WeChatNewsView extends ItemView {
       this.renderedHtml = imgPrescan.html;
 
       // ── SVG fallback — size-gated PNG conversion ──
-      globalSpinner.updateText('Finalizing layout...');
+      globalSpinner.updateText(t('publish.finalizing'));
       const svgThreshold = this.plugin.settingsManager.getSettings().svgFallbackThresholdKb * 1024;
       let fallback = applySvgFallback(this.renderedHtml, noteName, svgThreshold);
 
@@ -1227,6 +1264,12 @@ export class WeChatNewsView extends ItemView {
       const deferredHtml = this.renderedHtml.replace(
         /(<img\b[^>]*?)\s+src\s*=\s*"([^"]*)"/gi, '$1 data-wewrite-src="$2"',
       );
+
+      // The user switched files while this render was in flight — discard the
+      // stale result instead of overwriting the new file's preview. The new
+      // file's own render (queued via renderPending) will populate it.
+      if (renderToken !== this._loadToken) return;
+
       this.previewEl.innerHTML = deferredHtml;
       this.previewEl.querySelectorAll('img').forEach((img) => {
         const src = img.getAttribute('data-wewrite-src');
@@ -1242,9 +1285,16 @@ export class WeChatNewsView extends ItemView {
       this.previewEl.innerHTML = `<p style="color:var(--text-error)">${t('notice.render_error', { error: String(err) })}</p>`;
       new Notice(t('notice.render_error', { error: String(err) }));
     } finally {
+      // Safety net: remove any Pass-1 render container left behind by an
+      // exception between appendChild and removeChild (DOM leak prevention).
+      document.querySelectorAll('[data-wewrite-pass1]').forEach((el) => el.remove());
       globalSpinner.hide();
       this.isRendering = false;
       this.setActionButtonsEnabled(true);
+      if (this.renderPending) {
+        this.renderPending = false;
+        void this.renderContent();
+      }
     }
   }
 
@@ -1406,50 +1456,6 @@ export class WeChatNewsView extends ItemView {
     });
   }
 
-  /** Convert Obsidian syntax-highlighting token spans inside code blocks to
-   * inline styles, and strip interactive UI elements (copy buttons) that
-   * WeChat does not allow. Reads computed colors from the live DOM so the
-   * output matches Obsidian's theme exactly. */
-  private processCodeBlocksInPlace(container: HTMLElement): void {
-    // Strip copy buttons and other interactive UI injected by plugins
-    container.querySelectorAll(
-      'button, [aria-label*="opy" i], [aria-label*="复制" i], .copy-code-button, .code-block-copy',
-    ).forEach((el) => el.remove());
-
-    // Convert token spans to inline styles so syntax highlighting survives
-    // in WeChat (which strips all stylesheets / CSS classes).
-    const codeElements = container.querySelectorAll('pre > code');
-    codeElements.forEach((codeEl) => {
-      const tokenSpans = codeEl.querySelectorAll('[class*="token"]');
-      tokenSpans.forEach((span) => {
-        const tokenComputed = window.getComputedStyle(span);
-        const color = tokenComputed.color;
-        const bg = tokenComputed.backgroundColor;
-        const existing = (span as HTMLElement).getAttribute('style') || '';
-        const parts = [existing];
-        if (color) parts.push(`color:${color}`);
-        if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
-          parts.push(`background-color:${bg}`);
-        }
-        (span as HTMLElement).setAttribute('style', parts.filter(Boolean).join(';'));
-      });
-
-      // WeChat's editor does not honor <pre> whitespace semantics — \n
-      // characters are collapsed like regular whitespace. Convert them to
-      // <br/> so line breaks survive publishing (standard industry practice).
-      // Also convert leading spaces after each <br/> to &nbsp; so indentation
-      // is not collapsed by WeChat's whitespace normalization.
-      const html = codeEl.innerHTML;
-      if (html.includes('\n')) {
-        codeEl.innerHTML = html
-          .replace(/\n+$/, '')
-          .replace(/\n/g, '<br/>')
-          .replace(/<br\/>( +)/g, (_, spaces: string) =>
-            '<br/>' + ' '.repeat(spaces.length));
-      }
-    });
-  }
-
   /** Convert MathJax CHTML containers to WeChat-compatible SVG using the
    * bundled mathjax-full library (SVG output jax + LiteAdaptor).
    * No dependency on Obsidian's window.MathJax — works offline and on mobile. */
@@ -1590,8 +1596,8 @@ export class WeChatNewsView extends ItemView {
     for (let i = 0; i < conversions.length; i++) {
       const conv = conversions[i];
       try {
-        const name = conv.source.split('/').pop() || `SVG ${i + 1}`;
-        onProgress?.(`Finalizing SVG ${i + 1}/${conversions.length}: ${name}`);
+        const name = conv.source.split('/').pop() || t('publish.svg_fallback_name', { index: String(i + 1) });
+        onProgress?.(t('publish.finalizing_svg', { current: String(i + 1), total: String(conversions.length), name }));
         const svgFp = this.plugin.mediaRegistry.computeSvgFingerprint(conv.svgHtml);
 
         // Check unified registry for existing cached PNG
@@ -1724,85 +1730,6 @@ export class WeChatNewsView extends ItemView {
     }
   }
 
-  private async processMathToSvg(container: HTMLElement, markdown: string): Promise<void> {
-    const formulas = this.extractMathFormulas(markdown);
-    const mjxContainers = Array.from(container.querySelectorAll('mjx-container'));
-    log.info('processMathToSvg', { formulasFound: formulas.length, mjxContainersFound: mjxContainers.length });
-    if (formulas.length === 0) return;
-    if (mjxContainers.length !== formulas.length) {
-      log.warn('processMathToSvg: formula/container count mismatch',
-        { formulas: formulas.length, containers: mjxContainers.length });
-    }
-
-    let converted = 0;
-    const limit = Math.min(mjxContainers.length, formulas.length);
-    for (let i = 0; i < limit; i++) {
-      const mjx = mjxContainers[i];
-      const formula = formulas[i];
-      if (!mjx.parentNode) continue;
-
-      const svgString = await latexToSvg(formula.tex, formula.display);
-      if (!svgString) continue; // invalid LaTeX — leave original CHTML
-
-      // Parse the SVG string to a DOM element for sanitization
-      const tmp = document.createElement('div');
-      tmp.innerHTML = svgString;
-      const svgEl = tmp.firstElementChild;
-      if (!svgEl) continue;
-
-      // Apply WeChat SVG attribute whitelist sanitization
-      sanitizeSvgElement(svgEl);
-
-      const sanitized = svgEl.outerHTML || new XMLSerializer().serializeToString(svgEl);
-
-      const wrapper = document.createElement(formula.display ? 'section' : 'span');
-      if (formula.display) {
-        wrapper.setAttribute('style', 'text-align:center;display:block;margin:16px 0');
-      } else {
-        wrapper.setAttribute('style', 'display:inline-block;vertical-align:middle');
-      }
-      wrapper.innerHTML = sanitized;
-      // Mark math SVGs so content prescan doesn't deduplicate/convert them
-      const mathSvg = wrapper.querySelector('svg');
-      if (mathSvg) mathSvg.classList.add('wewrite-math');
-      mjx.parentNode.replaceChild(wrapper, mjx);
-      converted++;
-    }
-
-    if (converted > 0) {
-      log.info(`processMathToSvg: converted ${converted}/${limit} formulas to SVG`);
-    }
-  }
-
-  /** Extract math formulas from markdown in document order.
-   *  Two-pass approach: first strip $$...$$ blocks (replacing with markers),
-   *  then extract $...$ inline from remaining text. Markers track document
-   *  position so formulas can be sorted back into original order. */
-  private extractMathFormulas(markdown: string): Array<{ tex: string; display: boolean }> {
-    const items: Array<{ tex: string; display: boolean; pos: number }> = [];
-
-    // Pass 1: $$...$$ block math — replace with placeholder, record position
-    const blockRx = /\$\$([^$]+)\$\$/g;
-    markdown.replace(blockRx, (full, tex, offset) => {
-      items.push({ tex: tex.trim(), display: true, pos: offset });
-      return '';
-    });
-
-    // Pass 2: $...$ inline math (not $$) — record position
-    // Use (^|[^$]) instead of negative lookbehind (?<!\$) for iOS 15.7 compatibility
-    const inlineRx = /(^|[^$])\$([^$\s](?:[^$]|\$[^\s])*?)\$(?!\$)/g;
-    inlineRx.lastIndex = 0;
-    let m;
-    while ((m = inlineRx.exec(markdown)) !== null) {
-      // m[2] is the tex content, m.index + m[1].length points to the opening $
-      items.push({ tex: m[2].trim(), display: false, pos: m.index + m[1].length });
-    }
-
-    // Sort by position in original markdown
-    items.sort((a, b) => a.pos - b.pos);
-    return items.map(({ tex, display }) => ({ tex, display }));
-  }
-
   /** Find the most recently active WeChatNewsView. Used by material library
    *  context menus to target the right view, especially on mobile. */
   static getActiveView(plugin: WeWritePlugin): WeChatNewsView | null {
@@ -1929,9 +1856,9 @@ export class WeChatNewsView extends ItemView {
     const title = this.titleInputEl?.value || '';
     const author = this.authorInputEl?.value || '';
     const digest = this.digestTextareaEl?.value || '';
-    if (title.length > 32) { new Notice(t('validate.title_too_long', { length: String(title.length) })); return; }
+    if (title.length > 64) { new Notice(t('validate.title_too_long', { length: String(title.length) })); return; }
     if (author.length > 16) { new Notice(t('validate.author_too_long', { length: String(author.length) })); return; }
-    if (digest.length > 128) { new Notice(t('validate.digest_too_long', { length: String(digest.length) })); return; }
+    if (digest.length > 120) { new Notice(t('validate.digest_too_long', { length: String(digest.length) })); return; }
 
     if (this.fallbackResult && !this.fallbackResult.limitsOk) {
       new Notice(t('validate.content_exceeds_limit'));
@@ -2427,6 +2354,10 @@ export class WeChatNewsView extends ItemView {
 
     // Transition to upload phase
     modal.setUploadTasks(tasks, this.renderedHtml);
+    // Keep isPublishing=true until the upload phase actually finishes —
+    // releasing it here (before setUploadTasks' async loop completes) allowed
+    // a second publish or a re-render to run concurrently with the uploads.
+    await modal.uploadDone;
     } finally {
       this.isPublishing = false;
     }
@@ -2596,17 +2527,22 @@ export class WeChatNewsView extends ItemView {
     await this.configStore.save(this.filePath, 'news', this.config);
   }, 300);
 
-  private async loadConfig(): Promise<void> {
+  private async loadConfig(token: number): Promise<void> {
     const settings = this.plugin.settingsManager.getSettings();
     const noteName = this.filePath.split('/').pop()?.replace('.md', '') || '';
 
     let config = await this.configStore.load<NewsArticleConfig>(this.filePath, 'news');
+    // Stale load — the user switched files while we were reading. Discard
+    // instead of clobbering the newer file's state.
+    if (token !== this._loadToken) return;
 
     if (!config) {
       config = {
         notePath: this.filePath,
         wechatAccountId: settings.activeWeChatAccountId || '',
-        styleId: 'builtin:github',
+        // New note: default to the last used theme instead of always resetting
+        // to the built-in GitHub preset.
+        styleId: settings.lastStyleId || 'builtin:github',
         ...NEWS_CONFIG_DEFAULT,
       };
     }
@@ -2626,6 +2562,8 @@ export class WeChatNewsView extends ItemView {
 
     if (this.styleSelectEl) this.styleSelectEl.value = config.styleId;
     await this.applyStyle(config.styleId);
+    // Superseded while the style was being applied — abandon the rest.
+    if (token !== this._loadToken) return;
 
     const title = config.title || noteName;
     if (this.titleInputEl) {
@@ -2730,6 +2668,9 @@ class PublishProgressModal {
   private allTasks: PublishTask[];
   private uploadedMediaIds: Map<string, string> = new Map();
   private publishLogger: PublishLogBuilder;
+  private _uploadDoneResolve!: () => void;
+  /** Resolves when the upload phase finishes (success, error, or cancelled). */
+  readonly uploadDone = new Promise<void>((resolve) => { this._uploadDoneResolve = resolve; });
 
   constructor(
     private plugin: WeWritePlugin,
@@ -2760,8 +2701,7 @@ class PublishProgressModal {
     this.taskListEl = this.modalEl.querySelector('.wewrite-publish-tasks')!;
     this.cancelBtn = this.modalEl.querySelector('.wewrite-publish-cancel')!;
     this.cancelBtn.addEventListener('click', () => { this.cancelled = true; this.close(); });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.modalEl.querySelector('.wewrite-publish-overlay')!.addEventListener('click', (e: any) => { e.stopPropagation(); });
+    this.modalEl.querySelector('.wewrite-publish-overlay')!.addEventListener('click', (e: Event) => { e.stopPropagation(); });
     this.renderAllTasks();
   }
 
@@ -2820,9 +2760,10 @@ class PublishProgressModal {
   }
 
   private async runUploadTasks(): Promise<void> {
-    const i18nT = t; // capture module-level t before shadowed by for-loop variable
-    let hasError = false;
-    let imageIdx = 0;
+    try {
+      const i18nT = t; // capture module-level t before shadowed by for-loop variable
+      let hasError = false;
+      let imageIdx = 0;
     for (const t of this.tasks) {
       if (this.cancelled) break;
       // Skip tasks already resolved by fingerprint pre-resolution
@@ -2891,10 +2832,7 @@ class PublishProgressModal {
           t.status = 'done';
         } else if (t.type === 'image' && !uploadPath) {
           imageIdx++;
-          throw new Error(
-            `Image source could not be resolved: ${t.name}. ` +
-            `The image URL format may not be supported on this platform.`,
-          );
+          throw new Error(i18nT('notice.image_source_unresolved', { name: t.name }));
         } else if (t.type === 'draft') {
           try {
             await this.createDraft();
@@ -2981,6 +2919,11 @@ class PublishProgressModal {
       await sleep(3000);
       this.close();
       new Notice(i18nT('publish.success', { title: this.options.title, account: this.account.name }));
+    }
+    } finally {
+      // Always signal completion (success / error / cancelled) so the caller
+      // can release its isPublishing guard.
+      this._uploadDoneResolve();
     }
   }
 
@@ -3206,9 +3149,8 @@ class ImageGenerateDialog {
   private imageLogger: AIImageGenLogger | null = null;
 
   constructor(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private app: any,
-    private account: { baseUrl: string; apiKey: string; model: string; provider: ImageGenProviderType },
+    private app: App,
+    private account: AIImageAccountLike,
     private zoneCategory: string,
     defaultPrompt: string,
     defaultSize: string,
@@ -3232,10 +3174,11 @@ class ImageGenerateDialog {
         <div style="margin-bottom:8px">${t('modal.image_generate_prompt_label')}</div>
         <textarea style="width:100%;height:200px;margin-bottom:12px" placeholder="${t('modal.image_generate_placeholder')}"></textarea>
         <div style="margin-bottom:8px">${t('modal.image_generate_size_label')}</div>
-        <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+        <div style="display:flex;gap:8px;margin-bottom:4px;align-items:center">
           <input type="text" style="flex:1" class="wewrite-input" placeholder="${defaultSize}">
           <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">${meta.aspectLabel}</span>
         </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">${t('modal.image_generate_size_hint', { example: sizeHintExample(this.account.provider, this.account.baseUrl) })}</div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="wewrite-publish-cancel">${t('misc.cancel')}</button>
           <button class="wewrite-publish-cancel mod-cta">${t('modal.image_generate_button')}</button>
@@ -3247,8 +3190,7 @@ class ImageGenerateDialog {
     this.sizeEl = this.modalEl.querySelector('input[type="text"]')!;
     this.sizeEl.value = sizeVal;
     this.generateBtn = this.modalEl.querySelector('.mod-cta')!;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.modalEl.querySelector('.wewrite-publish-overlay')!.addEventListener('click', (e: any) => { e.stopPropagation(); });
+    this.modalEl.querySelector('.wewrite-publish-overlay')!.addEventListener('click', (e: Event) => { e.stopPropagation(); });
     this.modalEl.querySelector('.wewrite-publish-cancel:not(.mod-cta)')!.addEventListener('click', () => this.close());
     this.generateBtn.addEventListener('click', () => this.generate());
   }
@@ -3276,270 +3218,28 @@ class ImageGenerateDialog {
     }
 
     try {
-      if (this.account.provider === 'seedream') {
-        const result = await this.generateViaSeedream(prompt, rawSize, startTime);
-        if (result) { this.callback(result); }
-      } else if (this.account.provider === 'openai') {
-        const result = await this.generateViaOpenAI(prompt, rawSize, startTime);
-        if (result) { this.callback(result); }
-      } else {
-        const result = await this.generateViaDashScope(prompt, rawSize, startTime);
-        if (result) { this.callback(result); }
-      }
+      const result = await generateImage(this.account, prompt, rawSize, this.imageLogger);
+      if (result.url) { this.callback(result.url); }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       this.imageLogger?.addEntry({
         step: 'Error',
         method: 'POST',
         url: this.account.baseUrl,
         statusCode: 0,
         durationMs: Date.now() - startTime,
-        error: String(err),
+        error: msg,
       });
       await this.imageLogger?.flush();
-      new Notice(t('notice.image_gen_failed', { error: String(err) }));
+      if (err instanceof AIImageSizeError) {
+        new Notice(t('notice.image_size_invalid', { error: msg }), 0);
+      } else {
+        new Notice(t('notice.image_gen_failed', { error: msg }), 0);
+      }
     }
     this.close();
   }
 
-  /** Seedream synchronous API — one POST, parse result URL directly. */
-  private async generateViaSeedream(prompt: string, rawSize: string, startTime: number): Promise<string | null> {
-    // Normalize size: Seedream accepts "2K", "1K", etc. or "WxH" pixel format.
-    // Raw user input may include aspect ratio annotations like "2k px (2.35:1)".
-    const size = rawSize
-      .replace(/px.*$/, '').trim()
-      .replace(/\*/g, 'x')
-      .replace(/^(\d+)[kK]$/, '$1K')
-      || '2K';
-
-    const body = {
-      model: this.account.model,
-      prompt,
-      sequential_image_generation: 'disabled',
-      response_format: 'url',
-      size,
-      stream: false,
-      watermark: false,
-    };
-
-    const submitStart = Date.now();
-    const resp = await requestUrl({ url: this.account.baseUrl.replace(/\/+$/, ''),
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.account.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-    const submitMs = Date.now() - submitStart;
-
-    const data = resp.json as {
-      data?: Array<{ url?: string; size?: string }>;
-      error?: { message?: string };
-    };
-
-    this.imageLogger?.addEntry({
-      step: 'Generate (Seedream)',
-      method: 'POST',
-      url: this.account.baseUrl,
-      statusCode: resp.status,
-      durationMs: submitMs,
-      requestBody: body,
-      responseBody: data,
-      error: resp.status >= 400 ? `HTTP ${resp.status}` : undefined,
-    });
-    await this.imageLogger?.flush();
-
-    const resultUrl = data.data?.[0]?.url;
-    if (!resultUrl) {
-      const errMsg = (data as { error?: { message?: string } }).error?.message || `HTTP ${resp.status}`;
-      new Notice(t('notice.seedream_failed', { message: errMsg }));
-      return null;
-    }
-    return resultUrl;
-  }
-
-  /** OpenAI-compatible synchronous API.
-   *  Covers both real OpenAI DALL-E and Seedream's OpenAI-compatible
-   *  endpoint on the Volcengine Ark platform (api/v3/images/generations).
-   *
-   *  DALL-E 3 only accepts: 1024x1024, 1792x1024, 1024x1792.
-   *  DALL-E 2 only accepts: 256x256, 512x512, 1024x1024.
-   *  Ark platform accepts: 2K, 4K, or arbitrary WxH pixel sizes. */
-  private async generateViaOpenAI(prompt: string, rawSize: string, startTime: number): Promise<string | null> {
-    const cleaned = rawSize.replace(/px.*$/, '').trim().replace(/\*/g, 'x');
-    const isArk = isArkPlatform(this.account.baseUrl);
-
-    // Ark platform supports arbitrary sizes; real DALL-E needs snapping
-    const size = isArk ? (cleaned || '2K') : snapToDalleSize(cleaned);
-
-    const body: Record<string, unknown> = {
-      model: this.account.model,
-      prompt,
-      n: 1,
-      size,
-      response_format: 'url',
-    };
-
-    // Ark-compatible extra params
-    if (isArk) {
-      body.watermark = false;
-    }
-
-    const stepLabel = isArk ? 'Generate (Seedream via OpenAI)' : 'Generate (OpenAI)';
-    const submitStart = Date.now();
-    const resp = await requestUrl({ url: this.account.baseUrl.replace(/\/+$/, ''),
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.account.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-    const submitMs = Date.now() - submitStart;
-
-    const data = resp.json as {
-      data?: Array<{ url?: string }>;
-      error?: { message?: string };
-    };
-
-    this.imageLogger?.addEntry({
-      step: stepLabel,
-      method: 'POST',
-      url: this.account.baseUrl,
-      statusCode: resp.status,
-      durationMs: submitMs,
-      requestBody: body,
-      responseBody: data,
-      error: resp.status >= 400 ? `HTTP ${resp.status}` : undefined,
-    });
-    await this.imageLogger?.flush();
-
-    const resultUrl = data.data?.[0]?.url;
-    if (!resultUrl) {
-      const errMsg = (data as { error?: { message?: string } }).error?.message || `HTTP ${resp.status}`;
-      new Notice(t('notice.step_failed', { step: stepLabel, message: errMsg }));
-      return null;
-    }
-    return resultUrl;
-  }
-
-  /** DashScope async API — submit task then poll. */
-  private async generateViaDashScope(prompt: string, size: string, startTime: number): Promise<string | null> {
-    const requestBody = {
-      model: this.account.model,
-      input: { prompt },
-      parameters: { size, n: 1 },
-    };
-    const submitStart = Date.now();
-    const resp = await requestUrl({ url: this.account.baseUrl.replace(/\/+$/, ''),
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.account.apiKey}`,
-        'Content-Type': 'application/json',
-        'X-DashScope-Async': 'enable',
-      },
-      body: JSON.stringify(requestBody),
-    });
-    const submitMs = Date.now() - submitStart;
-    const data = resp.json as { output?: { task_id?: string } };
-    const taskId = data.output?.task_id;
-
-    this.imageLogger?.addEntry({
-      step: 'Submit Task (DashScope)',
-      method: 'POST',
-      url: this.account.baseUrl,
-      statusCode: resp.status,
-      durationMs: submitMs,
-      requestBody,
-      responseBody: data,
-      error: !taskId ? 'No task_id in response' : undefined,
-    });
-    await this.imageLogger?.flush();
-
-    if (!taskId) { new Notice(t('notice.image_gen_start_failed')); return null; }
-
-    return this.pollTask(taskId);
-  }
-
-  private async pollTask(taskId: string): Promise<string | null> {
-    const taskUrl = this.account.baseUrl.replace(/\/services\/aigc\/text2image\/image-synthesis$/, '') + '/tasks/' + taskId;
-    const pollStart = Date.now();
-    for (let i = 0; i < 30; i++) {
-      await sleep(2000);
-      try {
-        const pollReqStart = Date.now();
-        const resp = await requestUrl({ url: taskUrl,
-          headers: { 'Authorization': `Bearer ${this.account.apiKey}` },
-        });
-        const pollMs = Date.now() - pollReqStart;
-        const data = resp.json as { output?: { task_status?: string; results?: Array<{ url?: string }> } };
-        if (data.output?.task_status === 'SUCCEEDED') {
-          const resultUrl = data.output.results?.[0]?.url || null;
-          this.imageLogger?.addEntry({
-            step: `Poll #${i + 1} (SUCCEEDED)`,
-            method: 'GET',
-            url: taskUrl,
-            statusCode: resp.status,
-            durationMs: pollMs,
-            responseBody: { status: 'SUCCEEDED', resultUrl },
-          });
-          await this.imageLogger?.flush();
-          return resultUrl;
-        }
-        if (data.output?.task_status === 'FAILED') {
-          this.imageLogger?.addEntry({
-            step: `Poll #${i + 1} (FAILED)`,
-            method: 'GET',
-            url: taskUrl,
-            statusCode: resp.status,
-            durationMs: pollMs,
-            responseBody: data,
-            error: (data.output as { message?: string })?.message || 'Task failed',
-          });
-          await this.imageLogger?.flush();
-          return null;
-        }
-      } catch { continue; }
-    }
-    this.imageLogger?.addEntry({
-      step: 'Poll Timeout',
-      method: 'GET',
-      url: taskUrl,
-      statusCode: 0,
-      durationMs: Date.now() - pollStart,
-      error: 'Polling timed out after 30 attempts',
-    });
-    await this.imageLogger?.flush();
-    return null;
-  }
-
   close(): void { this.modalEl.remove(); }
 }
-
-// ═══ UTILS ═══
-
-/** Detect whether a base URL points to the Volcengine Ark platform (Seedream OpenAI-compatible). */
-function isArkPlatform(baseUrl: string): boolean {
-  return /(?:volces\.com|ark\.cn)/i.test(baseUrl);
-}
-
-/** Snap a WxH size string to the nearest DALL-E-compatible size.
- *  DALL-E 3: 1024x1024, 1792x1024, 1024x1792.
- *  DALL-E 2: 256x256, 512x512, 1024x1024.
- *  Defaults to DALL-E 3 landscape for widescreen inputs. */
-function snapToDalleSize(raw: string): string {
-  const match = raw.match(/^(\d+)\s*[x×]\s*(\d+)$/i);
-  if (!match) return '1024x1024';
-  const w = parseInt(match[1], 10);
-  const h = parseInt(match[2], 10);
-  const ratio = w / h;
-  if (ratio > 1.33) return '1792x1024';  // landscape / widescreen
-  if (ratio < 0.75) return '1024x1792';  // portrait
-  return '1024x1024';                     // square
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 

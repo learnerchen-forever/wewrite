@@ -117,8 +117,13 @@ export class WeChatApiManager {
   }
 
   /** Fetch token via central proxy server (bypasses IP whitelist) */
-  private async fetchTokenViaProxy(appId: string, appSecret: string, cacheKey: string): Promise<string> {
-    const docId = this.docIdCache.get(appId);
+  private async fetchTokenViaProxy(
+    appId: string,
+    appSecret: string,
+    cacheKey: string,
+    retriedWithoutDocId = false,
+  ): Promise<string> {
+    const docId = retriedWithoutDocId ? undefined : this.docIdCache.get(appId);
 
     const body: Record<string, string> = docId
       ? { doc_id: docId }
@@ -145,10 +150,15 @@ export class WeChatApiManager {
       const code = data?.code ?? -1;
       log.error('token fetch failed (proxy)', { code, msg: data?.msg });
 
-      // Server maintenance / doc_id expired
+      // Server maintenance / doc_id expired → retry once WITHOUT doc_id.
+      // A second -2 without a doc_id means the server cannot issue a token at
+      // all (invalid secret, maintenance, …) — fail instead of recursing forever.
       if (code === -2) {
+        if (retriedWithoutDocId) {
+          throw new Error(t('error.central_server_error', { code }));
+        }
         this.docIdCache.delete(appId);
-        return this.fetchTokenViaProxy(appId, appSecret, cacheKey); // retry without doc_id
+        return this.fetchTokenViaProxy(appId, appSecret, cacheKey, true);
       }
 
       throw new Error(t('error.central_server_error', { code }));
@@ -234,7 +244,7 @@ export class WeChatApiManager {
         // Handle non-JSON or null responses
         if (!data) {
           log.warn('non-JSON response', { status: response.status, attempt: attempt + 1 });
-          lastError = { errcode: -1, errmsg: t('error.unexpected_response', { status: response.status }), isFatal: false };
+          lastError = { errcode: -1, errmsg: t('error.unexpected_response', { status: response.status, details: 'non-JSON response' }), isFatal: false };
           continue;
         }
 

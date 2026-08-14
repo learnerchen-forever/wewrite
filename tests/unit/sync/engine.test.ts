@@ -667,4 +667,276 @@ describe('SyncEngine Integration', () => {
       expect(result.message).toContain('No snapshot');
     });
   });
+
+  // ── C2/C3/C5 regression tests (record persistence + incomplete walk abort) ──
+
+  describe('Record persistence (C2/C3 regressions)', () => {
+    it('C2: record entries persist after a sync — task upserts are NOT rolled back', async () => {
+      const { backend, files: remoteFiles } = createMemoryBackend();
+      const { mockApp } = createMockVault([
+        { path: 'note1.md', content: 'hello', mtime: 100 },
+        { path: 'note2.md', content: 'world', mtime: 200 },
+      ]);
+
+      const engine = createEngine(backend, mockApp);
+      await engine.loadState({});
+
+      const result = await engine.sync('manual');
+      expect(result.ok).toBe(true);
+      expect(remoteFiles.size).toBe(2);
+
+      // Regression: the engine used to restore the PRE-sync record snapshot
+      // after execution, so every upsert (hash/mtime entries for the pushed
+      // files) was discarded and the record never advanced between cycles.
+      const files = engine.getRecordData().files;
+      expect(Object.keys(files)).toHaveLength(2);
+      expect(files['note1.md']).toBeDefined();
+      expect(files['note2.md']).toBeDefined();
+      // The record must carry real sync data. remoteHash comes from the
+      // backend stat (content hash in the memory backend); localSize/mtime
+      // come from the local walk. (localHash is computed from vault.readBinary,
+      // which the test vault mock does not implement.)
+      const h1 = await sha256Hex(new TextEncoder().encode('hello').buffer as ArrayBuffer);
+      expect(files['note1.md'].remoteHash).toBe(h1);
+      expect(files['note1.md'].localSize).toBe('hello'.length);
+      expect(files['note1.md'].localMtime).toBe(normalizeMtime(100));
+    });
+
+    it('C2: second sync is a no-op when nothing changed (record drives the decision)', async () => {
+      const { backend, files: remoteFiles } = createMemoryBackend();
+      const { mockApp } = createMockVault([
+        { path: 'note.md', content: 'hello', mtime: 100 },
+      ]);
+
+      const engine = createEngine(backend, mockApp);
+      await engine.loadState({});
+      expect((await engine.sync('manual')).ok).toBe(true);
+      expect(remoteFiles.size).toBe(1);
+
+      const firstRecord = engine.getRecordData();
+      // Second sync: same content, no changes → no new tasks, record unchanged.
+      expect((await engine.sync('manual')).ok).toBe(true);
+      expect(remoteFiles.size).toBe(1);
+      expect(engine.getRecordData().files['note.md'].remoteHash)
+        .toBe(firstRecord.files['note.md'].remoteHash);
+      expect(engine.getRecordData().files['note.md'].remoteHash).not.toBe('');
+    });
+
+    it('C3: vaultId is assigned on first load and survives a save/load round-trip', async () => {
+      const { backend } = createMemoryBackend();
+      const { mockApp } = createMockVault([{ path: 'note.md', content: 'x', mtime: 100 }]);
+
+      const engine = createEngine(backend, mockApp);
+      await engine.loadState({});
+
+      // Regression: initRecord's return value was discarded, so vaultId stayed
+      // '' and validateRecord() rejected the record on the next load — the
+      // whole sync history was wiped on every restart.
+      const vaultId = engine.getRecordData().vaultId;
+      expect(vaultId.length).toBeGreaterThan(0);
+
+      // Persist state, then reload into a fresh engine — record must survive.
+      const saved = engine.getStateForSave();
+      const engine2 = createEngine(backend, mockApp);
+      await engine2.loadState(saved);
+      expect(engine2.getRecordData().vaultId).toBe(vaultId);
+    });
+  });
+
+  describe('Incomplete remote walk aborts sync (C5 regression)', () => {
+    it('aborts with ok:false and changes NOTHING when the walk is partial', async () => {
+      const { backend, files: remoteFiles } = createMemoryBackend();
+      // Force the walk to report incomplete (e.g. per-dir PROPFIND failure).
+      const incompleteBackend: SyncBackend = {
+        ...backend,
+        async walk(): Promise<WalkResult> {
+          return { stats: new Map(), complete: false, reason: 'PROPFIND limit exceeded' };
+        },
+      };
+      const { mockApp, vaultFiles } = createMockVault([
+        { path: 'note.md', content: 'hello', mtime: 100 },
+      ]);
+
+      const engine = createEngine(incompleteBackend, mockApp);
+      await engine.loadState({});
+
+      const result = await engine.sync('manual');
+      // Must fail WITHOUT touching local or remote files — a partial snapshot
+      // would otherwise make the engine think remote files were deleted.
+      // (en.json is always loaded, so the message is the English translation.)
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('walk incomplete');
+      expect(vaultFiles.has('note.md')).toBe(true);
+      expect(remoteFiles.size).toBe(0);
+      expect(Object.keys(engine.getRecordData().files)).toHaveLength(0);
+    });
+  });
+
+  // ── .md-first ordering + quota pause (partial sync with auto-resume) ──
+
+  describe('Markdown-first ordering and quota pause', () => {
+    it('executes .md pushes before non-markdown pushes', async () => {
+      const { backend, files: remoteFiles } = createMemoryBackend();
+      const order: string[] = [];
+      const orderedBackend: SyncBackend = {
+        ...backend,
+        async writeFile(path: string, content: ArrayBuffer): Promise<void> {
+          order.push(path);
+          await backend.writeFile(path, content);
+        },
+      };
+      const { mockApp } = createMockVault([
+        { path: 'z-note.md', content: 'z', mtime: 100 },
+        { path: 'a-image.png', content: 'png', mtime: 100 },
+        { path: 'm-note.md', content: 'm', mtime: 100 },
+        { path: 'b-data.bin', content: 'bin', mtime: 100 },
+      ]);
+
+      const engine = createEngine(orderedBackend, mockApp);
+      await engine.loadState({});
+
+      const result = await engine.sync('manual');
+      expect(result.ok).toBe(true);
+      expect(remoteFiles.size).toBe(4);
+
+      const mdIdx = order.map(p => p.toLowerCase().endsWith('.md') ? 1 : 0);
+      // All .md files must come before the first non-md file.
+      const firstNonMd = order.findIndex(p => !p.toLowerCase().endsWith('.md'));
+      expect(firstNonMd).toBeGreaterThanOrEqual(2);
+      for (let i = firstNonMd + 1; i < order.length; i++) {
+        expect(order[i].toLowerCase().endsWith('.md')).toBe(false);
+      }
+      expect(mdIdx.filter(x => x === 1).length).toBe(2);
+    });
+
+    it('pauses with a partial result when the traffic quota is exhausted mid-cycle', async () => {
+      let writeRequests = 0;
+      const { backend, files: remoteFiles } = createMemoryBackend();
+      // Fail the 3rd write — after the two .md notes succeed, on the first
+      // non-markdown file. Error text matches 坚果云 TrafficRateExhausted.
+      const failingBackend: SyncBackend = {
+        ...backend,
+        async writeFile(path: string, content: ArrayBuffer): Promise<void> {
+          writeRequests++;
+          if (writeRequests > 2) {
+            throw new Error('TrafficRateExhausted: request frequency limit exceeded');
+          }
+          await backend.writeFile(path, content);
+        },
+      };
+      const { mockApp } = createMockVault([
+        { path: 'note1.md', content: 'one', mtime: 100 },
+        { path: 'note2.md', content: 'two', mtime: 100 },
+        { path: 'image.png', content: 'png', mtime: 100 },
+        { path: 'data.bin', content: 'bin', mtime: 100 },
+      ]);
+
+      const engine = createEngine(failingBackend, mockApp);
+      await engine.loadState({});
+
+      const result = await engine.sync('manual');
+
+      // Partial success: the notes synced, the rest is deferred, cooldown set.
+      expect(result.ok).toBe(true);
+      expect(result.partial).toBe(true);
+      expect(result.deferredCount).toBe(2);
+      expect(result.rateLimited).toBe(true);
+      expect(engine.getCooldownUntil()).toBeGreaterThan(Date.now());
+
+      // Notes reached the remote; non-md files did not (deferred to next cycle).
+      expect(remoteFiles.has('note1.md')).toBe(true);
+      expect(remoteFiles.has('note2.md')).toBe(true);
+      expect(remoteFiles.has('image.png')).toBe(false);
+      expect(remoteFiles.has('data.bin')).toBe(false);
+
+      // Record only contains the two synced notes — the next decide() pass
+      // will regenerate the remaining tasks naturally.
+      expect(Object.keys(engine.getRecordData().files)).toHaveLength(2);
+    });
+
+    it('completes fully when the quota is not exhausted', async () => {
+      const { backend, files: remoteFiles } = createMemoryBackend();
+      const { mockApp } = createMockVault([
+        { path: 'note.md', content: 'hello', mtime: 100 },
+        { path: 'image.png', content: 'png', mtime: 100 },
+      ]);
+
+      const engine = createEngine(backend, mockApp);
+      await engine.loadState({});
+
+      const result = await engine.sync('manual');
+      expect(result.ok).toBe(true);
+      expect(result.partial).toBeUndefined();
+      expect(remoteFiles.size).toBe(2);
+      expect(engine.getCooldownUntil()).toBe(0);
+    });
+
+    it('pauses (not aborts) when the remote walk is cut short by a rate limit', async () => {
+      const { backend } = createMemoryBackend();
+      const rateLimitedBackend: SyncBackend = {
+        ...backend,
+        async walk(): Promise<WalkResult> {
+          return { stats: new Map(), complete: false, reason: 'Rate-limited during walk (403)', rateLimited: true };
+        },
+      };
+      const { mockApp, vaultFiles } = createMockVault([
+        { path: 'note.md', content: 'hello', mtime: 100 },
+      ]);
+
+      const engine = createEngine(rateLimitedBackend, mockApp);
+      await engine.loadState({});
+
+      const result = await engine.sync('manual');
+      // Partial pause: local and remote files untouched, cooldown armed.
+      expect(result.ok).toBe(true);
+      expect(result.partial).toBe(true);
+      expect(result.rateLimited).toBe(true);
+      expect(engine.getCooldownUntil()).toBeGreaterThan(Date.now());
+      expect(vaultFiles.has('note.md')).toBe(true);
+      expect(Object.keys(engine.getRecordData().files)).toHaveLength(0);
+    });
+
+    it('still aborts when the walk is incomplete for non-rate-limit reasons', async () => {
+      const { backend } = createMemoryBackend();
+      const brokenBackend: SyncBackend = {
+        ...backend,
+        async walk(): Promise<WalkResult> {
+          return { stats: new Map(), complete: false, reason: 'PROPFIND limit exceeded' };
+        },
+      };
+      const { mockApp } = createMockVault([
+        { path: 'note.md', content: 'hello', mtime: 100 },
+      ]);
+
+      const engine = createEngine(brokenBackend, mockApp);
+      await engine.loadState({});
+
+      const result = await engine.sync('manual');
+      expect(result.ok).toBe(false);
+      expect(result.partial).toBeUndefined();
+      expect(result.message).toContain('walk incomplete');
+    });
+
+    it('emits phase progress events during a sync cycle', async () => {
+      const { backend } = createMemoryBackend();
+      const { mockApp } = createMockVault([
+        { path: 'note.md', content: 'hello', mtime: 100 },
+      ]);
+
+      const engine = createEngine(backend, mockApp);
+      await engine.loadState({});
+
+      const phases: string[] = [];
+      engine.onProgress((p) => {
+        phases.push(p.phase);
+      });
+
+      await engine.sync('manual');
+
+      expect(phases).toContain('walk_local');
+      expect(phases).toContain('walk_remote');
+      expect(phases).toContain('sync');
+      expect(phases[phases.length - 1]).toBe('done');
+    });
+  });
 });

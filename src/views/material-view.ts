@@ -16,11 +16,18 @@ const log = createLogger('Views:Material');
 
 export const VIEW_TYPE_MATERIAL = 'wewrite-material-view';
 
-const TAB_DEFS: Array<{ type: MaterialType; label: string; icon: string }> = [
-  { type: 'image', label: t('material.tab_images'), icon: 'image' },
-  { type: 'draft_news', label: t('material.tab_news_drafts'), icon: 'newspaper' },
-  { type: 'draft_newspic', label: t('material.tab_image_drafts'), icon: 'image' },
+// Labels are resolved lazily via tabLabel() — freezing t() results in a
+// module-level constant would leave the tabs in the old language after a
+// language switch.
+const TAB_DEFS: Array<{ type: MaterialType; labelKey: string; icon: string }> = [
+  { type: 'image', labelKey: 'material.tab_images', icon: 'image' },
+  { type: 'draft_news', labelKey: 'material.tab_news_drafts', icon: 'newspaper' },
+  { type: 'draft_newspic', labelKey: 'material.tab_image_drafts', icon: 'image' },
 ];
+
+function tabLabel(def: { type: MaterialType; labelKey: string }): string {
+  return t(def.labelKey);
+}
 
 const SWIPE_THRESHOLD = 0.6; // fraction of item width
 
@@ -165,17 +172,18 @@ export class MaterialView extends ItemView {
   private renderTabBar(): void {
     const tabBar = this.contentEl.createDiv({ cls: 'wewrite-material-tabs' });
 
-    for (const { type, label, icon } of TAB_DEFS) {
+    for (const def of TAB_DEFS) {
+      const { type, icon } = def;
+      const label = tabLabel(def);
       const cached = this.items[type]?.length || 0;
       const total = this.materialManager.getTotalCount(this.activeAccountId, type) || cached;
       const isActive = this.activeTab === type;
       const isDraft = type === 'draft_news' || type === 'draft_newspic';
       const countText = isDraft ? String(cached) : `${cached}/${total}`;
-      const ariaCount = isDraft ? String(cached) : `${cached}/${total}`;
 
       const tab = tabBar.createEl('button', {
         cls: `wewrite-material-tab${isActive ? ' active' : ''}`,
-        attr: { 'aria-label': `${label} (${ariaCount})`, title: `${label} (${ariaCount})` },
+        attr: { 'aria-label': `${label} (${countText})`, title: `${label} (${countText})` },
       });
 
       const iconEl = tab.createSpan({ cls: 'wewrite-material-tab-icon' });
@@ -203,7 +211,8 @@ export class MaterialView extends ItemView {
       const isDraft = type === 'draft_news' || type === 'draft_newspic';
       const countText = isDraft ? String(cached) : `${cached}/${total}`;
       if (countEl) countEl.setText(countText);
-      const label = TAB_DEFS.find(t => t.type === type)?.label || type;
+      const def = TAB_DEFS.find(t => t.type === type);
+      const label = def ? tabLabel(def) : type;
       tabEl.setAttribute('aria-label', `${label} (${countText})`);
       tabEl.setAttribute('title', `${label} (${countText})`);
     });

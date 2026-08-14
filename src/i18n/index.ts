@@ -9,7 +9,7 @@
 // registered callbacks so views/settings can re-render.
 
 import { getLanguage } from 'obsidian';
-import type { Workspace } from 'obsidian';
+import type { Workspace, EventRef } from 'obsidian';
 import enRaw from './en.json';
 import zhCNRaw from './zh-CN.json';
 
@@ -21,6 +21,8 @@ let currentLang = 'en';
 let translations: Record<string, string> = { ...enData };
 const changeListeners: Array<() => void> = [];
 let initDone = false;
+let workspaceRef: Workspace | null = null;
+let layoutChangeRef: EventRef | null = null;
 
 // ── Helpers ──
 
@@ -76,10 +78,6 @@ export function onLanguageChange(cb: () => void): () => void {
   };
 }
 
-export function getCurrentLanguage(): string {
-  return currentLang;
-}
-
 /** One-time init. Pass workspace to enable hot-switch on layout-change. */
 export function initI18n(workspace?: Workspace): void {
   if (initDone) return;
@@ -89,7 +87,11 @@ export function initI18n(workspace?: Workspace): void {
   if (detected !== 'en') loadLocale(detected);
 
   if (workspace) {
-    workspace.on('layout-change', () => {
+    // Track the EventRef so disposeI18n() can unregister it — every plugin
+    // reload otherwise stacks another layout-change listener on the global
+    // workspace (resource leak).
+    workspaceRef = workspace;
+    layoutChangeRef = workspace.on('layout-change', () => {
       const newLang = resolveLang(getLanguage());
       if (newLang !== currentLang) {
         loadLocale(newLang);
@@ -97,4 +99,14 @@ export function initI18n(workspace?: Workspace): void {
       }
     });
   }
+}
+
+/** Unregister the workspace listener. Call from plugin onunload. */
+export function disposeI18n(): void {
+  if (layoutChangeRef && workspaceRef) {
+    workspaceRef.offref(layoutChangeRef);
+  }
+  layoutChangeRef = null;
+  workspaceRef = null;
+  initDone = false;
 }

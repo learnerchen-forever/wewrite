@@ -1,10 +1,8 @@
 // WeWrite v2.0 — Obsidian Plugin Entry Point
 
 // Polyfill Node.js Buffer for browser/WebView (used by js-yaml via gray-matter)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-if (typeof (globalThis as any).Buffer === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).Buffer = class {
+if (typeof (globalThis as unknown as { Buffer?: unknown }).Buffer === 'undefined') {
+  (globalThis as unknown as { Buffer: unknown }).Buffer = class {
     static from(data: string, _encoding?: string): Uint8Array {
       return new TextEncoder().encode(data);
     }
@@ -12,7 +10,7 @@ if (typeof (globalThis as any).Buffer === 'undefined') {
   };
 }
 
-import { Plugin, MarkdownView, Notice, requestUrl, Platform, type TFile } from 'obsidian';
+import { Plugin, MarkdownView, Notice, requestUrl, Platform, type TFile, Menu, MenuItem, type Editor } from 'obsidian';
 import { SettingsManager } from './core/settings-manager';
 import { eventBus } from './core/event-bus';
 import { detectLegacySettings, migrateLegacyToV2, cleanupLegacyData } from './utils/migration';
@@ -25,13 +23,23 @@ import { WeChatNewsView, VIEW_TYPE_WECHAT_NEWS } from './views/wechat-news-view'
 import { WeChatNewsPicView, VIEW_TYPE_WECHAT_NEWSPIC } from './views/wechat-newspic-view';
 import { MaterialView, VIEW_TYPE_MATERIAL } from './views/material-view';
 import { WeWriteSettingTab } from './views/setting-tab';
-import { ThemeExtractModal } from './views/theme-extract-modal';
+import { ThemeWizardModal } from './views/theme-wizard-modal';
 import { WeWriteThemeView, VIEW_TYPE_WEWRITE_THEME } from './views/wewrite-theme-view';
 import { AIImageGenerateModal } from './views/ai-image-generate-modal';
-import type { WeWriteSettings } from './core/interfaces';
+import { ProofreadModal } from './views/proofread-modal';
+import { SynonymsModal } from './views/synonyms-modal';
+import { TranslateModal } from './views/translate-modal';
+import { AIGenerateModal } from './views/ai-generate-modal';
+import { proofreadCorrections } from './ai/proofread-engine';
+import { getSynonyms } from './ai/synonyms-engine';
+import { translateText } from './ai/translate-engine';
+import { generateMermaid, generateMath } from './ai/generate-engine';
+import type { TextCallRecord } from './ai/text-client';
+import { globalSpinner } from './utils/global-spinner';
+import type { WeWriteSettings, AITextAccount } from './core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from './core/interfaces';
 import { createLogger, redact } from './utils/logger';
-import { initI18n, t } from './i18n';
+import { initI18n, disposeI18n, t } from './i18n';
 import { SyncEngine } from './sync/engine';
 import { SyncScheduler } from './sync/scheduler';
 import { setIcon } from 'obsidian';
@@ -65,7 +73,7 @@ export default class WeWritePlugin extends Plugin {
     this.mediaRegistry = new MediaRegistry();
 
     // Initialize note config store for cold storage of per-note configurations
-    this.configStore = new NoteConfigStore(this.app.vault.adapter as any);
+    this.configStore = new NoteConfigStore(this.app.vault.adapter);
 
     this.settingsManager = new SettingsManager(this.manifest.version);
     await this.loadSettings();
@@ -198,7 +206,7 @@ export default class WeWritePlugin extends Plugin {
       get remoteDir() { return plugin.settings.syncRemoteDir; },
       get logDebug() { return plugin.settings.syncLogDebug; },
       get maxFileSizeMb() { return plugin.settings.syncMaxFileSizeMb; },
-    } as any);
+    });
     const syncRawData = await this.loadData();
     await this.syncEngine.loadState(syncRawData);
 
@@ -234,6 +242,7 @@ export default class WeWritePlugin extends Plugin {
 
     eventBus.clear();
     this.themeLoader?.destroy();
+    disposeI18n();
     log.info('plugin unloaded');
   }
 
@@ -295,13 +304,15 @@ export default class WeWritePlugin extends Plugin {
 
   async syncNow(trigger: import('./sync/types').SyncTrigger = 'manual'): Promise<void> {
     if (!this.syncEngine) return;
-    this.updateSyncStatus('Syncing...');
+    this.updateSyncStatus(t('sync.status_syncing'));
     const result = await this.syncScheduler.syncNow(trigger);
     await this.saveSettings();
     const conflicts = this.syncEngine.getPendingConflicts().length;
-    const statusText = conflicts > 0
-      ? `Synced (${conflicts} conflicts)`
-      : `Synced ${new Date().toLocaleTimeString()}`;
+    const statusText = result.partial
+      ? result.message
+      : conflicts > 0
+        ? t('sync.status_synced_conflicts', { count: String(conflicts) })
+        : t('sync.status_synced', { time: new Date().toLocaleTimeString() });
     this.updateSyncStatus(statusText);
     if (trigger === 'manual') {
       new Notice(result.message);
@@ -409,22 +420,11 @@ export default class WeWritePlugin extends Plugin {
       callback: () => this.openMaterialView(),
     });
 
-    // Extract Theme from article URL
+    // New theme wizard
     this.addCommand({
-      id: 'extract-theme-from-article',
-      name: t('command.extract_theme'),
-      callback: () => {
-        const settings = this.settingsManager.getSettings();
-        const aiAcct = settings.aiTextAccounts.find((a) => a.id === settings.activeAITextAccountId);
-        new ThemeExtractModal(this.app, this.app.vault, 'themes', aiAcct).open();
-      },
-    });
-
-    // Migrate legacy wewrite_style to wewrite_theme
-    this.addCommand({
-      id: 'migrate-legacy-styles',
-      name: t('command.migrate_legacy_styles'),
-      callback: () => this.migrateLegacyStyles(),
+      id: 'new-theme-wizard',
+      name: 'New WeWrite Theme...',
+      callback: () => this.openThemeWizard(),
     });
 
     // Generate Image by AI — insert at cursor in editor
@@ -434,24 +434,52 @@ export default class WeWritePlugin extends Plugin {
       callback: () => this.generateImageByAI(),
     });
 
-    // File explorer context menu
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // ── AI Writing Tools ──
+    this.addCommand({
+      id: 'wewrite-ai-proofread',
+      name: t('command.ai_proofread'),
+      callback: () => this.runProofread(),
+    });
+    this.addCommand({
+      id: 'wewrite-ai-synonyms',
+      name: t('command.ai_synonyms'),
+      callback: () => this.runSynonyms(),
+    });
+    this.addCommand({
+      id: 'wewrite-ai-translate',
+      name: t('command.ai_translate'),
+      callback: () => this.runTranslate(),
+    });
+    this.addCommand({
+      id: 'wewrite-ai-generate-mermaid',
+      name: t('command.ai_generate_mermaid'),
+      callback: () => this.runGenerateMermaid(),
+    });
+    this.addCommand({
+      id: 'wewrite-ai-generate-math',
+      name: t('command.ai_generate_math'),
+      callback: () => this.runGenerateMath(),
+    });
+
+    // File explorer context menu (event not in Obsidian's public typings)
     this.registerEvent(
-      (this.app.workspace as any).on('file-menu', (menu: any, file: TFile) => {
+      this.app.workspace.on('file-menu', (...data: unknown[]) => {
+        const menu = data[0] as Menu;
+        const file = data[1] as TFile;
         if (file.extension === 'md') {
           if (this.hasThemeFrontmatter(file)) {
-            menu.addItem((item: any) => {
+            menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.edit_theme'));
               item.setIcon('palette');
               item.onClick(() => this.openWeWriteThemeViewForFile(file.path));
             });
           } else {
-            menu.addItem((item: any) => {
+            menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.as_wechat_news'));
               item.setIcon('pen-tool');
               item.onClick(() => this.openWeChatNewsViewForFile(file.path));
             });
-            menu.addItem((item: any) => {
+            menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.as_wechat_news_pic'));
               item.setIcon('image');
               item.onClick(() => this.openWeChatNewsPicViewForFile(file.path));
@@ -461,34 +489,99 @@ export default class WeWritePlugin extends Plugin {
       }),
     );
 
-    // Editor menu
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // Editor menu (event not in Obsidian's public typings)
     this.registerEvent(
-      (this.app.workspace as any).on('editor-menu', (menu: any) => {
+      this.app.workspace.on('editor-menu', (...data: unknown[]) => {
+        const menu = data[0] as Menu;
+        const editor = data[1] as Editor;
         const file = this.getActiveMarkdownFile();
         if (file) {
           if (this.hasThemeFrontmatter(file)) {
-            menu.addItem((item: any) => {
+            menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.edit_theme'));
               item.setIcon('palette');
               item.onClick(() => this.openWeWriteThemeViewForFile(file.path));
             });
           } else {
-            menu.addItem((item: any) => {
+            menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.as_wechat_news'));
               item.setIcon('pen-tool');
               item.onClick(() => this.openWeChatNewsViewForFile(file.path));
             });
-            menu.addItem((item: any) => {
+            menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.as_wechat_news_pic'));
               item.setIcon('image');
               item.onClick(() => this.openWeChatNewsPicViewForFile(file.path));
             });
           }
-          menu.addItem((item: any) => {
-            item.setTitle(t('contextMenu.generate_by_ai'));
+
+          // WeWrite AI submenu — proofread / synonyms / translate / image /
+          // mermaid / math, all behind one "WeWrite" entry. The submenu pops
+          // out on hover (desktop) and also opens on click (mobile/keyboard).
+          menu.addItem((item: MenuItem) => {
+            item.setTitle(t('contextMenu.wewrite_ai'));
             item.setIcon('sparkles');
-            item.onClick(() => this.generateImageByAI());
+
+            const submenu = new Menu();
+            submenu.addItem((i: MenuItem) => {
+              i.setTitle(t('contextMenu.ai_proofread'));
+              i.setIcon('spell-check');
+              i.onClick(() => this.runProofread(editor));
+            });
+            submenu.addItem((i: MenuItem) => {
+              i.setTitle(t('contextMenu.ai_synonyms'));
+              i.setIcon('languages');
+              i.onClick(() => this.runSynonyms(editor));
+            });
+            submenu.addItem((i: MenuItem) => {
+              i.setTitle(t('contextMenu.ai_translate'));
+              i.setIcon('globe');
+              i.onClick(() => this.runTranslate(editor));
+            });
+            submenu.addSeparator();
+            submenu.addItem((i: MenuItem) => {
+              i.setTitle(t('contextMenu.ai_generate_image'));
+              i.setIcon('image');
+              i.onClick(() => this.generateImageByAI());
+            });
+            submenu.addItem((i: MenuItem) => {
+              i.setTitle(t('contextMenu.ai_generate_mermaid'));
+              i.setIcon('git-branch');
+              i.onClick(() => this.runGenerateMermaid(editor));
+            });
+            submenu.addItem((i: MenuItem) => {
+              i.setTitle(t('contextMenu.ai_generate_math'));
+              i.setIcon('sigma');
+              i.onClick(() => this.runGenerateMath(editor));
+            });
+
+            // Click fallback (mobile / keyboard): open at the pointer position.
+            item.onClick((evt) => {
+              let x = Math.round(window.innerWidth / 2);
+              let y = Math.round(window.innerHeight / 2);
+              if ('clientX' in evt && typeof evt.clientX === 'number' && typeof evt.clientY === 'number') {
+                x = evt.clientX;
+                y = evt.clientY;
+              }
+              submenu.showAtPosition({ x, y });
+            });
+
+            // Hover: pop the submenu out to the right of the item, flipping
+            // to the left near the right screen edge. MenuItem.dom is not in
+            // the public typings but exists at runtime (`.menu-item` element).
+            const itemDom = (item as unknown as { dom?: HTMLElement }).dom;
+            if (itemDom) {
+              itemDom.addClass('wewrite-ai-submenu');
+              itemDom.addEventListener('mouseenter', () => {
+                if (!Platform.isDesktop) return;
+                const rect = itemDom.getBoundingClientRect();
+                if (window.innerWidth - rect.right > 260) {
+                  submenu.showAtPosition({ x: rect.right + 2, y: rect.top });
+                } else {
+                  submenu.showAtPosition({ x: rect.left - 2, y: rect.top, left: true });
+                }
+              });
+            }
           });
         }
       }),
@@ -571,11 +664,250 @@ export default class WeWritePlugin extends Plugin {
       this.app,
       imgAcct,
       settings.wewriteFolder,
+      settings.logAICalling,
       (vaultPath: string) => {
         editor.replaceSelection(`![[${vaultPath}]]`);
         new Notice(t('notice.image_inserted'));
       },
     ).open();
+  }
+
+  // ── AI Writing Tools (proofread / synonyms / translate / mermaid / math) ──
+
+  /** Active markdown editor, or null (with a notice) when unavailable. */
+  private getActiveEditor(): Editor | null {
+    const view = this.app.workspace.getActiveViewOfType<MarkdownView>(MarkdownView);
+    if (!view?.editor) {
+      new Notice(t('notice.no_active_editor'));
+      return null;
+    }
+    return view.editor;
+  }
+
+  /** Active AI text account, or null (with a notice) when unavailable. */
+  private getAITextAccount(): AITextAccount | null {
+    const settings = this.settingsManager.getSettings();
+    const acct = settings.aiTextAccounts.find((a) => a.id === settings.activeAITextAccountId);
+    if (!acct) {
+      new Notice(t('notice.no_ai_text_account'));
+      return null;
+    }
+    return acct;
+  }
+
+  /** Best-effort AI call log (only when logAICalling is enabled). */
+  private logTextCall(account: AITextAccount, call: TextCallRecord, zoneKey: string, zoneLabel: string): void {
+    if (!this.settings.logAICalling) return;
+    void import('./utils/ai-logger').then(({ writeAICallLog }) => {
+      void writeAICallLog(this.app, this.settings.wewriteFolder, {
+        callType: 'text-gen',
+        zoneKey,
+        zoneLabel,
+        model: account.model,
+        providerUrl: account.baseUrl,
+        statusCode: call.statusCode,
+        error: call.error,
+        durationMs: call.durationMs,
+        prompt: call.prompt,
+        requestBody: call.requestBody,
+        resultSummary: call.resultSummary,
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+
+  private showAICallError(err: unknown): void {
+    const msg = err instanceof Error ? err.message : String(err);
+    new Notice(t('notice.ai_call_failed', { error: msg }), 0);
+  }
+
+  /** Proofread the selection (or the whole note when nothing is selected). */
+  private runProofread(editorArg?: Editor): void {
+    const editor = editorArg ?? this.getActiveEditor();
+    if (!editor) return;
+    const account = this.getAITextAccount();
+    if (!account) return;
+
+    const selection = editor.getSelection();
+    const fullText = editor.getValue();
+    const useSelection = selection.trim().length > 0;
+    let text = useSelection ? selection : fullText;
+    if (!text.trim()) {
+      new Notice(t('notice.ai_no_text'));
+      return;
+    }
+
+    // Guard against oversized submissions — proofread the first chunk only.
+    const MAX_PROOFREAD_CHARS = 6000;
+    if (text.length > MAX_PROOFREAD_CHARS) {
+      text = text.slice(0, MAX_PROOFREAD_CHARS);
+      new Notice(t('notice.ai_truncated', { count: String(MAX_PROOFREAD_CHARS) }));
+    }
+
+    const baseOffset = useSelection ? editor.posToOffset(editor.getCursor('from')) : 0;
+    const context = useSelection
+      ? {
+          contextBefore: fullText.slice(Math.max(0, baseOffset - 80), baseOffset),
+          contextAfter: fullText.slice(baseOffset + selection.length, baseOffset + selection.length + 80),
+        }
+      : {};
+
+    globalSpinner.show(t('notice.ai_proofreading'));
+    void proofreadCorrections(account, text, {
+      ...context,
+      onCall: (call) => this.logTextCall(account, call, 'proofread', 'Proofread'),
+    })
+      .then((corrections) => {
+        globalSpinner.hide();
+        if (corrections.length === 0) {
+          new Notice(t('notice.ai_no_corrections'));
+          return;
+        }
+        new ProofreadModal(this.app, editor, corrections, baseOffset).open();
+      })
+      .catch((err: unknown) => {
+        globalSpinner.hide();
+        this.showAICallError(err);
+      });
+  }
+
+  /** Look up synonyms for the selected word (falls back to the word at the cursor). */
+  private runSynonyms(editorArg?: Editor): void {
+    const editor = editorArg ?? this.getActiveEditor();
+    if (!editor) return;
+    const account = this.getAITextAccount();
+    if (!account) return;
+
+    let word = editor.getSelection().trim();
+    if (!word) {
+      const atCursor = this.wordAtCursor(editor);
+      if (!atCursor) {
+        new Notice(t('notice.ai_requires_selection'));
+        return;
+      }
+      editor.setSelection(atCursor.from, atCursor.to);
+      word = editor.getSelection().trim();
+    }
+    if (!word) {
+      new Notice(t('notice.ai_requires_selection'));
+      return;
+    }
+
+    globalSpinner.show(t('notice.ai_synonyms_lookup'));
+    void getSynonyms(account, word, {
+      onCall: (call) => this.logTextCall(account, call, 'synonyms', 'Synonyms'),
+    })
+      .then((synonyms) => {
+        globalSpinner.hide();
+        if (synonyms.length === 0) {
+          new Notice(t('modal.synonyms.empty'));
+          return;
+        }
+        new SynonymsModal(this.app, synonyms, (synonym) => {
+          if (synonym) {
+            editor.replaceSelection(synonym);
+            new Notice(t('notice.ai_replaced'));
+          }
+        }).open();
+      })
+      .catch((err: unknown) => {
+        globalSpinner.hide();
+        this.showAICallError(err);
+      });
+  }
+
+  /** Translate the selection into a chosen language; replace or copy. */
+  private runTranslate(editorArg?: Editor): void {
+    const editor = editorArg ?? this.getActiveEditor();
+    if (!editor) return;
+    const account = this.getAITextAccount();
+    if (!account) return;
+
+    const selection = editor.getSelection();
+    if (!selection.trim()) {
+      new Notice(t('notice.ai_requires_selection'));
+      return;
+    }
+
+    new TranslateModal(
+      this.app,
+      selection,
+      (target: string) => translateText(account, selection, target, {
+        onCall: (call) => this.logTextCall(account, call, 'translate', 'Translate'),
+      }),
+      (translation: string) => {
+        editor.replaceSelection(translation);
+        new Notice(t('notice.ai_replaced'));
+      },
+    ).open();
+  }
+
+  /** Generate an Obsidian-compatible Mermaid diagram and insert it at the cursor. */
+  private runGenerateMermaid(editorArg?: Editor): void {
+    const editor = editorArg ?? this.getActiveEditor();
+    if (!editor) return;
+    const account = this.getAITextAccount();
+    if (!account) return;
+
+    const selection = editor.getSelection();
+    new AIGenerateModal(
+      this.app,
+      'mermaid',
+      selection,
+      selection.trim().length > 0,
+      (description: string) => generateMermaid(account, description, {
+        selection,
+        onCall: (call) => this.logTextCall(account, call, 'mermaid', 'Mermaid'),
+      }),
+      (code: string) => {
+        const block = `\`\`\`mermaid\n${code.trim()}\n\`\`\``;
+        editor.replaceSelection(block);
+        new Notice(t('notice.ai_inserted'));
+      },
+    ).open();
+  }
+
+  /** Generate an Obsidian-compatible math formula and insert it at the cursor. */
+  private runGenerateMath(editorArg?: Editor): void {
+    const editor = editorArg ?? this.getActiveEditor();
+    if (!editor) return;
+    const account = this.getAITextAccount();
+    if (!account) return;
+
+    const selection = editor.getSelection();
+    new AIGenerateModal(
+      this.app,
+      'math',
+      selection,
+      selection.trim().length > 0,
+      (description: string) => generateMath(account, description, {
+        selection,
+        onCall: (call) => this.logTextCall(account, call, 'math', 'Math'),
+      }),
+      (code: string) => {
+        const trimmed = code.trim();
+        const block = /^\$\$[\s\S]*\$\$$/.test(trimmed) ? trimmed : `$$\n${trimmed}\n$$`;
+        editor.replaceSelection(block);
+        new Notice(t('notice.ai_inserted'));
+      },
+    ).open();
+  }
+
+  /** Extract the word (Chinese/English token) under the cursor, or null. */
+  private wordAtCursor(editor: Editor): { from: import('obsidian').EditorPosition; to: import('obsidian').EditorPosition } | null {
+    const cursor = editor.getCursor();
+    const line = editor.getLine(cursor.line);
+    if (!line) return null;
+    const tokenPattern = /[\w\u4e00-\u9fff]+/g;
+    let match = tokenPattern.exec(line);
+    while (match) {
+      const start = match.index;
+      const end = start + match[0].length;
+      if (cursor.ch >= start && cursor.ch <= end) {
+        return { from: { line: cursor.line, ch: start }, to: { line: cursor.line, ch: end } };
+      }
+      match = tokenPattern.exec(line);
+    }
+    return null;
   }
 
   /** Check whether a note has wewrite_theme or wewrite_style true in its frontmatter. */
@@ -586,70 +918,28 @@ export default class WeWritePlugin extends Plugin {
     return fm.wewrite_theme === true || fm.wewrite_style === true;
   }
 
-  private async migrateLegacyStyles(): Promise<void> {
-    const files = this.app.vault.getMarkdownFiles();
-    const legacyFiles = files.filter((f) => {
-      const cache = this.app.metadataCache.getFileCache(f);
-      const fm = cache?.frontmatter;
-      return fm?.wewrite_style === true && fm?.wewrite_theme !== true;
-    });
+  private async openThemeWizard(): Promise<void> {
+    const wizard = new ThemeWizardModal(this.app);
+    const frontmatter = await wizard.open();
+    if (!frontmatter) return;
 
-    if (legacyFiles.length === 0) {
-      new Notice(t('notice.migration_no_legacy'));
-      return;
+    // Save as new theme .md file in the ACTUAL themes directory
+    // ({wewriteFolder}/themes) — the hardcoded 'themes' folder at vault root
+    // is outside ThemeLoader's scan path, so wizard themes never appeared.
+    const settings = this.settingsManager.getSettings();
+    const themesDir = getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.customizedThemes);
+    const nameMatch = frontmatter.match(/wewrite_theme_name:\s*"([^"]+)"/);
+    const themeName = nameMatch ? nameMatch[1] : t('theme.default_name');
+    const fileName = `${themeName}.md`;
+
+    try {
+      await this.app.vault.create(`${themesDir}/${fileName}`, frontmatter);
+      new Notice(t('notice.theme_created', { name: themeName }));
+      // Refresh theme loader cache
+      await this.themeLoader.scanThemes();
+    } catch (err) {
+      new Notice(t('notice.theme_create_failed', { error: String(err) }));
     }
-
-    new Notice(t('notice.migration_progress', { total: legacyFiles.length }));
-    let migrated = 0;
-    for (const file of legacyFiles) {
-      try {
-        const content = await this.app.vault.read(file);
-        const fm = this.themeLoader.parseFrontmatter(content);
-        if (!fm) continue;
-
-        // Build new frontmatter from legacy flat keys
-        const lines = content.split('\n');
-        const fmEnd = lines.findIndex((l, i) => i > 0 && l.trim() === '---');
-        const body = fmEnd > 0 ? lines.slice(fmEnd + 1).join('\n') : '';
-
-        const newLines: string[] = ['---', 'wewrite_theme: true'];
-        if (fm.wewrite_style_name) newLines.push(`wewrite_theme_name: "${fm.wewrite_style_name}"`);
-
-        // Map common legacy keys
-        const keyMap: Record<string, string> = {
-          accent_color: 'palette.accent', global_bg: 'page.background',
-          global_font_family: 'typography.family', global_font_size: 'typography.baseSize',
-          global_line_height: 'typography.lineHeight', global_letter_spacing: 'typography.letterSpacing',
-          global_text_color: 'palette.text', link_color: 'palette.link',
-          link_decoration: 'palette.linkDecoration', heading_colored: 'palette.headingColored',
-          code_bg: 'blocks.code.theme', code_font_size: 'blocks.code.fontSize',
-          blockquote_style: 'blocks.blockquote.style', blockquote_bg: 'blocks.blockquote.backgroundColor',
-        };
-        for (const [legacy, newKey] of Object.entries(keyMap)) {
-          if (fm[legacy] !== undefined) {
-            const val = typeof fm[legacy] === 'string' ? `"${fm[legacy]}"` : String(fm[legacy]);
-            newLines.push(`${newKey}: ${val}`);
-          }
-        }
-        // Heading decorations
-        for (let i = 1; i <= 6; i++) {
-          const deco = fm[`heading_decoration_h${i}`];
-          if (deco) newLines.push(`heading.h${i}.decoration: "${deco}"`);
-        }
-
-        newLines.push('---');
-        newLines.push('');
-        // Keep existing body or add template
-        const hasTemplate = body.includes('## 内容模板');
-        newLines.push(body || `\n## ${fm.wewrite_style_name || 'Migrated Theme'}\n\nDescription here.\n\n## 内容模板\n\n# Title\nContent here.\n`);
-
-        await this.app.vault.modify(file, newLines.join('\n'));
-        migrated++;
-      } catch (err) {
-        log.warn('migration failed for file', { path: file.path, err: String(err) });
-      }
-    }
-    new Notice(t('notice.migration_result', { migrated, total: legacyFiles.length }));
   }
 
   private async openWeChatNewsView(): Promise<void> {
@@ -665,9 +955,8 @@ export default class WeWritePlugin extends Plugin {
   }
 
   private async openWeChatNewsViewForFile(filePath: string): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_WECHAT_NEWS).find(
-      (leaf) => (leaf.view as any)?.filePath === filePath,
+      (leaf) => (leaf.view as WeChatNewsView | null)?.filePath === filePath,
     );
     if (existing) { this.app.workspace.revealLeaf(existing); return; }
     const leaf = this.app.workspace.getLeaf('tab');
@@ -677,9 +966,8 @@ export default class WeWritePlugin extends Plugin {
   }
 
   private async openWeChatNewsPicViewForFile(filePath: string): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_WECHAT_NEWSPIC).find(
-      (leaf) => (leaf.view as any)?.filePath === filePath,
+      (leaf) => (leaf.view as WeChatNewsPicView | null)?.filePath === filePath,
     );
     if (existing) { this.app.workspace.revealLeaf(existing); return; }
     const leaf = this.app.workspace.getLeaf('tab');
@@ -689,27 +977,8 @@ export default class WeWritePlugin extends Plugin {
   }
 
   private async openWeWriteThemeViewForFile(filePath: string): Promise<void> {
-    // Verify the file is actually a WeWrite theme note
-    try {
-      const content = await this.app.vault.adapter.read(filePath);
-      const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
-      if (!fmMatch) {
-        new Notice(t('notice.not_theme_no_frontmatter'));
-        return;
-      }
-      const fm = this.themeLoader.parseFrontmatter(content);
-      if (!fm || (fm.wewrite_theme !== true && fm.wewrite_style !== true)) {
-        new Notice(t('notice.not_theme_wrong_frontmatter'));
-        return;
-      }
-    } catch (err) {
-      new Notice(t('notice.file_read_failed', { error: String(err) }));
-      return;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_WEWRITE_THEME).find(
-      (leaf) => (leaf.view as any)?.filePath === filePath,
+      (leaf) => (leaf.view as WeWriteThemeView | null)?.filePath === filePath,
     );
     if (existing) { this.app.workspace.revealLeaf(existing); return; }
     const leaf = this.app.workspace.getLeaf('tab');
@@ -846,7 +1115,10 @@ export default class WeWritePlugin extends Plugin {
       if (response.status === 401 || response.status === 403) {
         return { success: false, message: t('error.invalid_api_key', { status: response.status, details: respBody.slice(0, 200) }), status: response.status, body: respBody };
       }
-      return { success: true, message: t('error.connected_success', { status: response.status, details: respBody.slice(0, 150) }), status: response.status, body: respBody };
+      // Any other non-2xx is a failure — do NOT report "connected". The
+      // actual publish call will fail with the same endpoint/credentials, so
+      // the test must not mislead the user into thinking the account works.
+      return { success: false, message: t('error.unexpected_response', { status: response.status, details: respBody.slice(0, 200) }), status: response.status, body: respBody };
     } catch (err) {
       log.warn(`${label} connection failed`, { err: String(err) });
       return { success: false, message: t('error.connection_failed', { error: String(err) }), status: 0, body: String(err) };

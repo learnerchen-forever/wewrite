@@ -72,6 +72,10 @@ export function processCalloutsAndAdmonitions(container: HTMLElement): void {
     const borderRadius = styles.borderRadius || '4px';
     const padding = styles.padding || '12px 16px';
     const margin = styles.margin || '16px 0';
+    const borderTop = styles.borderTop || 'none';
+    const borderRight = styles.borderRight || 'none';
+    const borderBottom = styles.borderBottom || 'none';
+    const borderLeft = styles.borderLeft || 'none';
 
     const titleEl = block.querySelector('.callout-title') as HTMLElement | null;
     const contentEl = block.querySelector('.callout-content') as HTMLElement | null;
@@ -98,11 +102,13 @@ export function processCalloutsAndAdmonitions(container: HTMLElement): void {
     wrapper.setAttribute('data-wewrite-callout', calloutType);
     wrapper.setAttribute(
       'style',
-      `background-color:${bgColor};border-radius:${borderRadius};padding:${padding};margin:${margin}`,
+      `background-color:${bgColor};border-radius:${borderRadius};padding:${padding};margin:${margin};` +
+        `border-top:${borderTop};border-right:${borderRight};border-bottom:${borderBottom};border-left:${borderLeft}`,
     );
 
     // Title row
     const titleSection = document.createElement('section');
+    titleSection.setAttribute('data-wewrite-callout-title', '');
     titleSection.setAttribute(
       'style',
       `display:flex;align-items:center;gap:${titleGap};margin-bottom:${titleMarginBottom};` +
@@ -130,6 +136,7 @@ export function processCalloutsAndAdmonitions(container: HTMLElement): void {
 
     // Body content
     const bodySection = document.createElement('section');
+    bodySection.setAttribute('data-wewrite-callout-body', '');
     if (contentEl) {
       bodySection.innerHTML = contentEl.innerHTML;
     } else {

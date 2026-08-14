@@ -108,7 +108,7 @@ export interface SyncWarning {
 }
 
 export interface DecisionOutput {
-  autoTasks: BaseTask[];
+  autoTasks: DecisionAction[];
   pendingConflicts: PendingConflict[];
   renameDetections: RenameDetection[];
   warnings: SyncWarning[];
@@ -116,6 +116,18 @@ export interface DecisionOutput {
   abortReason?: string;
   /** Per-file decision reasoning for debug logging. */
   details: DecisionDetail[];
+}
+
+/**
+ * A task decision produced by the decide pass. This is metadata ONLY — the
+ * engine maps each kind to a concrete BaseTask instance (with real exec /
+ * describe) before execution. It deliberately is NOT a BaseTask: decisions
+ * carry no executable logic and must not be run directly.
+ */
+export interface DecisionAction {
+  kind: 'push' | 'pull' | 'merge' | 'remove_remote' | 'remove_local' | 'mkdir_remote' | 'mkdir_local';
+  localPath: string;
+  remotePath?: string;
 }
 
 export interface DecisionDetail {
@@ -142,7 +154,7 @@ export interface RenameDetection {
 // ── Case Classification ──
 
 export type ClassifyResult =
-  | { type: 'auto'; tasks: BaseTask[]; isDelete: boolean; warning?: SyncWarning }
+  | { type: 'auto'; tasks: DecisionAction[]; isDelete: boolean; warning?: SyncWarning }
   | { type: 'conflict'; reason: ConflictReason; warning?: SyncWarning };
 
 // ── Sync Trigger ──
@@ -159,11 +171,4 @@ export function generateUUID(): string {
     const r = Math.random() * 16 | 0;
     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
   });
-}
-
-export function normalizePath(path: string): string {
-  // Strip leading slash, normalize to NFC
-  let p = path.replace(/^\/+/, '');
-  if (p.normalize) p = p.normalize('NFC');
-  return p;
 }
