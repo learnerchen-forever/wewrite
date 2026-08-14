@@ -102,12 +102,12 @@ Or install manually:
 
 ## Tutorials
 
-- [Tutorial 1: Quick Start — From Note to WeChat Draft](docs/tutorials/01-quickstart.md)
-- [Tutorial 2: Themes & Layout](docs/tutorials/02-theme-and-style.md)
-- [Tutorial 3: AI Writing Tools](docs/tutorials/03-ai-writing-tools.md)
-- [Tutorial 4: Covers & Images](docs/tutorials/04-cover-and-images.md)
-- [Tutorial 5: Materials & Image Posts](docs/tutorials/05-materials-and-newspic.md)
-- [Tutorial 6: Multi-Device Sync & Settings](docs/tutorials/06-sync-and-settings.md)
+- [Tutorial 1: Quick Start — From Note to WeChat Draft](tutorials/01-quickstart.md)
+- [Tutorial 2: Themes & Layout](tutorials/02-theme-and-style.md)
+- [Tutorial 3: AI Writing Tools](tutorials/03-ai-writing-tools.md)
+- [Tutorial 4: Covers & Images](tutorials/04-cover-and-images.md)
+- [Tutorial 5: Materials & Image Posts](tutorials/05-materials-and-newspic.md)
+- [Tutorial 6: Multi-Device Sync & Settings](tutorials/06-sync-and-settings.md)
 
 > The tutorials are currently written in Chinese; the [Chinese README](README.md) provides the full feature overview in Chinese.
 

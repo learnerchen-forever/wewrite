@@ -102,12 +102,12 @@ LaTeX 数学公式（MathJax SVG）、Mermaid 图表、Excalidraw 手绘、Wiki-
 
 ## 教程
 
-- [教程 1：快速开始 — 从笔记到公众号草稿](docs/tutorials/01-quickstart.md)
-- [教程 2：主题与排版定制](docs/tutorials/02-theme-and-style.md)
-- [教程 3：AI 辅助写作](docs/tutorials/03-ai-writing-tools.md)
-- [教程 4：封面与图片](docs/tutorials/04-cover-and-images.md)
-- [教程 5：素材管理与图片消息](docs/tutorials/05-materials-and-newspic.md)
-- [教程 6：多端同步与设置](docs/tutorials/06-sync-and-settings.md)
+- [教程 1：快速开始 — 从笔记到公众号草稿](tutorials/01-quickstart.md)
+- [教程 2：主题与排版定制](tutorials/02-theme-and-style.md)
+- [教程 3：AI 辅助写作](tutorials/03-ai-writing-tools.md)
+- [教程 4：封面与图片](tutorials/04-cover-and-images.md)
+- [教程 5：素材管理与图片消息](tutorials/05-materials-and-newspic.md)
+- [教程 6：多端同步与设置](tutorials/06-sync-and-settings.md)
 
 > 教程目前为中文；[English README](README_en.md) 提供英文功能总览。
 
