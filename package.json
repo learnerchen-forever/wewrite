@@ -1,6 +1,6 @@
 {
   "name": "obsidian-wewrite",
-  "version": "2.0.pre8",
+  "version": "2.0.pre9",
   "description": "全平台写作工具，随时随地创作微信公众号文章，轻松定制你的个性化文章风格。",
   "license": "MIT",
   "main": "main.js",
@@ -8,7 +8,8 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "test": "jest --config jest.config.js",
-    "test:e2e": "node scripts/e2e-status.mjs"
+    "test:e2e": "node scripts/e2e-status.mjs",
+    "pub": "node scripts/pub-wewrite.js"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",
@@ -26,6 +27,7 @@
     "cheerio": "^1.2.0",
     "esbuild": "^0.20.0",
     "jest": "^29.7.0",
+    "jsdom": "^24.1.3",
     "obsidian": "latest",
     "openai": "^4.50.0",
     "playwright": "^1.44.0",

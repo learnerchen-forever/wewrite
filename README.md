@@ -2,7 +2,7 @@
 
 # WeWrite — Obsidian 微信公众号写作插件
 
-**在 Obsidian 中写笔记，一键渲染为公众号格式，推送到微信草稿箱。全平台可用，手机也能完成从写作到发布的全流程。**
+**在 Obsidian 中写笔记，一键渲染为公众号排版，推送到微信草稿箱。全平台可用，手机也能完成从写作到发布的全流程。**
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-blue" alt="platforms">
@@ -14,13 +14,14 @@
 
 ## 为什么选择 WeWrite 2.0
 
-- **真正的全平台。** 桌面端和移动端功能一致，iPhone 7 + iOS 15.7 也能流畅运行。所有按钮 ≥ 44px，封面支持双指缩放和拖拽。
-- **零 CSS 文件。** 所有样式在渲染时直接内联到 HTML，不再依赖 CSS 文件或后置注入。WeChat 不会再丢掉你的排版。
-- **你的数据属于你。** 图片直接上传到你的微信公众号素材库，不经任何第三方。永远只发布到草稿箱，由你最终确认发送。
-- **30+ 种标题装饰。** 下划线、左边框、古典标题、纸媒标题、网格标题、印刷体……一键切换。
-- **像写笔记一样设计主题。** 创建带 `wewrite_theme: true` 的 Markdown 笔记，在 frontmatter 中写样式变量，实时预览效果。
-- **指纹去重，重复发布省 90%+ 时间。** FNV1a-64 内容指纹数据库，文件改名或移动后仍可匹配已上传图片，自动跳过。
-- **三区封面编辑器。** 2.35:1 横版 + 1:1 方形 → 自动合成微信要求的多比例封面。
+- **真正的全平台。** 桌面端和移动端功能一致，iPhone 7 + iOS 15.7 也能流畅运行；所有按钮 ≥ 44px，封面支持双指缩放与拖拽。
+- **零 CSS 文件。** 基于 Obsidian 原生渲染 + DOM 样式管线，所有样式在渲染时直接内联到 HTML，微信不会丢掉你的排版。
+- **你的数据属于你。** 图片直接上传到你的微信公众号素材库，不经任何第三方；永远只发布到草稿箱，由你最终确认发送。
+- **主题即笔记。** 创建带 `wewrite_theme: true` 的 Markdown 笔记即可设计整套排版，内置模板一键下载，主题编辑器实时预览。
+- **100+ 元素装饰。** 标题、引用、代码块（12 种配色）、表格、列表、分割线、链接、公式、图表……逐项可定制。
+- **指纹去重，重复发布省 90%+ 时间。** FNV1a-64 内容指纹数据库，图片改名/移动后仍可匹配已上传素材，自动跳过。
+- **三区封面编辑器。** 2.35:1 横版 + 1:1 方形 → 自动合成微信要求的多比例封面，AI 也能一键生成。
+- **内置 AI 写作助手。** 校对、同义词、翻译、Mermaid/公式生成、文生图、摘要——全部在 Obsidian 内完成。
 
 ---
 
@@ -28,28 +29,30 @@
 
 ### Markdown 渲染
 
-基础排版（H1-H6、粗体、斜体、删除线、行内代码）、代码块（深色/浅色主题、行号、macOS 红绿灯装饰）、有序/无序列表（6 种 bullet 样式）、任务列表、响应式表格、4 种引用样式、Callout（note/warning/danger/tip/info 等）、外部链接与自动编号脚注、分割线。
+基础排版（H1–H6、粗体、斜体、删除线、行内代码）、代码块（深色/浅色配色、行号、macOS 红绿灯装饰）、有序/无序列表、任务清单、表格、引用、Callout、分割线、脚注、外部链接。
 
-LaTeX 公式（MathJax SVG）、Mermaid 图表（5 种主题）、Excalidraw 手绘、Wiki-link 笔记嵌入、Obsidian 图标 / Iconize / Remix 图标、Obsidian Charts、PDF++ 注释与图片。
+LaTeX 数学公式（MathJax SVG）、Mermaid 图表、Excalidraw 手绘、Wiki-link 笔记嵌入、Obsidian / Iconize / Remix 图标、Obsidian Charts、PDF++ 注释与图片。
 
 ### AI 写作助手
 
+入口：**命令面板** + 编辑器右键 **「WeWrite AI」二级菜单**（与文生图合并），两者功能一致。
+
 | 功能 | 说明 |
 |------|------|
-| 润色 | 选中文字，一键优化表达 |
-| 校对 | 语法/拼写/风格检测，CM6 编辑器内彩色下划线标注，悬停查看建议 |
-| 翻译 | 中英双向翻译 |
-| 摘要 | 生成符合微信规范的摘要 |
-| 生成图表 | 自然语言 → Mermaid 代码 |
-| 生成公式 | 描述 → LaTeX 公式 |
-| 生成封面 | 文字描述 → AI 封面图 |
+| 校对 | 中英文错别字/语法/标点检测；Word 式审阅（接受修改 / 忽略 / 上一个 / 下一个），笔记自动定位并高亮错误 |
+| 同义词 | 选中词一键列出同义表达，回车替换 |
+| 翻译 | 10 种目标语言，替换选中内容或复制 |
+| 生成 Mermaid | 描述 → Obsidian 兼容图表，插入光标位置 |
+| 生成公式 | 描述 → LaTeX 公式，插入光标位置 |
+| 生成图片 | 文字描述 → AI 配图，插入光标位置 |
+| 生成摘要 | 推文视图中按微信规范自动生成摘要 |
 
-**支持的 AI 提供商：** OpenAI 兼容接口 DashScope 万相 / DALL·E 3 / Seedream 豆包（图片）。
-
+**AI 文本提供商：** OpenAI / OpenAI Compatible（DeepSeek、通义等）/ Anthropic / Gemini / Ollama（本地）/ OpenRouter。
+**文生图提供商：** DashScope 通义万相 / OpenAI DALL·E / Seedream 豆包。
 
 ### 发布流程
 
-写作 → WeWrite News View 实时预览 → 配置标题/作者/摘要/封面 → 一键推送草稿箱 → 手机"公众号助手"App 确认发送。
+写作 → WeWrite 推文视图实时预览 → 配置标题/作者/摘要/封面 → 一键推送草稿箱 → 手机「公众号助手」App 确认发送。
 
 ### 图片消息（NewsPic）
 
@@ -57,28 +60,19 @@ LaTeX 公式（MathJax SVG）、Mermaid 图表（5 种主题）、Excalidraw 手
 
 ### 素材管理
 
-图片 / 图文草稿分 Tab 浏览，支持删除、下载到 Vault、复制 CDN 链接、设为封面。已发布文章引用的素材自动标记，防止误删。
+图片 / 图文草稿 / 图片草稿分 Tab 浏览，支持同步、删除、下载到 Vault、复制 CDN 链接、设为封面；已发布文章引用的素材自动标记，防止误删。
 
-### 设置导入/导出
+### 主题系统
 
-完整 JSON 格式导出（含版本号和签名），跨 Vault 迁移。首次启动自动检测 v1.x 旧设置，一键迁移。
+主题 = 带 `wewrite_theme: true` 的 Markdown 笔记（存放在 `wewrite/themes/`）。内置简约/经典/优雅预设，模板一键下载，主题向导快速创建，主题编辑器可视化定制 100+ 装饰项。
 
----
+### 多端同步（实验性）
 
-## WeWrite 2.0 vs 1.0
+内置 WebDAV 同步：多设备共享一个 Vault，冲突可视化解决，同步日志可回滚；针对坚果云免费版做了配额自适应（自动暂停/恢复、笔记优先）。
 
-| 维度 | 1.0 | 2.0 |
-|------|-----|-----|
-| 平台 | 仅桌面端 | iOS / Android / HarmonyOS / Windows / Mac / Linux |
-| 渲染引擎 | `marked` 两遍渲染 + CSS 文件 | `markdown-it` 单遍零-CSS 内联渲染 |
-| 样式系统 | CSS 文件 + `juice` 后置内联 | 渲染时直接内联，无 CSS 文件 |
-| 主题 | 扁平预设，单一标题样式 | 层级化 ArticleTheme + 30+ 种标题装饰 |
-| 存储 | IndexedDB（`localforage`） | Obsidian 原生 `loadData/saveData` |
-| 素材去重 | 三套独立注册表 | 统一 FNV1a-64 指纹库 |
-| 封面 | 单一图片上传 | 三区编辑器，拖拽/双指缩放 |
-| AI | 无 | 即将发布 |
-| 图片消息 | 不支持 | 完整支持 |
-| API Key | 明文存储 | 桌面安全存储 / 移动端 AES-GCM 加密 |
+### 设置导入 / 导出
+
+完整 JSON 导出（含版本号），跨 Vault 迁移；首次启动自动检测 v1.x 旧设置并一键迁移。
 
 ---
 
@@ -95,12 +89,27 @@ LaTeX 公式（MathJax SVG）、Mermaid 图表（5 种主题）、Excalidraw 手
 
 ## 快速开始
 
-1. 在插件设置中配置你的微信公众号 AppID 和 AppSecret
-2. 打开任意 Markdown 笔记，右键 → **"作为微信图文"**
-3. 在左侧参数面板填写标题、作者、摘要
-4. 选择一个主题预设
-5. 点击 **"发布到草稿箱"**
-6. 打开手机"公众号助手"App → 草稿箱 → 确认发送
+1. 在插件设置中配置微信公众号 **AppID / AppSecret**（并处理 IP 白名单，或启用「使用中心 Token 服务器」）
+2. 打开任意 Markdown 笔记，**右键 → 「作为微信公众号推文」**
+3. 在参数面板填写标题、作者、摘要（可 AI 生成）
+4. 选择一个主题预设，预览满意后
+5. 点击 **「发布到草稿箱」**
+6. 打开手机「公众号助手」App → 草稿箱 → 确认发送
+
+> 详细步骤与常见问题见 [新手教程](#教程)。
+
+---
+
+## 教程
+
+- [教程 1：快速开始 — 从笔记到公众号草稿](docs/tutorials/01-quickstart.md)
+- [教程 2：主题与排版定制](docs/tutorials/02-theme-and-style.md)
+- [教程 3：AI 辅助写作](docs/tutorials/03-ai-writing-tools.md)
+- [教程 4：封面与图片](docs/tutorials/04-cover-and-images.md)
+- [教程 5：素材管理与图片消息](docs/tutorials/05-materials-and-newspic.md)
+- [教程 6：多端同步与设置](docs/tutorials/06-sync-and-settings.md)
+
+> 教程目前为中文；[English README](README_en.md) 提供英文功能总览。
 
 ---
 
@@ -108,9 +117,10 @@ LaTeX 公式（MathJax SVG）、Mermaid 图表（5 种主题）、Excalidraw 手
 
 ### v2.0（2026）
 
-全面重构。移动优先架构，零-CSS 内联渲染引擎（markdown-it），层级化主题系统 + Modifier 引擎（30+ 种标题装饰），AI 写作助手（6 种文本模型 + 3 种图片模型），统一 FNV1a-64 素材指纹库，三区封面编辑器，图片消息支持，API Key 加密存储，设置导入/导出，v1.x 自动迁移。
+全面重构：移动优先架构、Obsidian 原生渲染 + 零-CSS 内联样式管线、主题笔记系统 + 100+ 装饰项、AI 写作助手（校对/同义词/翻译/Mermaid/公式/文生图/摘要）、统一 FNV1a-64 素材指纹库、三区封面编辑器、图片消息支持、WebDAV 多端同步、API Key 加密存储、设置导入/导出、v1.x 自动迁移。
 
-- 2026.06.29 - WeWrite 2.0 发布，支持全平台创作。
+- 2026.08 — 2.0.pre8：AI 写作助手上线（校对审阅、同义词、翻译、Mermaid/公式生成、WeWrite AI 二级菜单）；WebDAV 同步完善（配额自适应、冲突解决、日志回滚）；素材视图移动端改造。
+- 2026.06.29 — WeWrite 2.0 发布，支持全平台创作。
 
 ### v1.x 重要更新（2023）
 
@@ -121,16 +131,8 @@ LaTeX 公式（MathJax SVG）、Mermaid 图表（5 种主题）、Excalidraw 手
 > **v2.0 不再适用的旧特性：**
 > - CSS 文件 + `juice` 后置内联 → 替换为零-CSS 内联渲染
 > - IndexedDB 存储 → 替换为 Obsidian 原生 API
-> - 同义词建议 → 已合并入"润色"功能
 > - 仅桌面端 → 现已支持全平台
 > - 扁平主题预设 → 升级为层级化主题笔记系统
-
----
-
-## 教程
-
-- [WeWrite 2.0 简介](https://mp.weixin.qq.com/s/9NOy9xYXq498jxJTIV3-Bw)
-- [写作的利器——WeWrite@Obsidian](https://mp.weixin.qq.com/s/iQ-M0042CT2mTevhx3nlfg)
 
 ---
 

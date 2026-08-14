@@ -2,7 +2,7 @@
 
 # WeWrite — Obsidian Plugin for WeChat Official Accounts
 
-**Write notes in Obsidian, render them to WeChat format with one click, and push to your WeChat drafts. Works on every platform — publish from your phone end-to-end.**
+**Write notes in Obsidian, render them to WeChat format with one click, and push them to your WeChat drafts. Works on every platform — publish end-to-end from your phone.**
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-blue" alt="platforms">
@@ -14,13 +14,14 @@
 
 ## Why WeWrite 2.0
 
-- **Truly cross-platform.** Identical features on desktop and mobile. Runs smoothly on iPhone 7 with iOS 15.7. All buttons ≥ 44px. Cover editor supports pinch-to-zoom and drag.
-- **Zero CSS files.** All styles are inlined directly into HTML at render time. No CSS files, no post-injection. WeChat won't strip your formatting.
-- **Your data stays yours.** Images are uploaded directly to your WeChat Official Account media library — never through any third party. Always publish to drafts so you have final approval.
-- **30+ heading decorations.** Underline, left border, classic, print, grid, typographic… switch with one click.
-- **Design themes like writing notes.** Create a Markdown note with `wewrite_theme: true`, write style variables in frontmatter, and preview results in real time.
-- **Fingerprint dedup saves 90%+ time on republishing.** FNV1a-64 content fingerprint database. Renamed or moved files are still matched to previously uploaded images and automatically skipped.
-- **Three-zone cover editor.** 2.35:1 landscape + 1:1 square → auto-composite the multi-ratio covers WeChat requires.
+- **Truly cross-platform.** Identical features on desktop and mobile. Runs smoothly on iPhone 7 with iOS 15.7. All buttons ≥ 44px. The cover editor supports pinch-to-zoom and drag.
+- **Zero CSS files.** Built on Obsidian's native rendering with a DOM styling pipeline — all styles are inlined into the HTML at render time, so WeChat never strips your formatting.
+- **Your data stays yours.** Images are uploaded directly to your WeChat Official Account media library — never through any third party. WeWrite only ever publishes to drafts; you always have final approval.
+- **Themes are notes.** Create a Markdown note with `wewrite_theme: true` to design an entire layout. Built-in templates are one click away, and the theme editor previews changes in real time.
+- **100+ element decorations.** Headings, blockquotes, code blocks (12 color themes), tables, lists, dividers, links, math, diagrams… each customizable individually.
+- **Fingerprint dedup saves 90%+ time on republishing.** FNV1a-64 content fingerprint database. Renamed or moved images are still matched to previously uploaded assets and automatically skipped.
+- **Three-zone cover editor.** 2.35:1 landscape + 1:1 square → auto-composite the multi-ratio covers WeChat requires. AI can generate covers too.
+- **Built-in AI writing assistant.** Proofreading, synonyms, translation, Mermaid/formula generation, image generation, and summaries — all inside Obsidian.
 
 ---
 
@@ -28,62 +29,56 @@
 
 ### Markdown Rendering
 
-Basic formatting (H1–H6, bold, italic, strikethrough, inline code), code blocks (dark/light themes, line numbers, macOS traffic light decorations), ordered/unordered lists (6 bullet styles), task lists, responsive tables, 4 blockquote styles, callouts (note/warning/danger/tip/info), external links and auto-numbered footnotes, horizontal rules.
+Basic formatting (H1–H6, bold, italic, strikethrough, inline code), code blocks (dark/light color themes, line numbers, macOS traffic-light decorations), ordered/unordered lists, task lists, tables, blockquotes, callouts, horizontal rules, footnotes, external links.
 
-LaTeX math (MathJax SVG), Mermaid diagrams (5 themes), Excalidraw sketches, wiki-link note embeds, Obsidian icons / Iconize / Remix icons, Obsidian Charts, PDF++ annotations and images.
+LaTeX math (MathJax SVG), Mermaid diagrams, Excalidraw sketches, wiki-link note embeds, Obsidian / Iconize / Remix icons, Obsidian Charts, PDF++ annotations and images.
 
 ### AI Writing Assistant
 
+Entry points: **Command palette** + editor right-click **"WeWrite AI" submenu** (shared with image generation) — both offer the same features.
+
 | Feature | Description |
 |---------|-------------|
-| Polish | Select text, optimize expression with one click |
-| Proofread | Grammar / spelling / style detection with colored underlines in the CM6 editor; hover for suggestions |
-| Translate | Bidirectional Chinese–English translation |
-| Summarize | Generate WeChat-compliant summaries |
-| Generate Diagrams | Natural language → Mermaid code |
-| Generate Formulas | Description → LaTeX formula |
-| Generate Cover | Text description → AI cover image |
+| Proofread | Spelling / grammar / punctuation checks for Chinese and English; Word-style review (Accept / Ignore / Previous / Next) with automatic scroll-and-highlight of each error |
+| Synonyms | One click lists alternative expressions for the selected word; press Enter to replace |
+| Translate | 10 target languages; replace the selection or copy the result |
+| Generate Mermaid | Description → Obsidian-compatible diagram, inserted at the cursor |
+| Generate Formula | Description → LaTeX formula, inserted at the cursor |
+| Generate Image | Text description → AI illustration, inserted at the cursor |
+| Generate Summary | WeChat-compliant summaries generated in the article view |
 
-**Supported AI providers:** OpenAI-compatible APIs, DashScope, Wanxiang / DALL·E 3 / Seedream (image).
+**AI text providers:** OpenAI / OpenAI Compatible (DeepSeek, Qwen, etc.) / Anthropic / Gemini / Ollama (local) / OpenRouter.
+**Image generation providers:** DashScope Wanxiang / OpenAI DALL·E / Seedream (Doubao).
 
 ### Publishing Workflow
 
-Write → real-time preview in WeWrite News View → configure title / author / summary / cover → push to drafts with one click → confirm and send via the Official Accounts Assistant app on your phone.
+Write → real-time preview in the WeWrite article view → configure title / author / summary / cover → push to drafts with one click → confirm and send via the Official Accounts Assistant app on your phone.
 
 ### Image Posts (NewsPic)
 
 Dedicated image post view. Up to 20 images with captions, drag-and-drop sorting, phone-frame swipe preview, crop support.
 
-### Asset Management
+### Material Management
 
-Images and article drafts in separate tabs. Delete, download to vault, copy CDN links, set as cover. Assets referenced by published articles are automatically flagged to prevent accidental deletion.
+Images / article drafts / image drafts in separate tabs. Sync, delete, download to vault, copy CDN links, set as cover. Assets referenced by published articles are automatically flagged to prevent accidental deletion.
+
+### Theme System
+
+A theme is a Markdown note with `wewrite_theme: true` (stored in `wewrite/themes/`). Built-in Minimal / Classic / Elegant presets, one-click template downloads, a theme wizard for quick creation, and a visual theme editor for 100+ decoration options.
+
+### Multi-Device Sync (Experimental)
+
+Built-in WebDAV sync: share one vault across devices, resolve conflicts visually, and roll back via the sync journal. Quota-aware for Jianguoyun's free plan (auto pause/resume, notes-first priority).
 
 ### Settings Import / Export
 
-Full JSON export with version number and signature. Cross-vault migration. Auto-detect legacy v1.x settings on first launch with one-click migration.
-
----
-
-## WeWrite 2.0 vs 1.0
-
-| Aspect | 1.0 | 2.0 |
-|--------|-----|-----|
-| Platforms | Desktop only | iOS / Android / HarmonyOS / Windows / Mac / Linux |
-| Rendering engine | `marked` two-pass + CSS files | `markdown-it` single-pass zero-CSS inline rendering |
-| Style system | CSS files + `juice` post-injection | Inlined at render time, no CSS files |
-| Themes | Flat presets, single heading style | Hierarchical ArticleTheme + 30+ heading decorations |
-| Storage | IndexedDB (`localforage`) | Obsidian native `loadData`/`saveData` |
-| Asset dedup | Three separate registries | Unified FNV1a-64 fingerprint database |
-| Cover | Single image upload | Three-zone editor, drag / pinch-to-zoom |
-| AI | None | Coming soon |
-| Image posts | Not supported | Fully supported |
-| API key | Plaintext | Desktop secure storage / Mobile AES-GCM encryption |
+Full JSON export (with version number) for cross-vault migration. Automatically detects legacy v1.x settings on first launch and migrates them in one click.
 
 ---
 
 ## Installation
 
-Search **"WeWrite"** in the Obsidian Community Plugins marketplace, install and enable.
+Search **"WeWrite"** in the Obsidian Community Plugins marketplace, install and enable it.
 
 Or install manually:
 1. Download the latest release from [Releases](https://github.com/learnerchen-forever/wewrite-next/releases)
@@ -94,12 +89,27 @@ Or install manually:
 
 ## Quick Start
 
-1. Configure your WeChat Official Account AppID and AppSecret in plugin settings
-2. Open any Markdown note, right-click → **"Open as WeWrite Article"**
-3. Fill in title, author, and summary in the left parameter panel
-4. Choose a theme preset
+1. Configure your WeChat Official Account **AppID / AppSecret** in plugin settings (add the IP to the whitelist, or enable "Use central token server")
+2. Open any Markdown note, **right-click → "Open as WeChat Article"**
+3. Fill in the title, author, and summary (or let AI generate them) in the parameter panel
+4. Pick a theme preset and check the preview
 5. Click **"Publish to Drafts"**
 6. Open the Official Accounts Assistant app on your phone → drafts → confirm and send
+
+> For step-by-step details and FAQs, see the [Tutorials](#tutorials) below.
+
+---
+
+## Tutorials
+
+- [Tutorial 1: Quick Start — From Note to WeChat Draft](docs/tutorials/01-quickstart.md)
+- [Tutorial 2: Themes & Layout](docs/tutorials/02-theme-and-style.md)
+- [Tutorial 3: AI Writing Tools](docs/tutorials/03-ai-writing-tools.md)
+- [Tutorial 4: Covers & Images](docs/tutorials/04-cover-and-images.md)
+- [Tutorial 5: Materials & Image Posts](docs/tutorials/05-materials-and-newspic.md)
+- [Tutorial 6: Multi-Device Sync & Settings](docs/tutorials/06-sync-and-settings.md)
+
+> The tutorials are currently written in Chinese; the [Chinese README](README.md) provides the full feature overview in Chinese.
 
 ---
 
@@ -107,9 +117,10 @@ Or install manually:
 
 ### v2.0 (2026)
 
-Complete rewrite. Mobile-first architecture, zero-CSS inline rendering engine (markdown-it), hierarchical theme system + Modifier engine (30+ heading decorations), AI writing assistant (6 text models + 3 image models), unified FNV1a-64 asset fingerprint database, three-zone cover editor, image post support, encrypted API key storage, settings import/export, automatic v1.x migration.
+Complete rewrite: mobile-first architecture, Obsidian native rendering + zero-CSS inline styling pipeline, theme-note system with 100+ decorations, AI writing assistant (proofread / synonyms / translate / Mermaid / formulas / image / summary), unified FNV1a-64 asset fingerprint database, three-zone cover editor, image post support, WebDAV multi-device sync, encrypted API key storage, settings import/export, automatic v1.x migration.
 
-- 2026.06.29 - first release of WeWrite 2.0.
+- 2026.08 — 2.0.pre8: AI writing assistant shipped (proofread review, synonyms, translate, Mermaid/formula generation, WeWrite AI submenu); WebDAV sync hardened (quota adaptivity, conflict resolution, journal rollback); material view mobile redesign.
+- 2026.06.29 — WeWrite 2.0 released, supporting creation on all platforms.
 
 ### v1.x Notable Updates (2023)
 
@@ -120,16 +131,8 @@ Complete rewrite. Mobile-first architecture, zero-CSS inline rendering engine (m
 > **v1.x features no longer applicable in 2.0:**
 > - CSS files + `juice` post-injection → replaced by zero-CSS inline rendering
 > - IndexedDB storage → replaced by Obsidian native API
-> - Synonym suggestions → merged into the "Polish" feature
 > - Desktop-only → now fully cross-platform
-> - Flat theme presets → upgraded to hierarchical theme note system
-
----
-
-## Tutorials
-
-- [WeWrite 2.0 Introduction](https://mp.weixin.qq.com/s/9NOy9xYXq498jxJTIV3-Bw)
-- [WeWrite@Obsidian — A Writing Tool](https://mp.weixin.qq.com/s/iQ-M0042CT2mTevhx3nlfg)
+> - Flat theme presets → upgraded to hierarchical theme-note system
 
 ---
 
