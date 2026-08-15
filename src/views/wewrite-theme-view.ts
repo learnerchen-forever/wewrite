@@ -368,7 +368,6 @@ export class WeWriteThemeView extends ItemView {
 
 	// Lifecycle
 	private _pendingFilePath: string | null = null;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private _leafChangeRef: EventRef | null = null;
 	private _eventBusUnsubs: Array<() => void> = [];
 	/** Monotonic counter for setFile/loadThemeFile race protection. */

@@ -215,7 +215,6 @@ export class WeChatNewsView extends ItemView {
 
   private _statusBarOrigDisplay: string | undefined;
   private _syncStatusOrigDisplay: string | undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _leafChangeRef: EventRef | null = null;
 
   private hideViewHeader(): void {
@@ -270,7 +269,6 @@ export class WeChatNewsView extends ItemView {
     const title = this.getDisplayText();
 
     // A: Tab header title
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const th = (this.leaf as unknown as { tabHeaderEl?: HTMLElement }).tabHeaderEl;
     if (th) {
       const te = th.querySelector('.workspace-tab-header-inner-title');
