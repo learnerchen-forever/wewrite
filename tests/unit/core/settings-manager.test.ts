@@ -20,7 +20,7 @@ function aiTextAccount(overrides: Record<string, unknown> = {}) {
 
 // Helper: valid AI image account
 function aiImageAccount(overrides: Record<string, unknown> = {}) {
-  return { id: 'i1', name: 'Test Image', provider: 'dashscope', baseUrl: 'https://example.com/', apiKey: 'sk-456', model: 'wanx2.1-t2i-turbo', ...overrides };
+  return { id: 'i1', name: 'Test Image', provider: 'dashscope', baseUrl: 'https://example.com/', workspaceId: '', apiKey: 'sk-456', model: 'wanx2.1-t2i-turbo', ...overrides };
 }
 
 describe('SettingsManager', () => {
@@ -173,6 +173,40 @@ describe('SettingsManager', () => {
       const result = await manager.load(data);
       expect(result.settings.aiImageGenAccounts).toHaveLength(1);
       expect(result.settings.aiImageGenAccounts[0].provider).toBe('dashscope');
+      expect(result.settings.aiImageGenAccounts[0].workspaceId).toBe('');
+    });
+
+    it('should migrate obsolete wanx async accounts to the Wan 2.6 sync API template', async () => {
+      const data = {
+        drawAccounts: [
+          {
+            _id: 'd1', accountName: 'DashScope',
+            baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
+            taskUrl: 'https://dashscope.aliyuncs.com/api/v1/tasks',
+            apiKey: 'sk-xxx', model: 'wanx2.1-t2i-turbo',
+          },
+        ],
+      };
+      const result = await manager.load(data);
+      const account = result.settings.aiImageGenAccounts[0];
+      expect(account).toBeDefined();
+      expect(account.provider).toBe('dashscope');
+      expect(account.baseUrl).toBe('https://{workspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1');
+      expect(account.model).toBe('wan2.6-t2i');
+      // taskUrl（异步轮询端点）已废弃，不再保留
+      expect(account).not.toHaveProperty('taskUrl');
+    });
+
+    it('should keep workspaceId when loading a v2 account', async () => {
+      const data = {
+        version: '1.1.0',
+        aiImageGenAccounts: [
+          aiImageAccount({ provider: 'qwen-image', model: 'qwen-image-3.0-pro', workspaceId: 'ws-abc' }),
+        ],
+      };
+      const result = await manager.load(data);
+      expect(result.settings.aiImageGenAccounts[0].workspaceId).toBe('ws-abc');
+      expect(result.settings.aiImageGenAccounts[0].provider).toBe('qwen-image');
     });
 
     it('should migrate v1 selectedMPAccount to activeWeChatAccountId by name', async () => {

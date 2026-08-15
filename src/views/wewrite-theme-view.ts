@@ -278,7 +278,6 @@ const ELEMENT_GROUPS: { key: string; paths: string[] }[] = [
 	{ key: 'list', paths: ['blocks.list'] },
 	{ key: 'hr', paths: ['blocks.hr'] },
 	{ key: 'inline', paths: ['inline.link', 'inline.strong', 'inline.code'] },
-	{ key: 'other', paths: ['media.mermaid'] },
 ];
 
 export class WeWriteThemeView extends ItemView {
@@ -362,8 +361,8 @@ export class WeWriteThemeView extends ItemView {
 	private paletteSectionEl: HTMLElement | null = null;
 	private previewCollapsed = false;
 	private editorCollapsed = false;
-	private collapsedSections = new Set<string>();
-	private sectionObserver: MutationObserver | null = null;
+	/** Section keys the user has explicitly expanded. Sections are collapsed by default. */
+	private expandedByUser = new Set<string>();
 	private dirty = false;
 	private _rawFrontmatter: Record<string, unknown> = {};
 
@@ -439,6 +438,20 @@ export class WeWriteThemeView extends ItemView {
 .wewrite-theme-view button:not(.wewrite-btn-icon) {
   height: var(--input-height, 30px); padding: 0 10px; border-radius: 6px; font-size: 12px;
 }
+/* Range sliders own their touch: dragging a thumb must not pan the editor
+   scroll or trigger Obsidian mobile's view-swipe gesture mid-drag. */
+.wewrite-theme-view input[type="range"] { touch-action: none; }
+/* Header bar: icon buttons stay fixed-size, the theme-name input grows.
+   On narrow screens the input wraps onto its own full-width row. */
+.wewrite-theme-view .wewrite-theme-header {
+  padding: 8px 12px; border-bottom: 1px solid var(--background-modifier-border);
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap;
+}
+.wewrite-theme-view .wewrite-theme-header .wewrite-input { flex: 1 1 200px; min-width: 120px; }
+.wewrite-theme-view .wewrite-theme-header .wewrite-btn-icon { flex-shrink: 0; }
+/* Collapsed sections: hide everything except the header (class-based, so
+   inline display:flex rows keep their layout when a section re-opens). */
+.wewrite-theme-view .wewrite-theme-section.wewrite-theme-section-collapsed > *:not(.wewrite-theme-section-header) { display: none !important; }
 @media (max-width: 760px) {
   .wewrite-theme-view .wewrite-theme-split {
     flex-wrap: wrap !important; overflow-y: auto !important;
@@ -461,12 +474,24 @@ export class WeWriteThemeView extends ItemView {
   .wewrite-theme-view .wewrite-btn-icon {
     min-width: 44px !important; min-height: 44px !important;
   }
+  /* Header: the theme-name input takes its own full-width row on top. */
+  .wewrite-theme-view .wewrite-theme-header { gap: 8px; }
+  .wewrite-theme-view .wewrite-theme-header .wewrite-input { flex: 1 1 100% !important; order: -1; }
+  /* Section internals: let flex rows wrap instead of overflowing, and give
+     every control room to shrink. */
+  .wewrite-theme-view .wewrite-theme-editor-panel { padding: 8px !important; }
+  .wewrite-theme-view .wewrite-theme-section-header {
+    min-height: 44px !important; padding-top: 10px !important; padding-bottom: 10px !important;
+  }
+  .wewrite-theme-view .wewrite-theme-section [style*="display:flex"] { flex-wrap: wrap; }
+  .wewrite-theme-view .wewrite-theme-section input[type="text"],
+  .wewrite-theme-view .wewrite-theme-section input[type="number"],
+  .wewrite-theme-view .wewrite-theme-section select { min-width: 0; }
 }
 `;
 
 		// Header bar
 		const header = c.createDiv({ cls: 'wewrite-theme-header' });
-		header.style.cssText = 'padding:8px 12px;border-bottom:1px solid var(--background-modifier-border);display:flex;align-items:center;gap:6px;flex-shrink:0';
 
 		const newBtn = header.createEl('button', { cls: 'wewrite-btn-icon' });
 		newBtn.setAttribute('aria-label', t('theme.editor.new_theme'));
@@ -475,7 +500,6 @@ export class WeWriteThemeView extends ItemView {
 
 		this.nameInput = header.createEl('input', { type: 'text', placeholder: t('theme.editor.theme_name'), cls: 'wewrite-input' });
 		this.nameInput.value = this.themeName;
-		this.nameInput.style.flex = '1';
 		this.nameInput.addEventListener('change', () => {
 			this.onConfigChanged(() => { this.themeName = this.nameInput.value; });
 		});
@@ -525,8 +549,6 @@ export class WeWriteThemeView extends ItemView {
 		this.previewContainer = previewPanel.createDiv({ cls: 'wewrite-theme-preview-content' });
 		this.previewContainer.style.cssText = 'flex:1;overflow-y:auto;padding:16px;min-height:0';
 
-		this.observeSectionCollapse();
-
 		// Deferred loading: pick up pending file when user switches to this tab
 		this._leafChangeRef = this.app.workspace.on('active-leaf-change', (leaf) => {
 			if (leaf?.view === this && this._pendingFilePath) {
@@ -544,8 +566,6 @@ export class WeWriteThemeView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
-		this.sectionObserver?.disconnect();
-		this.sectionObserver = null;
 		// Auto-save if there are unsaved changes
 		if (this.dirty && this.filePath) {
 			await this.flushSave();
@@ -821,60 +841,34 @@ export class WeWriteThemeView extends ItemView {
 	private buildEditorContent(): void {
 		this.editorPanel.empty();
 
-		// Palette section
-		this.buildPaletteSection(this.editorPanel);
+		// 分组顺序按常用度排列：
+		//   配色 → 文章 → 排版 → 行内元素 → 标题 → 引用块 → 标注框 → 代码块
+		//   → 有序列表 → 无序列表 → 任务列表 → 图片 → 表格 → 公式 → 分割线
+		//   → Mermaid → Excalidraw
+		this.buildPaletteSection(this.editorPanel);        // 1. 配色
+		this.buildArticleSection(this.editorPanel);        // 2. 文章
+		this.buildTypographySection(this.editorPanel);     // 3. 排版
+		this.buildInlineVarsSection(this.editorPanel);     // 行内元素（文本级格式，紧跟排版）
 
-		// Article section (right after palette: page background / pattern / margin / radius / border)
-		this.buildArticleSection(this.editorPanel);
+		this.buildHeadingVarsSection(this.editorPanel);    // 4. 标题
+		this.buildBlockquoteVarsSection(this.editorPanel); // 5. 引用块
+		this.buildCalloutVarsSection(this.editorPanel);    // 6. 标注框
 
-		// Typography section
-		this.buildTypographySection(this.editorPanel);
-
-		// Heading variables (new system)
-		this.buildHeadingVarsSection(this.editorPanel);
-
-		// Blockquote variables (new decoration system)
-		this.buildBlockquoteVarsSection(this.editorPanel);
-
-		// Callout variables (new decoration system)
-		this.buildCalloutVarsSection(this.editorPanel);
-
-		// Mermaid variables (new decoration system)
-		this.buildMermaidVarsSection(this.editorPanel);
-
-		// Image variables (new decoration system)
-		this.buildImageVarsSection(this.editorPanel);
-
-		// Math variables (new decoration system)
-		this.buildMathVarsSection(this.editorPanel);
-
-		// Excalidraw variables (new decoration system)
-		this.buildExcalidrawVarsSection(this.editorPanel);
-
-		// Table variables (new decoration system)
-		this.buildTableVarsSection(this.editorPanel);
-
-		// Divider variables (new decoration system)
-		this.buildDividerVarsSection(this.editorPanel);
-
-		// 三类独立列表变量（有序 / 无序 / 任务，各自的装饰器与设置组）
-		this.buildOrderedVarsSection(this.editorPanel);
-		this.buildUnorderedVarsSection(this.editorPanel);
-		this.buildTaskVarsSection(this.editorPanel);
-
-		// Inline variables (new decoration system)
-		this.buildInlineVarsSection(this.editorPanel);
-
-		// Element groups
+		// 7. 代码块（唯一保留的 slot 分组；其它历史分组已被各自的
+		//    装饰器系统替换或删除）
 		for (const group of ELEMENT_GROUPS) {
-			// The heading group is replaced by the new heading variables section.
-			// The table group is replaced by the new table decoration section.
-			// The hr group is replaced by the new divider decoration section.
-			// The list group is replaced by the new list decoration section.
-			// The inline group is replaced by the new inline decoration section.
-			if (group.key === 'heading' || group.key === 'table' || group.key === 'hr' || group.key === 'list' || group.key === 'inline') continue;
-			this.buildElementGroup(this.editorPanel, group);
+			if (group.key === 'code') this.buildElementGroup(this.editorPanel, group);
 		}
+
+		this.buildOrderedVarsSection(this.editorPanel);    // 8. 有序列表
+		this.buildUnorderedVarsSection(this.editorPanel);  // 9. 无序列表
+		this.buildTaskVarsSection(this.editorPanel);       // 10. 任务列表
+		this.buildImageVarsSection(this.editorPanel);      // 11. 图片
+		this.buildTableVarsSection(this.editorPanel);      // 12. 表格
+		this.buildMathVarsSection(this.editorPanel);       // 13. 公式
+		this.buildDividerVarsSection(this.editorPanel);    // 14. 分割线
+		this.buildMermaidVarsSection(this.editorPanel);    // 15. Mermaid
+		this.buildExcalidrawVarsSection(this.editorPanel); // 16. Excalidraw
 
 		this.buildPreview();
 	}
@@ -1054,7 +1048,7 @@ export class WeWriteThemeView extends ItemView {
 
 	private addSlider(container: HTMLElement, label: string, min: number, max: number, step: number, value: number, unit: string, onChange: (v: number) => void): void {
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px';
+		row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12px';
 		const lbl = row.createSpan({ text: `${label}: ${value}${unit}` });
 		lbl.style.minWidth = '60px';
 		const slider = row.createEl('input', { type: 'range' });
@@ -1063,6 +1057,7 @@ export class WeWriteThemeView extends ItemView {
 		slider.max = String(max);
 		slider.step = String(step);
 		slider.value = String(value);
+		this.blockSliderTouchPassThrough(slider);
 		slider.addEventListener('input', () => {
 			const v = parseFloat(slider.value);
 			lbl.setText(`${label}: ${v}${unit}`);
@@ -1070,6 +1065,19 @@ export class WeWriteThemeView extends ItemView {
 		slider.addEventListener('change', () => {
 			this.onConfigChanged(() => { onChange(parseFloat(slider.value)); });
 		});
+	}
+
+	/**
+	 * Keep a range-input drag on mobile from bubbling into Obsidian's touch
+	 * swipe gesture (which would switch views mid-drag). Combined with
+	 * `touch-action: none` (see the view <style>), the slider owns its touch.
+	 */
+	private blockSliderTouchPassThrough(slider: HTMLInputElement): void {
+		const stop = (e: Event): void => e.stopPropagation();
+		slider.addEventListener('touchstart', stop, { passive: true });
+		slider.addEventListener('touchmove', stop, { passive: true });
+		slider.addEventListener('pointerdown', stop, { passive: true });
+		slider.addEventListener('pointermove', stop, { passive: true });
 	}
 
 	// ── Article ──
@@ -3280,7 +3288,6 @@ export class WeWriteThemeView extends ItemView {
 			list: t('theme.group.list'),
 			hr: t('theme.section.divider'),
 			inline: t('theme.section.inline'),
-			other: t('theme.group.other'),
 		};
 		return titles[key] || key;
 	}
@@ -3572,7 +3579,7 @@ export class WeWriteThemeView extends ItemView {
 		const current = this.articleSliderNumber(slotId, currentValue, fallback);
 
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;margin-bottom:12px';
 		const label = row.createSpan({ text: slot.name });
 		label.style.minWidth = '50px';
 		const readout = row.createSpan({ text: `${current}${opts.unit}` });
@@ -3583,6 +3590,7 @@ export class WeWriteThemeView extends ItemView {
 		slider.max = String(opts.max);
 		slider.step = String(opts.step);
 		slider.value = String(current);
+		this.blockSliderTouchPassThrough(slider);
 		slider.addEventListener('input', () => readout.setText(`${parseFloat(slider.value)}${opts.unit}`));
 		slider.addEventListener('change', () => this.applyNumericSlotValue(elementPath, slotId, parseFloat(slider.value), opts));
 	}
@@ -3618,7 +3626,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Width slider row
 		const wRow = container.createDiv();
-		wRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		wRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;margin-bottom:12px';
 		const wLabel = wRow.createSpan({ text: slot.name });
 		wLabel.style.minWidth = '50px';
 		const wReadout = wRow.createSpan({ text: `${width}px` });
@@ -3629,6 +3637,7 @@ export class WeWriteThemeView extends ItemView {
 		widthSlider.max = '8';
 		widthSlider.step = '1';
 		widthSlider.value = String(width);
+		this.blockSliderTouchPassThrough(widthSlider);
 		widthSlider.addEventListener('input', () => wReadout.setText(`${parseFloat(widthSlider.value)}px`));
 		widthSlider.addEventListener('change', () => {
 			this.applyFrameBorderValue(elementPath, parseInt(widthSlider.value, 10), currentHex.toLowerCase());
@@ -4263,35 +4272,24 @@ export class WeWriteThemeView extends ItemView {
 		splitter.addEventListener('pointercancel', onEnd);
 	}
 
-	/** Re-hide children of collapsed sections whenever a section re-renders. */
-	private observeSectionCollapse(): void {
-		this.sectionObserver?.disconnect();
-		this.sectionObserver = new MutationObserver(() => {
-			this.editorPanel.querySelectorAll<HTMLElement>('.wewrite-theme-section').forEach((section) => {
-				const key = section.getAttribute('data-section-key');
-				if (!key || !this.collapsedSections.has(key)) return;
-				const chevron = section.querySelector<HTMLElement>('.wewrite-theme-chevron');
-				// Guard the write: setting textContent replaces the text node,
-				// which is itself a childList mutation that re-fires this
-				// observer — an unconditional write would loop forever.
-				if (chevron && chevron.textContent !== '▸') chevron.textContent = '▸';
-				for (let i = 1; i < section.children.length; i++) {
-					const child = section.children[i] as HTMLElement;
-					if (child.style.display !== 'none') child.style.display = 'none';
-				}
-			});
-		});
-		this.sectionObserver.observe(this.editorPanel, { childList: true, subtree: true });
-	}
-
+	/**
+	 * Apply the collapsed state to a section. Hiding is class-based
+	 * (.wewrite-theme-section-collapsed), so inline `display:flex` rows keep
+	 * their layout when a section is re-opened — toggling inline display
+	 * would wipe the flex value and turn every row vertical.
+	 */
 	private applySectionCollapse(section: HTMLElement, key: string, chevron: HTMLElement): void {
-		const collapsed = this.collapsedSections.has(key);
-		const chevronText = collapsed ? '▸' : '▾';
-		if (chevron.textContent !== chevronText) chevron.textContent = chevronText;
-		for (let i = 1; i < section.children.length; i++) {
-			const child = section.children[i] as HTMLElement;
-			const target = collapsed ? 'none' : '';
-			if (child.style.display !== target) child.style.display = target;
+		// Sections start collapsed; an explicit user expansion wins.
+		const collapsed = !this.expandedByUser.has(key);
+		section.classList.toggle('wewrite-theme-section-collapsed', collapsed);
+		const header = section.querySelector<HTMLElement>('.wewrite-theme-section-header');
+		if (header) header.setAttribute('aria-expanded', String(!collapsed));
+		// chevron-right when collapsed, chevron-down when open (data-state
+		// guards against redundant setIcon churn).
+		const state = collapsed ? 'right' : 'down';
+		if (chevron.getAttribute('data-state') !== state) {
+			chevron.setAttribute('data-state', state);
+			setIcon(chevron, collapsed ? 'chevron-right' : 'chevron-down');
 		}
 	}
 
@@ -4335,14 +4333,17 @@ export class WeWriteThemeView extends ItemView {
 		section.style.cssText = 'margin-bottom:10px;padding:8px 10px;border:1px solid var(--background-modifier-border);border-radius:8px';
 		const header = section.createDiv({ cls: 'wewrite-theme-section-header' });
 		header.style.cssText = 'display:flex;align-items:center;gap:6px;margin:-8px -10px 8px;padding:8px 10px;font-size:13px;font-weight:600;cursor:pointer;user-select:none;border-bottom:1px solid var(--background-modifier-border)';
+		const titleEl = header.createSpan({ text: title });
+		titleEl.style.cssText = 'flex:1;min-width:0';
+		// Collapse chevron sits at the right edge (chevron_right / chevron_down),
+		// matching the collapse affordance used everywhere else in wewrite.
 		const chevron = header.createSpan({ cls: 'wewrite-theme-chevron' });
-		chevron.style.cssText = 'display:inline-block;width:14px;text-align:center;color:var(--text-muted);font-size:11px;flex-shrink:0';
-		header.createSpan({ text: title });
+		chevron.style.cssText = 'display:flex;align-items:center;justify-content:center;width:20px;height:20px;color:var(--text-muted);flex-shrink:0';
 		header.addEventListener('click', () => {
-			if (this.collapsedSections.has(sectionKey)) {
-				this.collapsedSections.delete(sectionKey);
+			if (this.expandedByUser.has(sectionKey)) {
+				this.expandedByUser.delete(sectionKey);
 			} else {
-				this.collapsedSections.add(sectionKey);
+				this.expandedByUser.add(sectionKey);
 			}
 			this.applySectionCollapse(section, sectionKey, chevron);
 		});

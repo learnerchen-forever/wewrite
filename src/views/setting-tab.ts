@@ -4,6 +4,13 @@ import { App, PluginSettingTab, Setting, Notice, Modal, setIcon, requestUrl, Sug
 import type WeWritePlugin from '../main';
 import type { WeChatAccount, AITextAccount, AIImageGenAccount, AIProviderType, ImageGenProviderType, WeWriteSettings } from '../core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS, DEFAULT_SETTINGS } from '../core/interfaces';
+import {
+  ALI_MAAS_BASE_URL_TEMPLATE,
+  ARK_IMAGES_GENERATIONS_URL,
+  QWEN_IMAGE_MODEL_PRO,
+  SEEDREAM_5_0_PRO_MODEL,
+  WAN_2_6_MODEL,
+} from '../core/image-gen-defaults';
 import { createLogger } from '../utils/logger';
 import { encryptValue } from '../utils/encryption';
 import { t, onLanguageChange } from '../i18n';
@@ -15,11 +22,17 @@ import { formatBytes, storageUsedPercent, type ServerQuotaInfo } from '../sync/q
 
 const log = createLogger('Views:Settings');
 
-const IMAGE_PROVIDER_DEFAULTS: Record<ImageGenProviderType, { baseUrl: string; model: string; taskUrl?: string; defaultSize?: string }> = {
+const IMAGE_PROVIDER_DEFAULTS: Record<ImageGenProviderType, { baseUrl: string; model: string; defaultSize: string }> = {
   dashscope: {
-    baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
-    model: 'wanx2.1-t2i-turbo',
-    taskUrl: 'https://dashscope.aliyuncs.com/api/v1/tasks',
+    // 万相 2.6（同步 API）：{workspaceId} 占位符在调用时替换为账号配置的业务空间 ID。
+    baseUrl: ALI_MAAS_BASE_URL_TEMPLATE,
+    model: WAN_2_6_MODEL,
+    defaultSize: '1024*1024',
+  },
+  'qwen-image': {
+    // 千问 3.0：chat.completions API，同样需要 workspaceId。
+    baseUrl: ALI_MAAS_BASE_URL_TEMPLATE,
+    model: QWEN_IMAGE_MODEL_PRO,
     defaultSize: '1024*1024',
   },
   openai: {
@@ -28,11 +41,16 @@ const IMAGE_PROVIDER_DEFAULTS: Record<ImageGenProviderType, { baseUrl: string; m
     defaultSize: '1024x1024',
   },
   seedream: {
-    baseUrl: 'https://ark.cn-beijing.volces.com/api/v3/images/generations',
-    model: 'doubao-seedream-5-0-260128',
+    baseUrl: ARK_IMAGES_GENERATIONS_URL,
+    model: SEEDREAM_5_0_PRO_MODEL,
     defaultSize: '2K',
   },
 };
+
+/** True when the base URL is (or was) the 阿里百炼 maas 模板 — workspaceId 与 baseUrl 保持联动。 */
+function isAliMaasBaseUrl(url: string): boolean {
+  return /maas\.aliyuncs\.com\/compatible-mode/i.test(url);
+}
 
 /** Community plugin IDs known to provide vault sync — must not coexist with WeWrite sync. */
 const SYNC_CONFLICT_PLUGINS: Record<string, string> = {
@@ -549,14 +567,16 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
       new Setting(card).setName(t('settings.provider')).addDropdown((d) => {
         d.selectEl.addClass('dropdown', 'wewrite-select');
-        d.addOption('dashscope', 'DashScope (Qwen)').addOption('openai', 'OpenAI (DALL-E)').addOption('seedream', 'Seedream (ByteDance)')
+        d.addOption('dashscope', '阿里万相 Wan 2.6')
+          .addOption('qwen-image', '阿里千问 Qwen-Image 3.0')
+          .addOption('seedream', '字节 Seedream 5.0')
+          .addOption('openai', 'OpenAI (DALL-E)')
           .setValue(account.provider).onChange((v) => {
             const provider = v as ImageGenProviderType;
             account.provider = provider;
             const defs = IMAGE_PROVIDER_DEFAULTS[provider];
             account.baseUrl = defs.baseUrl;
             account.model = defs.model;
-            account.taskUrl = defs.taskUrl || '';
             account.defaultSize = defs.defaultSize;
             this.save();
             this.display();
@@ -567,6 +587,26 @@ export class WeWriteSettingTab extends PluginSettingTab {
         tc.setPlaceholder(t('settings.appsecret_placeholder')).onChange((v) => { if (v) { account.apiKey = v; this.save(); } });
         tc.inputEl.type = 'password';
       });
+
+      if (account.provider === 'dashscope' || account.provider === 'qwen-image') {
+        new Setting(card)
+          .setName(t('settings.workspace_id'))
+          .setDesc(t('settings.workspace_id_desc'))
+          .addText((tc) =>
+            tc.setPlaceholder(t('settings.workspace_id_placeholder'))
+              .setValue(account.workspaceId || '')
+              .onChange((v) => {
+                account.workspaceId = v.trim();
+                // 保持 baseUrl 与 workspaceId 联动（仅当当前 baseUrl 是百炼 maas 模板或其解析结果）。
+                if (isAliMaasBaseUrl(account.baseUrl)) {
+                  account.baseUrl = v.trim()
+                    ? ALI_MAAS_BASE_URL_TEMPLATE.replace('{workspaceId}', v.trim())
+                    : ALI_MAAS_BASE_URL_TEMPLATE;
+                }
+                this.save();
+              }),
+          );
+      }
 
       new Setting(card).setName(t('settings.model')).addText((t) =>
         t.setValue(account.model).onChange((v) => { account.model = v; this.save(); }),
@@ -589,7 +629,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             .onClick(async () => {
               btn.setIcon('loader-2');
               const name = account.name;
-              const result = await this.plugin.testAIImageAccount(account.provider, account.baseUrl, account.apiKey);
+              const result = await this.plugin.testAIImageAccount(account);
               btn.setIcon('plug-zap');
               if (result.success) {
                 new Notice(t('notice.test_ai_image_success', { name, message: result.message }));
@@ -602,12 +642,6 @@ export class WeWriteSettingTab extends PluginSettingTab {
       new Setting(card).setName(t('settings.base_url')).addText((t) =>
         t.setValue(account.baseUrl).onChange((v) => { account.baseUrl = v; this.save(); }),
       );
-
-      if (account.provider === 'dashscope') {
-        new Setting(card).setName(t('settings.task_url')).addText((t) =>
-          t.setValue(account.taskUrl || '').onChange((v) => { account.taskUrl = v; this.save(); }),
-        );
-      }
 
       const buttonRow = new Setting(card);
       if (!isActive) {
@@ -633,11 +667,11 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
     new Setting(aiImageBody).addButton((btn) =>
       btn.setButtonText(t('settings.add_ai_image_provider')).onClick(() => {
+        const defs = IMAGE_PROVIDER_DEFAULTS.dashscope;
         settings.aiImageGenAccounts.push({
           id: generateId(), name: t('settings.new_provider'), provider: 'dashscope',
-          baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
-          taskUrl: 'https://dashscope.aliyuncs.com/api/v1/tasks',
-          apiKey: '', model: 'wanx2.1-t2i-turbo', defaultSize: '1024*1024',
+          baseUrl: defs.baseUrl, workspaceId: '', apiKey: '',
+          model: defs.model, defaultSize: defs.defaultSize,
         });
         this.save();
         this.display();

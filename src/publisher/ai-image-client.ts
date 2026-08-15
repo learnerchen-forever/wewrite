@@ -1,12 +1,17 @@
 // ai-image-client.ts — Unified AI text-to-image client
 //
-// The three supported providers have incompatible `size` parameters:
-//   - DashScope (阿里通义万相):  "W*H" with an asterisk, and only a fixed set
-//     of predefined sizes is accepted (e.g. 1024*1024, 1440*613). Any other
-//     value makes the API reject the whole request with HTTP 400.
-//   - Seedream / Volcengine Ark: OpenAI-compatible "WxH" or shorthand "2K"/"4K",
-//     with a supported pixel range.
-//   - OpenAI DALL-E:             a fixed set of sizes only.
+// Supported providers (each has an incompatible request shape / size syntax):
+//   - dashscope (阿里万相 2.6):  OpenAI-compatible 同步 images API
+//       POST {base}/images/generations, size "W*H" (asterisk), only a fixed set
+//       of predefined sizes is accepted. Requires a workspaceId embedded in the
+//       base URL host (https://{workspaceId}.cn-beijing.maas.aliyuncs.com/...).
+//   - qwen-image (阿里千问 3.0): OpenAI-compatible chat.completions API
+//       POST {base}/chat/completions with messages[{type:text}] + parameters,
+//       image URL comes back in choices[0].message.content[0].image. Requires
+//       the same workspaceId. No negative prompt support.
+//   - seedream (字节 Seedream 5.0 / 火山方舟): OpenAI-compatible images API,
+//       "WxH" pixels or shorthand "1K/1.5K/2K/3K/4K".
+//   - openai (DALL-E): fixed set of sizes only.
 //
 // Instead of forcing the user to hand-tune `size` per provider, this module
 // accepts a free-form size (WxH / W*H / W×H / 2K / 4K / aspect hint) and maps
@@ -25,7 +30,8 @@ export interface AIImageAccountLike {
   apiKey: string;
   model: string;
   provider: ImageGenProviderType;
-  taskUrl?: string;
+  /** 阿里百炼业务空间 ID（万相 2.6 / 千问 3.0 必填），替换 baseUrl 中的 {workspaceId} 占位符。 */
+  workspaceId?: string;
   defaultSize?: string;
 }
 
@@ -43,24 +49,45 @@ export class AIImageSizeError extends Error {
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 function isArkPlatform(baseUrl: string): boolean {
   return /(?:volces\.com|ark\.cn)/i.test(baseUrl);
+}
+
+/**
+ * Resolve the effective base URL of an account.
+ * - Strips trailing slashes.
+ * - Replaces the `{workspaceId}` / `{WorkspaceId}` placeholder with the
+ *   configured workspaceId (required for 阿里百炼 providers). Throws a
+ *   user-readable error when the placeholder is present but no ID is set.
+ */
+export function resolveBaseUrl(account: AIImageAccountLike): string {
+  const base = (account.baseUrl || '').trim().replace(/\/+$/, '');
+  if (/\{workspace[-_]?id\}/i.test(base)) {
+    if (!account.workspaceId) {
+      throw new Error(
+        '缺少 Workspace ID：请在文生图账号设置中填写阿里百炼的业务空间 ID（万相 2.6 / 千问 3.0 必填）。',
+      );
+    }
+    return base.replace(/\{workspace[-_]?id\}/gi, account.workspaceId);
+  }
+  return base;
 }
 
 // ── Size parsing & normalization ──
 
 // DashScope wanx family: only these fixed sizes are accepted (W*H form).
-// Keep the list conservative — every entry must be a real wanx2.1 legal value;
+// Keep the list conservative — every entry must be a real legal value;
 // unknown sizes are snapped to the nearest entry instead of hitting HTTP 400.
 const DASH_SCOPE_SIZES: string[] = [
   '720*480', '960*640', '1280*720', '1440*720', '1440*613',
   '1024*1024', '1024*576', '768*768', '720*1280',
 ];
 const DASH_SCOPE_DEFAULT = '1024*1024';
+
+// 千问 3 文生图: 总像素需在 512x512 ~ 2048x2048 之间，尺寸用 W*H（星号）格式。
+const QWEN_IMAGE_DEFAULT = '1024*1024';
+const QWEN_IMAGE_MIN_DIM = 512;
+const QWEN_IMAGE_MAX_DIM = 2048;
 
 const DALLE_SIZES: Array<{ size: string; w: number; h: number }> = [
   { size: '1024x1024', w: 1024, h: 1024 },
@@ -109,11 +136,18 @@ function snapToDalle(w: number, h: number): { size: string; note: string } {
   return { size: '1024x1024', note: `${w}x${h} → 1024x1024（方形）` };
 }
 
+/** Clamp/round a size into the 千问 3 legal range (512–2048 per dim, 8-aligned). */
+function fitQwenSize(w: number, h: number): { w: number; h: number } {
+  const cw = Math.min(QWEN_IMAGE_MAX_DIM, Math.max(QWEN_IMAGE_MIN_DIM, Math.round(w / 8) * 8));
+  const ch = Math.min(QWEN_IMAGE_MAX_DIM, Math.max(QWEN_IMAGE_MIN_DIM, Math.round(h / 8) * 8));
+  return { w: cw, h: ch };
+}
+
 /**
  * A short example size string for UI hints, matching the active provider.
  */
 export function sizeHintExample(provider: ImageGenProviderType, baseUrl: string): string {
-  if (provider === 'dashscope') return '1024*1024';
+  if (provider === 'dashscope' || provider === 'qwen-image') return '1024*1024';
   if (provider === 'seedream' || (provider === 'openai' && isArkPlatform(baseUrl))) return '1024x1024';
   return '1024x1024';
 }
@@ -134,6 +168,7 @@ export function normalizeImageSize(
       return { size: '2K', note: '未填写尺寸，使用默认 2K' };
     }
     if (provider === 'dashscope') return { size: DASH_SCOPE_DEFAULT, note: '未填写尺寸，使用默认 1024*1024' };
+    if (provider === 'qwen-image') return { size: QWEN_IMAGE_DEFAULT, note: '未填写尺寸，使用默认 1024*1024' };
     return { size: DALLE_DEFAULT, note: '未填写尺寸，使用默认 1024x1024' };
   }
 
@@ -165,7 +200,26 @@ export function normalizeImageSize(
       return { size: snapped.size, note: snapped.note };
     }
     throw new AIImageSizeError(
-      `无法识别尺寸 "${raw}"。通义万相支持：${DASH_SCOPE_SIZES.join('、')}，或输入 WxH 自动匹配最近尺寸。`,
+      `无法识别尺寸 "${raw}"。万相支持：${DASH_SCOPE_SIZES.join('、')}，或输入 WxH 自动匹配最近尺寸。`,
+    );
+  }
+
+  if (provider === 'qwen-image') {
+    if (/^\d+\s*[kK]$/.test(input)) {
+      const k = parseInt(input, 10);
+      if (k === 1) return { size: '1024*1024' };
+      if (k === 2) return { size: '2048*2048' };
+      throw new AIImageSizeError(`千问 3 文生图最大支持 2K（2048*2048）。`);
+    }
+    const px = parsePixelSize(input);
+    if (px) {
+      const fitted = fitQwenSize(px.w, px.h);
+      const size = `${fitted.w}*${fitted.h}`;
+      if (fitted.w === px.w && fitted.h === px.h) return { size };
+      return { size, note: `${px.w}x${px.h} → ${size}（已按 API 像素范围调整）` };
+    }
+    throw new AIImageSizeError(
+      `无法识别尺寸 "${raw}"。千问 3 支持 WxH（每边 512–2048 像素，如 1024*1024）。`,
     );
   }
 
@@ -278,104 +332,96 @@ async function generateViaOpenAI(
   return resultUrl;
 }
 
-/** DashScope async task submission + polling. */
-async function generateViaDashScope(
+/** 阿里万相 2.6 — OpenAI-compatible 同步 images API. */
+async function generateViaWan(
   account: AIImageAccountLike,
   prompt: string,
   size: string,
   logger: LoggerSink,
 ): Promise<string> {
-  const requestBody = { model: account.model, input: { prompt }, parameters: { size, n: 1 } };
+  const url = `${resolveBaseUrl(account)}/images/generations`;
+  const body = {
+    model: account.model,
+    prompt,
+    size,
+    n: 1,
+    response_format: 'url',
+  };
   const submitStart = Date.now();
   const resp = await requestUrl({
-    url: account.baseUrl.replace(/\/+$/, ''),
+    url,
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${account.apiKey}`,
-      'Content-Type': 'application/json',
-      'X-DashScope-Async': 'enable',
-    },
-    body: JSON.stringify(requestBody),
+    headers: { 'Authorization': `Bearer ${account.apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   });
-  const data = resp.json as { output?: { task_id?: string } };
-  const taskId = data.output?.task_id;
+  const data = resp.json as { data?: Array<{ url?: string }>; error?: { message?: string } };
   logger?.addEntry({
-    step: 'Submit Task (DashScope)',
+    step: 'Generate (Wan 2.6)',
     method: 'POST',
-    url: account.baseUrl,
+    url,
     statusCode: resp.status,
     durationMs: Date.now() - submitStart,
-    requestBody,
+    requestBody: body,
     responseBody: data,
-    error: !taskId ? 'No task_id in response' : undefined,
+    error: resp.status >= 400 ? `HTTP ${resp.status}` : undefined,
   });
   await logger?.flush();
 
-  if (!taskId) throw new Error('No task_id in response');
-
-  // Task URL: derive from the account's taskUrl (explicit) or the base URL.
-  let taskBase = '';
-  if (account.taskUrl) {
-    taskBase = account.taskUrl.replace(/\/+$/, '');
-  } else {
-    taskBase = account.baseUrl.replace(/\/services\/aigc\/text2image\/image-synthesis$/, '').replace(/\/+$/, '');
+  const resultUrl = data.data?.[0]?.url;
+  if (!resultUrl) {
+    throw new Error(data.error?.message || `HTTP ${resp.status}`);
   }
-  const taskUrl = `${taskBase}/tasks/${taskId}`;
+  return resultUrl;
+}
 
-  const pollStart = Date.now();
-  for (let i = 0; i < 30; i++) {
-    await sleep(2000);
-    let pollResp;
-    try {
-      pollResp = await requestUrl({
-        url: taskUrl,
-        headers: { 'Authorization': `Bearer ${account.apiKey}` },
-      });
-    } catch {
-      continue; // network blip — keep polling
-    }
-    const pollMs = Date.now() - pollStart;
-    const pollData = pollResp.json as {
-      output?: { task_status?: string; results?: Array<{ url?: string }>; message?: string };
-    };
-    if (pollData.output?.task_status === 'SUCCEEDED') {
-      const resultUrl = pollData.output.results?.[0]?.url || '';
-      logger?.addEntry({
-        step: `Poll #${i + 1} (SUCCEEDED)`,
-        method: 'GET',
-        url: taskUrl,
-        statusCode: pollResp.status,
-        durationMs: pollMs,
-        responseBody: { status: 'SUCCEEDED', resultUrl },
-      });
-      await logger?.flush();
-      return resultUrl;
-    }
-    if (pollData.output?.task_status === 'FAILED') {
-      const msg = pollData.output.message || 'Task failed';
-      logger?.addEntry({
-        step: `Poll #${i + 1} (FAILED)`,
-        method: 'GET',
-        url: taskUrl,
-        statusCode: pollResp.status,
-        durationMs: pollMs,
-        responseBody: pollData,
-        error: msg,
-      });
-      await logger?.flush();
-      throw new Error(msg);
-    }
-  }
+/** 阿里千问 3.0 — chat.completions API（不能用 images API）。 */
+async function generateViaQwenImage(
+  account: AIImageAccountLike,
+  prompt: string,
+  size: string,
+  logger: LoggerSink,
+): Promise<string> {
+  const url = `${resolveBaseUrl(account)}/chat/completions`;
+  const body = {
+    model: account.model,
+    messages: [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: prompt }],
+      },
+    ],
+    // 高级参数（尺寸、提示词智能改写）通过顶层 parameters 字典传递。
+    parameters: { size, prompt_extend: true },
+  };
+  const submitStart = Date.now();
+  const resp = await requestUrl({
+    url,
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${account.apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = resp.json as {
+    choices?: Array<{ message?: { content?: Array<{ image?: string }> } }>;
+    error?: { message?: string };
+  };
   logger?.addEntry({
-    step: 'Poll Timeout',
-    method: 'GET',
-    url: taskUrl,
-    statusCode: 0,
-    durationMs: Date.now() - pollStart,
-    error: 'Polling timed out after 30 attempts',
+    step: 'Generate (Qwen-Image 3.0)',
+    method: 'POST',
+    url,
+    statusCode: resp.status,
+    durationMs: Date.now() - submitStart,
+    requestBody: body,
+    responseBody: data,
+    error: resp.status >= 400 ? `HTTP ${resp.status}` : undefined,
   });
   await logger?.flush();
-  throw new Error('Polling timed out after 30 attempts');
+
+  const content = data.choices?.[0]?.message?.content;
+  const resultUrl = Array.isArray(content) ? content[0]?.image : undefined;
+  if (!resultUrl) {
+    throw new Error(data.error?.message || `HTTP ${resp.status}`);
+  }
+  return resultUrl;
 }
 
 /**
@@ -399,8 +445,10 @@ export async function generateImage(
     url = await generateViaSeedream(account, prompt, size, logger ?? null);
   } else if (account.provider === 'openai') {
     url = await generateViaOpenAI(account, prompt, size, logger ?? null);
+  } else if (account.provider === 'qwen-image') {
+    url = await generateViaQwenImage(account, prompt, size, logger ?? null);
   } else {
-    url = await generateViaDashScope(account, prompt, size, logger ?? null);
+    url = await generateViaWan(account, prompt, size, logger ?? null);
   }
   if (!url) throw new Error('Generation returned no image URL');
   return { url, size };

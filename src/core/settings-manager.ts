@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import type { WeWriteSettings, WeChatAccount, AITextAccount, AIImageGenAccount, ImportResult, ImportFormat, ExportData } from './interfaces';
 import { DEFAULT_SETTINGS } from './interfaces';
+import { ALI_MAAS_BASE_URL_TEMPLATE, LEGACY_DASHSCOPE_ASYNC_URL, LEGACY_WANX_2_1_MODEL, WAN_2_6_MODEL } from './image-gen-defaults';
 import { encryptSettingsKeys, decryptSettingsKeys } from '../utils/encryption';
 import { compareVersions } from '../utils/version-utils';
 import { migrateLegacyToV2 } from '../utils/migration';
@@ -29,17 +30,36 @@ const AITextAccountSchema = z.object({
   maxTokens: z.number().int().positive().catch(4096),
 });
 
+/**
+ * Migrate an image account that still points at the obsolete wanx async API:
+ * the base URL is rewritten to the new 万相 2.6 sync API template (the user
+ * fills in the workspaceId afterwards) and the model is bumped to wan2.6-t2i.
+ */
+function migrateLegacyImageAccount(account: AIImageGenAccount): AIImageGenAccount {
+  if (account.provider === 'dashscope' && /services\/aigc\/text2image\/image-synthesis/.test(account.baseUrl || '')) {
+    return {
+      ...account,
+      baseUrl: ALI_MAAS_BASE_URL_TEMPLATE,
+      model: account.model === LEGACY_WANX_2_1_MODEL ? WAN_2_6_MODEL : account.model,
+      // 旧 wanx 默认尺寸（如 1440*613）可能不在万相 2.6 的合法集内，统一重置为文档示例尺寸。
+      defaultSize: '1024*1024',
+    };
+  }
+  return account;
+}
+
 const AIImageGenAccountSchema = z.object({
   id: z.string(),
   name: z.string().min(1).max(50),
-  provider: z.enum(['dashscope', 'openai', 'seedream']),
+  provider: z.enum(['dashscope', 'qwen-image', 'openai', 'seedream']),
   baseUrl: z.string(),
-  taskUrl: z.string().optional(),
   apiKey: z.string().min(1),
   model: z.string().min(1),
+  // 阿里百炼业务空间 ID（万相 2.6 / 千问 3.0 必填）；其他 provider 留空即可。
+  workspaceId: z.string().catch(''),
   // Empty default → the generate dialog falls back to a provider-specific example.
   defaultSize: z.string().catch(''),
-});
+}).transform(migrateLegacyImageAccount);
 
 export const WeWriteSettingsSchema = z.object({
   version: z.string().catch('1.1.0'),

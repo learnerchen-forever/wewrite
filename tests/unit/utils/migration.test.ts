@@ -44,6 +44,28 @@ describe('migrateLegacyToV2', () => {
     const result = migrateLegacyToV2(legacy);
     expect(result.aiImageGenAccounts).toHaveLength(1);
     expect(result.aiImageGenAccounts[0].provider).toBe('dashscope');
+    expect(result.aiImageGenAccounts[0].workspaceId).toBe('');
+    // 旧 wanx2.1 模型提升到万相 2.6
+    expect(result.aiImageGenAccounts[0].model).toBe('wan2.6-t2i');
+    // 异步轮询 taskUrl 字段不再保留
+    expect(result.aiImageGenAccounts[0]).not.toHaveProperty('taskUrl');
+  });
+
+  it('should replace the obsolete wanx async endpoint with the Wan 2.6 sync API template', () => {
+    const legacy = {
+      drawAccounts: [
+        {
+          _id: 'd1', accountName: 'DashScope',
+          baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
+          taskUrl: 'https://dashscope.aliyuncs.com/api/v1/tasks',
+          apiKey: 'sk-xxx', model: 'wanx2.1-t2i-turbo',
+        },
+      ],
+    };
+    const result = migrateLegacyToV2(legacy);
+    expect(result.aiImageGenAccounts[0].baseUrl)
+      .toBe('https://{workspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1');
+    expect(result.aiImageGenAccounts[0].model).toBe('wan2.6-t2i');
   });
 
   it('should migrate styles directory', () => {

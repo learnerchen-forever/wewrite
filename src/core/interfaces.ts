@@ -46,14 +46,19 @@ export interface AITextAccount {
 }
 
 // ── AI Image Generation Account ──
-export type ImageGenProviderType = 'dashscope' | 'openai' | 'seedream';
+// dashscope: 阿里万相 2.6（同步 images API，需要 workspaceId）
+// qwen-image: 阿里千问 3.0（chat.completions API，需要 workspaceId）
+// seedream: 字节 Seedream 5.0（火山方舟）
+// openai: 兼容 OpenAI images API（如 DALL-E，保留兼容）
+export type ImageGenProviderType = 'dashscope' | 'qwen-image' | 'openai' | 'seedream';
 
 export interface AIImageGenAccount {
   id: string;
   name: string;
   provider: ImageGenProviderType;
   baseUrl: string;
-  taskUrl?: string; // required for DashScope async polling
+  /** 阿里百炼业务空间 ID（万相 2.6 / 千问 3.0 必填），用于替换 baseUrl 中的 {workspaceId} 占位符。 */
+  workspaceId?: string;
   apiKey: string; // encrypted at rest
   model: string;
   defaultSize?: string;

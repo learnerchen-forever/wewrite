@@ -186,6 +186,15 @@ function renderBlockquoteElement(
 		appendStyle(root, `margin-top:${lineHeightPx}px;margin-bottom:${lineHeightPx}px`);
 	}
 
+	// The UA stylesheet gives <blockquote> a default margin of `1em 40px`
+	// (left and right), which makes every decorated quote look narrow and
+	// centered. Normalize horizontal margins to 0 — full width, left-aligned —
+	// unless the template explicitly sets them (the marginX param, or a custom
+	// design that wants a centered/narrowed look).
+	if (!hasStyleProp(root, 'margin-left') && !hasStyleProp(root, 'margin-right') && !hasStyleProp(root, 'margin')) {
+		appendStyle(root, 'margin-left:0;margin-right:0');
+	}
+
 	// Paragraph indentation param → inner paragraphs.
 	const textIndent = params['textIndent'];
 	if (textIndent && textIndent !== 'none') {

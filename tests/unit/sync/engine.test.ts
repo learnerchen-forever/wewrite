@@ -1,6 +1,6 @@
 // Integration tests for SyncEngine with in-memory mock backend
 
-import { SyncEngine } from '../../../src/sync/engine';
+import { SyncEngine, filterOutWewriteDirs } from '../../../src/sync/engine';
 import type { SyncBackend, ConnectionResult, WalkResult } from '../../../src/sync/backend/interface';
 import type { FileStat, SyncEntry } from '../../../src/sync/types';
 import { sha256Hex, normalizeMtime } from '../../../src/sync/hash';
@@ -772,7 +772,120 @@ describe('SyncEngine Integration', () => {
     });
   });
 
-  // ── .md-first ordering + quota pause (partial sync with auto-resume) ──
+  // ── WeWrite folder exclusion (filterOutWewriteDirs) ──
+
+describe('filterOutWewriteDirs', () => {
+  function entry(path: string, isDir = false): FileStat {
+    return { path, isDir, mtime: 1000, size: 0, hash: '' };
+  }
+
+  it('filters everything under the configured folder (case-insensitively)', () => {
+    const stats = new Map<string, FileStat>([
+      ['wewrite/debug/log.md', entry('wewrite/debug/log.md')],
+      ['WeWrite/cache/x.json', entry('WeWrite/cache/x.json')],
+      ['wewrite/themes/a.css', entry('wewrite/themes/a.css')],
+      ['notes/ok.md', entry('notes/ok.md')],
+      ['wewrite2/keep.md', entry('wewrite2/keep.md')],
+    ]);
+    const { filtered, skipped } = filterOutWewriteDirs(stats, 'wewrite');
+    expect(skipped).toBe(3);
+    expect(filtered.has('notes/ok.md')).toBe(true);
+    expect(filtered.has('wewrite2/keep.md')).toBe(true);
+    expect(filtered.size).toBe(2);
+  });
+
+  it('filters the folder entry itself when it is a directory', () => {
+    const stats = new Map<string, FileStat>([
+      ['wewrite', entry('wewrite', true)],
+      ['Wewrite', entry('Wewrite', true)],
+    ]);
+    const { filtered, skipped } = filterOutWewriteDirs(stats, 'wewrite');
+    expect(skipped).toBe(2);
+    expect(filtered.size).toBe(0);
+  });
+
+  it('keeps a DIFFERENT folder that merely shares the folder name elsewhere', () => {
+    const stats = new Map<string, FileStat>([
+      ['nested/wewrite', entry('nested/wewrite', true)],
+      ['nested/wewrite/note.md', entry('nested/wewrite/note.md')],
+    ]);
+    const { filtered, skipped } = filterOutWewriteDirs(stats, 'wewrite');
+    expect(skipped).toBe(0);
+    expect(filtered.size).toBe(2);
+  });
+
+  it('keeps a coincidental FILE named exactly like the folder', () => {
+    const stats = new Map<string, FileStat>([
+      ['wewrite', entry('wewrite', false)],
+      ['wewrite.md', entry('wewrite.md', false)],
+    ]);
+    const { filtered, skipped } = filterOutWewriteDirs(stats, 'wewrite');
+    expect(skipped).toBe(0);
+    expect(filtered.size).toBe(2);
+  });
+
+  it('handles a nested configured folder', () => {
+    const stats = new Map<string, FileStat>([
+      ['app/wewrite', entry('app/wewrite', true)],
+      ['app/wewrite/debug/x.md', entry('app/wewrite/debug/x.md')],
+      ['app/wewrite2/keep.md', entry('app/wewrite2/keep.md')],
+    ]);
+    const { filtered, skipped } = filterOutWewriteDirs(stats, 'app/wewrite');
+    expect(skipped).toBe(2);
+    expect(filtered.has('app/wewrite2/keep.md')).toBe(true);
+  });
+
+  it('falls back to "wewrite" when the folder is empty', () => {
+    const stats = new Map<string, FileStat>([
+      ['wewrite/cache/x', entry('wewrite/cache/x')],
+      ['note.md', entry('note.md')],
+    ]);
+    const { filtered, skipped } = filterOutWewriteDirs(stats, '');
+    expect(skipped).toBe(1);
+    expect(filtered.has('note.md')).toBe(true);
+  });
+});
+
+// ── WeWrite folder exclusion end-to-end ──
+
+describe('WeWrite folder exclusion end-to-end', () => {
+  it('does not push files under the wewrite folder (case-insensitive)', async () => {
+    const { backend, files: remoteFiles } = createMemoryBackend();
+    const { mockApp } = createMockVault([
+      { path: 'note.md', content: 'note', mtime: 100 },
+      { path: 'wewrite/debug/sync-log.md', content: 'log', mtime: 100 },
+      { path: 'WeWrite/cache/cache.json', content: '{}', mtime: 100 },
+      { path: 'wewrite/themes/my.css', content: 'css', mtime: 100 },
+    ]);
+
+    const engine = createEngine(backend, mockApp);
+    await engine.loadState({});
+
+    const result = await engine.sync('manual');
+    expect(result.ok).toBe(true);
+    expect(remoteFiles.has('note.md')).toBe(true);
+    expect(remoteFiles.has('wewrite/debug/sync-log.md')).toBe(false);
+    expect(remoteFiles.has('WeWrite/cache/cache.json')).toBe(false);
+    expect(remoteFiles.has('wewrite/themes/my.css')).toBe(false);
+    expect(remoteFiles.size).toBe(1);
+  });
+
+  it('still syncs a root-level file named exactly like the folder', async () => {
+    const { backend, files: remoteFiles } = createMemoryBackend();
+    const { mockApp } = createMockVault([
+      { path: 'wewrite', content: 'plain file', mtime: 100 },
+    ]);
+
+    const engine = createEngine(backend, mockApp);
+    await engine.loadState({});
+
+    const result = await engine.sync('manual');
+    expect(result.ok).toBe(true);
+    expect(remoteFiles.has('wewrite')).toBe(true);
+  });
+});
+
+// ── .md-first ordering + quota pause (partial sync with auto-resume) ──
 
   describe('Markdown-first ordering and quota pause', () => {
     it('executes .md pushes before non-markdown pushes', async () => {

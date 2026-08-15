@@ -7,7 +7,7 @@
 // 2. Directory listing via API (GitHub / Gitee contents API)
 // 3. Built-in fallback templates (when both remotes are unreachable)
 
-import type { App } from 'obsidian';
+import type { App, RequestUrlResponse } from 'obsidian';
 import { Notice, requestUrl } from 'obsidian';
 import { t } from '../i18n';
 import { createLogger } from '../utils/logger';
@@ -22,6 +22,12 @@ const GITEE_RAW_BASE = 'https://gitee.com/northern_bank/wewrite/raw/master/theme
 const GITHUB_API_THEMES = 'https://api.github.com/repos/learnerchen-forever/wewrite/contents/themes/';
 const GITEE_API_THEMES = 'https://gitee.com/api/v5/repos/northern_bank/wewrite/contents/themes/';
 
+// Hard per-request timeout — a hung connection must never stall the whole
+// download flow (mobile networks often black-hole requests instead of failing).
+const REQUEST_TIMEOUT_MS = 15000;
+// Extra attempts per theme file — transient mobile network errors are common.
+const FILE_RETRY_COUNT = 2;
+
 interface ThemeEntry {
   name: string;
   file: string;
@@ -35,6 +41,16 @@ interface ApiDirEntry {
   name: string;
   download_url?: string;
   url?: string;
+}
+
+interface RemoteResult {
+  /** Number of theme files newly created in the vault. */
+  downloaded: number;
+  /**
+   * Number of index files still absent from the vault after the attempt,
+   * or -1 when the remote could not be reached at all.
+   */
+  missing: number;
 }
 
 export class ThemeDownloader {
@@ -52,83 +68,102 @@ export class ThemeDownloader {
 
     new Notice(t('notice.templates_downloading'));
 
-    // Try GitHub first, then Gitee
-    let result = await this.tryDownload(GITHUB_RAW_BASE, GITHUB_API_THEMES, saveDir);
-    if (result === 'unreachable') {
-      result = await this.tryDownload(GITEE_RAW_BASE, GITEE_API_THEMES, saveDir);
+    // GitHub first; Gitee as backup. A remote only counts as successful when
+    // every file of its index is on disk — if it answered but the file
+    // downloads failed (rate limit, blocked raw host, encoding, …), the next
+    // remote is tried instead of giving up with "0 themes downloaded".
+    const remotes: { label: string; rawBase: string; apiUrl: string }[] = [
+      { label: 'github', rawBase: GITHUB_RAW_BASE, apiUrl: GITHUB_API_THEMES },
+      { label: 'gitee', rawBase: GITEE_RAW_BASE, apiUrl: GITEE_API_THEMES },
+    ];
+
+    let totalDownloaded = 0;
+    for (const remote of remotes) {
+      const result = await this.tryDownload(remote.rawBase, remote.apiUrl, saveDir);
+      totalDownloaded += result.downloaded;
+      if (result.missing === 0) {
+        // Every file of this remote's index is on disk (fresh or pre-existing).
+        new Notice(t('notice.templates_downloaded', { count: totalDownloaded, dir: saveDir }));
+        return;
+      }
+      log.warn('theme remote incomplete, trying backup', { label: remote.label, ...result });
     }
 
-    if (result === 'unreachable') {
-      new Notice(t('notice.templates_offline'));
-      await this.saveFallbackTemplates(saveDir);
-    }
+    // Both remotes failed — fall back to the built-in templates.
+    new Notice(t('notice.templates_offline'));
+    await this.saveFallbackTemplates(saveDir);
   }
 
   /**
    * Attempt to download themes from a single remote.
-   * Returns 'ok' on success, 'unreachable' if the remote is down.
+   * Resolves the index (themes.json, then the contents API), then fetches each
+   * missing .md file with per-file retries.
    */
-  private async tryDownload(
-    rawBase: string,
-    apiUrl: string,
-    saveDir: string,
-  ): Promise<'ok' | 'unreachable'> {
-    // ── Step 1: probe network reachability via themes.json ──
+  private async tryDownload(rawBase: string, apiUrl: string, saveDir: string): Promise<RemoteResult> {
+    // ── Step 1: resolve the index ──
     let themes: ThemeEntry[] | null = null;
 
     try {
-      const probeResp = await requestUrl({ url: rawBase + 'themes.json', method: 'GET' });
+      const probeResp = await this.getUrl(encodeURI(rawBase + 'themes.json'));
       if (probeResp.status === 200) {
         const data = probeResp.json as ThemesIndex;
         if (data.themes?.length) {
           themes = data.themes;
         }
       }
-    } catch {
+    } catch (err) {
       // themes.json unreachable or not found — will try API listing below
+      log.debug('themes.json probe failed', { err: String(err) });
     }
 
-    // ── Step 2: if themes.json didn't work, fall back to directory listing ──
     if (!themes) {
       try {
         themes = await this.listThemesViaApi(apiUrl);
-      } catch {
-        return 'unreachable';
+      } catch (err) {
+        log.warn('theme index via API failed', { url: apiUrl, err: String(err) });
+        return { downloaded: 0, missing: -1 };
       }
     }
 
     if (!themes?.length) {
-      return 'unreachable';
+      return { downloaded: 0, missing: -1 };
     }
 
-    // ── Step 3: ensure target directory exists ──
+    // ── Step 2: ensure target directory exists ──
     if (!(await this.app.vault.adapter.exists(saveDir))) {
       await this.app.vault.createFolder(saveDir);
     }
 
-    // ── Step 4: download each theme file ──
+    // ── Step 3: download each theme file ──
     let downloaded = 0;
+    let missing = 0;
     for (const theme of themes) {
       if (!theme.file.endsWith('.md')) continue;
 
       const vaultPath = `${saveDir}/${theme.file}`;
-      if (this.app.vault.getAbstractFileByPath(vaultPath)) continue;
+      if (this.app.vault.getAbstractFileByPath(vaultPath)) continue; // already present
+
+      // encodeURI: theme files carry non-ASCII (Chinese) names. iOS's native
+      // HTTP layer (NSURLSession) rejects raw non-ASCII URLs, which made the
+      // download always fail on iPhone; Android (OkHttp) tolerated them only
+      // sometimes. Encode before handing the URL to requestUrl.
+      const content = await this.fetchTextWithRetry(encodeURI(rawBase + theme.file));
+      if (content === null) {
+        missing++;
+        log.warn('failed to download theme file', { file: theme.file });
+        continue;
+      }
 
       try {
-        const fileResp = await requestUrl({ url: rawBase + theme.file, method: 'GET' });
-        if (fileResp.status !== 200) {
-          log.warn('failed to download theme file', { file: theme.file, status: fileResp.status });
-          continue;
-        }
-        await this.app.vault.create(vaultPath, fileResp.text);
+        await this.app.vault.create(vaultPath, content);
         downloaded++;
       } catch (err) {
-        log.warn('error downloading theme', { file: theme.file, err: String(err) });
+        missing++;
+        log.warn('failed to save theme file', { file: theme.file, err: String(err) });
       }
     }
 
-    new Notice(t('notice.templates_downloaded', { count: downloaded, dir: saveDir }));
-    return 'ok';
+    return { downloaded, missing };
   }
 
   /**
@@ -136,7 +171,7 @@ export class ThemeDownloader {
    * Used as fallback when themes.json is not present in the repo.
    */
   private async listThemesViaApi(apiUrl: string): Promise<ThemeEntry[]> {
-    const resp = await requestUrl({ url: apiUrl, method: 'GET' });
+    const resp = await this.getUrl(encodeURI(apiUrl));
     if (resp.status !== 200) {
       throw new Error(`API directory listing failed: ${resp.status}`);
     }
@@ -152,6 +187,53 @@ export class ThemeDownloader {
         name: e.name.replace(/\.md$/, ''),
         file: e.name,
       }));
+  }
+
+  /** Fetch a URL's text content with timeout + retries. Returns null on failure. */
+  private async fetchTextWithRetry(url: string): Promise<string | null> {
+    for (let attempt = 0; attempt <= FILE_RETRY_COUNT; attempt++) {
+      try {
+        const resp = await this.getUrl(url);
+        if (resp.status === 200) {
+          return resp.text;
+        }
+        log.warn('non-200 response', { url, status: resp.status, attempt });
+      } catch (err) {
+        log.warn('request failed', { url, attempt, err: String(err) });
+      }
+    }
+    return null;
+  }
+
+  /**
+   * requestUrl with a hard timeout. If the underlying request settles after
+   * the timeout, its result is discarded (both handlers are attached, so it
+   * can never surface as an unhandled rejection).
+   */
+  private getUrl(url: string): Promise<RequestUrlResponse> {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error(`request timed out after ${REQUEST_TIMEOUT_MS}ms`));
+      }, REQUEST_TIMEOUT_MS);
+
+      requestUrl({ url, method: 'GET' }).then(
+        (resp) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(resp);
+        },
+        (err) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(err);
+        },
+      );
+    });
   }
 
   // ── Fallback: built-in templates when both remotes are unreachable ──

@@ -16,7 +16,8 @@
 //     unless the design needs a different color;
 //   - vertical margins are injected by the renderer (one body line-height),
 //     templates must NOT hardcode margin-top/margin-bottom;
-//   - left/right margins are explicit params where the design needs them;
+//   - horizontal margins are the `marginX` param (default 0) — a decorated
+//     quote is full-width and left-aligned unless the user raises it;
 //   - `text-indent` params are applied to inner paragraphs by the renderer.
 
 import type { DecorationParam } from './heading-decoration-types';
@@ -65,7 +66,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 			description: t('deco_lib.blockquote.classicBar_desc'),
 			builtin: true,
 			template:
-				'<blockquote style="background:{{bgColor}};background-image:{{pattern}};background-size:14px 14px;border-left:{{barWidth}}px {{barStyle}} {{barColor}};border-radius:0 {{radius}}px {{radius}}px 0;padding:{{padY}}px {{padX}}px;color:${text};font-style:{{fontStyle}};text-align:{{align}};box-shadow:0 4px 6px {{shadowColor}}">{icon}{text}</blockquote>',
+				'<blockquote style="background:{{bgColor}};background-image:{{pattern}};background-size:14px 14px;border-left:{{barWidth}}px {{barStyle}} {{barColor}};border-radius:0 {{radius}}px {{radius}}px 0;padding:{{padY}}px {{padX}}px;color:${text};font-style:{{fontStyle}};text-align:{{align}};box-shadow:0 4px 6px {{shadowColor}};margin-left:{{marginX}}px;margin-right:{{marginX}}px">{icon}{text}</blockquote>',
 			params: {
 				bgColor: p('color', t('deco_param.background-color'), '#f3eee4', { paletteRole: 'bg' }),
 				barColor: p('color', t('deco_param.side-bar-color'), '#b85f44', { paletteRole: 'primary' }),
@@ -78,6 +79,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 				align: p('select', t('deco_param.text-alignment'), 'left', { options: BLOCKQUOTE_ALIGN_OPTIONS }),
 				textIndent: p('select', t('deco_param.paragraph-indent'), 'none', { options: BLOCKQUOTE_TEXT_INDENT_OPTIONS }),
 				shadowColor: p('color', t('deco_param.shadow-base-color'), 'transparent', { paletteRole: 'shadow' }),
+				marginX: p('px', t('deco_param.margin-horizontal'), '0', { min: 0, max: 80 }),
 				pattern: p('select', t('deco_param.background-pattern'), 'none', { options: BLOCKQUOTE_PATTERN_OPTIONS }),
 			},
 			family: 'line',
@@ -109,7 +111,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 			description: t('deco_lib.blockquote.cornerNails_desc'),
 			builtin: true,
 			template:
-				'<blockquote style="border:{{borderWidth}}px solid {{borderColor}};border-radius:{{radius}}px;background:{{bgColor}};padding:{{pad}}px">' +
+				'<blockquote style="border:{{borderWidth}}px solid {{borderColor}};border-radius:{{radius}}px;background:{{bgColor}};padding:{{pad}}px;margin-left:{{marginX}}px;margin-right:{{marginX}}px">' +
 				'<section style="display:flex;justify-content:space-between;align-items:center;line-height:0;margin-bottom:{{gap}}px">' +
 				'<span style="width:{{dotSize}}px;height:{{dotSize}}px;border:1px solid {{borderColor}};border-radius:50%;background:{{borderColor}}"></span>' +
 				'<span style="width:{{dotSize}}px;height:{{dotSize}}px;border:1px solid {{borderColor}};border-radius:50%;background:{{borderColor}}"></span>' +
@@ -128,6 +130,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 				pad: p('px', t('deco_param.outer-frame-padding'), '12', { min: 0, max: 40 }),
 				gap: p('px', t('deco_param.rivet-text-gap'), '8', { min: 0, max: 30 }),
 				dotSize: p('px', t('deco_param.rivet-diameter'), '5', { min: 2, max: 16 }),
+				marginX: p('px', t('deco_param.margin-horizontal'), '0', { min: 0, max: 80 }),
 			},
 			family: 'composite',
 		},
@@ -137,7 +140,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 			description: t('deco_lib.blockquote.bigQuote_desc'),
 			builtin: true,
 			template:
-				'<blockquote style="background:{{bgColor}};border-left:{{barWidth}}px solid {{barColor}};border-radius:0 {{radius}}px {{radius}}px 0;padding:{{padY}}px {{padX}}px;color:${text};text-align:{{align}}">' +
+				'<blockquote style="background:{{bgColor}};border-left:{{barWidth}}px solid {{barColor}};border-radius:0 {{radius}}px {{radius}}px 0;padding:{{padY}}px {{padX}}px;color:${text};text-align:{{align}};margin-left:{{marginX}}px;margin-right:{{marginX}}px">' +
 				'<span style="display:block;font-family:Georgia,serif;font-size:{{quoteSize}}px;line-height:0.5;color:{{quoteColor}};margin-bottom:{{quoteGap}}px">&ldquo;</span>' +
 				'<section>{icon}{text}</section>' +
 				'</blockquote>',
@@ -152,6 +155,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 				quoteSize: p('px', t('deco_param.quote-font-size'), '48', { min: 16, max: 120 }),
 				quoteGap: p('px', t('deco_param.quote-body-gap'), '8', { min: -20, max: 40 }),
 				align: p('select', t('deco_param.text-alignment'), 'left', { options: BLOCKQUOTE_ALIGN_OPTIONS }),
+				marginX: p('px', t('deco_param.margin-horizontal'), '0', { min: 0, max: 80 }),
 			},
 			family: 'graphic',
 		},
@@ -161,7 +165,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 			description: t('deco_lib.blockquote.glassCard_desc'),
 			builtin: true,
 			template:
-				'<blockquote style="background:{{bgColor}};border:1px solid {{borderColor}};border-left:{{barWidth}}px solid {{barColor}};border-radius:{{radius}}px;box-shadow:0 8px 20px {{shadowColor}};padding:{{padY}}px {{padX}}px;color:${text};backdrop-filter:blur({{blur}}px)">{icon}{text}</blockquote>',
+				'<blockquote style="background:{{bgColor}};border:1px solid {{borderColor}};border-left:{{barWidth}}px solid {{barColor}};border-radius:{{radius}}px;box-shadow:0 8px 20px {{shadowColor}};padding:{{padY}}px {{padX}}px;color:${text};backdrop-filter:blur({{blur}}px);margin-left:{{marginX}}px;margin-right:{{marginX}}px">{icon}{text}</blockquote>',
 			params: {
 				bgColor: p('color', t('deco_param.background-color'), 'rgba(255,255,255,0.8)', { paletteRole: 'bg' }),
 				borderColor: p('color', t('deco_param.outer-frame-color'), 'rgba(255,255,255,0.3)', { paletteRole: 'secondary' }),
@@ -172,6 +176,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 				shadowColor: p('color', t('deco_param.shadow-base-color'), 'rgba(65,88,208,0.1)', { paletteRole: 'shadow' }),
 				padY: p('px', t('deco_param.padding-vertical'), '20', { min: 0, max: 60 }),
 				padX: p('px', t('deco_param.padding-horizontal'), '20', { min: 0, max: 60 }),
+				marginX: p('px', t('deco_param.margin-horizontal'), '0', { min: 0, max: 80 }),
 			},
 			family: 'block',
 		},
@@ -181,7 +186,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 			description: t('deco_lib.blockquote.nestedFrame_desc'),
 			builtin: true,
 			template:
-				'<blockquote style="border:{{outerWidth}}px solid {{borderColor}};border-radius:{{radius}}px;background:{{bgColor}};padding:{{outerPad}}px">' +
+				'<blockquote style="border:{{outerWidth}}px solid {{borderColor}};border-radius:{{radius}}px;background:{{bgColor}};padding:{{outerPad}}px;margin-left:{{marginX}}px;margin-right:{{marginX}}px">' +
 				'<section style="border:{{innerWidth}}px solid {{borderColor}};border-radius:{{radius}}px;padding:{{padY}}px {{padX}}px;color:${text};text-align:{{align}}">{icon}{text}</section>' +
 				'</blockquote>',
 			params: {
@@ -194,6 +199,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 				radius: p('px', t('deco_param.corner-radius'), '0', { min: 0, max: 40 }),
 				bgColor: p('color', t('deco_param.background-color'), 'transparent', { paletteRole: 'bg' }),
 				align: p('select', t('deco_param.text-alignment'), 'left', { options: BLOCKQUOTE_ALIGN_OPTIONS }),
+				marginX: p('px', t('deco_param.margin-horizontal'), '0', { min: 0, max: 80 }),
 			},
 			family: 'block',
 		},
@@ -203,7 +209,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 			description: t('deco_lib.blockquote.starBorder_desc'),
 			builtin: true,
 			template:
-				'<blockquote style="border:{{borderWidth}}px solid {{borderColor}};border-image:{{borderImage}};border-radius:{{radius}}px;padding:{{padY}}px {{padX}}px;background:{{bgColor}};color:${text}">{icon}{text}</blockquote>',
+				'<blockquote style="border:{{borderWidth}}px solid {{borderColor}};border-image:{{borderImage}};border-radius:{{radius}}px;padding:{{padY}}px {{padX}}px;background:{{bgColor}};color:${text};margin-left:{{marginX}}px;margin-right:{{marginX}}px">{icon}{text}</blockquote>',
 			params: {
 				pattern: p('select', t('deco_param.border-pattern'), 'star', { options: ['star', 'dot', 'none'] }),
 				borderColor: p('color', t('deco_param.pattern-color'), '#1da5fb', { paletteRole: 'primary' }),
@@ -212,6 +218,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 				padY: p('px', t('deco_param.padding-vertical'), '16', { min: 0, max: 60 }),
 				padX: p('px', t('deco_param.padding-horizontal'), '20', { min: 0, max: 60 }),
 				bgColor: p('color', t('deco_param.background-color'), 'transparent', { paletteRole: 'bg' }),
+				marginX: p('px', t('deco_param.margin-horizontal'), '0', { min: 0, max: 80 }),
 			},
 			family: 'graphic',
 		},
@@ -221,7 +228,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 			description: t('deco_lib.blockquote.gradientEdge_desc'),
 			builtin: true,
 			template:
-				'<blockquote style="background:linear-gradient(135deg,{{bgFrom}},{{bgTo}});border-left:{{barWidth}}px solid transparent;border-image:linear-gradient(to bottom,{{barFrom}},{{barTo}}) 1;border-radius:{{radius}}px;box-shadow:0 8px 20px {{shadowColor}};padding:{{padY}}px {{padX}}px;color:${text};text-align:{{align}}">{icon}{text}</blockquote>',
+				'<blockquote style="background:linear-gradient(135deg,{{bgFrom}},{{bgTo}});border-left:{{barWidth}}px solid transparent;border-image:linear-gradient(to bottom,{{barFrom}},{{barTo}}) 1;border-radius:{{radius}}px;box-shadow:0 8px 20px {{shadowColor}};padding:{{padY}}px {{padX}}px;color:${text};text-align:{{align}};margin-left:{{marginX}}px;margin-right:{{marginX}}px">{icon}{text}</blockquote>',
 			params: {
 				barFrom: p('color', t('deco_param.side-bar-start-color'), '#f472b6', { paletteRole: 'primary' }),
 				barTo: p('color', t('deco_param.side-bar-end-color'), '#60a5fa', { paletteRole: 'secondary' }),
@@ -233,6 +240,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 				padY: p('px', t('deco_param.padding-vertical'), '18', { min: 0, max: 60 }),
 				padX: p('px', t('deco_param.padding-horizontal'), '22', { min: 0, max: 60 }),
 				align: p('select', t('deco_param.text-alignment'), 'left', { options: BLOCKQUOTE_ALIGN_OPTIONS }),
+				marginX: p('px', t('deco_param.margin-horizontal'), '0', { min: 0, max: 80 }),
 			},
 			family: 'block',
 		},
@@ -242,7 +250,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 			description: t('deco_lib.blockquote.darkCard_desc'),
 			builtin: true,
 			template:
-				'<blockquote style="background:linear-gradient(135deg,{{bgFrom}},{{bgTo}});border-radius:{{radius}}px;padding:{{padY}}px {{padX}}px;color:${onAccent};text-align:{{align}}">{icon}{text}</blockquote>',
+				'<blockquote style="background:linear-gradient(135deg,{{bgFrom}},{{bgTo}});border-radius:{{radius}}px;padding:{{padY}}px {{padX}}px;color:${onAccent};text-align:{{align}};margin-left:{{marginX}}px;margin-right:{{marginX}}px">{icon}{text}</blockquote>',
 			params: {
 				bgFrom: p('color', t('deco_param.background-start-color'), '#1a2e1a', { paletteRole: 'primary' }),
 				bgTo: p('color', t('deco_param.background-end-color'), '#0d3b2e', { paletteRole: 'secondary' }),
@@ -250,6 +258,7 @@ export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 				padY: p('px', t('deco_param.padding-vertical'), '24', { min: 0, max: 60 }),
 				padX: p('px', t('deco_param.padding-horizontal'), '28', { min: 0, max: 60 }),
 				align: p('select', t('deco_param.text-alignment'), 'center', { options: BLOCKQUOTE_ALIGN_OPTIONS }),
+				marginX: p('px', t('deco_param.margin-horizontal'), '0', { min: 0, max: 80 }),
 			},
 			family: 'block',
 		},

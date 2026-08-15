@@ -26,6 +26,7 @@ import { WeWriteSettingTab } from './views/setting-tab';
 import { ThemeWizardModal } from './views/theme-wizard-modal';
 import { WeWriteThemeView, VIEW_TYPE_WEWRITE_THEME } from './views/wewrite-theme-view';
 import { AIImageGenerateModal } from './views/ai-image-generate-modal';
+import { resolveBaseUrl, type AIImageAccountLike } from './publisher/ai-image-client';
 import { ProofreadModal } from './views/proofread-modal';
 import { SynonymsModal } from './views/synonyms-modal';
 import { TranslateModal } from './views/translate-modal';
@@ -1005,18 +1006,21 @@ export default class WeWritePlugin extends Plugin {
   }
 
   async testAIImageAccount(
-    provider: string, baseUrl: string, apiKey: string,
+    account: AIImageAccountLike,
   ): Promise<{ success: boolean; message: string }> {
     const logEnabled = this.settings.logAICalling;
     const wewriteFolder = this.settings.wewriteFolder;
 
-    if (provider === 'seedream') {
-      return this.testSeedreamAccount(baseUrl, apiKey, logEnabled, wewriteFolder);
+    if (account.provider === 'seedream') {
+      return this.testSeedreamAccount(account.baseUrl, account.apiKey, logEnabled, wewriteFolder);
     }
-    if (provider === 'openai') {
-      return this.testOpenAIImageAccount(baseUrl, apiKey, logEnabled, wewriteFolder);
+    if (account.provider === 'openai') {
+      return this.testOpenAIImageAccount(account.baseUrl, account.apiKey, logEnabled, wewriteFolder);
     }
-    return this.testDashScopeAccount(baseUrl, apiKey, logEnabled, wewriteFolder);
+    if (account.provider === 'qwen-image') {
+      return this.testQwenImageAccount(account, logEnabled, wewriteFolder);
+    }
+    return this.testWanAccount(account, logEnabled, wewriteFolder);
   }
 
   /** Seedream: GET /api/v1/models on the Ark platform host to validate key + connectivity. */
@@ -1053,16 +1057,49 @@ export default class WeWritePlugin extends Plugin {
     return result;
   }
 
-  /** DashScope: POST a minimal image generation task (no GET models endpoint). */
-  private async testDashScopeAccount(
-    baseUrl: string, apiKey: string, logEnabled: boolean, wewriteFolder: string,
-  ): Promise<{ success: boolean; message: string }> {
-    const url = baseUrl.replace(/\/+$/, '');
-    const body = { model: 'wanx2.1-t2i-turbo', input: { prompt: 'test' }, parameters: { size: '1440*613', n: 1 } };
-    const result = await this.testViaPost(url, apiKey, body, 'AI Image (DashScope)');
+  /**
+   * 阿里万相 2.6：POST 一次最小同步生成（同时校验 API Key、workspaceId 与模型可用性）。
+   */
+  private async testWanAccount(
+    account: AIImageAccountLike, logEnabled: boolean, wewriteFolder: string,
+  ): Promise<{ success: boolean; message: string; status: number; body: string }> {
+    let url = '';
+    try {
+      url = `${resolveBaseUrl(account)}/images/generations`;
+    } catch (err) {
+      return { success: false, message: String(err), status: 0, body: '' };
+    }
+    const body = { model: account.model, prompt: 'test', size: '1024*1024', n: 1, response_format: 'url' };
+    const result = await this.testViaPost(url, account.apiKey, body, 'AI Image (Wan 2.6)');
 
     if (logEnabled) {
-      await this.writeTestLog('image-gen', 'dashscope', 'DashScope', url, 'POST', body, result,
+      await this.writeTestLog('image-gen', 'dashscope', 'Wan 2.6 (DashScope)', url, 'POST', body, result,
+        this.app, wewriteFolder);
+    }
+    return result;
+  }
+
+  /**
+   * 阿里千问 3.0：POST 一次最小 chat.completions 生成（同时校验 API Key、workspaceId 与模型可用性）。
+   */
+  private async testQwenImageAccount(
+    account: AIImageAccountLike, logEnabled: boolean, wewriteFolder: string,
+  ): Promise<{ success: boolean; message: string; status: number; body: string }> {
+    let url = '';
+    try {
+      url = `${resolveBaseUrl(account)}/chat/completions`;
+    } catch (err) {
+      return { success: false, message: String(err), status: 0, body: '' };
+    }
+    const body = {
+      model: account.model,
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'test' }] }],
+      parameters: { size: '1024*1024' },
+    };
+    const result = await this.testViaPost(url, account.apiKey, body, 'AI Image (Qwen-Image 3.0)');
+
+    if (logEnabled) {
+      await this.writeTestLog('image-gen', 'qwen-image', 'Qwen-Image 3.0', url, 'POST', body, result,
         this.app, wewriteFolder);
     }
     return result;

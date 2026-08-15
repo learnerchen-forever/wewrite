@@ -33,16 +33,26 @@ const log = createLogger('Sync:Engine');
 /**
  * Remove paths under the WeWrite working directory from sync consideration.
  * debug/, cache/, and themes/ are internal WeWrite work files, not user content.
+ *
+ * Two refinements over a naive `startsWith(folder + '/')`:
+ *  - The folder ENTRY itself (a directory whose path equals the folder name,
+ *    e.g. "wewrite") is excluded too — otherwise the first sync would treat it
+ *    as a new local folder and create an empty WeWrite directory on the remote.
+ *  - Matching is case-insensitive, so a folder whose on-disk name differs in
+ *    case from the configured name (e.g. "WeWrite" vs "wewrite") is still
+ *    skipped. A coincidental FILE named exactly like the folder is kept.
  */
-function filterOutWewriteDirs<T extends { size: number }>(
+export function filterOutWewriteDirs<T extends { size: number; isDir: boolean }>(
   stats: Map<string, T>,
   wewriteFolder: string,
 ): { filtered: Map<string, T>; skipped: number } {
-  const prefix = (wewriteFolder || 'wewrite').replace(/\/$/, '') + '/';
+  const folder = (wewriteFolder || 'wewrite').replace(/\/$/, '').toLowerCase();
+  const prefix = folder + '/';
   const filtered = new Map<string, T>();
   let skipped = 0;
   for (const [path, stat] of stats) {
-    if (path.startsWith(prefix)) {
+    const lower = path.toLowerCase();
+    if ((stat.isDir && lower === folder) || lower.startsWith(prefix)) {
       skipped++;
     } else {
       filtered.set(path, stat);

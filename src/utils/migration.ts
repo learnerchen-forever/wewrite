@@ -2,6 +2,12 @@
 // On first load, detects old localforage stores and imports them into the new format
 
 import type { WeWriteSettings, WeChatAccount, AITextAccount, AIImageGenAccount } from '../core/interfaces';
+import {
+  ALI_MAAS_BASE_URL_TEMPLATE,
+  LEGACY_DASHSCOPE_ASYNC_URL,
+  LEGACY_WANX_2_1_MODEL,
+  WAN_2_6_MODEL,
+} from '../core/image-gen-defaults';
 
 // Legacy v1.x settings structure (from wewrite_lagacy)
 interface LegacyAccount {
@@ -64,15 +70,18 @@ function mapLegacyChatAccount(legacy: LegacyAccount): AITextAccount {
 }
 
 function mapLegacyDrawAccount(legacy: LegacyAccount): AIImageGenAccount {
+  const legacyUrl = legacy.baseUrl || '';
+  const usesObsoleteAsyncApi = legacyUrl.includes(LEGACY_DASHSCOPE_ASYNC_URL);
   return {
     id: legacy._id || generateId(),
     name: legacy.accountName || 'Imported Draw Account',
     provider: 'dashscope',
-    baseUrl: legacy.baseUrl || 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
-    taskUrl: legacy.taskUrl || 'https://dashscope.aliyuncs.com/api/v1/tasks',
+    // 旧版 wanx 异步端点已废弃：迁移到万相 2.6 同步 API 模板，用户在设置中补填 workspaceId。
+    baseUrl: usesObsoleteAsyncApi ? ALI_MAAS_BASE_URL_TEMPLATE : legacyUrl || ALI_MAAS_BASE_URL_TEMPLATE,
+    workspaceId: '',
     apiKey: legacy.apiKey || '',
-    model: legacy.model || 'wanx2.1-t2i-turbo',
-    defaultSize: '1440*613',
+    model: legacy.model && legacy.model !== LEGACY_WANX_2_1_MODEL ? legacy.model : WAN_2_6_MODEL,
+    defaultSize: '1024*1024',
   };
 }
 
