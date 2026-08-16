@@ -2,9 +2,10 @@
 // chosen synonym. Keyboard: ↑/↓ navigate, Enter confirm, Esc cancel.
 
 import { App, Modal } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import { t } from '../i18n';
 
-export class SynonymsModal extends Modal {
+export class SynonymsModal extends WeWriteModal {
   private selectedIndex = 0;
   private listEl!: HTMLElement;
   private settled = false;
@@ -22,7 +23,7 @@ export class SynonymsModal extends Modal {
     contentEl.empty();
     contentEl.addClass('wewrite-synonyms-modal');
 
-    contentEl.createEl('h3', { text: t('modal.synonyms.title') });
+    this.titleEl.setText(t('modal.synonyms.title'));
     contentEl.createEl('p', { text: t('modal.synonyms.hint'), cls: 'setting-item-description' });
 
     this.listEl = contentEl.createDiv({ cls: 'wewrite-synonyms-list' });

@@ -5,6 +5,7 @@
 // renders against the current theme.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { BlockquoteDecoration } from '../core/blockquote-decoration-types';
 import { extractBlockquoteFromHtml } from '../core/blockquote-extract';
@@ -23,7 +24,7 @@ function replaceAll(input: string, search: string, replace: string): string {
 	return input.split(search).join(replace);
 }
 
-export class BlockquotePasteHtmlModal extends Modal {
+export class BlockquotePasteHtmlModal extends WeWriteModal {
 	private options: BlockquotePasteHtmlOptions;
 	private extraction: ReturnType<typeof extractBlockquoteFromHtml> = null;
 	private baseTemplate = '';
@@ -44,7 +45,7 @@ export class BlockquotePasteHtmlModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('wewrite-paste-html-modal');
 
-		contentEl.createEl('h3', { text: t("paste.title_extract_quote") });
+		this.titleEl.setText(t("paste.title_extract_quote"));
 		contentEl.createEl('p', {
 			text: t('paste.desc_quote'),
 			cls: 'setting-item-description',

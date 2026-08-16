@@ -5,6 +5,7 @@
 // default in the template. Live preview renders against the current theme.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam, HeadingDecoration } from '../core/heading-decoration-types';
 import { extractHeadingFromHtml } from '../core/heading-extract';
 import { renderDecorationPreview } from '../renderer/heading-renderer';
@@ -22,7 +23,7 @@ function replaceAll(input: string, search: string, replace: string): string {
 	return input.split(search).join(replace);
 }
 
-export class HeadingPasteHtmlModal extends Modal {
+export class HeadingPasteHtmlModal extends WeWriteModal {
 	private options: HeadingPasteHtmlOptions;
 	private extraction: ReturnType<typeof extractHeadingFromHtml> = null;
 	private baseTemplate = '';
@@ -43,7 +44,7 @@ export class HeadingPasteHtmlModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('wewrite-paste-html-modal');
 
-		contentEl.createEl('h3', { text: t("paste.title_extract_heading") });
+		this.titleEl.setText(t("paste.title_extract_heading"));
 		contentEl.createEl('p', {
 			text: t("paste.desc_heading"),
 			cls: 'setting-item-description',

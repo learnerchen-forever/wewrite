@@ -2,6 +2,7 @@
 // language, then replace the selection or copy the result.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import { t } from '../i18n';
 
 export interface TranslateLanguage {
@@ -27,7 +28,7 @@ export function defaultTargetLanguage(source: string): string {
   return /[\u4e00-\u9fff]/.test(source) ? 'English' : '简体中文';
 }
 
-export class TranslateModal extends Modal {
+export class TranslateModal extends WeWriteModal {
   private resultEl!: HTMLElement;
   private replaceBtn!: HTMLButtonElement;
   private copyBtn!: HTMLButtonElement;
@@ -51,7 +52,7 @@ export class TranslateModal extends Modal {
     contentEl.empty();
     contentEl.addClass('wewrite-translate-modal');
 
-    contentEl.createEl('h3', { text: t('modal.translate.title') });
+    this.titleEl.setText(t('modal.translate.title'));
 
     // Source preview (muted, scrollable).
     contentEl.createEl('div', { text: t('modal.translate.source'), cls: 'wewrite-translate-label' });

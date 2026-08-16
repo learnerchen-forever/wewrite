@@ -5,6 +5,7 @@
 // editable parameter chips, and the live preview renders against the theme.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { ListDecoration } from '../core/list-decoration-types';
 import { extractListFromHtml, extractTaskListFromHtml } from '../core/list-extract';
@@ -25,7 +26,7 @@ function replaceAll(input: string, search: string, replace: string): string {
 	return input.split(search).join(replace);
 }
 
-export class ListPasteHtmlModal extends Modal {
+export class ListPasteHtmlModal extends WeWriteModal {
 	private options: ListPasteHtmlOptions;
 	private extraction: ReturnType<typeof extractListFromHtml> = null;
 	private baseTemplate = '';
@@ -47,7 +48,7 @@ export class ListPasteHtmlModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('wewrite-paste-html-modal');
 
-		contentEl.createEl('h3', { text: t("paste.title_extract_list") });
+		this.titleEl.setText(t("paste.title_extract_list"));
 		contentEl.createEl('p', {
 			text: this.options.kind === 'task'
 				? t('paste.desc_list_task')

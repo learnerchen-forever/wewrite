@@ -6,6 +6,7 @@
 // centered text/images come out as {{text}} / {{imageUrl}} style params.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { DividerDecoration } from '../core/divider-decoration-types';
 import { extractDividerFromHtml } from '../core/divider-extract';
@@ -24,7 +25,7 @@ function replaceAll(input: string, search: string, replace: string): string {
 	return input.split(search).join(replace);
 }
 
-export class DividerPasteHtmlModal extends Modal {
+export class DividerPasteHtmlModal extends WeWriteModal {
 	private options: DividerPasteHtmlOptions;
 	private extraction: ReturnType<typeof extractDividerFromHtml> = null;
 	private baseTemplate = '';
@@ -45,7 +46,7 @@ export class DividerPasteHtmlModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('wewrite-paste-html-modal');
 
-		contentEl.createEl('h3', { text: t("paste.title_extract_divider") });
+		this.titleEl.setText(t("paste.title_extract_divider"));
 		contentEl.createEl('p', {
 			text: t('paste.desc_divider'),
 			cls: 'setting-item-description',

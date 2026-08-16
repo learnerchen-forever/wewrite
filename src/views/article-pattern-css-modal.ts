@@ -4,10 +4,11 @@
 // directly as CSS.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { SlotValue } from '../core/slot-types';
 import { t } from '../i18n';
 
-export class ArticlePatternCssModal extends Modal {
+export class ArticlePatternCssModal extends WeWriteModal {
 	private resolvePromise: ((value: SlotValue | null) => void) | null = null;
 	private example: string;
 	private initialCss: string;
@@ -30,7 +31,7 @@ export class ArticlePatternCssModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('wewrite-paste-html-modal');
 
-		contentEl.createEl('h3', { text: t('pattern_modal.title') });
+		this.titleEl.setText(t('pattern_modal.title'));
 		contentEl.createEl('p', {
 			text: t('pattern_modal.desc'),
 			cls: 'setting-item-description',

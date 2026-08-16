@@ -1,6 +1,6 @@
 {
   "name": "obsidian-wewrite",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "全平台写作工具，随时随地创作微信公众号文章，轻松定制你的个性化文章风格。",
   "license": "MIT",
   "main": "main.js",
@@ -12,6 +12,8 @@
     "pub": "node scripts/pub-wewrite.js"
   },
   "dependencies": {
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.38.6",
     "gray-matter": "^4.0.3",
     "mathjax-full": "^3.2.1",
     "p-limit": "^6.1.0",

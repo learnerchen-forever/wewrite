@@ -5,6 +5,7 @@
 // part, and the live preview renders a sample table against the current theme.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { TableDecoration, TableDecorationParts } from '../core/table-decoration-types';
 import { renderTablePreview } from '../renderer/table-renderer';
@@ -53,7 +54,7 @@ function partHint(key: keyof TableDecorationParts): string {
 	}
 }
 
-export class TableDecorationEditModal extends Modal {
+export class TableDecorationEditModal extends WeWriteModal {
 	private options: TableDecorationEditOptions;
 	private nameValue: string;
 	private params: Record<string, DecorationParam> = {};
@@ -86,9 +87,7 @@ export class TableDecorationEditModal extends Modal {
 
 		const isBuiltin = this.options.builtinReadonly;
 		const isNew = !this.options.decoration;
-		contentEl.createEl('h3', {
-			text: isNew ? t('deco_edit.new_table_title') : `${t('deco_edit.edit_table_title')} — ${this.options.decoration!.name}`,
-		});
+		this.titleEl.setText(isNew ? t('deco_edit.new_table_title') : `${t('deco_edit.edit_table_title')} — ${this.options.decoration!.name}`);
 
 		// Name
 		const nameWrap = contentEl.createDiv();

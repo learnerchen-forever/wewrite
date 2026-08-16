@@ -5,6 +5,7 @@
 // renders the template against the current theme preset.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam, HeadingDecoration } from '../core/heading-decoration-types';
 import { renderDecorationPreview } from '../renderer/heading-renderer';
 import type { ThemePreset } from '../core/interfaces';
@@ -25,7 +26,7 @@ export interface HeadingDecorationEditOptions {
 const PARAM_TYPES = ['color', 'number', 'px', 'text', 'select', 'image'] as const;
 const PLACEHOLDER_HINT = t('deco_edit.heading_hint');
 
-export class HeadingDecorationEditModal extends Modal {
+export class HeadingDecorationEditModal extends WeWriteModal {
 	private options: HeadingDecorationEditOptions;
 	private templateValue: string;
 	private nameValue: string;
@@ -58,9 +59,7 @@ export class HeadingDecorationEditModal extends Modal {
 
 		const isBuiltin = this.options.builtinReadonly;
 		const isNew = !this.options.decoration;
-		contentEl.createEl('h3', {
-			text: isNew ? t('deco_edit.new_title') : `${t('deco_edit.edit_title')} — ${this.options.decoration!.name}`,
-		});
+		this.titleEl.setText(isNew ? t('deco_edit.new_title') : `${t('deco_edit.edit_title')} — ${this.options.decoration!.name}`);
 
 		// Name
 		const nameWrap = contentEl.createDiv();

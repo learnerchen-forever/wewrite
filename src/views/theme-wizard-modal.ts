@@ -4,6 +4,7 @@
 // Step 3: per-element visual preset picker
 
 import { App, Modal, Setting } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import { generatePalette, classifyHueFamily, hexToHSL } from '../core/palette-engine';
 import { FONT_FAMILIES, FONT_FAMILY_OPTIONS } from '../core/interfaces';
 import { createFontFamilySelect } from '../utils/font-select';
@@ -78,7 +79,7 @@ const ELEMENT_PRESETS: Record<string, ElementPreset[]> = {
 	],
 };
 
-export class ThemeWizardModal extends Modal {
+export class ThemeWizardModal extends WeWriteModal {
 	private state: WizardState = {
 		accent: '#0366d6',
 		family: 'sans-serif',
@@ -121,7 +122,7 @@ export class ThemeWizardModal extends Modal {
 	// ── Step 1: Accent ──
 
 	private renderStep1(container: HTMLElement): void {
-		container.createEl('h3', { text: t('wizard.step1_title') });
+		this.titleEl.setText(t('wizard.step1_title'));
 
 		// Preset swatches
 		const swatchRow = container.createDiv({ cls: 'wewrite-wizard-swatches' });
@@ -212,7 +213,7 @@ export class ThemeWizardModal extends Modal {
 	// ── Step 2: Typography ──
 
 	private renderStep2(container: HTMLElement): void {
-		container.createEl('h3', { text: t('wizard.step2_title') });
+		this.titleEl.setText(t('wizard.step2_title'));
 
 		// Preset cards
 		const presetRow = container.createDiv({ cls: 'wewrite-wizard-presets' });
@@ -298,7 +299,7 @@ export class ThemeWizardModal extends Modal {
 	// ── Step 3: Element Picks ──
 
 	private renderStep3(container: HTMLElement): void {
-		container.createEl('h3', { text: t('wizard.step3_title') });
+		this.titleEl.setText(t('wizard.step3_title'));
 
 		// Theme name
 		new Setting(container)

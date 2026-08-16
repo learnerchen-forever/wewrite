@@ -7,6 +7,7 @@
 // of {text}.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { DividerDecoration } from '../core/divider-decoration-types';
 import { renderDividerPreview } from '../renderer/divider-renderer';
@@ -29,7 +30,7 @@ const PARAM_TYPES = ['color', 'number', 'px', 'text', 'select', 'image'] as cons
 const PLACEHOLDER_HINT = t('deco_edit.divider_hint');
 const FALLBACK_TEMPLATE = '<section style="margin:32px 0;border:none;border-top:1px solid #e8e0d0"></section>';
 
-export class DividerDecorationEditModal extends Modal {
+export class DividerDecorationEditModal extends WeWriteModal {
 	private options: DividerDecorationEditOptions;
 	private templateValue: string;
 	private nameValue: string;
@@ -62,9 +63,7 @@ export class DividerDecorationEditModal extends Modal {
 
 		const isBuiltin = this.options.builtinReadonly;
 		const isNew = !this.options.decoration;
-		contentEl.createEl('h3', {
-			text: isNew ? t('deco_edit.new_divider_title') : `${t('deco_edit.edit_divider_title')} — ${this.options.decoration!.name}`,
-		});
+		this.titleEl.setText(isNew ? t('deco_edit.new_divider_title') : `${t('deco_edit.edit_divider_title')} — ${this.options.decoration!.name}`);
 
 		// Name
 		const nameWrap = contentEl.createDiv();

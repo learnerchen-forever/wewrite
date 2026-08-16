@@ -2805,6 +2805,14 @@ button.wewrite-btn-icon.spinning svg {
   flex-wrap: wrap;
 }
 
+/* Temporary range highlight painted by the AI proofread review (see
+   src/utils/editor-highlight.ts). Warm amber works on light and dark themes. */
+.wewrite-editor-highlight {
+  background: rgba(250, 180, 0, 0.38);
+  box-shadow: 0 0 0 1px rgba(250, 180, 0, 0.3);
+  border-radius: 2px;
+}
+
 .wewrite-synonyms-list {
   max-height: 320px;
   overflow-y: auto;

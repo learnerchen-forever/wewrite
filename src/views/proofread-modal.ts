@@ -3,6 +3,8 @@
 // Ignore (skip), Previous / Next navigation, with keyboard support.
 
 import { App, Modal, type Editor } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
+import { setEditorHighlight, type CMEditor } from '../utils/editor-highlight';
 import type { ProofCorrection } from '../ai/proofread-engine';
 import { t } from '../i18n';
 
@@ -13,7 +15,7 @@ const TYPE_LABELS: Record<string, string> = {
   wording: 'modal.proofread.type_wording',
 };
 
-export class ProofreadModal extends Modal {
+export class ProofreadModal extends WeWriteModal {
   private index = 0;
   private progressEl!: HTMLElement;
   private typeEl!: HTMLElement;
@@ -42,7 +44,7 @@ export class ProofreadModal extends Modal {
     contentEl.empty();
     contentEl.addClass('wewrite-proofread-modal');
 
-    contentEl.createEl('h3', { text: t('modal.proofread.title') });
+    this.titleEl.setText(t('modal.proofread.title'));
     this.progressEl = contentEl.createDiv({ cls: 'wewrite-proofread-progress' });
 
     this.bodyEl = contentEl.createDiv({ cls: 'wewrite-proofread-body' });
@@ -93,6 +95,7 @@ export class ProofreadModal extends Modal {
       this.buttonRow.empty();
       const doneBtn = this.buttonRow.createEl('button', { text: t('modal.proofread.done'), cls: 'mod-cta' });
       doneBtn.addEventListener('click', () => this.close());
+      setEditorHighlight(this.editor as unknown as CMEditor, null);
       return;
     }
 
@@ -121,12 +124,17 @@ export class ProofreadModal extends Modal {
     this.syncEditorToCorrection(current);
   }
 
-  /** Scroll the editor to the correction range and highlight it (selection). */
+  /** Scroll the editor to the correction range, select it and paint a
+   *  visible background highlight so the current error is unmistakable. */
   private syncEditorToCorrection(c: ProofCorrection): void {
     const from = this.editor.offsetToPos(this.baseOffset + c.start);
     const to = this.editor.offsetToPos(this.baseOffset + c.end);
     this.editor.setSelection(from, to);
     this.editor.scrollIntoView({ from, to }, true);
+    setEditorHighlight(this.editor as unknown as CMEditor, {
+      from: this.baseOffset + c.start,
+      to: this.baseOffset + c.end,
+    });
   }
 
   private step(delta: number): void {
@@ -166,5 +174,7 @@ export class ProofreadModal extends Modal {
   onClose(): void {
     const { contentEl } = this;
     contentEl.empty();
+    // Drop the temporary highlight when the review ends.
+    setEditorHighlight(this.editor as unknown as CMEditor, null);
   }
 }

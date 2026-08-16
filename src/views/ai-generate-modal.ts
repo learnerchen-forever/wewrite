@@ -4,11 +4,12 @@
 // cursor position.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import { t } from '../i18n';
 
 export type AIGenerateMode = 'mermaid' | 'math';
 
-export class AIGenerateModal extends Modal {
+export class AIGenerateModal extends WeWriteModal {
   private descEl!: HTMLTextAreaElement;
   private generateBtn!: HTMLButtonElement;
   private resultSection!: HTMLElement;
@@ -36,11 +37,9 @@ export class AIGenerateModal extends Modal {
     contentEl.empty();
     contentEl.addClass('wewrite-ai-generate-modal');
 
-    contentEl.createEl('h3', {
-      text: this.mode === 'mermaid'
-        ? t('modal.generate.title_mermaid')
-        : t('modal.generate.title_math'),
-    });
+    this.titleEl.setText(this.mode === 'mermaid'
+      ? t('modal.generate.title_mermaid')
+      : t('modal.generate.title_math'));
 
     contentEl.createEl('div', { text: t('modal.generate.description_label'), cls: 'wewrite-generate-label' });
     this.descEl = contentEl.createEl('textarea', {

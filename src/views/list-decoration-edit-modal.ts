@@ -7,6 +7,7 @@
 // {items}) and the per-item template (with {item} / {number} / {marker}).
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { ListDecoration } from '../core/list-decoration-types';
 import { renderListPreview } from '../renderer/list-renderer';
@@ -29,7 +30,7 @@ export interface ListDecorationEditOptions {
 
 const PARAM_TYPES = ['color', 'number', 'px', 'text', 'select', 'image'] as const;
 
-export class ListDecorationEditModal extends Modal {
+export class ListDecorationEditModal extends WeWriteModal {
 	private options: ListDecorationEditOptions;
 	private templateValue: string;
 	private itemTemplateValue: string;
@@ -64,9 +65,7 @@ export class ListDecorationEditModal extends Modal {
 
 		const isBuiltin = this.options.builtinReadonly;
 		const isNew = !this.options.decoration;
-		contentEl.createEl('h3', {
-			text: isNew ? t('deco_edit.new_list_title') : `${t('deco_edit.edit_list_title')} — ${this.options.decoration!.name}`,
-		});
+		this.titleEl.setText(isNew ? t('deco_edit.new_list_title') : `${t('deco_edit.edit_list_title')} — ${this.options.decoration!.name}`);
 
 		// Name
 		const nameWrap = contentEl.createDiv();

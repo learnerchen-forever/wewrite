@@ -1,4 +1,5 @@
 import { Modal, setIcon, type App } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { MaterialItem, MaterialType, WeChatAccount } from '../core/interfaces';
 import type { MaterialManager } from '../media/material-manager';
 import { t } from '../i18n';
@@ -9,7 +10,7 @@ interface DeleteTask {
   rowEl?: HTMLElement;
 }
 
-export class DeleteProgressModal extends Modal {
+export class DeleteProgressModal extends WeWriteModal {
   private account: WeChatAccount;
   private type: MaterialType;
   private materialManager: MaterialManager;

@@ -5,6 +5,7 @@
 // preview renders against the current theme preset.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { TableDecoration } from '../core/table-decoration-types';
 import { extractTableFromHtml } from '../core/table-extract';
@@ -23,7 +24,7 @@ function replaceAll(input: string, search: string, replace: string): string {
 	return input.split(search).join(replace);
 }
 
-export class TablePasteHtmlModal extends Modal {
+export class TablePasteHtmlModal extends WeWriteModal {
 	private options: TablePasteHtmlOptions;
 	private extraction: ReturnType<typeof extractTableFromHtml> = null;
 	private parts: TableDecoration['parts'] = {};
@@ -44,7 +45,7 @@ export class TablePasteHtmlModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('wewrite-paste-html-modal');
 
-		contentEl.createEl('h3', { text: t("paste.title_extract_table") });
+		this.titleEl.setText(t("paste.title_extract_table"));
 		contentEl.createEl('p', {
 			text: t('paste.desc_table'),
 			cls: 'setting-item-description',

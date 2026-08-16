@@ -26,7 +26,7 @@ import { WeWriteSettingTab } from './views/setting-tab';
 import { ThemeWizardModal } from './views/theme-wizard-modal';
 import { WeWriteThemeView, VIEW_TYPE_WEWRITE_THEME } from './views/wewrite-theme-view';
 import { AIImageGenerateModal } from './views/ai-image-generate-modal';
-import { resolveBaseUrl, type AIImageAccountLike } from './publisher/ai-image-client';
+import { resolveBaseUrl, testWanConnection, type AIImageAccountLike } from './publisher/ai-image-client';
 import { ProofreadModal } from './views/proofread-modal';
 import { SynonymsModal } from './views/synonyms-modal';
 import { TranslateModal } from './views/translate-modal';
@@ -40,6 +40,7 @@ import { globalSpinner } from './utils/global-spinner';
 import type { WeWriteSettings, AITextAccount } from './core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from './core/interfaces';
 import { createLogger, redact } from './utils/logger';
+import { editorHighlightExtension } from './utils/editor-highlight';
 import { initI18n, disposeI18n, t } from './i18n';
 import { SyncEngine } from './sync/engine';
 import { SyncScheduler } from './sync/scheduler';
@@ -69,6 +70,9 @@ export default class WeWritePlugin extends Plugin {
     this.materialManager.setSaveFn(async () => {
       this.scheduleSave();
     });
+
+    // Temporary editor range highlight (used by the AI proofread review).
+    this.registerEditorExtension(editorHighlightExtension);
 
     // Initialize unified media registry (fingerprint DB)
     this.mediaRegistry = new MediaRegistry();
@@ -1081,22 +1085,18 @@ export default class WeWritePlugin extends Plugin {
   }
 
   /**
-   * 阿里万相 2.6：POST 一次最小同步生成（同时校验 API Key、workspaceId 与模型可用性）。
+   * 阿里万相 2.6：与真实调用同一套尝试阶梯的最小同步生成（校验 API Key、workspaceId 与模型可用性）。
    */
   private async testWanAccount(
     account: AIImageAccountLike, logEnabled: boolean, wewriteFolder: string,
   ): Promise<{ success: boolean; message: string; status: number; body: string }> {
-    let url = '';
-    try {
-      url = `${resolveBaseUrl(account)}/images/generations`;
-    } catch (err) {
-      return { success: false, message: String(err), status: 0, body: '' };
-    }
-    const body = { model: account.model, prompt: 'test', size: '1024*1024', n: 1, response_format: 'url' };
-    const result = await this.testViaPost(url, account.apiKey, body, 'AI Image (Wan 2.6)');
+    const raw = await testWanConnection(account);
+    const result = raw.success
+      ? { ...raw, message: t('error.connected_label', { label: 'AI Image (Wan 2.6)' }) }
+      : raw;
 
     if (logEnabled) {
-      await this.writeTestLog('image-gen', 'dashscope', 'Wan 2.6 (DashScope)', url, 'POST', body, result,
+      await this.writeTestLog('image-gen', 'dashscope', 'Wan 2.6 (DashScope)', account.baseUrl, 'POST', null, result,
         this.app, wewriteFolder);
     }
     return result;
@@ -1159,11 +1159,12 @@ export default class WeWritePlugin extends Plugin {
   /** Generic POST connectivity test. */
   private async testViaPost(
     url: string, apiKey: string, body: unknown, label: string,
+    extraHeaders: Record<string, string> = {},
   ): Promise<{ success: boolean; message: string; status: number; body: string }> {
     try {
       log.debug(`→ test ${label}`, { url, keyHint: redact(apiKey) });
       const response = await requestUrl({ url, method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...extraHeaders },
         body: JSON.stringify(body),
       });
       const respBody = response.text;

@@ -6,6 +6,7 @@
 // Obsidian defaults using the same background recipe.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { CalloutDecoration } from '../core/callout-decoration-types';
 import { extractCalloutFromHtml } from '../core/callout-extract';
 import { buildCalloutPreviewSample, renderCalloutPreview } from '../renderer/callout-renderer';
@@ -18,7 +19,7 @@ export interface CalloutPasteHtmlOptions {
 	onSave: (decoration: CalloutDecoration) => void;
 }
 
-export class CalloutPasteHtmlModal extends Modal {
+export class CalloutPasteHtmlModal extends WeWriteModal {
 	private options: CalloutPasteHtmlOptions;
 	private extraction: ReturnType<typeof extractCalloutFromHtml> | null = null;
 	private nameValue = '';
@@ -34,7 +35,7 @@ export class CalloutPasteHtmlModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('wewrite-paste-html-modal');
 
-		contentEl.createEl('h3', { text: t("paste.title_extract_callout") });
+		this.titleEl.setText(t("paste.title_extract_callout"));
 		contentEl.createEl('p', {
 			text: t('paste.desc_callout'),
 			cls: 'setting-item-description',

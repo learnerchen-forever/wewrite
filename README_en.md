@@ -48,7 +48,8 @@ Entry points: **Command palette** + editor right-click **"WeWrite AI" submenu** 
 | Generate Summary | WeChat-compliant summaries generated in the article view |
 
 **AI text providers:** OpenAI / OpenAI Compatible (DeepSeek, Qwen, etc.) / Anthropic / Gemini / Ollama (local) / OpenRouter.
-**Image generation providers:** DashScope Wanxiang / OpenAI DALL·E / Seedream (Doubao).
+**Image generation providers:** Alibaba Wan 2.6 / Alibaba Qwen-Image 3.0 / ByteDance Seedream 5.0 / OpenAI DALL·E (the two Alibaba providers also require a Workspace ID).
+**Automatic size fitting:** enter any free-form size (`1440*613`, `2K`, `1024x1024`, …) and the plugin converts it to each model's legal constraints — e.g. Seedream requires ≥2560×1440 total pixels with width and height as multiples of 64 — so WeChat banner ratios work out of the box.
 
 ### Publishing Workflow
 
@@ -115,11 +116,11 @@ Or install manually:
 
 ## Changelog
 
-### v2.0 (2026)
+### v2.0 (2026.8)
 
 Complete rewrite: mobile-first architecture, Obsidian native rendering + zero-CSS inline styling pipeline, theme-note system with 100+ decorations, AI writing assistant (proofread / synonyms / translate / Mermaid / formulas / image / summary), unified FNV1a-64 asset fingerprint database, three-zone cover editor, image post support, WebDAV multi-device sync, encrypted API key storage, settings import/export, automatic v1.x migration.
 
-- 2026.08 — 2.0.pre8: AI writing assistant shipped (proofread review, synonyms, translate, Mermaid/formula generation, WeWrite AI submenu); WebDAV sync hardened (quota adaptivity, conflict resolution, journal rollback); material view mobile redesign.
+- 2026.08.16 — 2.0.3: UI polish; image generation now supports the three latest domestic models (Qwen-Image 3, Wan 2.7, Seedance 5.0).
 - 2026.06.29 — WeWrite 2.0 released, supporting creation on all platforms.
 
 ### v1.x Notable Updates (2023)

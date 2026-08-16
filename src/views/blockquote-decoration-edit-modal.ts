@@ -5,6 +5,7 @@
 // and the live preview renders against the current theme preset.
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { BlockquoteDecoration } from '../core/blockquote-decoration-types';
 import { renderBlockquotePreview } from '../renderer/blockquote-renderer';
@@ -26,7 +27,7 @@ export interface BlockquoteDecorationEditOptions {
 const PARAM_TYPES = ['color', 'number', 'px', 'text', 'select', 'image'] as const;
 const PLACEHOLDER_HINT = t('deco_edit.blockquote_hint');
 
-export class BlockquoteDecorationEditModal extends Modal {
+export class BlockquoteDecorationEditModal extends WeWriteModal {
 	private options: BlockquoteDecorationEditOptions;
 	private templateValue: string;
 	private nameValue: string;
@@ -59,9 +60,7 @@ export class BlockquoteDecorationEditModal extends Modal {
 
 		const isBuiltin = this.options.builtinReadonly;
 		const isNew = !this.options.decoration;
-		contentEl.createEl('h3', {
-			text: isNew ? t('deco_edit.new_quote_title') : `${t('deco_edit.edit_quote_title')} — ${this.options.decoration!.name}`,
-		});
+		this.titleEl.setText(isNew ? t('deco_edit.new_quote_title') : `${t('deco_edit.edit_quote_title')} — ${this.options.decoration!.name}`);
 
 		// Name
 		const nameWrap = contentEl.createDiv();

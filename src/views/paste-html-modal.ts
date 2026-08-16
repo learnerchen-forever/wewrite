@@ -2,6 +2,7 @@
 // Always generates a DomTransform wrapper for consistency.
 
 import { App, Modal, Setting, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { SlotValue } from '../core/slot-types';
 import { t } from '../i18n';
 
@@ -10,7 +11,7 @@ export interface PasteHtmlResult {
 	value: SlotValue;
 }
 
-export class PasteHtmlModal extends Modal {
+export class PasteHtmlModal extends WeWriteModal {
 	private result: PasteHtmlResult | null = null;
 	private resolvePromise: ((value: PasteHtmlResult | null) => void) | null = null;
 	private accentHex: string;
@@ -36,7 +37,7 @@ export class PasteHtmlModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('wewrite-paste-html-modal');
 
-		contentEl.createEl('h3', { text: t('paste.create_title', { element: this.elementName, slot: this.slotId }) });
+		this.titleEl.setText(t('paste.create_title', { element: this.elementName, slot: this.slotId }));
 
 		contentEl.createEl('p', {
 			text: t("paste.desc_generic"),

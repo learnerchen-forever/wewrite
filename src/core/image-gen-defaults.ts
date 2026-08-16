@@ -11,10 +11,22 @@
 export const ALI_MAAS_BASE_URL_TEMPLATE = 'https://{workspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1';
 
 /**
- * 旧版 DashScope 异步任务端点（wanx2.x 文生图，已废弃）。
- * 仅用于识别存量账号并在加载时迁移到新的同步 API 模板。
+ * 阿里云百炼 DashScope 原生文生图端点（万相 2.x 文生图，同步/异步通用路径）。
+ * 同步调用时附加请求头 `X-DashScope-Async: disable`，返回 `output.results[0].url`。
  */
-export const LEGACY_DASHSCOPE_ASYNC_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis';
+export const DASHSCOPE_TEXT2IMAGE_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis';
+
+/**
+ * DashScope 多模态生成端点（Wan 2.6 图像生成与编辑系列，wan2.6-t2i 的官方端点）。
+ * 同步调用时附加请求头 `X-DashScope-Async: disable`，返回 `output.results[0].url`。
+ */
+export const DASHSCOPE_MULTIMODAL_GENERATION_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
+
+/**
+ * 旧版 wanx2.x 异步端点（与 DASHSCOPE_TEXT2IMAGE_URL 同路径）。
+ * 仅用于识别存量账号并在加载时迁移到新的配置模板。
+ */
+export const LEGACY_DASHSCOPE_ASYNC_URL = DASHSCOPE_TEXT2IMAGE_URL;
 
 /** 万相 2.6 文生图模型（同步 images API）。 */
 export const WAN_2_6_MODEL = 'wan2.6-t2i';

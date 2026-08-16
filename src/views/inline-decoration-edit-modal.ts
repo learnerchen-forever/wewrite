@@ -5,6 +5,7 @@
 // renders the template against the current theme preset (as a bold run).
 
 import { App, Modal, Notice } from 'obsidian';
+import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { InlineDecoration } from '../core/inline-decoration-types';
 import { renderInlinePreview } from '../renderer/inline-renderer';
@@ -27,7 +28,7 @@ const PARAM_TYPES = ['color', 'number', 'px', 'text', 'select', 'image'] as cons
 const PLACEHOLDER_HINT =
 	'{text} 内容 · {tag} 实际标签 (em/strong/code/a/span) · ${accent} ${text} ${textMuted} ${mono} ${bg} ${onAccent} · {{param}} 装饰参数';
 
-export class InlineDecorationEditModal extends Modal {
+export class InlineDecorationEditModal extends WeWriteModal {
 	private options: InlineDecorationEditOptions;
 	private templateValue: string;
 	private nameValue: string;
@@ -60,9 +61,7 @@ export class InlineDecorationEditModal extends Modal {
 
 		const isBuiltin = this.options.builtinReadonly;
 		const isNew = !this.options.decoration;
-		contentEl.createEl('h3', {
-			text: isNew ? t('deco_edit.new_title') : `${t('deco_edit.edit_title')} — ${this.options.decoration!.name}`,
-		});
+		this.titleEl.setText(isNew ? t('deco_edit.new_title') : `${t('deco_edit.edit_title')} — ${this.options.decoration!.name}`);
 
 		// Name
 		const nameWrap = contentEl.createDiv();

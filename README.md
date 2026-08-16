@@ -48,7 +48,8 @@ LaTeX 数学公式（MathJax SVG）、Mermaid 图表、Excalidraw 手绘、Wiki-
 | 生成摘要 | 推文视图中按微信规范自动生成摘要 |
 
 **AI 文本提供商：** OpenAI / OpenAI Compatible（DeepSeek、通义等）/ Anthropic / Gemini / Ollama（本地）/ OpenRouter。
-**文生图提供商：** DashScope 通义万相 / OpenAI DALL·E / Seedream 豆包。
+**文生图提供商：** 阿里万相 Wan 2.6 / 阿里千问 Qwen-Image 3.0 / 字节 Seedream 5.0 / OpenAI DALL·E（阿里两家需填写业务空间 ID）。
+**尺寸自动适配：** 尺寸输入任意自由格式（`1440*613`、`2K`、`1024x1024`…），插件自动换算成各模型的合法约束——例如 Seedream 要求总像素 ≥2560×1440 且宽高为 64 的倍数，公众号横幅比例也能直接出图。
 
 ### 发布流程
 
@@ -115,11 +116,11 @@ LaTeX 数学公式（MathJax SVG）、Mermaid 图表、Excalidraw 手绘、Wiki-
 
 ## 更新历史
 
-### v2.0（2026）
+### v2.0（2026.8）
 
 全面重构：移动优先架构、Obsidian 原生渲染 + 零-CSS 内联样式管线、主题笔记系统 + 100+ 装饰项、AI 写作助手（校对/同义词/翻译/Mermaid/公式/文生图/摘要）、统一 FNV1a-64 素材指纹库、三区封面编辑器、图片消息支持、WebDAV 多端同步、API Key 加密存储、设置导入/导出、v1.x 自动迁移。
 
-- 2026.08 — 2.0.pre8：AI 写作助手上线（校对审阅、同义词、翻译、Mermaid/公式生成、WeWrite AI 二级菜单）；WebDAV 同步完善（配额自适应、冲突解决、日志回滚）；素材视图移动端改造。
+- 2026.08.16 — 2.0.3：界面优化，文生图支持国内三家最新模型（Qwen-image-3, Wan2.7, Seedance 5.0）。
 - 2026.06.29 — WeWrite 2.0 发布，支持全平台创作。
 
 ### v1.x 重要更新（2023）
