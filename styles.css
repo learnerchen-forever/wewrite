@@ -368,6 +368,24 @@ input[type="password"], input[type="url"], textarea, select) {
   flex-shrink: 0;
 }
 
+/* Account cards on PC/Pad (≥501px): give every row the same label
+   column so all inputs (模型 / API Key / 业务空间 ID etc.) are exactly
+   the same width. Without this, a long description (e.g. the Workspace
+   ID hint) inflates .setting-item-info and squeezes its input to a
+   fraction of the other inputs' length. Mobile (≤500px) keeps the
+   previous layout. */
+@media (min-width: 501px) {
+  .wewrite-account-row .setting-item-info {
+    flex: 1 1 38%;
+    min-width: 0;
+    max-width: 320px;
+  }
+  .wewrite-account-row .setting-item-control {
+    flex: 1 1 62%;
+    min-width: 0;
+  }
+}
+
 /* Mobile: compact inline layout — keep items on one row */
 @media (max-width: 500px) {
   /* Tighter vertical spacing */

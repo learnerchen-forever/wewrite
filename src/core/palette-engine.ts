@@ -22,8 +22,8 @@ export type PaletteColorKey = keyof Pick<
 	'accent' | 'accentDeep' | 'accentBg' | 'accentBorder' | 'text' | 'textMuted'
 >;
 
-/** HSL representation */
-interface HSL {
+/** HSL representation (h 0-360, s/l 0-100) */
+export interface HSL {
 	h: number;
 	s: number; // 0-100
 	l: number; // 0-100
@@ -31,7 +31,7 @@ interface HSL {
 
 // ── Color utilities ──
 
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
+export function hexToRgb(hex: string): { r: number; g: number; b: number } {
 	const h = hex.replace(/^#/, '');
 	let r: number, g: number, b: number;
 	if (h.length === 3) {
@@ -76,7 +76,7 @@ export function toPickerHex(value: string): string {
 	return m ? `#${m[1]}` : '#000000';
 }
 
-function hslToHex(hsl: HSL): string {
+export function hslToHex(hsl: HSL): string {
 	const s = hsl.s / 100;
 	const l = hsl.l / 100;
 	const c = (1 - Math.abs(2 * l - 1)) * s;

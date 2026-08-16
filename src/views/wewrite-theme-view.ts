@@ -140,6 +140,7 @@ import {
 import { frontmatterToThemePreset } from '../renderer/theme-resolver';
 import { WechatRenderer } from '../renderer/wechat-renderer';
 import { ThemeWizardModal } from './theme-wizard-modal';
+import { ColorPickerModal } from './color-picker-modal';
 import { PasteHtmlModal } from './paste-html-modal';
 import { HeadingDecorationEditModal } from './heading-decoration-edit-modal';
 import { HeadingPasteHtmlModal } from './heading-paste-html-modal';
@@ -426,7 +427,13 @@ export class WeWriteThemeView extends ItemView {
 		// styles cannot: media queries and control-height normalization).
 		const styleEl = c.createEl('style');
 		styleEl.textContent = `
-.wewrite-theme-view { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.wewrite-theme-view {
+  display: flex; flex-direction: column; height: 100%; overflow: hidden;
+  /* Keep the desktop control height on mobile too — Obsidian mobile raises
+     --input-height to 44px, which makes every text box/select/swatch look
+     oversized next to the rest of the editor. */
+  --input-height: 30px;
+}
 .wewrite-theme-view .wewrite-theme-editor-panel,
 .wewrite-theme-view .wewrite-theme-preview-panel,
 .wewrite-theme-view .wewrite-theme-preview-content { min-height: 0; }
@@ -451,6 +458,9 @@ export class WeWriteThemeView extends ItemView {
 /* Collapsed sections: hide everything except the header (class-based, so
    inline display:flex rows keep their layout when a section re-opens). */
 .wewrite-theme-view .wewrite-theme-section.wewrite-theme-section-collapsed > *:not(.wewrite-theme-section-header) { display: none !important; }
+/* Element rows: a bit more air between labels / selects / params. */
+.wewrite-theme-view .wewrite-theme-section [style*="padding:2px 0"] { padding: 4px 0 !important; }
+.wewrite-theme-view .wewrite-theme-section [style*="margin-bottom:8px"] { margin-bottom: 12px !important; }
 @media (max-width: 760px) {
   .wewrite-theme-view .wewrite-theme-split {
     flex-wrap: wrap !important; overflow-y: auto !important;
@@ -463,12 +473,19 @@ export class WeWriteThemeView extends ItemView {
     border-left: none !important; border-top: 1px solid var(--background-modifier-border);
   }
   .wewrite-theme-view .wewrite-theme-splitter { display: none !important; }
-  /* Touch targets ≥44px on mobile (M44) — the desktop 30px controls are too
-     small to tap reliably in a WebView. */
+  /* Text boxes/selects keep the desktop height (30px) — the 44px forced
+     height made them look empty and clipped short values. Buttons stay
+     touch-friendly. */
   .wewrite-theme-view input[type="text"], .wewrite-theme-view input[type="number"],
-  .wewrite-theme-view input[type="search"], .wewrite-theme-view select,
+  .wewrite-theme-view input[type="search"] {
+    height: var(--input-height, 30px) !important; min-height: 0 !important;
+    padding: 1px 8px !important;
+  }
+  .wewrite-theme-view select {
+    height: var(--input-height, 30px) !important; min-height: 0 !important;
+  }
   .wewrite-theme-view button:not(.wewrite-btn-icon) {
-    height: 44px !important; min-height: 44px !important;
+    height: 38px !important; min-height: 38px !important;
   }
   .wewrite-theme-view .wewrite-btn-icon {
     min-width: 44px !important; min-height: 44px !important;
@@ -476,12 +493,22 @@ export class WeWriteThemeView extends ItemView {
   /* Header: the theme-name input takes its own full-width row on top. */
   .wewrite-theme-view .wewrite-theme-header { gap: 8px; }
   .wewrite-theme-view .wewrite-theme-header .wewrite-input { flex: 1 1 100% !important; order: -1; }
-  /* Section internals: let flex rows wrap instead of overflowing, and give
-     every control room to shrink. */
-  .wewrite-theme-view .wewrite-theme-editor-panel { padding: 8px !important; }
+  /* Mobile: flat group list — drop the per-group border box and the inner
+     box borders; the section header divider is the only line. */
+  .wewrite-theme-view .wewrite-theme-editor-panel { padding: 6px 8px !important; }
+  .wewrite-theme-view .wewrite-theme-section {
+    padding: 6px 8px !important; border: none !important; border-radius: 0 !important;
+    margin-bottom: 8px !important;
+  }
   .wewrite-theme-view .wewrite-theme-section-header {
     min-height: 44px !important; padding-top: 10px !important; padding-bottom: 10px !important;
+    margin: -6px -8px 6px !important;
   }
+  .wewrite-theme-view .wewrite-theme-section [style*="padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px"] {
+    border: none !important; border-radius: 0 !important; padding: 4px 0 !important;
+  }
+  /* Section internals: let flex rows wrap instead of overflowing, and give
+     every control room to shrink. */
   .wewrite-theme-view .wewrite-theme-section [style*="display:flex"] { flex-wrap: wrap; }
   .wewrite-theme-view .wewrite-theme-section input[type="text"],
   .wewrite-theme-view .wewrite-theme-section input[type="number"],
@@ -914,16 +941,18 @@ export class WeWriteThemeView extends ItemView {
 		const hexLabel = row.createSpan({ text: this.paletteAccent });
 		hexLabel.style.fontFamily = 'monospace';
 		hexLabel.style.fontSize = '12px';
-
 		// Selected-color swatch: unified square button (same height as inputs).
+		// Opens the cross-platform color picker modal (PC-style on every device).
 		this.renderColorSwatch(row, this.paletteAccent, {
 			title: `${this.paletteAccent}（点击自定义）`,
-			onInput: (value) => {
-				this.paletteAccent = value;
-				this.paletteOverrides = {};
-				hexLabel.setText(value);
+			onChange: (value) => {
+				this.onConfigChanged(() => {
+					this.paletteAccent = value;
+					// The accent is the palette source: regenerate derived colors
+					this.paletteOverrides = {};
+				});
+				this.renderPaletteSection(section);
 			},
-			onChange: () => this.renderPaletteSection(section),
 		});
 
 		section.createEl('div', { text: `${familyLabels[family]}`, cls: 'setting-item-description' });
@@ -942,53 +971,26 @@ export class WeWriteThemeView extends ItemView {
 		for (const c of colors) {
 			const item = swatches.createDiv();
 			item.style.cssText = 'text-align:center;font-size:10px;cursor:pointer;padding:2px;border-radius:4px;transition:background 0.15s';
-			item.style.position = 'relative';
 			item.title = t('theme_editor.swatch_title', { label: c.label, value: palette[c.key] });
 			const box = item.createDiv();
 			box.style.cssText = `width:38px;height:20px;background:${palette[c.key]};border:1px solid #ddd;border-radius:4px;margin-bottom:2px`;
 			item.createSpan({ text: c.label });
 
-			// Hidden native picker — same interaction as the theme-color pill:
-			// clicking the swatch opens the OS color picker directly.
-			const swatchInput = item.createEl('input', { type: 'color', value: toPickerHex(palette[c.key]) });
-			swatchInput.style.cssText = 'position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
-			swatchInput.title = t('theme_editor.swatch_title_short', { label: c.label });
-
 			item.addEventListener('mouseenter', () => { item.style.background = 'var(--background-modifier-hover)'; });
 			item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
-			item.addEventListener('click', () => swatchInput.click());
-			this.attachColorPickerHandlers(
-				swatchInput,
-				(value) => {
-					this.applyPaletteOverride(c.key, value);
-					box.style.background = value;
-					item.title = t('theme_editor.swatch_title', { label: c.label, value });
-				},
-				() => this.renderPaletteSection(section),
-			);
+			item.addEventListener('click', () => {
+				new ColorPickerModal(this.app, {
+					initial: toPickerHex(palette[c.key]),
+					title: t('theme_editor.swatch_title', { label: c.label, value: palette[c.key] }),
+					onCommit: (value) => {
+						this.onConfigChanged(() => this.applyPaletteOverride(c.key, value));
+						box.style.background = value;
+						item.title = t('theme_editor.swatch_title', { label: c.label, value });
+						this.renderPaletteSection(section);
+					},
+				}).open();
+			});
 		}
-	}
-
-	/** Shared picker logic: one undo entry per session, live preview, commit on close. */
-	private attachColorPickerHandlers(
-		input: HTMLInputElement,
-		onPick: (value: string) => void,
-		onCommit: () => void,
-	): void {
-		let dragUndoPushed = false;
-		input.addEventListener('input', () => {
-			if (!dragUndoPushed) {
-				this.pushUndo();
-				dragUndoPushed = true;
-			}
-			onPick(input.value);
-			this.markDirty();
-			this.schedulePreviewUpdate();
-		});
-		input.addEventListener('change', () => {
-			dragUndoPushed = false;
-			onCommit();
-		});
 	}
 
 	/** Apply a picked color, keeping the same rules as the theme-color pill. */
@@ -1634,14 +1636,14 @@ export class WeWriteThemeView extends ItemView {
 
 	/**
 	 * Unified color swatch: a square button (same height as text inputs, small
-	 * radius) that opens the OS color picker. onInput fires during wheel drag
-	 * (one undo entry per session), onChange fires when the picker closes.
+	 * radius) that opens the cross-platform color picker modal. onChange fires
+	 * with the confirmed #rrggbb.
 	 */
 	private renderColorSwatch(
 		row: HTMLElement,
 		value: string,
-		opts: { onInput?: (hex: string) => void; onChange: (hex: string) => void; title?: string },
-	): HTMLInputElement {
+		opts: { onChange: (hex: string) => void; title?: string },
+	): void {
 		const wrap = row.createDiv();
 		wrap.style.cssText = 'position:relative;width:var(--input-height,30px);height:var(--input-height,30px);flex-shrink:0';
 		const swatch = wrap.createEl('button');
@@ -1651,22 +1653,16 @@ export class WeWriteThemeView extends ItemView {
 		block.style.cssText = 'width:100%;height:100%;border-radius:2px;box-sizing:border-box';
 		const refresh = (v: string): void => { block.style.backgroundColor = isCssColor(v) ? v : 'transparent'; };
 		refresh(value);
-		const picker = wrap.createEl('input', { type: 'color', value: toPickerHex(value) });
-		picker.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0';
-		let dragUndoPushed = false;
-		picker.addEventListener('input', () => {
-			if (!dragUndoPushed) {
-				this.pushUndo();
-				dragUndoPushed = true;
-			}
-			refresh(picker.value);
-			opts.onInput?.(picker.value);
+		swatch.addEventListener('click', () => {
+			new ColorPickerModal(this.app, {
+				initial: value,
+				title: opts.title,
+				onCommit: (hex) => {
+					refresh(hex);
+					opts.onChange(hex);
+				},
+			}).open();
 		});
-		picker.addEventListener('change', () => {
-			dragUndoPushed = false;
-			opts.onChange(picker.value);
-		});
-		return picker;
 	}
 
 	private renderBlockquoteParamInput(
@@ -1719,20 +1715,17 @@ export class WeWriteThemeView extends ItemView {
 				}
 			});
 
-			const picker = swatchWrap.createEl('input', { type: 'color', value: isCssColor(current) && /^#/.test(current) ? current : '#000000' });
-			picker.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0';
-
-			let dragUndoPushed = false;
-			picker.addEventListener('input', () => {
-				if (!dragUndoPushed) {
-					this.pushUndo();
-					dragUndoPushed = true;
-				}
-				text.value = picker.value;
-				applyValue(picker.value, true);
-			});
-			picker.addEventListener('change', () => {
-				dragUndoPushed = false;
+			// Swatch opens the cross-platform color picker modal; the hex text
+			// input above stays for direct entry.
+			swatch.addEventListener('click', () => {
+				new ColorPickerModal(this.app, {
+					initial: current,
+					title: param.label,
+					onCommit: (hex) => {
+						applyValue(hex);
+						text.value = hex;
+					},
+				}).open();
 			});
 			return;
 		}
@@ -1961,7 +1954,8 @@ export class WeWriteThemeView extends ItemView {
 		const text = wrap.createEl('input', { type: 'text', value, placeholder: '—' });
 		text.style.cssText = `width:${width}px;font-family:var(--font-monospace);font-size:10px;padding:1px 3px`;
 		const swatch = wrap.createEl('button');
-		swatch.style.cssText = 'width:16px;height:16px;padding:0;border:1px solid var(--background-modifier-border);border-radius:3px;cursor:pointer;background:transparent;position:relative;flex-shrink:0';
+		swatch.style.cssText = 'width:20px;height:20px;padding:0;border:1px solid var(--background-modifier-border);border-radius:3px;cursor:pointer;background:transparent;flex-shrink:0';
+		swatch.title = `${title}（${t('color_picker.title')}）`;
 		const block = swatch.createDiv();
 		block.style.cssText = 'width:100%;height:100%;border-radius:2px';
 		const refresh = (v: string): void => { block.style.backgroundColor = isCssColor(v) ? v : 'transparent'; };
@@ -1973,12 +1967,16 @@ export class WeWriteThemeView extends ItemView {
 				text.blur();
 			}
 		});
-		const picker = swatch.createEl('input', { type: 'color', value: /^#/.test(value) ? value : '#000000' });
-		picker.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0';
-		picker.addEventListener('input', () => {
-			text.value = picker.value;
-			apply(picker.value);
-			refresh(picker.value);
+		swatch.addEventListener('click', () => {
+			new ColorPickerModal(this.app, {
+				initial: value,
+				title,
+				onCommit: (hex) => {
+					text.value = hex;
+					apply(hex);
+					refresh(hex);
+				},
+			}).open();
 		});
 	}
 
@@ -3387,11 +3385,10 @@ export class WeWriteThemeView extends ItemView {
 			};
 
 			this.renderColorSwatch(colorWrap, currentHex || '#000000', {
-				onInput: (value) => {
+				onChange: (value) => {
 					hexInput.value = value;
-					this.applyCustomColorValue(elementPath, slotId, value.toLowerCase(), select, true);
+					this.applyCustomColorValue(elementPath, slotId, value.toLowerCase(), select);
 				},
-				onChange: () => { /* commit already applied during drag */ },
 			});
 			hexInput.addEventListener('change', () => applyColor(hexInput.value));
 			hexInput.addEventListener('keydown', (e) => {
@@ -3481,11 +3478,10 @@ export class WeWriteThemeView extends ItemView {
 		customRow.createSpan({ text: t('modifier.code.custom_color') });
 		const currentHex = currentValue.startsWith('hex-') ? currentValue.slice(4) : '';
 		this.renderColorSwatch(customRow, currentHex || '#000000', {
-			onInput: (value) => {
-				this.applyCustomColorValue(elementPath, slot.id, value.toLowerCase(), undefined, true);
+			onChange: (value) => {
+				this.applyCustomColorValue(elementPath, slot.id, value.toLowerCase());
 				this.refreshCodeThemePickerSelection(container, elementPath, slot);
 			},
-			onChange: () => { /* commit already applied during drag */ },
 		});
 	}
 
@@ -3578,7 +3574,7 @@ export class WeWriteThemeView extends ItemView {
 		const current = this.articleSliderNumber(slotId, currentValue, fallback);
 
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;margin-bottom:12px';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;margin:8px 0 12px';
 		const label = row.createSpan({ text: slot.name });
 		label.style.minWidth = '50px';
 		const readout = row.createSpan({ text: `${current}${opts.unit}` });
@@ -3625,7 +3621,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Width slider row
 		const wRow = container.createDiv();
-		wRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;margin-bottom:12px';
+		wRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;margin:8px 0 12px';
 		const wLabel = wRow.createSpan({ text: slot.name });
 		wLabel.style.minWidth = '50px';
 		const wReadout = wRow.createSpan({ text: `${width}px` });
@@ -3652,12 +3648,11 @@ export class WeWriteThemeView extends ItemView {
 		hexInput.value = hex.toUpperCase();
 
 		this.renderColorSwatch(cRow, hex, {
-			onInput: (value) => {
+			onChange: (value) => {
 				currentHex = value;
 				hexInput.value = value.toUpperCase();
-				this.applyFrameBorderValue(elementPath, parseInt(widthSlider.value, 10), value.toLowerCase(), true);
+				this.applyFrameBorderValue(elementPath, parseInt(widthSlider.value, 10), value.toLowerCase());
 			},
-			onChange: () => { /* commit already applied during drag */ },
 		});
 		hexInput.addEventListener('change', () => {
 			const v = hexInput.value.trim().toLowerCase();

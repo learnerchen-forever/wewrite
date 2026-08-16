@@ -517,44 +517,67 @@ export default class WeWritePlugin extends Plugin {
           }
 
           // WeWrite AI submenu — proofread / synonyms / translate / image /
-          // mermaid / math, all behind one "WeWrite" entry. The submenu pops
-          // out on hover (desktop) and also opens on click (mobile/keyboard).
+          // mermaid / math, all behind one "WeWrite" entry. Uses Obsidian's
+          // native setSubmenu() (runtime API, typed in src/types) so the item
+          // gets the standard chevron-right indicator and Obsidian's own
+          // hover / tap positioning. Falls back to a manual popup only on
+          // builds without setSubmenu().
           menu.addItem((item: MenuItem) => {
             item.setTitle(t('contextMenu.wewrite_ai'));
             item.setIcon('sparkles');
 
+            const buildSubmenu = (submenu: Menu): void => {
+              submenu.addItem((i: MenuItem) => {
+                i.setTitle(t('contextMenu.ai_proofread'));
+                i.setIcon('spell-check');
+                i.onClick(() => this.runProofread(editor));
+              });
+              submenu.addItem((i: MenuItem) => {
+                i.setTitle(t('contextMenu.ai_synonyms'));
+                i.setIcon('languages');
+                i.onClick(() => this.runSynonyms(editor));
+              });
+              submenu.addItem((i: MenuItem) => {
+                i.setTitle(t('contextMenu.ai_translate'));
+                i.setIcon('globe');
+                i.onClick(() => this.runTranslate(editor));
+              });
+              submenu.addSeparator();
+              submenu.addItem((i: MenuItem) => {
+                i.setTitle(t('contextMenu.ai_generate_image'));
+                i.setIcon('image');
+                i.onClick(() => this.generateImageByAI());
+              });
+              submenu.addItem((i: MenuItem) => {
+                i.setTitle(t('contextMenu.ai_generate_mermaid'));
+                i.setIcon('git-branch');
+                i.onClick(() => this.runGenerateMermaid(editor));
+              });
+              submenu.addItem((i: MenuItem) => {
+                i.setTitle(t('contextMenu.ai_generate_math'));
+                i.setIcon('sigma');
+                i.onClick(() => this.runGenerateMath(editor));
+              });
+            };
+
+            // Native submenu path: Obsidian renders the unified chevron-right
+            // indicator and positions the popup itself. The created menu is
+            // either returned by setSubmenu() or exposed as `item.submenu`,
+            // depending on the Obsidian build.
+            const submenuItem = item as MenuItem & { submenu?: Menu };
+            if (typeof submenuItem.setSubmenu === 'function') {
+              const created = submenuItem.setSubmenu();
+              const nativeSubmenu = created && 'addItem' in created ? created : submenuItem.submenu;
+              if (nativeSubmenu) {
+                buildSubmenu(nativeSubmenu);
+                return;
+              }
+            }
+
+            // Fallback (Obsidian builds without setSubmenu): build the menu
+            // manually and pop it out on click and hover.
             const submenu = new Menu();
-            submenu.addItem((i: MenuItem) => {
-              i.setTitle(t('contextMenu.ai_proofread'));
-              i.setIcon('spell-check');
-              i.onClick(() => this.runProofread(editor));
-            });
-            submenu.addItem((i: MenuItem) => {
-              i.setTitle(t('contextMenu.ai_synonyms'));
-              i.setIcon('languages');
-              i.onClick(() => this.runSynonyms(editor));
-            });
-            submenu.addItem((i: MenuItem) => {
-              i.setTitle(t('contextMenu.ai_translate'));
-              i.setIcon('globe');
-              i.onClick(() => this.runTranslate(editor));
-            });
-            submenu.addSeparator();
-            submenu.addItem((i: MenuItem) => {
-              i.setTitle(t('contextMenu.ai_generate_image'));
-              i.setIcon('image');
-              i.onClick(() => this.generateImageByAI());
-            });
-            submenu.addItem((i: MenuItem) => {
-              i.setTitle(t('contextMenu.ai_generate_mermaid'));
-              i.setIcon('git-branch');
-              i.onClick(() => this.runGenerateMermaid(editor));
-            });
-            submenu.addItem((i: MenuItem) => {
-              i.setTitle(t('contextMenu.ai_generate_math'));
-              i.setIcon('sigma');
-              i.onClick(() => this.runGenerateMath(editor));
-            });
+            buildSubmenu(submenu);
 
             // Click fallback (mobile / keyboard): open at the pointer position.
             item.onClick((evt) => {
