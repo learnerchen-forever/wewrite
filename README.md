@@ -31,7 +31,11 @@
 
 基础排版（H1–H6、粗体、斜体、删除线、行内代码）、代码块（深色/浅色配色、行号、macOS 红绿灯装饰）、有序/无序列表、任务清单、表格、引用、Callout、分割线、脚注、外部链接。
 
-LaTeX 数学公式（MathJax SVG）、Mermaid 图表、Excalidraw 手绘、Wiki-link 笔记嵌入、Obsidian / Iconize / Remix 图标、Obsidian Charts、PDF++ 注释与图片。
+LaTeX 数学公式（MathJax SVG）、Mermaid 图表、Excalidraw 手绘、Wiki-link 笔记嵌入、Obsidian / Iconize / Remix 图标、Obsidian Charts。
+
+PDF 嵌入渲染为图片：PDF++ 局部截图（`![[file.pdf#page=N&rect=x1,y1,x2,y2|图注]]`）与整页嵌入（`![[file.pdf#page=N]]`），发布时自动渲染并缓存为 PNG——基于 Obsidian 内置 PDF.js，无需任何额外依赖。
+
+Dataview 查询（`dataview` / `dataviewjs` 代码块与行内 `$= ...`）经 Dataview 插件求值后按主题渲染为文本，与手写 Markdown 排版一致。
 
 ### AI 写作助手
 
@@ -120,6 +124,7 @@ LaTeX 数学公式（MathJax SVG）、Mermaid 图表、Excalidraw 手绘、Wiki-
 
 全面重构：移动优先架构、Obsidian 原生渲染 + 零-CSS 内联样式管线、主题笔记系统 + 100+ 装饰项、AI 写作助手（校对/同义词/翻译/Mermaid/公式/文生图/摘要）、统一 FNV1a-64 素材指纹库、三区封面编辑器、图片消息支持、WebDAV 多端同步、API Key 加密存储、设置导入/导出、v1.x 自动迁移。
 
+- 2026.08.17 — 新增 PDF 嵌入渲染（PDF++ 局部截图 / 整页，基于 Obsidian 内置 PDF.js，零体积）与 Dataview 查询支持（求值后按主题渲染为文本）。
 - 2026.08.16 — 2.0.3：界面优化，文生图支持国内三家最新模型（Qwen-image-3, Wan2.7, Seedance 5.0）。
 - 2026.06.29 — WeWrite 2.0 发布，支持全平台创作。
 

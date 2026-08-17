@@ -1,0 +1,8 @@
+<!-- WeWrite 重做按钮图标（C2 · 顺时针折返箭头）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 右上折角箭头 -->
+  <path d="M21 7v6h-6"/>
+  <!-- 顺时针弧线 -->
+  <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
+</svg>

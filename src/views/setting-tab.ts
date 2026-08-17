@@ -111,7 +111,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
     // WeWrite Folder — central directory with fixed subdirectories
     const wfLabel = getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.cache);
-    new Setting(generalBody)
+    const folderSetting = new Setting(generalBody);
+    // Dedicated row layout: the text input flexes to fill the remaining row
+    // (PC + mobile) while the 浏览 button keeps its natural width and stays
+    // right-aligned. Without this Obsidian's default control sizing squeezes
+    // the input to a sliver next to a stretched button on small screens.
+    folderSetting.settingEl.addClass('wewrite-folder-row');
+    folderSetting
       .setName(t('settings.wewrite_folder'))
       .setDesc(t('settings.wewrite_folder_desc'))
       .addText((t) => {
@@ -382,8 +388,11 @@ export class WeWriteSettingTab extends PluginSettingTab {
         tc.inputEl.type = 'password';
       });
 
-      // Test connection
-      new Setting(card)
+      // Test connection — label + icon button stay on one line even on
+      // small mobile screens (no unnecessary wrap to two lines).
+      const testConnectionSetting = new Setting(card);
+      testConnectionSetting.settingEl.addClass('wewrite-test-row');
+      testConnectionSetting
         .setName(t('settings.test_connection'))
         .setDesc(t('settings.test_wechat_desc'))
         .addExtraButton((btn) => {
@@ -402,7 +411,11 @@ export class WeWriteSettingTab extends PluginSettingTab {
             });
         });
 
+      // Action row (设为启用 / 删除) — both buttons share one line with their
+      // natural width (never stretched full-width on mobile) and stay
+      // right-aligned so the card layout is not broken on small screens.
       const buttonRow = new Setting(card);
+      buttonRow.settingEl.addClass('wewrite-account-actions');
       if (!isActive) {
         buttonRow.addButton((btn) =>
           btn.setButtonText(t('settings.set_active')).onClick(() => {
@@ -486,8 +499,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
         t.setValue(account.model).onChange((v) => { account.model = v; this.save(); }),
       );
 
-      // Test connection
-      new Setting(card)
+      // Test connection — one line on mobile too.
+      const aiTextTestSetting = new Setting(card);
+      aiTextTestSetting.settingEl.addClass('wewrite-test-row');
+      aiTextTestSetting
         .setName(t('settings.test_connection'))
         .setDesc(t('settings.test_ai_text_desc'))
         .addExtraButton((btn) => {
@@ -506,9 +521,11 @@ export class WeWriteSettingTab extends PluginSettingTab {
             });
         });
 
-      const buttonRow = new Setting(card);
+      // Action row (设为启用 / 删除) — one line, natural button widths.
+      const aiTextButtonRow = new Setting(card);
+      aiTextButtonRow.settingEl.addClass('wewrite-account-actions');
       if (!isActive) {
-        buttonRow.addButton((btn) =>
+        aiTextButtonRow.addButton((btn) =>
           btn.setButtonText(t('settings.set_active')).onClick(() => {
             settings.activeAITextAccountId = account.id;
             this.save();
@@ -516,7 +533,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           }),
         );
       }
-      buttonRow.addButton((btn) =>
+      aiTextButtonRow.addButton((btn) =>
         btn.setButtonText(t('settings.delete')).onClick(() => {
           settings.aiTextAccounts = settings.aiTextAccounts.filter((a) => a.id !== account.id);
           if (settings.activeAITextAccountId === account.id) {
@@ -619,8 +636,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
           t.setValue(account.defaultSize || '').onChange((v) => { account.defaultSize = v; this.save(); }),
         );
 
-      // Test connection
-      new Setting(card)
+      // Test connection — one line on mobile too.
+      const aiImageTestSetting = new Setting(card);
+      aiImageTestSetting.settingEl.addClass('wewrite-test-row');
+      aiImageTestSetting
         .setName(t('settings.test_connection'))
         .setDesc(t('settings.test_ai_image_desc'))
         .addExtraButton((btn) => {
@@ -643,9 +662,11 @@ export class WeWriteSettingTab extends PluginSettingTab {
         t.setValue(account.baseUrl).onChange((v) => { account.baseUrl = v; this.save(); }),
       );
 
-      const buttonRow = new Setting(card);
+      // Action row (设为启用 / 删除) — one line, natural button widths.
+      const aiImageButtonRow = new Setting(card);
+      aiImageButtonRow.settingEl.addClass('wewrite-account-actions');
       if (!isActive) {
-        buttonRow.addButton((btn) =>
+        aiImageButtonRow.addButton((btn) =>
           btn.setButtonText(t('settings.set_active')).onClick(() => {
             settings.activeAIImageGenAccountId = account.id;
             this.save();
@@ -653,7 +674,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           }),
         );
       }
-      buttonRow.addButton((btn) =>
+      aiImageButtonRow.addButton((btn) =>
         btn.setButtonText(t('settings.delete')).onClick(() => {
           settings.aiImageGenAccounts = settings.aiImageGenAccounts.filter((a) => a.id !== account.id);
           if (settings.activeAIImageGenAccountId === account.id) {

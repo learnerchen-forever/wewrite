@@ -8,14 +8,14 @@ import { NEWS_CONFIG_DEFAULT, getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core
 import { DEFAULT_PRESET } from '../renderer/theme-resolver';
 import type { ThemeLoader } from '../styles/theme-loader';
 import { debounce } from '../utils/debounce';
-import { removeFrontMatter, stripUnsupportedEmbeds, isIosVersionBelow17 } from '../utils/vault-helpers';
+import { removeFrontMatter, stripUnsupportedEmbeds, isIosVersionBelow17, readVaultFile } from '../utils/vault-helpers';
 import { parseEmbedParams } from '../renderer/extensions/embed';
 import { DumpService } from '../utils/dump-service';
 import { PublishLogBuilder } from '../utils/publish-logger';
 import { writeAICallLog, AIImageGenLogger } from '../utils/ai-logger';
 import { createLogger, redact } from '../utils/logger';
 import { buildMultipartBody } from '../publisher/api-manager';
-import { generateImage, AIImageSizeError, sizeHintExample, type AIImageAccountLike } from '../publisher/ai-image-client';
+import { generateImage, normalizeImageSize, AIImageSizeError, sizeHintExample, type AIImageAccountLike } from '../publisher/ai-image-client';
 import { guessMimeType, extractMimeType } from '../media/image-validator';
 import { compactBlockWhitespace } from '../renderer/wechat-cleaner';
 import { waitForCalloutPlugins, processCalloutsAndAdmonitions } from '../utils/callout-processor';
@@ -23,8 +23,10 @@ import { processCodeBlocksInPlace } from '../utils/code-block-utils';
 import { sanitizeSvgElement } from '../renderer/wechat-svg-sanitizer';
 import { applySvgFallback, MAX_CONTENT_BYTES, type FallbackResult, type SvgConversionItem } from '../media/svg-fallback';
 import { prescanSvgs, prescanImages } from '../media/content-prescan';
-import { RenderLogger, type SvgProcessResult, type ImageProcessResult, type MermaidProcessResult, type ExcalidrawProcessResult, type SvgInlineResult } from '../utils/render-logger';
+import { RenderLogger, type SvgProcessResult, type ImageProcessResult, type MermaidProcessResult, type ExcalidrawProcessResult, type PdfProcessResult, type SvgInlineResult, type DataviewProcessResult } from '../utils/render-logger';
 import { extractMermaidBlocks, renderMermaidToPng, cacheDiagramPng, extractExcalidrawEmbeds, renderExcalidrawToPng, canvasToBlobSafe } from '../media/diagram-renderer';
+import { extractPdfEmbeds, PdfRenderSession, pdfRegionCacheKey, cachePdfRegionPng, PDF_RENDER_SCALE } from '../media/pdf-embed-renderer';
+import { preprocessDataviewInMarkdown } from '../media/dataview-renderer';
 import { processMathToSvg } from '../utils/math-processor';
 import { CoverComposer, type CoverComposerState } from './cover-composer';
 import type { CoverZone } from './cover-zone';
@@ -93,8 +95,13 @@ export class WeChatNewsView extends ItemView {
   private previewCollapsed = false;
   private previewCollapseBtnEl!: HTMLElement;
   private phoneScrollEl!: HTMLElement;
+  private previewZoomBoxEl!: HTMLElement;
   private screenRowEl!: HTMLElement;
+  private zoomSelectEl!: HTMLSelectElement;
   private deviceSize = 'none';
+  /** Preview zoom mode: 'fit' (whole device visible, floored at 50%) or a
+   *  fixed percent string ('100' | '90' | ... | '50'). */
+  private previewZoom = 'fit';
   private deviceSizes: Record<string, { label: string; width: number; height: number; isNone?: boolean }> = {
     small:   { label: t('misc.device_iphone_se'),          width: 320, height: 568 },
     medium:  { label: t('misc.device_iphone_6_8'),       width: 375, height: 667 },
@@ -125,7 +132,7 @@ export class WeChatNewsView extends ItemView {
       ? `${t('view.wewrite_news_title')} - ${this.filePath.split('/').pop()?.replace('.md', '') || ''}`
       : t('view.wewrite_news_title');
   }
-  getIcon(): string { return 'pen-tool'; }
+  getIcon(): string { return 'wewrite-news'; }
   getFilePath(): string { return this.filePath; }
 
   // Persist filePath across Obsidian restarts
@@ -290,7 +297,7 @@ export class WeChatNewsView extends ItemView {
     // Account selector (fills remaining space)
     const publishLabel = this.toolbarEl.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
     publishLabel.setAttribute('title', t('misc.publish_to'));
-    setIcon(publishLabel, 'users');
+    setIcon(publishLabel, 'wewrite-account');
     const selWrapper = this.toolbarEl.createDiv({ cls: 'wewrite-toolbar-account' });
     this.accountSelectEl = selWrapper.createEl('select', { cls: 'dropdown wewrite-select wewrite-account-select' });
     this.populateAccountDropdown();
@@ -319,7 +326,7 @@ export class WeChatNewsView extends ItemView {
       cls: 'wewrite-btn-icon wewrite-toolbar-btn wewrite-preview-refresh-btn',
       attr: { 'aria-label': t('misc.refresh_render') },
     });
-    setIcon(refreshBtn, 'refresh-cw');
+    setIcon(refreshBtn, 'wewrite-refresh');
     refreshBtn.addEventListener('click', () => {
       this.previewEl.innerHTML = '';
       this.renderContent();
@@ -330,7 +337,7 @@ export class WeChatNewsView extends ItemView {
       cls: 'wewrite-btn-icon wewrite-toolbar-btn wewrite-publish-btn',
       attr: { 'aria-label': t('misc.publish_drafts') },
     });
-    setIcon(this.publishBtnEl, 'send-horizontal');
+    setIcon(this.publishBtnEl, 'wewrite-publish');
     this.publishBtnEl.addEventListener('click', () => this.publishToDraft());
 
     // Copy HTML button (visibility controlled by settings)
@@ -338,7 +345,7 @@ export class WeChatNewsView extends ItemView {
       cls: 'wewrite-btn-icon wewrite-toolbar-btn',
       attr: { 'aria-label': t('misc.copy_html') },
     });
-    setIcon(this.copyBtnEl, 'clipboard-copy');
+    setIcon(this.copyBtnEl, 'wewrite-copy');
     this.copyBtnEl.addEventListener('click', () => this.copyHtmlToClipboard());
     this.updateCopyButtonVisibility();
   }
@@ -454,10 +461,10 @@ export class WeChatNewsView extends ItemView {
     const row1 = this.propsBodyEl.createDiv({ cls: 'wewrite-prop-row' });
     const digestLabel = row1.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
     digestLabel.setAttribute('title', t('misc.digest'));
-    setIcon(digestLabel, 'file-text');
+    setIcon(digestLabel, 'wewrite-digest');
     const spacer = row1.createDiv({ cls: 'wewrite-prop-spacer' });
     const aiBtn = row1.createEl('button', { cls: 'wewrite-btn-icon wewrite-ai-btn', attr: { 'aria-label': t('misc.generate_digest') } });
-    setIcon(aiBtn, 'sparkles');
+    setIcon(aiBtn, 'wewrite-ai-generate');
     aiBtn.addEventListener('click', () => this.generateDigest());
 
     // Row 2: textarea with floating counter
@@ -552,7 +559,7 @@ export class WeChatNewsView extends ItemView {
     const row = this.propsBodyEl.createDiv({ cls: 'wewrite-prop-row' });
     const sourceUrlLabel = row.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
     sourceUrlLabel.setAttribute('title', t('misc.read_original'));
-    setIcon(sourceUrlLabel, 'external-link');
+    setIcon(sourceUrlLabel, 'wewrite-link');
     this.sourceUrlInputEl = row.createEl('input', { type: 'url', cls: 'wewrite-input wewrite-prop-input', attr: { placeholder: t('misc.read_original_placeholder') } });
     this.sourceUrlInputEl.addEventListener('input', () => {
       if (this.config) { this.config.contentSourceUrl = this.sourceUrlInputEl.value; this.markConfigDirty(); }
@@ -563,7 +570,7 @@ export class WeChatNewsView extends ItemView {
     this.coverRowEl = this.propsBodyEl.createDiv({ cls: 'wewrite-prop-row wewrite-prop-row-full' });
     const coverLabel = this.coverRowEl.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
     coverLabel.setAttribute('title', t('misc.cover_image'));
-    setIcon(coverLabel, 'image');
+    setIcon(coverLabel, 'wewrite-cover');
 
     const spacer = this.coverRowEl.createDiv({ cls: 'wewrite-prop-spacer' });
 
@@ -648,14 +655,25 @@ export class WeChatNewsView extends ItemView {
       ? (this.extWideCheckboxEl?.checked ? 'cw' : 'cs')
       : zoneId;
 
-    // Default sizes per zone category (both dimensions 512–1440)
+    // Default sizes per zone category (both dimensions 512–1440). These raw
+    // values are only valid for the old wanx2.1 constraint — normalize them
+    // through the unified size pipeline so the dialog pre-fills a size that
+    // is ALWAYS legal for the ACTIVE provider (e.g. qwen-image only accepts
+    // its standard presets; seedream requires ≥2560×1440 total pixels &
+    // 64-aligned). The user can still edit the size; generateImage re-runs
+    // the same normalization before sending.
     const DEFAULT_SIZES: Record<string, string> = {
       a: '1203*512',
       b: '512*512',
       cs: '1203*512',
       cw: '1440*512',
     };
-    const defaultSize = DEFAULT_SIZES[zoneCategory] || '900*383';
+    let defaultSize = DEFAULT_SIZES[zoneCategory] || '900*383';
+    try {
+      defaultSize = normalizeImageSize(defaultSize, imgAcct.provider, imgAcct.baseUrl).size;
+    } catch {
+      // Keep the raw default — generateImage will surface a readable error.
+    }
 
     // Load saved prompt/size from note config
     const savedPrompt = this.config?.aiCoverPrompts?.[zoneCategory];
@@ -730,7 +748,7 @@ export class WeChatNewsView extends ItemView {
 
     const metaLabel = row.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
     metaLabel.setAttribute('title', t('misc.other_parameters'));
-    setIcon(metaLabel, 'settings');
+    setIcon(metaLabel, 'wewrite-settings');
 
     // Checkbox group — wraps together on narrow screens
     const checkboxGroup = row.createDiv({ cls: 'wewrite-checkbox-group' });
@@ -769,7 +787,7 @@ export class WeChatNewsView extends ItemView {
 
     const themeLabel = styleRow.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
     themeLabel.setAttribute('title', t('misc.theme_label'));
-    setIcon(themeLabel, 'palette');
+    setIcon(themeLabel, 'wewrite-theme');
     this.styleSelectEl = styleRow.createEl('select', { cls: 'dropdown wewrite-select wewrite-device-select' });
     this.populateStyleDropdownDirect();
     this.styleSelectEl.addEventListener('change', () => {
@@ -796,7 +814,7 @@ export class WeChatNewsView extends ItemView {
 
     const screenLabel = screenRow.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
     screenLabel.setAttribute('title', t('misc.screen'));
-    setIcon(screenLabel, 'smartphone');
+    setIcon(screenLabel, 'wewrite-device');
     this.deviceSelectEl = screenRow.createEl('select', { cls: 'dropdown wewrite-select wewrite-device-select' });
     for (const [key, info] of Object.entries(this.deviceSizes)) {
       const opt = this.deviceSelectEl.createEl('option');
@@ -807,10 +825,32 @@ export class WeChatNewsView extends ItemView {
     this.deviceSelectEl.addEventListener('change', () => {
       this.deviceSize = this.deviceSelectEl.value;
       this.applyDeviceSize();
+      this.applyPreviewZoom();
       if (this.config) { this.config.deviceSize = this.deviceSelectEl.value; this.markConfigDirty(); }
       // Persist as global preference
       this.plugin.settingsManager.updateSettings({ lastDeviceSize: this.deviceSelectEl.value });
       void this.plugin.saveSettings();
+    });
+
+    // Preview zoom — compact select: 适应屏幕 (fit, default) + fixed percents.
+    // Scales the whole phone frame so a small screen can inspect a big
+    // device layout; max zoom is 1:1, fit is floored at 50% (readable).
+    const zoomIcon = screenRow.createSpan({ cls: 'wewrite-label-icon' });
+    setIcon(zoomIcon, 'wewrite-zoom');
+    this.zoomSelectEl = screenRow.createEl('select', { cls: 'dropdown wewrite-select wewrite-zoom-select' });
+    const ZOOM_OPTIONS: Array<[string, string]> = [
+      ['fit', t('misc.preview_zoom_fit')],
+      ['100', '100%'], ['90', '90%'], ['80', '80%'], ['70', '70%'], ['60', '60%'], ['50', '50%'],
+    ];
+    for (const [value, label] of ZOOM_OPTIONS) {
+      const opt = this.zoomSelectEl.createEl('option');
+      opt.value = value;
+      opt.text = label;
+      if (value === this.previewZoom) opt.selected = true;
+    }
+    this.zoomSelectEl.addEventListener('change', () => {
+      this.previewZoom = this.zoomSelectEl.value;
+      this.applyPreviewZoom();
     });
 
 
@@ -841,12 +881,23 @@ export class WeChatNewsView extends ItemView {
     const phoneScroll = container.createDiv({ cls: 'wewrite-phone-scroll' });
     this.phoneScrollEl = phoneScroll;
 
+    // Zoom box: reserves the SCALED footprint of the phone so the scroll
+    // wrapper scrolls exactly the visible (transformed) bezel — no extra
+    // gaps, no stray scrollbars. The bezel inside keeps its real device
+    // dimensions and is scaled down with transform.
+    const zoomBox = phoneScroll.createDiv({ cls: 'wewrite-preview-zoom-box' });
+    this.previewZoomBoxEl = zoomBox;
+
     // Phone simulator: outer bezel + inner screen
-    const bezel = phoneScroll.createDiv({ cls: 'wewrite-phone-bezel' });
+    const bezel = zoomBox.createDiv({ cls: 'wewrite-phone-bezel' });
     const frame = bezel.createDiv({ cls: 'wewrite-phone-frame' });
     this.previewFrameEl = bezel;
     this.previewEl = frame.createDiv({ cls: 'wewrite-preview' });
     this.applyDeviceSize();
+    this.applyPreviewZoom();
+
+    // Keep the fit zoom correct when the window/panel resizes.
+    this.registerDomEvent(window, 'resize', () => this.applyPreviewZoom());
 
     // Track user interaction for getActiveView() targeting
     this.containerEl.addEventListener('click', () => {
@@ -867,6 +918,9 @@ export class WeChatNewsView extends ItemView {
       this.screenRowEl.classList.remove('collapsed');
       this.phoneScrollEl.style.display = '';
       setIcon(this.previewCollapseBtnEl, 'chevron-down');
+      // The panel was display:none — recompute the fit zoom now that it has
+      // layout again (the window-resize listener does not fire on expand).
+      this.applyPreviewZoom();
     }
   }
 
@@ -928,6 +982,53 @@ export class WeChatNewsView extends ItemView {
       notchEl.addClass('wewrite-phone-notch');
       this.previewFrameEl.appendChild(notchEl);
     }
+  }
+
+  /**
+   * Scale the whole phone frame (bezel) to the chosen zoom:
+   *  - 'fit' (default): the entire device fits the available width, floored
+   *    at 50% so small screens previewing huge devices keep readable text
+   *    and fall back to horizontal scrolling (per the "小屏用滚动条展示大屏"
+   *    principle);
+   *  - fixed percents (100%…50%): explicit zoom-out, max 1:1.
+   * The zoom box reserves the scaled footprint so the scroll wrapper scrolls
+   * exactly the visible frame.
+   */
+  private applyPreviewZoom(): void {
+    const bezel = this.previewFrameEl;
+    const zoomBox = this.previewZoomBoxEl;
+    if (!bezel || !zoomBox) return;
+
+    const isNone = this.deviceSize === 'none';
+    let scale = 1;
+    if (!isNone) {
+      const mode = this.previewZoom;
+      if (mode === 'fit') {
+        const availableW = this.phoneScrollEl.clientWidth || this.containerEl.clientWidth || bezel.offsetWidth;
+        scale = Math.min(1, availableW / (bezel.offsetWidth || 1));
+        scale = Math.max(0.5, scale); // readable floor
+      } else {
+        scale = Math.max(0.5, Math.min(1, (Number(mode) || 100) / 100));
+      }
+    }
+
+    bezel.style.transform = scale >= 1 ? '' : `scale(${scale})`;
+    bezel.style.transformOrigin = 'top left';
+
+    if (isNone) {
+      zoomBox.style.width = '100%';
+      zoomBox.style.height = '';
+      zoomBox.style.margin = '0 auto';
+      return;
+    }
+    const scaledW = Math.round(bezel.offsetWidth * scale);
+    const scaledH = Math.round(bezel.offsetHeight * scale);
+    zoomBox.style.width = `${scaledW}px`;
+    zoomBox.style.height = `${scaledH}px`;
+    // Center when it fits; when it overflows keep the left edge reachable
+    // via the horizontal scrollbar (margin:0 auto would clip the left side).
+    const scrollW = this.phoneScrollEl.clientWidth || 0;
+    zoomBox.style.margin = scaledW <= scrollW ? '0 auto' : '0';
   }
 
   // ═══ RENDER ═══
@@ -1039,6 +1140,26 @@ export class WeChatNewsView extends ItemView {
         content = content.replace(fullMatch, `![](${resourcePath})`);
       }
 
+      // ── Pre-process Dataview queries ──
+      // Dataview output is text, not an image: each dataview / dataviewjs
+      // query is executed through the Dataview plugin (if installed) and the
+      // rendered HTML is converted BACK to markdown, so the theme's own list
+      // / task-list / table / callout renderers style it exactly like
+      // handwritten markdown. Inline `$= ...` expressions are replaced with
+      // their evaluated text. When the plugin is missing or a render fails,
+      // the block is left in place (Pass 1 renders it like Obsidian would).
+      // Runs even on iOS < 17 — no canvas is involved.
+      const dataviewPre = await preprocessDataviewInMarkdown(
+        content,
+        this.plugin.app,
+        this.filePath,
+        (current: number, total: number) => {
+          globalSpinner.updateText(t('publish.news_rendering_dataview', { current: String(current), total: String(total) }));
+        },
+      );
+      content = dataviewPre.markdown;
+      const dataviewResults: DataviewProcessResult[] = dataviewPre.results;
+
       // ── Pre-process Excalidraw diagrams ──
       // Same pattern as Mermaid: render to PNG before Pass 1 so the
       // Excalidraw plugin (if installed) doesn't need to produce an SVG.
@@ -1092,6 +1213,95 @@ export class WeChatNewsView extends ItemView {
       // (canvas paths were skipped, and there's no pre-rendered PNG to use).
       for (const { match } of excalidrawFailed) {
         content = content.replace(match, '');
+      }
+
+      // ── Pre-process PDF embeds ──
+      // PDF++-style embeds (![[file.pdf#page=N&rect=...]]) reference a region
+      // of a PDF — there is no standalone image file. Render the region to
+      // PNG (Obsidian's built-in PDF.js via loadPdfJs — zero added bundle
+      // size), cache it under WeWrite/cache and swap in a standard image,
+      // same pattern as Mermaid/Excalidraw. Must run BEFORE
+      // stripUnsupportedEmbeds — .pdf is not in the supported media
+      // extensions list, so it would strip these embeds first.
+      const pdfEmbeds = extractPdfEmbeds(content);
+      const pdfResults: PdfProcessResult[] = [];
+      if (pdfEmbeds.length > 0) {
+        const cacheDir = getWeWriteSubPath(this.plugin.settingsManager.getSettings().wewriteFolder, WEWRITE_SUBDIRS.cache);
+        const pdfSession = new PdfRenderSession();
+        const pdfReplacements: Array<{ match: string; cachedPath: string; alt: string }> = [];
+        const pdfFailed: Array<{ match: string; error: string }> = [];
+        let pdfIdx = 0;
+        const pdfTotal = pdfEmbeds.length;
+        try {
+          for (const embed of pdfEmbeds) {
+            pdfIdx++;
+            globalSpinner.updateText(t('publish.news_rendering_pdf', { current: String(pdfIdx), total: String(pdfTotal) }));
+            const startedAt = Date.now();
+            const region = `p${embed.page}${embed.rect ? ` rect(${embed.rect.x0},${embed.rect.y0},${embed.rect.x1},${embed.rect.y1})` : ' full'}`;
+            try {
+              // Cache key includes the PDF mtime so edits re-render the region.
+              const stat = await this.plugin.app.vault.adapter.stat(embed.target);
+              const key = pdfRegionCacheKey(embed.target, stat?.mtime ?? null, embed.page, embed.rect, PDF_RENDER_SCALE);
+              let cachedPath = await cachePdfRegionPng(this.plugin.app, cacheDir, key, null);
+              let pngBytes = 0;
+              if (cachedPath) {
+                // Cache hit — register the PNG so publish-time dedup works
+                // even after a fresh session (registry is persisted in data.json).
+                const file = await readVaultFile(this.plugin.app, cachedPath);
+                if (file) {
+                  pngBytes = file.buf.byteLength;
+                  this.plugin.mediaRegistry.register({
+                    fingerprint: this.plugin.mediaRegistry.computeFingerprint('image/png', file.buf),
+                    mimeType: 'image/png',
+                    fileSize: file.buf.byteLength,
+                    convertedPath: cachedPath,
+                    accountMediaIds: {},
+                    accountUrls: {},
+                  });
+                }
+              } else {
+                const pngData = await pdfSession.render(this.plugin.app, embed.target, embed.page, embed.rect, PDF_RENDER_SCALE);
+                pngBytes = pngData.byteLength;
+                const written = await cachePdfRegionPng(this.plugin.app, cacheDir, key, pngData);
+                if (!written) throw new Error('failed to cache rendered PNG');
+                cachedPath = written;
+                this.plugin.mediaRegistry.register({
+                  fingerprint: this.plugin.mediaRegistry.computeFingerprint('image/png', pngData),
+                  mimeType: 'image/png',
+                  fileSize: pngData.byteLength,
+                  convertedPath: written,
+                  accountMediaIds: {},
+                  accountUrls: {},
+                });
+              }
+              if (!cachedPath) throw new Error('failed to cache rendered PNG');
+              pdfReplacements.push({ match: embed.fullMatch, cachedPath, alt: embed.alt });
+              pdfResults.push({
+                link: embed.target, region, success: true,
+                cachedPath, sizeKB: (pngBytes / 1024).toFixed(1),
+                durationMs: Date.now() - startedAt,
+              });
+              log.debug('PDF embed: pre-converted to PNG', { target: embed.target, page: embed.page, cachedPath });
+            } catch (err) {
+              pdfFailed.push({ match: embed.fullMatch, error: String(err) });
+              pdfResults.push({
+                link: embed.target, region, success: false,
+                error: String(err), durationMs: Date.now() - startedAt,
+              });
+              log.warn('PDF embed pre-process: render failed', { target: embed.target, err: String(err) });
+            }
+          }
+        } finally {
+          await pdfSession.close();
+        }
+        for (const { match, cachedPath, alt } of pdfReplacements) {
+          const resourcePath = this.plugin.app.vault.adapter.getResourcePath(cachedPath);
+          content = content.replace(match, `![${alt}](${resourcePath})`);
+        }
+        // Strip embeds that couldn't be rendered — leave no broken link text.
+        for (const { match } of pdfFailed) {
+          content = content.replace(match, '');
+        }
       }
 
       // Strip unsupported media embeds — audio, video, documents, and
@@ -1243,6 +1453,8 @@ export class WeChatNewsView extends ItemView {
             imageResults: [],
             mermaidResults,
             excalidrawResults,
+            pdfResults,
+            dataviewResults,
             svgInlineResults: svgInlineResultsData,
             imageCount: renderLogImageCount,
             svgCount: renderLogSvgCount,
@@ -2585,6 +2797,7 @@ export class WeChatNewsView extends ItemView {
       this.deviceSelectEl.value = effectiveDeviceSize;
       this.deviceSize = effectiveDeviceSize;
       this.applyDeviceSize();
+      this.applyPreviewZoom();
     }
 
     // Restore cover composer state

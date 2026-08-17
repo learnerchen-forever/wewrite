@@ -146,6 +146,65 @@ describe('task list rendering', () => {
     expect(doc.querySelector('input')).toBeNull();
     expect(doc.querySelector('section')).not.toBeNull();
   });
+
+  it('defaults to CSS-drawn squares for both checked and unchecked icons', () => {
+    const r = new ThemeResolver(DEFAULT_PRESET);
+    const doc = new DOMParser().parseFromString(
+      '<body><ul class="contains-task-list"><li><input type="checkbox">未完成</li>' +
+      '<li><input type="checkbox" checked>已完成</li></ul></body>',
+      'text/html',
+    );
+    renderTaskLists(doc, r);
+    // 两个图标都是 CSS 方块（有边框+圆角）；已勾选带背景填充 + 白色 ✓。
+    // 注：已勾选条目的正文还会被包进删除线 span，所以按边框样式筛选图标 span。
+    const iconSpans = Array.from(doc.querySelectorAll('span')).filter((s) =>
+      (s.getAttribute('style') || '').includes('border:'));
+    expect(iconSpans.length).toBe(2);
+    const checkedSpan = iconSpans[1] as HTMLElement;
+    expect(checkedSpan.getAttribute('style')).toContain('background:');
+    expect(checkedSpan.textContent).toBe('✓');
+  });
+
+  it('renders Lucide-derived SVG icons for checked/unchecked', () => {
+    const preset: ThemePreset = {
+      ...DEFAULT_PRESET,
+      taskListConfig: {
+        decoration: 'taskList',
+        decorationParams: { taskChecked: 'lucideSquare', taskUnchecked: 'lucideCircle', taskIconSize: '18' },
+      },
+    };
+    const renderer = new WechatRenderer(preset);
+    const result = renderer.processPreRenderedHtml(
+      '<ul class="contains-task-list"><li><input type="checkbox">未完成</li>' +
+      '<li><input type="checkbox" checked>已完成</li></ul>',
+      'test.md',
+    );
+    const doc = new DOMParser().parseFromString(result.html, 'text/html');
+    const svgs = doc.querySelectorAll('svg');
+    expect(svgs.length).toBe(2);
+    // 未勾选：圆形线稿；已勾选：方形勾选线稿（外框 path + 勾 path）。
+    expect(svgs[0].outerHTML).toContain('<circle');
+    expect(svgs[1].outerHTML).toContain('M21 12.5V19');
+    expect(svgs[1].outerHTML).toContain('m9.5 12.5 2 2 3.5-3.5');
+  });
+
+  it('renders the configured emoji glyphs', () => {
+    const preset: ThemePreset = {
+      ...DEFAULT_PRESET,
+      taskListConfig: {
+        decoration: 'taskList',
+        decorationParams: { taskChecked: 'check', taskUnchecked: 'box' },
+      },
+    };
+    const renderer = new WechatRenderer(preset);
+    const result = renderer.processPreRenderedHtml(
+      '<ul class="contains-task-list"><li><input type="checkbox">未完成</li>' +
+      '<li><input type="checkbox" checked>已完成</li></ul>',
+      'test.md',
+    );
+    expect(result.html).toContain('☐');
+    expect(result.html).toContain('✅');
+  });
 });
 
 describe('renderListPreview', () => {

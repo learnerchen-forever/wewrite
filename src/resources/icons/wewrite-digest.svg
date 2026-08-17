@@ -1,0 +1,10 @@
+<!-- WeWrite 摘要标签图标（B2 · 折角文档 + 文字行）
+     规范：24 网格 · 2px 圆头线稿（文字线 1.5px）· currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 文档（右下折角） -->
+  <path d="M14.5 3H6.2A1.8 1.8 0 0 0 4.4 4.8v14.4A1.8 1.8 0 0 0 6.2 21h11.6a1.8 1.8 0 0 0 1.8-1.8V8.2z"/>
+  <path d="M14.5 3v5.2h5.1"/>
+  <!-- 文字行 -->
+  <path d="M8 12.5h8" stroke-width="1.5"/>
+  <path d="M8 16h8" stroke-width="1.5"/>
+</svg>

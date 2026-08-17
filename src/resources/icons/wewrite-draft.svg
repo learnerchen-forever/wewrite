@@ -1,0 +1,13 @@
+<!-- WeWrite 草稿标签页图标（D5 · 报纸/稿件：纸面 + 小图 + 标题/文字行）
+     规范：24 网格 · 2px 圆头线稿（文字行 1.5px）· currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 纸面 -->
+  <rect x="3.5" y="4" width="17" height="16.5" rx="1.5"/>
+  <!-- 右上小图 -->
+  <rect x="14" y="7" width="4.5" height="4.5" rx="0.8"/>
+  <!-- 标题 + 文字行 -->
+  <path d="M6.5 7.5h5.5"/>
+  <path d="M6.5 11h5.5" stroke-width="1.5"/>
+  <path d="M6.5 14.5h11" stroke-width="1.5"/>
+  <path d="M6.5 18h8" stroke-width="1.5"/>
+</svg>

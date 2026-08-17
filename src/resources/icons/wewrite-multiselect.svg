@@ -1,0 +1,11 @@
+<!-- WeWrite 多选模式按钮图标（D1 · 清单 + 勾选）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 左侧勾选（前两行） -->
+  <path d="m3.5 6.8 1.5 1.5 3-3"/>
+  <path d="m3.5 12.8 1.5 1.5 3-3"/>
+  <!-- 右侧条目（三行） -->
+  <path d="M12 7h8.5"/>
+  <path d="M12 13h8.5"/>
+  <path d="M12 19h8.5"/>
+</svg>

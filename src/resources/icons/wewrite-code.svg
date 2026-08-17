@@ -1,0 +1,11 @@
+<!-- WeWrite 自定义样式按钮图标（C5 · 代码文件：折角文档 + </> 符号）
+     规范：24 网格 · 2px 圆头线稿（斜杠 1.5px）· currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 文档（右下折角） -->
+  <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>
+  <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+  <!-- </> 代码符号 -->
+  <path d="M10.2 12.6 7.8 15l2.4 2.4"/>
+  <path d="m13.8 12.6 2.4 2.4-2.4 2.4"/>
+  <path d="M12 12.9l-1.1 5.1" stroke-width="1.5"/>
+</svg>

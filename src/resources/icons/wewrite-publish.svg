@@ -1,5 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect x="14" y="42" width="72" height="46" rx="8" fill="none" stroke="currentColor" stroke-width="8"/>
-  <line x1="50" y1="42" x2="50" y2="14" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-  <polyline points="32,32 50,14 68,32" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- WeWrite 发布按钮图标（A5 · 文章发布出去：上方向上箭头 + 下方文章文档）
+     规范：24 网格 · 圆头线稿 · currentColor · 无填充 · 上下互不重叠、左右对称 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 发布箭头（上方居中，向上飞出） -->
+  <path d="M12 3v7.5"/>
+  <path d="m8.5 6.5 3.5-3.5 3.5 3.5"/>
+  <!-- 文章文档（下方居中，与箭头分离） -->
+  <rect x="4" y="11.5" width="16" height="9.5" rx="2"/>
+  <path d="M7 14.8h10" stroke-width="1.5"/>
+  <path d="M7 17.8h7" stroke-width="1.5"/>
 </svg>

@@ -368,6 +368,73 @@ input[type="password"], input[type="url"], textarea, select) {
   flex-shrink: 0;
 }
 
+/* ── WeWrite Folder row: input flexes, 浏览 button keeps natural width ──
+   Obsidian's default control layout squeezes the text input next to the
+   button. Force the control to be a flex row where the input fills all
+   remaining space (flex:1) and the button never stretches. */
+.wewrite-folder-row .setting-item-control {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wewrite-folder-row .setting-item-control input[type="text"] {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+}
+.wewrite-folder-row .setting-item-control button {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  white-space: nowrap;
+}
+
+/* ── Account action row (设为启用 / 删除): one line, natural button widths ──
+   On mobile Obsidian stretches buttons in .setting-item-control to full
+   width, so 设为启用 fills the whole row and pushes 删除 to the edge,
+   breaking the card layout. Force both buttons to keep their own width
+   and stay side by side, right-aligned. */
+.wewrite-account-actions.setting-item,
+body.is-mobile .wewrite-account-actions.setting-item {
+  flex-wrap: nowrap !important;
+}
+.wewrite-account-actions .setting-item-control,
+body.is-mobile .wewrite-account-actions .setting-item-control {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: auto !important;
+}
+.wewrite-account-actions .setting-item-control button,
+body.is-mobile .wewrite-account-actions .setting-item-control button {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  white-space: nowrap;
+  margin: 0;
+}
+
+/* ── Test-connection rows (label + icon button): one line on mobile ──
+   The label and the plug icon are short — they must not wrap onto two
+   lines on small screens. The icon button stays right-aligned. */
+.wewrite-test-row.setting-item,
+body.is-mobile .wewrite-test-row.setting-item {
+  flex-wrap: nowrap !important;
+}
+.wewrite-test-row .setting-item-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.wewrite-test-row .setting-item-control,
+body.is-mobile .wewrite-test-row .setting-item-control {
+  flex: 0 0 auto !important;
+  width: auto !important;
+}
+
 /* Account cards on PC/Pad (≥501px): give every row the same label
    column so all inputs (模型 / API Key / 业务空间 ID etc.) are exactly
    the same width. Without this, a long description (e.g. the Workspace
@@ -381,6 +448,17 @@ input[type="password"], input[type="url"], textarea, select) {
     max-width: 320px;
   }
   .wewrite-account-row .setting-item-control {
+    flex: 1 1 62%;
+    min-width: 0;
+  }
+  /* WeWrite Folder row on PC/Pad: give the input a generous share of the
+     row (label column bounded at 320px) so it is not short next to 浏览. */
+  .wewrite-folder-row .setting-item-info {
+    flex: 0 1 38%;
+    min-width: 0;
+    max-width: 320px;
+  }
+  .wewrite-folder-row .setting-item-control {
     flex: 1 1 62%;
     min-width: 0;
   }
@@ -1263,6 +1341,31 @@ input[type="password"], input[type="url"], textarea, select) {
   padding-top: 1rem;
   padding-bottom: 4px;
   background: transparent;
+}
+
+/* ── Preview zoom box ──
+   Reserves the SCALED footprint of the phone (the bezel inside keeps its
+   real device dimensions and is scaled down via transform). overflow:hidden
+   hides the unscaled layout overflow; the wrapper scrolls exactly the
+   visible frame. */
+.wewrite-preview-zoom-box {
+  overflow: hidden;
+}
+
+/* Zoom select inside the device/screen selector rows — keep it compact
+   instead of the full-width .wewrite-select control. */
+.wewrite-zoom-select {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 84px;
+}
+
+/* ── Theme editor preview zoom ──
+   .wewrite-theme-preview-zoom reserves the scaled footprint of the article;
+   .wewrite-theme-preview-scaled carries the article at its layout width and
+   the scale transform. */
+.wewrite-theme-preview-zoom {
+  margin: 0 auto;
 }
 
 /* Mobile: white phone screen for readability */

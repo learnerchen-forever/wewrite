@@ -31,7 +31,11 @@
 
 Basic formatting (H1–H6, bold, italic, strikethrough, inline code), code blocks (dark/light color themes, line numbers, macOS traffic-light decorations), ordered/unordered lists, task lists, tables, blockquotes, callouts, horizontal rules, footnotes, external links.
 
-LaTeX math (MathJax SVG), Mermaid diagrams, Excalidraw sketches, wiki-link note embeds, Obsidian / Iconize / Remix icons, Obsidian Charts, PDF++ annotations and images.
+LaTeX math (MathJax SVG), Mermaid diagrams, Excalidraw sketches, wiki-link note embeds, Obsidian / Iconize / Remix icons, Obsidian Charts.
+
+PDF embeds rendered as images: PDF++ region screenshots (`![[file.pdf#page=N&rect=x1,y1,x2,y2|caption]]`) and whole-page embeds (`![[file.pdf#page=N]]`) are automatically rendered and cached as PNGs at publish time — powered by Obsidian's built-in PDF.js, with no extra dependencies.
+
+Dataview queries (`dataview` / `dataviewjs` code blocks and inline `$= ...`) are evaluated through the Dataview plugin and rendered as theme-styled text, consistent with handwritten Markdown.
 
 ### AI Writing Assistant
 
@@ -120,6 +124,7 @@ Or install manually:
 
 Complete rewrite: mobile-first architecture, Obsidian native rendering + zero-CSS inline styling pipeline, theme-note system with 100+ decorations, AI writing assistant (proofread / synonyms / translate / Mermaid / formulas / image / summary), unified FNV1a-64 asset fingerprint database, three-zone cover editor, image post support, WebDAV multi-device sync, encrypted API key storage, settings import/export, automatic v1.x migration.
 
+- 2026.08.17 — PDF embed rendering (PDF++ region screenshots / whole pages, zero-size via Obsidian's built-in PDF.js) and Dataview query support (evaluated and rendered as theme-styled text).
 - 2026.08.16 — 2.0.3: UI polish; image generation now supports the three latest domestic models (Qwen-Image 3, Wan 2.7, Seedance 5.0).
 - 2026.06.29 — WeWrite 2.0 released, supporting creation on all platforms.
 

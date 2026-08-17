@@ -169,7 +169,7 @@ export class SyncScheduler {
     const result = await this.engine.sync(trigger);
 
     if (this.ribbonEl) {
-      setIcon(this.ribbonEl, 'refresh-cw' as IconName);
+      setIcon(this.ribbonEl, 'wewrite-sync' as IconName);
     }
 
     if (result.ok && !result.partial) {

@@ -20,9 +20,9 @@ export const VIEW_TYPE_MATERIAL = 'wewrite-material-view';
 // module-level constant would leave the tabs in the old language after a
 // language switch.
 const TAB_DEFS: Array<{ type: MaterialType; labelKey: string; icon: string }> = [
-  { type: 'image', labelKey: 'material.tab_images', icon: 'image' },
-  { type: 'draft_news', labelKey: 'material.tab_news_drafts', icon: 'newspaper' },
-  { type: 'draft_newspic', labelKey: 'material.tab_image_drafts', icon: 'image' },
+  { type: 'image', labelKey: 'material.tab_images', icon: 'wewrite-gallery' },
+  { type: 'draft_news', labelKey: 'material.tab_news_drafts', icon: 'wewrite-draft' },
+  { type: 'draft_newspic', labelKey: 'material.tab_image_drafts', icon: 'wewrite-newspic' },
 ];
 
 function tabLabel(def: { type: MaterialType; labelKey: string }): string {
@@ -66,7 +66,7 @@ export class MaterialView extends ItemView {
 
   getViewType(): string { return VIEW_TYPE_MATERIAL; }
   getDisplayText(): string { return t('view.material_title'); }
-  getIcon(): string { return 'archive'; }
+  getIcon(): string { return 'wewrite-material'; }
 
   async onOpen(): Promise<void> {
     this.contentEl.empty();
@@ -128,7 +128,7 @@ export class MaterialView extends ItemView {
     const selectorGroup = headerRow.createDiv({ cls: 'wewrite-material-selector-group' });
     const accountLabel = selectorGroup.createSpan({ cls: 'wewrite-material-selector-label wewrite-label-icon' });
     accountLabel.setAttribute('title', t('material.account_label'));
-    setIcon(accountLabel, 'users');
+    setIcon(accountLabel, 'wewrite-account');
     const selector = selectorGroup.createEl('select', { cls: 'dropdown wewrite-select wewrite-material-selector' });
 
     if (accounts.length === 0) {
@@ -328,7 +328,7 @@ export class MaterialView extends ItemView {
       cls: 'wewrite-btn-icon wewrite-material-sync-btn',
       attr: { 'aria-label': t('material.sync') },
     });
-    setIcon(syncBtn, 'refresh-cw');
+    setIcon(syncBtn, 'wewrite-sync');
     if (this.isSyncing[type]) syncBtn.addClass('spinning');
     syncBtn.addEventListener('click', () => { void this.syncTab(type); });
 
@@ -346,21 +346,21 @@ export class MaterialView extends ItemView {
       cls: 'wewrite-btn-icon wewrite-material-none-btn',
       attr: { 'aria-label': t('material.deselect_all') },
     });
-    setIcon(noneBtn, 'x-square');
+    setIcon(noneBtn, 'wewrite-cancel');
     noneBtn.addEventListener('click', () => this.selectNone(type));
 
     const allBtn = msGroup.createEl('button', {
       cls: 'wewrite-btn-icon wewrite-material-all-btn',
       attr: { 'aria-label': t('material.select_all') },
     });
-    setIcon(allBtn, 'check-check');
+    setIcon(allBtn, 'wewrite-select-all');
     allBtn.addEventListener('click', () => this.selectAll(type));
 
     const delBtn = msGroup.createEl('button', {
       cls: 'wewrite-btn-icon wewrite-material-delete-btn',
       attr: { 'aria-label': t('material.delete_selected') },
     });
-    setIcon(delBtn, 'trash-2');
+    setIcon(delBtn, 'wewrite-trash');
     if (this.selectedItems[type].size === 0) delBtn.setAttribute('disabled', 'true');
     delBtn.addEventListener('click', () => { void this.deleteSelected(type); });
 
@@ -369,7 +369,7 @@ export class MaterialView extends ItemView {
       cls: 'wewrite-btn-icon wewrite-material-multiselect-btn',
       attr: { 'aria-label': t('material.toggle_multiselect') },
     });
-    setIcon(multiBtn, 'list-checks');
+    setIcon(multiBtn, 'wewrite-multiselect');
     if (this.multiSelectActive[type]) multiBtn.addClass('active');
     multiBtn.addEventListener('click', () => {
       this.multiSelectActive[type] = !this.multiSelectActive[type];

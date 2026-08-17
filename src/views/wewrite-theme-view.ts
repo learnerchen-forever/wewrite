@@ -260,6 +260,30 @@ function isCssColor(value: string): boolean {
 	return ['transparent', 'white', 'black', 'currentColor'].includes(v.toLowerCase());
 }
 
+/** 任务图标选项的可读标签（glyph + 名称），用于主题编辑器下拉。 */
+function taskIconOptionLabel(opt: string): string {
+	const labels: Record<string, string> = {
+		cssSquare: t('deco_ui.task_icon_css_square'),
+		cssCircle: t('deco_ui.task_icon_css_circle'),
+		lucideSquare: t('deco_ui.task_icon_lucide_square'),
+		lucideCircle: t('deco_ui.task_icon_lucide_circle'),
+		check: '✅ ' + t('deco_ui.task_icon_check'),
+		checkHeavy: '✔ ' + t('deco_ui.task_icon_check_heavy'),
+		checkMark: '✓ ' + t('deco_ui.task_icon_check_mark'),
+		boxChecked: '☑ ' + t('deco_ui.task_icon_box_checked'),
+		checkCircle: '🟢 ' + t('deco_ui.task_icon_circle_green'),
+		circleBlue: '🔵 ' + t('deco_ui.task_icon_circle_blue'),
+		square: '⬜ ' + t('deco_ui.task_icon_square'),
+		box: '☐ ' + t('deco_ui.task_icon_box'),
+		squareOutline: '□ ' + t('deco_ui.task_icon_square_outline'),
+		circle: '○ ' + t('deco_ui.task_icon_circle'),
+		circleHollow: '⭕ ' + t('deco_ui.task_icon_circle_hollow'),
+		radio: '🔘 ' + t('deco_ui.task_icon_radio'),
+		whiteCircle: '⚪ ' + t('deco_ui.task_icon_white_circle'),
+	};
+	return labels[opt] ?? opt;
+}
+
 /** ArrayBuffer → base64 for preview data URLs. */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
 	const bytes = new Uint8Array(buffer);
@@ -362,6 +386,10 @@ export class WeWriteThemeView extends ItemView {
 	private paletteSectionEl: HTMLElement | null = null;
 	private previewCollapsed = false;
 	private editorCollapsed = false;
+	/** Preview zoom (1 = 100%). Zooming out re-lays the article out at
+	 *  panelWidth / zoom px and scales it down, so a narrow panel can still
+	 *  show the big-screen layout. */
+	private themePreviewZoom = 1;
 	/** Section keys the user has explicitly expanded. Sections are collapsed by default. */
 	private expandedByUser = new Set<string>();
 	private dirty = false;
@@ -385,7 +413,7 @@ export class WeWriteThemeView extends ItemView {
 
 	getViewType(): string { return VIEW_TYPE_WEWRITE_THEME; }
 	getDisplayText(): string { return this.themeName || 'WeWrite Theme'; }
-	getIcon(): string { return 'palette'; }
+	getIcon(): string { return 'wewrite-theme'; }
 
 	getState(): Record<string, string> {
 		return { filePath: this.filePath || '' };
@@ -521,7 +549,7 @@ export class WeWriteThemeView extends ItemView {
 
 		const newBtn = header.createEl('button', { cls: 'wewrite-btn-icon' });
 		newBtn.setAttribute('aria-label', t('theme.editor.new_theme'));
-		setIcon(newBtn, 'plus-circle');
+		setIcon(newBtn, 'wewrite-new-theme');
 		newBtn.addEventListener('click', () => this.openWizard());
 
 		this.nameInput = header.createEl('input', { type: 'text', placeholder: t('theme.editor.theme_name'), cls: 'wewrite-input' });
@@ -532,27 +560,27 @@ export class WeWriteThemeView extends ItemView {
 
 		const undoBtn = header.createEl('button', { cls: 'wewrite-btn-icon' });
 		undoBtn.setAttribute('aria-label', t('theme.editor.undo'));
-		setIcon(undoBtn, 'undo');
+		setIcon(undoBtn, 'wewrite-undo');
 		undoBtn.addEventListener('click', () => this.undo());
 
 		const redoBtn = header.createEl('button', { cls: 'wewrite-btn-icon' });
 		redoBtn.setAttribute('aria-label', t('theme.editor.redo'));
-		setIcon(redoBtn, 'redo');
+		setIcon(redoBtn, 'wewrite-redo');
 		redoBtn.addEventListener('click', () => this.redo());
 
 		const saveBtn = header.createEl('button', { cls: 'wewrite-btn-icon' });
 		saveBtn.setAttribute('aria-label', t('theme.editor.save'));
-		setIcon(saveBtn, 'save');
+		setIcon(saveBtn, 'wewrite-save');
 		saveBtn.addEventListener('click', () => this.flushSave());
 
 		const refreshBtn = header.createEl('button', { cls: 'wewrite-btn-icon' });
 		refreshBtn.setAttribute('aria-label', t('theme.editor.refresh_preview'));
-		setIcon(refreshBtn, 'refresh-cw');
+		setIcon(refreshBtn, 'wewrite-refresh');
 		refreshBtn.addEventListener('click', () => this.buildPreview());
 
 		const collapseBtn = header.createEl('button', { cls: 'wewrite-btn-icon' });
 		collapseBtn.setAttribute('aria-label', t('theme.editor.toggle_editor'));
-		setIcon(collapseBtn, 'sidebar-left');
+		setIcon(collapseBtn, 'wewrite-panel');
 		collapseBtn.addEventListener('click', () => this.toggleEditorPanel());
 
 		// Split: left (editor scroll) + draggable splitter + right (preview).
@@ -572,6 +600,30 @@ export class WeWriteThemeView extends ItemView {
 		// Right: preview
 		const previewPanel = split.createDiv({ cls: 'wewrite-theme-preview-panel' });
 		previewPanel.style.cssText = 'flex:1;display:flex;flex-direction:column;min-width:300px;min-height:0;border-left:1px solid var(--background-modifier-border)';
+
+		// Preview toolbar: zoom-out select. Zooming out re-lays the article at
+		// a wider width and scales it down, so on a narrow (mobile) panel you
+		// can still inspect the big-screen layout. Max zoom is 1:1.
+		const previewToolbar = previewPanel.createDiv({ cls: 'wewrite-theme-preview-toolbar' });
+		previewToolbar.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid var(--background-modifier-border);flex-shrink:0';
+		const zoomIcon = previewToolbar.createSpan({ cls: 'wewrite-label-icon' });
+		setIcon(zoomIcon, 'wewrite-zoom');
+		const zoomSelect = previewToolbar.createEl('select', { cls: 'dropdown wewrite-select wewrite-zoom-select' });
+		for (const [value, label] of [
+			['100', '100%'], ['90', '90%'], ['80', '80%'], ['70', '70%'], ['60', '60%'], ['50', '50%'],
+		] as Array<[string, string]>) {
+			const opt = zoomSelect.createEl('option');
+			opt.value = value;
+			opt.text = label;
+			if (Number(value) / 100 === this.themePreviewZoom) opt.selected = true;
+		}
+		zoomSelect.addEventListener('change', () => {
+			this.themePreviewZoom = (Number(zoomSelect.value) || 100) / 100;
+			this.applyThemePreviewZoom();
+		});
+		// Re-apply on window resize (panel width changes).
+		this.registerDomEvent(window, 'resize', () => this.applyThemePreviewZoom());
+
 		this.previewContainer = previewPanel.createDiv({ cls: 'wewrite-theme-preview-content' });
 		this.previewContainer.style.cssText = 'flex:1;overflow-y:auto;padding:16px;min-height:0';
 
@@ -1676,7 +1728,9 @@ export class WeWriteThemeView extends ItemView {
 			const select = row.createEl('select');
 			select.style.flex = '1';
 			for (const opt of param.options) {
-				select.createEl('option', { text: opt, value: opt });
+				// 任务图标选项显示可读标签（glyph + 名称），其余选项保持原样。
+				const label = (key === 'taskChecked' || key === 'taskUnchecked') ? taskIconOptionLabel(opt) : opt;
+				select.createEl('option', { text: label, value: opt });
 			}
 			select.value = current;
 			select.addEventListener('change', () => apply(select.value));
@@ -3424,7 +3478,7 @@ export class WeWriteThemeView extends ItemView {
 		} else if (slot.allowCustom) {
 			const customBtn = row.createEl('button', { cls: 'wewrite-btn-icon' });
 			customBtn.setAttribute('aria-label', t('deco_ui.paste_html_create'));
-			setIcon(customBtn, 'file-code');
+			setIcon(customBtn, 'wewrite-code');
 			customBtn.addEventListener('click', async () => {
 				const palette = generatePalette(this.paletteAccent);
 				const result = await new PasteHtmlModal(this.app, palette.accent, slotId, slot.name).open();
@@ -3780,7 +3834,13 @@ export class WeWriteThemeView extends ItemView {
 			}
 
 			const { html: styledHtml } = this.renderer.processPreRenderedHtml(nativeHtml, '');
-			this.previewContainer.innerHTML = styledHtml;
+			// Zoom wrapper: .zoom reserves the scaled footprint, .scaled carries
+			// the article at its layout width and the scale transform.
+			this.previewContainer.innerHTML =
+				'<div class="wewrite-theme-preview-zoom"><div class="wewrite-theme-preview-scaled">' +
+				styledHtml +
+				'</div></div>';
+			this.applyThemePreviewZoom();
 
 			// Scroll preview to the last-changed element
 			if (this._lastChangedElementPath) {
@@ -3790,6 +3850,34 @@ export class WeWriteThemeView extends ItemView {
 		} catch (err) {
 			log.warn('renderPreviewContent error', { err: String(err) });
 		}
+	}
+
+	/** Replace ```mermaid blocks with themed PNG data URLs (cached per style+code). */
+	/**
+	 * Apply the preview zoom: re-lay the article out at `panelWidth / zoom`
+	 * pixels and scale it down by `zoom`, so a narrow panel shows the big-
+	 * screen layout (more content per line) instead of a cramped 1:1 render.
+	 * The .zoom box reserves exactly the scaled footprint, so the panel's
+	 * scrollbar matches the visible (transformed) content with no gaps.
+	 */
+	private applyThemePreviewZoom(): void {
+		const container = this.previewContainer;
+		if (!container) return;
+		const zoom = container.querySelector<HTMLElement>('.wewrite-theme-preview-zoom');
+		const scaled = container.querySelector<HTMLElement>('.wewrite-theme-preview-scaled');
+		if (!zoom || !scaled) return;
+		const s = this.themePreviewZoom;
+		// Container padding is fixed at 16px per side (inline style above).
+		const panelW = Math.max(280, container.clientWidth - 32);
+		const layoutW = Math.round(panelW / s);
+		scaled.style.width = `${layoutW}px`;
+		// Measure the natural content height at the new layout width BEFORE
+		// the transform (scrollHeight is layout-based, unaffected by scale).
+		const contentH = scaled.scrollHeight;
+		scaled.style.transform = s >= 1 ? '' : `scale(${s})`;
+		scaled.style.transformOrigin = 'top left';
+		zoom.style.width = s >= 1 ? '100%' : `${Math.round(layoutW * s)}px`;
+		zoom.style.height = s >= 1 ? '' : `${Math.round(contentH * s)}px`;
 	}
 
 	/** Replace ```mermaid blocks with themed PNG data URLs (cached per style+code). */
@@ -4247,6 +4335,7 @@ export class WeWriteThemeView extends ItemView {
 			const editorW = Math.min(Math.max(e.clientX - rect.left, 240), Math.max(rect.width - 320, 240));
 			this.editorPanel.style.flex = `0 0 ${editorW}px`;
 			this.editorPanel.style.minWidth = '0';
+			this.applyThemePreviewZoom();
 		};
 		const onEnd = (e: PointerEvent): void => {
 			if (!dragging) return;

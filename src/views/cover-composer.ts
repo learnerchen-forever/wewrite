@@ -111,10 +111,10 @@ export class CoverComposer {
       attr: { 'aria-label': t('cover.compose_aria') },
     });
     const iconStart = composeBtn.createSpan();
-    setIcon(iconStart, 'merge');
+    setIcon(iconStart, 'wewrite-compose');
     composeBtn.createSpan({ text: t('cover.compose_button') });
     const iconEnd = composeBtn.createSpan();
-    setIcon(iconEnd, 'merge');
+    setIcon(iconEnd, 'wewrite-compose');
     composeBtn.addEventListener('click', () => { void this.compose(); });
 
     // ── Divider ──

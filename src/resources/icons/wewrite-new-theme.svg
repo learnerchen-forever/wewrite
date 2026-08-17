@@ -1,0 +1,7 @@
+<!-- WeWrite 新建主题按钮图标（C4 · 圆圈 + 加号）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="9"/>
+  <path d="M12 7.5v9"/>
+  <path d="M7.5 12h9"/>
+</svg>

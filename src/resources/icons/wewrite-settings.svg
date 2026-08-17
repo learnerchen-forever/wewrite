@@ -1,0 +1,15 @@
+<!-- WeWrite 推文设置标签图标（B5 · 齿轮）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 齿轮：外环 + 轮毂 + 8 齿 -->
+  <circle cx="12" cy="12" r="7.5"/>
+  <circle cx="12" cy="12" r="3"/>
+  <path d="M19.5 12h2.5"/>
+  <path d="m17.3 17.3 1.8 1.8"/>
+  <path d="M12 19.5v2.5"/>
+  <path d="m6.7 17.3-1.8 1.8"/>
+  <path d="M4.5 12H2"/>
+  <path d="m6.7 6.7-1.8-1.8"/>
+  <path d="M12 4.5V2"/>
+  <path d="m17.3 6.7 1.8-1.8"/>
+</svg>

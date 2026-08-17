@@ -13,6 +13,7 @@ if (typeof (globalThis as unknown as { Buffer?: unknown }).Buffer === 'undefined
 import { Plugin, MarkdownView, Notice, requestUrl, Platform, type TFile, Menu, MenuItem, type Editor } from 'obsidian';
 import { SettingsManager } from './core/settings-manager';
 import { eventBus } from './core/event-bus';
+import { registerWewriteIcons } from './core/icon-registry';
 import { detectLegacySettings, migrateLegacyToV2, cleanupLegacyData } from './utils/migration';
 import { ThemeLoader } from './styles/theme-loader';
 import { WeChatApiManager } from './publisher/api-manager';
@@ -64,6 +65,10 @@ export default class WeWritePlugin extends Plugin {
   private syncRibbonEl?: HTMLElement;
 
   async onload(): Promise<void> {
+    // Register WeWrite custom SVG icons (src/resources/icons/) before any
+    // view renders, so setIcon()/getIcon() can use the wewrite-* ids.
+    registerWewriteIcons();
+
     // Initialize API early (needed by settings load for material cache)
     this.apiManager = new WeChatApiManager();
     this.materialManager = new MaterialManager(this.apiManager);
@@ -124,7 +129,7 @@ export default class WeWritePlugin extends Plugin {
     this.addSettingTab(new WeWriteSettingTab(this));
 
     // Sync ribbon icon (always visible, sync runs only when enabled)
-    this.syncRibbonEl = this.addRibbonIcon('refresh-cw', 'WeWrite Sync', () => {
+    this.syncRibbonEl = this.addRibbonIcon('wewrite-sync', 'WeWrite Sync', () => {
       void this.syncNow('manual');
     });
 
@@ -475,18 +480,18 @@ export default class WeWritePlugin extends Plugin {
           if (this.hasThemeFrontmatter(file)) {
             menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.edit_theme'));
-              item.setIcon('palette');
+              item.setIcon('wewrite-theme');
               item.onClick(() => this.openWeWriteThemeViewForFile(file.path));
             });
           } else {
             menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.as_wechat_news'));
-              item.setIcon('pen-tool');
+              item.setIcon('wewrite-news');
               item.onClick(() => this.openWeChatNewsViewForFile(file.path));
             });
             menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.as_wechat_news_pic'));
-              item.setIcon('image');
+              item.setIcon('wewrite-newspic');
               item.onClick(() => this.openWeChatNewsPicViewForFile(file.path));
             });
           }
@@ -504,18 +509,18 @@ export default class WeWritePlugin extends Plugin {
           if (this.hasThemeFrontmatter(file)) {
             menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.edit_theme'));
-              item.setIcon('palette');
+              item.setIcon('wewrite-theme');
               item.onClick(() => this.openWeWriteThemeViewForFile(file.path));
             });
           } else {
             menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.as_wechat_news'));
-              item.setIcon('pen-tool');
+              item.setIcon('wewrite-news');
               item.onClick(() => this.openWeChatNewsViewForFile(file.path));
             });
             menu.addItem((item: MenuItem) => {
               item.setTitle(t('contextMenu.as_wechat_news_pic'));
-              item.setIcon('image');
+              item.setIcon('wewrite-newspic');
               item.onClick(() => this.openWeChatNewsPicViewForFile(file.path));
             });
           }
@@ -528,28 +533,28 @@ export default class WeWritePlugin extends Plugin {
           // builds without setSubmenu().
           menu.addItem((item: MenuItem) => {
             item.setTitle(t('contextMenu.wewrite_ai'));
-            item.setIcon('sparkles');
+            item.setIcon('wewrite-ai-generate');
 
             const buildSubmenu = (submenu: Menu): void => {
               submenu.addItem((i: MenuItem) => {
                 i.setTitle(t('contextMenu.ai_proofread'));
-                i.setIcon('spell-check');
+                i.setIcon('wewrite-proofread');
                 i.onClick(() => this.runProofread(editor));
               });
               submenu.addItem((i: MenuItem) => {
                 i.setTitle(t('contextMenu.ai_synonyms'));
-                i.setIcon('languages');
+                i.setIcon('wewrite-synonyms');
                 i.onClick(() => this.runSynonyms(editor));
               });
               submenu.addItem((i: MenuItem) => {
                 i.setTitle(t('contextMenu.ai_translate'));
-                i.setIcon('globe');
+                i.setIcon('wewrite-translate');
                 i.onClick(() => this.runTranslate(editor));
               });
               submenu.addSeparator();
               submenu.addItem((i: MenuItem) => {
                 i.setTitle(t('contextMenu.ai_generate_image'));
-                i.setIcon('image');
+                i.setIcon('wewrite-ai-generate');
                 i.onClick(() => this.generateImageByAI());
               });
               submenu.addItem((i: MenuItem) => {
@@ -559,7 +564,7 @@ export default class WeWritePlugin extends Plugin {
               });
               submenu.addItem((i: MenuItem) => {
                 i.setTitle(t('contextMenu.ai_generate_math'));
-                i.setIcon('sigma');
+                i.setIcon('wewrite-math');
                 i.onClick(() => this.runGenerateMath(editor));
               });
             };

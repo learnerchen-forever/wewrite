@@ -1,0 +1,10 @@
+<!-- WeWrite 封面合成图标（B10 · 两路输入合并：双箭头相向汇聚）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 左路箭头（向右） -->
+  <path d="M3 12h8"/>
+  <path d="m6.5 8.5 3.5 3.5-3.5 3.5"/>
+  <!-- 右路箭头（向左，与左路汇聚） -->
+  <path d="M21 12h-8"/>
+  <path d="m17.5 8.5-3.5 3.5 3.5 3.5"/>
+</svg>

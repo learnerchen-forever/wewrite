@@ -37,6 +37,8 @@
 
 - 标题、粗体、斜体、列表、任务清单、表格、引用、Callout
 - LaTeX 数学公式（`$$ ... $$`）、Mermaid 图表（` ```mermaid `）
+- PDF 嵌入（`![[file.pdf#page=N&rect=...]]`，PDF++ 局部截图自动渲染为图片；`![[file.pdf#page=N]]` 整页）
+- Dataview 查询（`dataview` / `dataviewjs` 代码块、行内 `$=`，按主题渲染为文本）
 - 本地图片、Obsidian 内链嵌入等
 
 ## 第三步：打开微信推文视图

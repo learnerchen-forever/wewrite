@@ -43,6 +43,26 @@ export interface ExcalidrawProcessResult {
   skipCanvas?: boolean;
 }
 
+export interface PdfProcessResult {
+  /** Vault path of the source PDF. */
+  link: string;
+  /** Human-readable region, e.g. "p4 rect(411,311,792,509)" or "p4 full". */
+  region: string;
+  success: boolean;
+  cachedPath?: string;
+  error?: string;
+  sizeKB?: string;
+  durationMs?: number;
+}
+
+export interface DataviewProcessResult {
+  type: 'dataview' | 'dataviewjs' | 'inline';
+  success: boolean;
+  /** Converted markdown / evaluated plain text (first 120 chars). */
+  text?: string;
+  error?: string;
+}
+
 export interface SvgInlineResult {
   path: string;
   success: boolean;
@@ -57,6 +77,8 @@ export interface RenderLogParams {
   imageResults: ImageProcessResult[];
   mermaidResults: MermaidProcessResult[];
   excalidrawResults: ExcalidrawProcessResult[];
+  pdfResults?: PdfProcessResult[];
+  dataviewResults?: DataviewProcessResult[];
   svgInlineResults: SvgInlineResult[];
   imageCount: number;
   svgCount: number;
@@ -137,6 +159,44 @@ export class RenderLogger {
       });
     } else {
       lines.push('(no Excalidraw embeds in content)');
+    }
+    lines.push('');
+
+    // ── PDF embeds ──
+    lines.push('## PDF 嵌入 (PDF Embeds → PNG)');
+    lines.push('');
+    const pdfResults = params.pdfResults ?? [];
+    if (pdfResults.length > 0) {
+      lines.push('| # | Link | Region | Success | Size | Duration | Cached Path | Error |');
+      lines.push('| --- | --- | --- | --- | --- | --- | --- | --- |');
+      pdfResults.forEach((r, i) => {
+        const status = r.success ? 'OK' : 'FAIL';
+        const size = r.sizeKB ? `${r.sizeKB} KB` : '-';
+        const dur = r.durationMs ? `${r.durationMs}ms` : '-';
+        const cached = r.cachedPath ? `\`${r.cachedPath}\`` : '-';
+        const err = r.error || '-';
+        lines.push(`| ${i + 1} | ${r.link} | ${r.region} | ${status} | ${size} | ${dur} | ${cached} | ${err} |`);
+      });
+    } else {
+      lines.push('(no PDF embeds in content)');
+    }
+    lines.push('');
+
+    // ── Dataview ──
+    lines.push('## Dataview 查询 (Dataview Queries)');
+    lines.push('');
+    const dataviewResults = params.dataviewResults ?? [];
+    if (dataviewResults.length > 0) {
+      lines.push('| # | Type | Success | Converted Text | Error |');
+      lines.push('| --- | --- | --- | --- | --- |');
+      dataviewResults.forEach((r, i) => {
+        const status = r.success ? 'OK' : 'FAIL';
+        const text = r.text ? r.text.replace(/\|/g, '\\|').slice(0, 80) : '-';
+        const err = r.error || '-';
+        lines.push(`| ${i + 1} | ${r.type} | ${status} | ${text} | ${err} |`);
+      });
+    } else {
+      lines.push('(no Dataview queries in content)');
     }
     lines.push('');
 

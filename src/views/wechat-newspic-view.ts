@@ -16,6 +16,7 @@ import { removeFrontMatter, isIosVersionBelow17 } from '../utils/vault-helpers';
 import type { DraftNewsPicArticle } from '../publisher/draft-service';
 import { NewsPicPreview, NEWSPIC_DEVICE_PRESETS, devicePresetLabel, type DeviceSizeKey } from './newspic-preview';
 import { extractMermaidBlocks, extractExcalidrawEmbeds, renderMermaidToPng, renderExcalidrawToPng, cacheDiagramPng, canvasToBlobSafe, clampCanvasDimensions } from '../media/diagram-renderer';
+import { preprocessDataviewInMarkdown } from '../media/dataview-renderer';
 import { sanitizeSvgElement, canInlineSvg } from '../renderer/wechat-svg-sanitizer';
 import { extractSvgs } from '../media/svg-fallback';
 import { PublishLogBuilder } from '../utils/publish-logger';
@@ -123,7 +124,7 @@ export class WeChatNewsPicView extends ItemView {
       ? `${title} - ${this.filePath.split('/').pop()?.replace('.md', '') || ''}`
       : title;
   }
-  getIcon(): string { return 'image'; }
+  getIcon(): string { return 'wewrite-newspic'; }
   getState(): Record<string, string> { return { filePath: this.filePath }; }
 
   async setState(state: Record<string, string>): Promise<void> {
@@ -181,7 +182,7 @@ export class WeChatNewsPicView extends ItemView {
 
     const publishLabel = row.createSpan({ cls: 'wewrite-newspic-row-label wewrite-label-icon' });
     publishLabel.setAttribute('title', t('misc.publish_to'));
-    setIcon(publishLabel, 'users');
+    setIcon(publishLabel, 'wewrite-account');
     this.accountSelectEl = row.createEl('select', { cls: 'dropdown wewrite-select wewrite-newspic-account-select' });
     this.populateAccountDropdown();
     this.accountSelectEl.addEventListener('change', () => {
@@ -202,7 +203,7 @@ export class WeChatNewsPicView extends ItemView {
       cls: 'wewrite-btn-icon wewrite-toolbar-btn',
       attr: { 'aria-label': t('misc.refresh_render') },
     });
-    setIcon(refreshBtn, 'refresh-cw');
+    setIcon(refreshBtn, 'wewrite-refresh');
     refreshBtn.addEventListener('click', () => {
       if (this.filePath) { void this.setFile(this.filePath); }
     });
@@ -212,7 +213,7 @@ export class WeChatNewsPicView extends ItemView {
       cls: 'wewrite-btn-icon wewrite-toolbar-btn wewrite-newspic-publish-btn',
       attr: { 'aria-label': t('misc.publish_as_image') },
     });
-    setIcon(this.publishBtnEl, 'send-horizontal');
+    setIcon(this.publishBtnEl, 'wewrite-publish');
     this.publishBtnEl.addEventListener('click', () => { void this.publishToDraft(); });
   }
 
@@ -240,7 +241,7 @@ export class WeChatNewsPicView extends ItemView {
 
     const screenLabel = row.createSpan({ cls: 'wewrite-newspic-row-label wewrite-label-icon' });
     screenLabel.setAttribute('title', t('misc.screen'));
-    setIcon(screenLabel, 'smartphone');
+    setIcon(screenLabel, 'wewrite-device');
     // Init from global preference
     const savedDeviceSize = (this.plugin.settingsManager.getSettings().lastDeviceSize || 'none') as DeviceSizeKey;
     this.deviceSizeKey = savedDeviceSize;
@@ -309,7 +310,7 @@ export class WeChatNewsPicView extends ItemView {
       const noteFile = this.app.vault.getAbstractFileByPath(filePath) as TFile | null;
       if (noteFile) {
         const rawContent = await this.app.vault.read(noteFile);
-        const body = removeFrontMatter(rawContent);
+        let body = removeFrontMatter(rawContent);
 
         let cache = this.app.metadataCache.getFileCache(noteFile);
         if (!cache?.embeds?.length) {
@@ -393,6 +394,17 @@ export class WeChatNewsPicView extends ItemView {
           }
         }
         if (mermaidRendered > 0) log.info(`extracted ${mermaidRendered} mermaid diagram(s)`);
+
+        // ── Pre-process Dataview queries ──
+        // Dataview output is text: render each dataview / dataviewjs / inline
+        // query through the Dataview plugin (if installed) and convert the
+        // rendered HTML back to markdown, so the query content shows up in
+        // the description extraction instead of raw fence lines. When the
+        // plugin is missing the block is left untouched.
+        const dataviewPre = await preprocessDataviewInMarkdown(body, this.app, filePath);
+        body = dataviewPre.markdown;
+        const dataviewConverted = dataviewPre.results.filter((r) => r.success).length;
+        if (dataviewConverted > 0) log.info(`converted ${dataviewConverted} dataview query result(s)`);
 
         // ── Extract excalidraw drawings ──
         const excalidrawEmbeds = extractExcalidrawEmbeds(body);

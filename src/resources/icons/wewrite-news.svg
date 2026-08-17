@@ -1,8 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect x="12" y="8" width="76" height="84" rx="8" fill="none" stroke="currentColor" stroke-width="8"/>
-  <line x1="22" y1="28" x2="48" y2="28" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-  <line x1="22" y1="44" x2="56" y2="44" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-  <line x1="22" y1="60" x2="40" y2="60" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-  <rect x="56" y="24" width="24" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="8"/>
-  <polyline points="58,40 68,28 78,40" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- WeWrite 推文视图图标（A1 · 公众号文章卡片：封面图 + 标题 + 摘要）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 文章卡片外框 -->
+  <rect x="2.5" y="3" width="19" height="18" rx="2.5"/>
+  <!-- 封面图区（顶部横条） -->
+  <rect x="5" y="5.5" width="14" height="6" rx="1.2"/>
+  <!-- 封面内：太阳（右上空白处）+ 山（左下波浪线，互不遮挡） -->
+  <circle cx="16.5" cy="7.2" r="1"/>
+  <path d="m6 10.5 2.2-2.2 2 2 1.8-1.8 1.6 1.6"/>
+  <!-- 标题 + 摘要 -->
+  <path d="M5.5 15h9.5"/>
+  <path d="M5.5 18h6.5"/>
 </svg>

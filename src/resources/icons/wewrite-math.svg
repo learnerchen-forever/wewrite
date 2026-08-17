@@ -1,0 +1,6 @@
+<!-- WeWrite 公式生成命令图标（E4 · Σ 求和符号）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Σ -->
+  <path d="M6 4h12l-6 8 6 8H6"/>
+</svg>

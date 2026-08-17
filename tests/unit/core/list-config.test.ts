@@ -67,7 +67,9 @@ describe('resolve*Decoration', () => {
 
     const task = resolveTaskDecoration('taskList', { taskIconSize: '22' });
     expect(task.params.taskIconSize).toBe('22');
-    expect(task.params.taskUnchecked).toBe('square');
+    // 默认勾选图标为 CSS 方块（描边 + accent 填充），与 Obsidian 原生观感一致。
+    expect(task.params.taskUnchecked).toBe('cssSquare');
+    expect(task.params.taskChecked).toBe('cssSquare');
   });
 
   it('unknown ids fall back to none per kind', () => {

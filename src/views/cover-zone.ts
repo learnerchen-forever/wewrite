@@ -487,7 +487,7 @@ export class CoverZone {
     if (this.config.onAiGenerate) {
       menu.addItem((item) => {
         item.setTitle(t('contextMenu.generate_by_ai'))
-          .setIcon('sparkles')
+          .setIcon('wewrite-ai-generate')
           .onClick(() => { this.config.onAiGenerate?.(this.config.zoneId); });
       });
     }

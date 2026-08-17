@@ -187,11 +187,23 @@ export function renderUnorderedLists(doc: Document, r: ThemeResolver): boolean {
 
 // ── Task lists（任务列表：勾选替换 + section 拍平，沿用现有实现） ──
 
+// 文本/emoji 图标（微信 HTML 字符集内安全）：id → 字符。
 const TASK_UNCHECKED_NAMES: Record<string, string> = {
-	square: '⬜', box: '☐', circle: '○', circleHollow: '🔲', cssSquare: 'cssSquare', cssCircle: 'cssCircle',
+	square: '⬜', box: '☐', squareOutline: '□', circle: '○', circleHollow: '⭕', radio: '🔘', whiteCircle: '⚪',
+	cssSquare: 'cssSquare', cssCircle: 'cssCircle', lucideSquare: 'lucideSquare', lucideCircle: 'lucideCircle',
 };
 const TASK_CHECKED_NAMES: Record<string, string> = {
-	check: '✅', checkMark: '✓', boxChecked: '☑', checkCircle: '🟢', checkHeavy: '✔', cssSquare: 'cssSquare',
+	check: '✅', checkHeavy: '✔', checkMark: '✓', boxChecked: '☑', checkCircle: '🟢', circleBlue: '🔵',
+	cssSquare: 'cssSquare', cssCircle: 'cssCircle', lucideSquare: 'lucideSquare', lucideCircle: 'lucideCircle',
+};
+
+// Lucide 线稿（Obsidian 标准图标库同源）：viewBox 0 0 24 24，2px 描边。
+// 与 Obsidian 原生勾选观感一致；内联 SVG 走插件 SVG 管线发布到微信。
+const TASK_SVG_PATHS: Record<string, string> = {
+	lucideSquare: '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/>',
+	lucideSquareCheck: '<path d="m9.5 12.5 2 2 3.5-3.5"/><path d="M21 12.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10.5"/>',
+	lucideCircle: '<circle cx="12" cy="12" r="8.5"/>',
+	lucideCircleCheck: '<circle cx="12" cy="12" r="8.5"/><path d="m9.5 12.5 2 2 3.5-3.5"/>',
 };
 
 function makeTaskIconSpan(
@@ -220,6 +232,19 @@ function makeTaskIconSpan(
 		}
 		return span;
 	}
+	if (emoji === 'lucideSquare' || emoji === 'lucideCircle') {
+		const pathKey = checked
+			? (emoji === 'lucideSquare' ? 'lucideSquareCheck' : 'lucideCircleCheck')
+			: emoji;
+		span.setAttribute('style',
+			`display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;` +
+			`width:${size}px;height:${size}px;margin-right:${gap}px;flex-shrink:0`);
+		span.innerHTML =
+			`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" ` +
+			`stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ` +
+			`style="width:${size}px;height:${size}px;display:block">${TASK_SVG_PATHS[pathKey]}</svg>`;
+		return span;
+	}
 	span.setAttribute('style',
 		`font-size:${size}px;line-height:1;margin-right:${gap}px;color:${color};flex-shrink:0;display:inline-block`);
 	span.textContent = emoji;
@@ -235,12 +260,12 @@ export function renderTaskLists(doc: Document, r: ThemeResolver): boolean {
 		: resolveTaskDecoration('taskList', undefined, []).params;
 	const accent = r.resolveAccent();
 	const listPreset = r.getPreset().list;
-	const taskUncheckedId = params['taskUnchecked'] || 'square';
-	const taskCheckedId = params['taskChecked'] || 'check';
+	const taskUncheckedId = params['taskUnchecked'] || 'cssSquare';
+	const taskCheckedId = params['taskChecked'] || 'cssSquare';
 	const uncheckedEmoji = TASK_UNCHECKED_NAMES[taskUncheckedId]
-		?? (r.resolveSlotValueName('blocks.list', 'taskUnchecked') || listPreset?.taskUnchecked || '🔲');
+		?? (r.resolveSlotValueName('blocks.list', 'taskUnchecked') || listPreset?.taskUnchecked || 'cssSquare');
 	const checkedEmoji = TASK_CHECKED_NAMES[taskCheckedId]
-		?? (r.resolveSlotValueName('blocks.list', 'taskChecked') || listPreset?.taskChecked || '✅');
+		?? (r.resolveSlotValueName('blocks.list', 'taskChecked') || listPreset?.taskChecked || 'cssSquare');
 	const taskIconSize = params['taskIconSize'] ? Number(params['taskIconSize']) || 16 : 16;
 	const taskIconGap = params['gap'] ? Number(params['gap']) || 8 : 8;
 	const taskUncheckedColor = params['uncheckedColor'] || '#8b949e';

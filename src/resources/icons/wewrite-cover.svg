@@ -1,7 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect x="10" y="14" width="80" height="58" rx="8" fill="none" stroke="currentColor" stroke-width="8"/>
-  <circle cx="54" cy="34" r="8" fill="currentColor"/>
-  <polyline points="18,64 46,36 78,64" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="82" cy="22" r="10" fill="none" stroke="currentColor" stroke-width="8"/>
-  <polyline points="77,22 81,27 88,18" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- WeWrite 封面标签图标（B3 · 横版封面图：横幅照片 + 太阳 + 山）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 横版封面（≈1.46:1，上下更丰满） -->
+  <rect x="2.5" y="4.5" width="19" height="13" rx="1.5"/>
+  <!-- 太阳（左上方） -->
+  <circle cx="7" cy="8.5" r="1.2"/>
+  <!-- 山（左下，与太阳分离） -->
+  <path d="m4.5 16.5 2.6-2.6 2 2 2.4-2.4 2 2"/>
 </svg>

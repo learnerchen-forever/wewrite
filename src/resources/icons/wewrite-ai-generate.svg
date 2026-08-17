@@ -1,6 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect x="14" y="20" width="56" height="60" rx="8" fill="none" stroke="currentColor" stroke-width="8"/>
-  <line x1="24" y1="38" x2="60" y2="38" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-  <line x1="24" y1="54" x2="48" y2="54" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-  <polyline points="66,14 70,24 80,28 70,32 66,42 62,32 52,28 62,24 66,14" fill="currentColor"/>
+<!-- WeWrite AI 助手图标（A7 · 星光：大四角星 + 两颗小星）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 主星（居中） -->
+  <path d="M12 3.2l2.6 6.2 6.2 2.6-6.2 2.6-2.6 6.2-2.6-6.2-6.2-2.6 6.2-2.6z"/>
+  <!-- 小星（右上） -->
+  <path d="M18 1.4l.9 1.5 1.5.9-1.5.9-.9 1.5-.9-1.5-1.5-.9 1.5-.9z"/>
+  <!-- 小星（左下） -->
+  <path d="M5.5 15.1l.9 1.5 1.5.9-1.5.9-.9 1.5-.9-1.5-1.5-.9 1.5-.9z"/>
 </svg>

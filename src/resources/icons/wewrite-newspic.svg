@@ -1,6 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect x="10" y="8" width="80" height="58" rx="8" fill="none" stroke="currentColor" stroke-width="8"/>
-  <circle cx="56" cy="28" r="8" fill="currentColor"/>
-  <polyline points="18,58 46,30 78,58" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <line x1="24" y1="84" x2="76" y2="84" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+<!-- WeWrite 图文视图图标（A2 · 图片新闻：画框 + 山 + 太阳）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 画框 -->
+  <rect x="2.5" y="3.5" width="19" height="17" rx="2"/>
+  <!-- 太阳 -->
+  <circle cx="7.2" cy="8" r="1.5"/>
+  <!-- 山 -->
+  <path d="m3.8 17.5 4-4 3 3 3.6-3.6 3.8 3.8"/>
 </svg>

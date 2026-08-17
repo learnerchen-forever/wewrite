@@ -166,13 +166,29 @@ describe('normalizeImageSize', () => {
 
     it('normalizes WxH / W×H input to the W*H form', () => {
       expect(normalizeImageSize('1024x1024', 'qwen-image', MAAS_TEMPLATE).size).toBe('1024*1024');
-      expect(normalizeImageSize('1536×1024', 'qwen-image', MAAS_TEMPLATE).size).toBe('1536*1024');
+      expect(normalizeImageSize('2048x1024', 'qwen-image', MAAS_TEMPLATE).size).toBe('2048*1024');
     });
 
-    it('clamps dimensions into the 512–2048 pixel range with a note', () => {
+    it('snaps non-preset sizes to the nearest standard preset with a note (API rejects arbitrary WxH)', () => {
+      // 封面区默认尺寸：模型只接受标准档位，任意值直接发送会 400。
+      // 2.35:1 无相近档位 → 按像素距离取最近档位 1280*720。
+      const a = normalizeImageSize('1203*512', 'qwen-image', MAAS_TEMPLATE);
+      expect(a.size).toBe('1280*720');
+      expect(a.note).toContain('已按 API 标准尺寸档位调整');
+
+      // 1:1 小图 → 最小方形档位 1024*1024（原 512*512 不在档位内）。
+      const b = normalizeImageSize('512*512', 'qwen-image', MAAS_TEMPLATE);
+      expect(b.size).toBe('1024*1024');
+
+      // 2.8125:1（C 超宽）→ 像素距离最近档位 1280*720。
+      const cw = normalizeImageSize('1440*512', 'qwen-image', MAAS_TEMPLATE);
+      expect(cw.size).toBe('1280*720');
+    });
+
+    it('snaps small/large inputs into the legal preset range with a note', () => {
       const r = normalizeImageSize('300x300', 'qwen-image', MAAS_TEMPLATE);
-      expect(r.size).toBe('512*512');
-      expect(r.note).toContain('已按 API 像素范围调整');
+      expect(r.size).toBe('1024*1024');
+      expect(r.note).toContain('已按 API 标准尺寸档位调整');
 
       const big = normalizeImageSize('3000x3000', 'qwen-image', MAAS_TEMPLATE);
       expect(big.size).toBe('2048*2048');

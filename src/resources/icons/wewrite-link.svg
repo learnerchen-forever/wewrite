@@ -1,0 +1,9 @@
+<!-- WeWrite 原文链接标签图标（B4 · 外链：文档盒 + 右上飞出箭头）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 箭头（右上角） -->
+  <path d="M15 3h6v6"/>
+  <path d="M10 14 21 3"/>
+  <!-- 文档盒 -->
+  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+</svg>

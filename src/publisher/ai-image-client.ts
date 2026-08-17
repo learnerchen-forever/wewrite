@@ -87,10 +87,45 @@ const DASH_SCOPE_SIZES: string[] = [
 ];
 const DASH_SCOPE_DEFAULT = '1024*1024';
 
-// 千问 3 文生图: 总像素需在 512x512 ~ 2048x2048 之间，尺寸用 W*H（星号）格式。
+// 千问 3 文生图: 尺寸用 W*H（星号）格式。实际调用经验表明模型只接受一组
+// 标准档位尺寸，任意 WxH（如封面默认的 1203*512、512*512）直接发送会被
+// API 以尺寸参数错误拒绝。因此输入先按宽高比就近吸附到标准档位（比例
+// 接近时保比例，否则按像素距离取最近档位），保证发出的尺寸永远合法。
 const QWEN_IMAGE_DEFAULT = '1024*1024';
-const QWEN_IMAGE_MIN_DIM = 512;
-const QWEN_IMAGE_MAX_DIM = 2048;
+const QWEN_IMAGE_PRESETS: Array<{ w: number; h: number }> = [
+  { w: 1024, h: 1024 },
+  { w: 1280, h: 720 },
+  { w: 720, h: 1280 },
+  { w: 2048, h: 2048 },
+  { w: 2048, h: 1024 },
+  { w: 1024, h: 2048 },
+];
+
+/**
+ * 把任意 WxH 吸附到千问 3 的标准尺寸档位：
+ * - 输入本身就是合法档位 → 原样返回；
+ * - 宽高比与某档位相差 ≤15% → 取该档位中像素距离最近者（保持目标比例，
+ *   如封面 2.35:1 会就近到 2048*1024 / 1280*720 等）；
+ * - 否则按像素距离取最近档位（保证发出的尺寸永远合法）。
+ */
+function snapQwenSize(w: number, h: number): { w: number; h: number } {
+  const exact = QWEN_IMAGE_PRESETS.find((p) => p.w === w && p.h === h);
+  if (exact) return exact;
+  const ratio = w / h;
+  let best = QWEN_IMAGE_PRESETS[0];
+  let bestScore = Infinity;
+  for (const p of QWEN_IMAGE_PRESETS) {
+    const aspectDiff = Math.abs(p.w / p.h - ratio);
+    const sizeDiff = Math.abs(p.w - w) + Math.abs(p.h - h);
+    // 比例匹配优先（得分远低于像素距离），否则纯像素距离。
+    const score = aspectDiff <= 0.15 ? aspectDiff * 10000 + sizeDiff : 1e9 + sizeDiff;
+    if (score < bestScore) {
+      bestScore = score;
+      best = p;
+    }
+  }
+  return best;
+}
 
 const DALLE_SIZES: Array<{ size: string; w: number; h: number }> = [
   { size: '1024x1024', w: 1024, h: 1024 },
@@ -185,13 +220,6 @@ function snapToDalle(w: number, h: number): { size: string; note: string } {
   return { size: '1024x1024', note: `${w}x${h} → 1024x1024（方形）` };
 }
 
-/** Clamp/round a size into the 千问 3 legal range (512–2048 per dim, 8-aligned). */
-function fitQwenSize(w: number, h: number): { w: number; h: number } {
-  const cw = Math.min(QWEN_IMAGE_MAX_DIM, Math.max(QWEN_IMAGE_MIN_DIM, Math.round(w / 8) * 8));
-  const ch = Math.min(QWEN_IMAGE_MAX_DIM, Math.max(QWEN_IMAGE_MIN_DIM, Math.round(h / 8) * 8));
-  return { w: cw, h: ch };
-}
-
 /**
  * A short example size string for UI hints, matching the active provider.
  */
@@ -262,13 +290,13 @@ export function normalizeImageSize(
     }
     const px = parsePixelSize(input);
     if (px) {
-      const fitted = fitQwenSize(px.w, px.h);
-      const size = `${fitted.w}*${fitted.h}`;
-      if (fitted.w === px.w && fitted.h === px.h) return { size };
-      return { size, note: `${px.w}x${px.h} → ${size}（已按 API 像素范围调整）` };
+      const snapped = snapQwenSize(px.w, px.h);
+      const size = `${snapped.w}*${snapped.h}`;
+      if (snapped.w === px.w && snapped.h === px.h) return { size };
+      return { size, note: `${px.w}x${px.h} → ${size}（已按 API 标准尺寸档位调整）` };
     }
     throw new AIImageSizeError(
-      `无法识别尺寸 "${raw}"。千问 3 支持 WxH（每边 512–2048 像素，如 1024*1024）。`,
+      `无法识别尺寸 "${raw}"。千问 3 支持 WxH（如 1024*1024、1280*720、720*1280、2048*2048）。`,
     );
   }
 
@@ -689,7 +717,14 @@ export interface WanConnectionTestResult {
 
 /** 与真实调用同一套尝试阶梯的最小连通性测试（prompt 用 'test'）。 */
 export async function testWanConnection(account: AIImageAccountLike): Promise<WanConnectionTestResult> {
-  const size = (account.defaultSize && account.defaultSize.trim()) || '1024*1024';
+  // 与真实调用一致：账号默认尺寸先规范化再发送，避免存量的非法尺寸
+  // （如旧的 1440*613）导致连通性测试被尺寸 400 误报为连接失败。
+  let size = (account.defaultSize && account.defaultSize.trim()) || '1024*1024';
+  try {
+    size = normalizeImageSize(size, 'dashscope', account.baseUrl).size;
+  } catch {
+    size = '1024*1024';
+  }
   const attempts = buildWanAttempts(account, size);
   let lastErr: ApiRequestError | null = null;
   for (let i = 0; i < attempts.length; i++) {

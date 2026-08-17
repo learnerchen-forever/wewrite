@@ -133,7 +133,7 @@ export class ImageEditModal {
 
     this.cropBtn = this.modalEl.querySelector('.wewrite-iem-crop')! as HTMLButtonElement;
     this.cropBtn.setAttribute('aria-label', t('imageEdit.crop'));
-    setIcon(this.cropBtn, 'crop');
+    setIcon(this.cropBtn, 'wewrite-crop');
 
     // Frame elements
     this.frameD = this.modalEl.querySelector('.wewrite-iem-frame-d')! as HTMLElement;

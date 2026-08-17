@@ -181,6 +181,10 @@ export function sanitizeHTMLToDom(html: string): DocumentFragment {
 
 export function setIcon(el: HTMLElement, icon: string): void {}
 
+export function loadPdfJs(): Promise<unknown> {
+  throw new Error('loadPdfJs is not implemented in tests — mock it explicitly');
+}
+
 export function normalizePath(path: string): string { return path; }
 
 export const Platform = {

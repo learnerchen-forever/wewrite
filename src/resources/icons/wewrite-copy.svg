@@ -1,4 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect x="20" y="12" width="60" height="68" rx="8" fill="none" stroke="currentColor" stroke-width="8"/>
-  <rect x="12" y="20" width="60" height="68" rx="8" fill="none" stroke="currentColor" stroke-width="8"/>
+<!-- WeWrite 复制 HTML 按钮图标（A6 · 双层文档：源页 + 副本页）
+     规范：24 网格 · 2px 圆头线稿（文字线 1.5px）· currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 源页（左上，空框） -->
+  <rect x="4.5" y="3.5" width="11" height="14" rx="1.5"/>
+  <!-- 副本页（右下，带文字线） -->
+  <rect x="8.5" y="6.5" width="11" height="14" rx="1.5"/>
+  <path d="M11.5 10.2h5" stroke-width="1.5"/>
+  <path d="M11.5 13.7h5" stroke-width="1.5"/>
+  <path d="M11.5 17.2h3.5" stroke-width="1.5"/>
 </svg>

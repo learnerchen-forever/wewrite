@@ -1,0 +1,10 @@
+<!-- WeWrite 预览缩放图标（B7 · 放大镜 + 加号）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 放大镜 -->
+  <circle cx="11" cy="11" r="7.5"/>
+  <path d="m16.6 16.6 4.4 4.4"/>
+  <!-- 加号 -->
+  <path d="M11 8.2v5.6"/>
+  <path d="M8.2 11h5.6"/>
+</svg>

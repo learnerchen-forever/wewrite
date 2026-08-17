@@ -21,8 +21,8 @@
 //     hairlineGap   一线相隔（细线分隔）
 //
 //   Task（任务列表）:
-//     none          默认勾选（✅/⬜）
-//     taskList      清点待办 —— 图标/大小/间距/颜色可调（CSS 方框/圆框）
+//     none          默认勾选（CSS 方形，accent 色勾选）
+//     taskList      清点待办 —— 图标/大小/间距/颜色可调（CSS 方框/圆框、Lucide 线稿、Emoji）
 //
 // Canonical rules (shared):
 //   - {tag} is retagged to ul/ol at render time;
@@ -59,9 +59,36 @@ export const LIST_NUMBERING_OPTIONS = ['decimal', 'lowerAlpha', 'upperAlpha', 'l
 /** 无序符号选项（含原生关键字与常用字符）。 */
 export const LIST_MARKER_OPTIONS = ['disc', 'circle', 'square', 'dash', 'none', '•', '—', '✦', '★', '▪', '›'];
 
-/** 任务图标选项。 */
-export const TASK_CHECKED_OPTIONS = ['check', 'checkMark', 'boxChecked', 'checkCircle', 'checkHeavy', 'cssSquare'];
-export const TASK_UNCHECKED_OPTIONS = ['square', 'box', 'circle', 'circleHollow', 'cssSquare', 'cssCircle'];
+/** 任务图标选项（已勾选）。默认 cssSquare —— CSS 绘制圆角方块 + 白色勾，
+ *  与 Obsidian 原生勾选观感一致（accent 色填充），微信端 100% 兼容。
+ *  lucide* 为 Obsidian 图标库同源线稿（内联 SVG，经插件 SVG 管线发布）。 */
+export const TASK_CHECKED_OPTIONS = [
+	'cssSquare',      // CSS 圆角方块 + 白色勾（默认）
+	'cssCircle',      // CSS 圆形 + 白色勾
+	'lucideSquare',   // Lucide 方形勾选（Obsidian 同款线稿）
+	'lucideCircle',   // Lucide 圆形勾选
+	'check',          // ✅ 白勾绿底
+	'checkHeavy',     // ✔ 粗对勾
+	'checkMark',      // ✓ 细对勾
+	'boxChecked',     // ☑ 带勾方框
+	'checkCircle',    // 🟢 绿色圆
+	'circleBlue',     // 🔵 蓝色圆
+];
+
+/** 任务图标选项（未勾选）。 */
+export const TASK_UNCHECKED_OPTIONS = [
+	'cssSquare',      // CSS 描边圆角方块（默认）
+	'cssCircle',      // CSS 描边圆形
+	'lucideSquare',   // Lucide 方形线稿
+	'lucideCircle',   // Lucide 圆形线稿
+	'square',         // ⬜ 白色大方块
+	'box',            // ☐ 空方框
+	'squareOutline',  // □ 空心方块
+	'circle',         // ○ 空心圆
+	'circleHollow',   // ⭕ 大空心圆
+	'radio',          // 🔘 单选按钮
+	'whiteCircle',    // ⚪ 白色圆
+];
 
 // ── Ordered (有序列表) ──
 
@@ -307,8 +334,8 @@ export function getTaskDecorationLibrary(): ListDecoration[] {
 			template: '<{tag} style="list-style-type:none;margin:8px 0;padding:0">{items}</{tag}>',
 			itemTemplate: '<li style="display:flex;align-items:flex-start;gap:{{gap}}px;margin:{{itemGap}}px 0;line-height:1.6"><span style="flex-shrink:0;font-size:{{taskIconSize}}px;line-height:1;color:{{uncheckedColor}}">☐</span><section style="flex:1;min-width:0">{item}</section></li>',
 			params: {
-				taskChecked: p('select', t('deco_param.checked-icon'), 'check', { options: TASK_CHECKED_OPTIONS }),
-				taskUnchecked: p('select', t('deco_param.unchecked-icon'), 'square', { options: TASK_UNCHECKED_OPTIONS }),
+				taskChecked: p('select', t('deco_param.checked-icon'), 'cssSquare', { options: TASK_CHECKED_OPTIONS }),
+				taskUnchecked: p('select', t('deco_param.unchecked-icon'), 'cssSquare', { options: TASK_UNCHECKED_OPTIONS }),
 				taskIconSize: p('px', t('deco_param.icon-size'), '16', { min: 10, max: 28 }),
 				gap: p('px', t('deco_param.icon-gap'), '8', { min: 0, max: 20 }),
 				itemGap: p('px', t('deco_param.item-spacing'), '5', { min: 0, max: 20 }),

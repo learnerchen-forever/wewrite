@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="30" r="16" fill="none" stroke="currentColor" stroke-width="8"/>
-  <path d="M14 88 C14 56 86 56 86 88" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-  <polyline points="68,18 74,24 86,12" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- WeWrite 公众号账号图标（B1 · 双人：主账号 + 后随账号）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 主账号（左）：头 + 肩 -->
+  <circle cx="8.5" cy="7.5" r="3.2"/>
+  <path d="M13.5 20.5v-1.2a3.4 3.4 0 0 0-3.4-3.4H8.6a3.4 3.4 0 0 0-3.4 3.4v1.2"/>
+  <!-- 后随账号（右）：头 + 肩 -->
+  <circle cx="16.8" cy="7.8" r="2.4"/>
+  <path d="M21.5 20.5v-1.2a2.8 2.8 0 0 0-2.8-2.8h-1.4a2.8 2.8 0 0 0-2.8 2.8v1.2"/>
 </svg>

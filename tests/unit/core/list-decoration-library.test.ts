@@ -115,7 +115,8 @@ describe('Task list decoration library', () => {
   it('taskList exposes icon size/colors params', () => {
     const task = library.find(d => d.id === 'taskList')!;
     expect(task.params.taskIconSize.default).toBe('16');
-    expect(task.params.taskUnchecked.default).toBe('square');
+    expect(task.params.taskUnchecked.default).toBe('cssSquare');
+    expect(task.params.taskChecked.default).toBe('cssSquare');
     expect(task.params.uncheckedColor.default).toBe('#8b949e');
   });
 });

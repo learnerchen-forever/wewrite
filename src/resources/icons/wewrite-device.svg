@@ -1,0 +1,12 @@
+<!-- WeWrite 屏幕模拟选择标签图标（B6 · 手机 + 屏幕预览内容）
+     规范：24 网格 · 2px 圆头线稿（屏幕内线条 1.5px）· currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 手机机身 -->
+  <rect x="5.5" y="3" width="13" height="18" rx="2.5"/>
+  <!-- 屏幕内预览内容（标题 + 两行正文） -->
+  <path d="M8.5 8h7" stroke-width="1.5"/>
+  <path d="M8.5 11h4.5" stroke-width="1.5"/>
+  <path d="M8.5 14h5.5" stroke-width="1.5"/>
+  <!-- 底部 home 键 -->
+  <path d="M11 17.5h2"/>
+</svg>
