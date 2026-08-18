@@ -28,6 +28,7 @@ import { extractMermaidBlocks, renderMermaidToPng, cacheDiagramPng, extractExcal
 import { extractPdfEmbeds, PdfRenderSession, pdfRegionCacheKey, cachePdfRegionPng, PDF_RENDER_SCALE } from '../media/pdf-embed-renderer';
 import { preprocessDataviewInMarkdown } from '../media/dataview-renderer';
 import { processMathToSvg } from '../utils/math-processor';
+import { deferImgSrcs, restoreDeferredImgSrcs, hydrateWechatCdnImages } from '../utils/wechat-image-display';
 import { CoverComposer, type CoverComposerState } from './cover-composer';
 import type { CoverZone } from './cover-zone';
 import type { MediaRegistry } from '../media/media-registry';
@@ -1471,9 +1472,7 @@ export class WeChatNewsView extends ItemView {
       // Swap src→data-wewrite-src so images don't load during innerHTML parse.
       // Some Android WebViews start image fetches before the DOM pass below
       // can set referrerPolicy. We defer loading until after the property is set.
-      const deferredHtml = this.renderedHtml.replace(
-        /(<img\b[^>]*?)\s+src\s*=\s*"([^"]*)"/gi, '$1 data-wewrite-src="$2"',
-      );
+      const deferredHtml = deferImgSrcs(this.renderedHtml);
 
       // The user switched files while this render was in flight — discard the
       // stale result instead of overwriting the new file's preview. The new
@@ -1481,15 +1480,11 @@ export class WeChatNewsView extends ItemView {
       if (renderToken !== this._loadToken) return;
 
       this.previewEl.innerHTML = deferredHtml;
-      this.previewEl.querySelectorAll('img').forEach((img) => {
-        const src = img.getAttribute('data-wewrite-src');
-        if (src) {
-          img.referrerPolicy = 'no-referrer';
-          img.setAttribute('referrerpolicy', 'no-referrer');
-          img.removeAttribute('data-wewrite-src');
-          img.setAttribute('src', src);
-        }
-      });
+      const cdnImages = restoreDeferredImgSrcs(this.previewEl);
+      // Android WebView safety net: some WebViews still deliver the hotlink
+      // placeholder for WeChat CDN images; re-fetch via requestUrl (no
+      // referer, app network stack) and swap in a blob URL.
+      if (cdnImages.length > 0) void hydrateWechatCdnImages(cdnImages);
       this.setupImageContextMenus();
     } catch (err) {
       this.previewEl.innerHTML = `<p style="color:var(--text-error)">${t('notice.render_error', { error: String(err) })}</p>`;
@@ -3453,4 +3448,3 @@ class ImageGenerateDialog {
 
   close(): void { this.modalEl.remove(); }
 }
-

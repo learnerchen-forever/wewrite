@@ -397,7 +397,11 @@ input[type="password"], input[type="url"], textarea, select) {
    and stay side by side, right-aligned. */
 .wewrite-account-actions.setting-item,
 body.is-mobile .wewrite-account-actions.setting-item {
+  /* Obsidian mobile turns .setting-item into a column layout; force the
+     action buttons back onto one horizontal line. */
+  flex-direction: row !important;
   flex-wrap: nowrap !important;
+  align-items: center;
 }
 .wewrite-account-actions .setting-item-control,
 body.is-mobile .wewrite-account-actions .setting-item-control {
@@ -423,11 +427,18 @@ body.is-mobile .wewrite-account-actions .setting-item-control button {
    lines on small screens. The icon button stays right-aligned. */
 .wewrite-test-row.setting-item,
 body.is-mobile .wewrite-test-row.setting-item {
+  /* Same as above: mobile Obsidian stacks .setting-item-info and
+     .setting-item-control vertically (flex-direction: column), which is why
+     flex-wrap: nowrap alone did not keep label + icon button on one line. */
+  flex-direction: row !important;
   flex-wrap: nowrap !important;
+  align-items: center !important;
 }
-.wewrite-test-row .setting-item-info {
-  flex: 1 1 auto;
-  min-width: 0;
+.wewrite-test-row .setting-item-info,
+body.is-mobile .wewrite-test-row .setting-item-info {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
 }
 .wewrite-test-row .setting-item-control,
 body.is-mobile .wewrite-test-row .setting-item-control {
@@ -2036,6 +2047,25 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* Phone-frame scroll wrapper + zoom box (same zoom model as the news view):
+   the zoom box reserves the SCALED footprint of the device, the bezel inside
+   keeps its real dimensions and is scaled down via transform. */
+.newspic-preview-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+.newspic-preview-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.newspic-preview-scroll::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+  border-radius: 2px;
+}
+.newspic-preview-zoom-box {
+  overflow: hidden;
 }
 
 .newspic-preview-status {

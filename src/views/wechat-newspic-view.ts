@@ -104,6 +104,8 @@ export class WeChatNewsPicView extends ItemView {
   // ── Config row elements ──
   private accountSelectEl!: HTMLSelectElement;
   private deviceSelectEl!: HTMLSelectElement;
+  private zoomSelectEl!: HTMLSelectElement;
+  private previewZoom = 'fit';
 
   // ── Preview ──
   private preview!: NewsPicPreview;
@@ -259,6 +261,28 @@ export class WeChatNewsPicView extends ItemView {
       // Persist as global preference
       this.plugin.settingsManager.updateSettings({ lastDeviceSize: this.deviceSelectEl.value });
       void this.plugin.saveSettings();
+    });
+
+    // Preview zoom — compact select: 适应屏幕 (fit, default) + fixed percents.
+    // Scales the whole phone frame so a small screen can inspect a big
+    // device layout; max zoom is 1:1, fit is floored at 50% (readable).
+    const zoomIcon = row.createSpan({ cls: 'wewrite-newspic-row-label wewrite-label-icon' });
+    zoomIcon.setAttribute('title', t('misc.preview_zoom_fit'));
+    setIcon(zoomIcon, 'wewrite-zoom');
+    this.zoomSelectEl = row.createEl('select', { cls: 'dropdown wewrite-select wewrite-zoom-select' });
+    const ZOOM_OPTIONS: Array<[string, string]> = [
+      ['fit', t('misc.preview_zoom_fit')],
+      ['100', '100%'], ['90', '90%'], ['80', '80%'], ['70', '70%'], ['60', '60%'], ['50', '50%'],
+    ];
+    for (const [value, label] of ZOOM_OPTIONS) {
+      const opt = this.zoomSelectEl.createEl('option');
+      opt.value = value;
+      opt.text = label;
+      if (value === this.previewZoom) opt.selected = true;
+    }
+    this.zoomSelectEl.addEventListener('change', () => {
+      this.previewZoom = this.zoomSelectEl.value;
+      this.preview.setZoom(this.previewZoom);
     });
   }
 

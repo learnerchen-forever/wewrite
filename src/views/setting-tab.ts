@@ -22,6 +22,19 @@ import { formatBytes, storageUsedPercent, type ServerQuotaInfo } from '../sync/q
 
 const log = createLogger('Views:Settings');
 
+/**
+ * Obsidian's setButtonText() and setIcon() each clear the button's existing
+ * content, so chaining both keeps only whichever runs last (that is why the
+ * WeChat "add account" button previously rendered as a lone "+" icon).
+ * Build an icon + label button by setting the icon first, then appending the
+ * label as a separate span after it.
+ */
+function buttonWithIcon(btn: ButtonComponent, icon: string, label: string): ButtonComponent {
+	btn.setIcon(icon);
+	btn.buttonEl.createSpan({ text: label });
+	return btn;
+}
+
 const IMAGE_PROVIDER_DEFAULTS: Record<ImageGenProviderType, { baseUrl: string; model: string; defaultSize: string }> = {
   dashscope: {
     // 万相 2.6（同步 API）：{workspaceId} 占位符在调用时替换为账号配置的业务空间 ID。
@@ -418,7 +431,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       buttonRow.settingEl.addClass('wewrite-account-actions');
       if (!isActive) {
         buttonRow.addButton((btn) =>
-          btn.setButtonText(t('settings.set_active')).onClick(() => {
+          buttonWithIcon(btn, 'check', t('settings.set_active')).onClick(() => {
             settings.activeWeChatAccountId = account.id;
             this.save();
             this.display();
@@ -426,7 +439,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         );
       }
       buttonRow.addButton((btn) =>
-        btn.setButtonText(t('settings.delete')).onClick(() => {
+        buttonWithIcon(btn, 'trash', t('settings.delete')).onClick(() => {
           settings.wechatAccounts = settings.wechatAccounts.filter((a) => a.id !== account.id);
           if (settings.activeWeChatAccountId === account.id) {
             settings.activeWeChatAccountId = settings.wechatAccounts[0]?.id || '';
@@ -438,7 +451,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     }
 
     new Setting(wechatBody).addButton((btn) =>
-      btn.setButtonText(t('settings.add_wechat_account')).setIcon('plus').onClick(() => {
+      buttonWithIcon(btn, 'plus', t('settings.add_wechat_account')).onClick(() => {
         settings.wechatAccounts.push({
           id: generateId(), name: t('settings.new_account'), appId: '', appSecret: '',
         });
@@ -526,7 +539,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       aiTextButtonRow.settingEl.addClass('wewrite-account-actions');
       if (!isActive) {
         aiTextButtonRow.addButton((btn) =>
-          btn.setButtonText(t('settings.set_active')).onClick(() => {
+          buttonWithIcon(btn, 'check', t('settings.set_active')).onClick(() => {
             settings.activeAITextAccountId = account.id;
             this.save();
             this.display();
@@ -534,7 +547,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         );
       }
       aiTextButtonRow.addButton((btn) =>
-        btn.setButtonText(t('settings.delete')).onClick(() => {
+        buttonWithIcon(btn, 'trash', t('settings.delete')).onClick(() => {
           settings.aiTextAccounts = settings.aiTextAccounts.filter((a) => a.id !== account.id);
           if (settings.activeAITextAccountId === account.id) {
             settings.activeAITextAccountId = settings.aiTextAccounts[0]?.id || '';
@@ -546,7 +559,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     }
 
     new Setting(aiTextBody).addButton((btn) =>
-      btn.setButtonText(t('settings.add_ai_text_provider')).onClick(() => {
+      buttonWithIcon(btn, 'plus', t('settings.add_ai_text_provider')).onClick(() => {
         settings.aiTextAccounts.push({
           id: generateId(), name: t('settings.new_provider'), provider: 'openai-compatible',
           baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o',
@@ -667,7 +680,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       aiImageButtonRow.settingEl.addClass('wewrite-account-actions');
       if (!isActive) {
         aiImageButtonRow.addButton((btn) =>
-          btn.setButtonText(t('settings.set_active')).onClick(() => {
+          buttonWithIcon(btn, 'check', t('settings.set_active')).onClick(() => {
             settings.activeAIImageGenAccountId = account.id;
             this.save();
             this.display();
@@ -675,7 +688,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         );
       }
       aiImageButtonRow.addButton((btn) =>
-        btn.setButtonText(t('settings.delete')).onClick(() => {
+        buttonWithIcon(btn, 'trash', t('settings.delete')).onClick(() => {
           settings.aiImageGenAccounts = settings.aiImageGenAccounts.filter((a) => a.id !== account.id);
           if (settings.activeAIImageGenAccountId === account.id) {
             settings.activeAIImageGenAccountId = settings.aiImageGenAccounts[0]?.id || '';
@@ -687,7 +700,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     }
 
     new Setting(aiImageBody).addButton((btn) =>
-      btn.setButtonText(t('settings.add_ai_image_provider')).onClick(() => {
+      buttonWithIcon(btn, 'plus', t('settings.add_ai_image_provider')).onClick(() => {
         const defs = IMAGE_PROVIDER_DEFAULTS.dashscope;
         settings.aiImageGenAccounts.push({
           id: generateId(), name: t('settings.new_provider'), provider: 'dashscope',
@@ -704,7 +717,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const stylesDirPath = getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.customizedThemes);
 
     new Setting(stylesBody).setName(t('settings.download_templates')).setDesc(t('settings.download_templates_desc')).addButton((btn) =>
-      btn.setButtonText(t('settings.download_button')).onClick(async () => {
+      buttonWithIcon(btn, 'download', t('settings.download_button')).onClick(async () => {
         const { ThemeDownloader } = await import('../styles/theme-downloader');
         const downloader = new ThemeDownloader(this.app);
         await downloader.downloadThemes(stylesDirPath);

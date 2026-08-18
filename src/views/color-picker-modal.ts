@@ -143,8 +143,12 @@ const MODAL_CSS = `
 .wewrite-cp-footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 10px; }
 @media (max-width: 760px) {
   .wewrite-cp-modal { width: calc(100vw - 40px); }
-  .wewrite-cp-body { flex-direction: column; }
+  /* On a phone the two columns stack; stretch (not center) so the fields
+     use the full dialog width instead of floating in a narrow centered
+     column with dead space on both sides. */
+  .wewrite-cp-body { flex-direction: column; align-items: stretch; }
   .wewrite-cp-left { justify-content: center; }
+  .wewrite-cp-right { width: 100%; }
   .wewrite-cp-svwrap { width: 150px; height: 150px; }
   .wewrite-cp-huewrap { height: 150px; }
   .wewrite-cp-modebtn { height: 36px; }

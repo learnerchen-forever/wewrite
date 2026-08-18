@@ -4,6 +4,7 @@ import type { Vault } from 'obsidian';
 import type { NewsPicArticleConfig, CoverCropPercent, CropPercentCoords } from '../core/interfaces';
 import { createLogger } from '../utils/logger';
 import { t } from '../i18n';
+import { isWechatCdnUrl, hydrateWechatCdnImages } from '../utils/wechat-image-display';
 
 const log = createLogger('Views:NewsPicPreview');
 
@@ -36,6 +37,7 @@ export class NewsPicPreview {
   private currentImageIndex = 0;
   private config: NewsPicArticleConfig | null = null;
   private deviceSize: DeviceSizeKey = 'none';
+  private zoom: string = 'fit';
   private touchStartX = 0;
   private touchStartY = 0;
   private mouseDragStartX = 0;
@@ -43,6 +45,8 @@ export class NewsPicPreview {
   private mouseDragging = false;
 
   // DOM
+  private scrollEl!: HTMLElement;
+  private zoomBoxEl!: HTMLElement;
   private bezelEl!: HTMLElement;
   private frameEl!: HTMLElement;
   private slideshowEl!: HTMLElement;
@@ -65,6 +69,7 @@ export class NewsPicPreview {
   private docMouseUp: (() => void) | null = null;
   private _status: PreviewStatus = 'empty';
   private _statusTimer: ReturnType<typeof setTimeout> | null = null;
+  private onWindowResize = (): void => { this.applyZoom(); };
 
   private static readonly CROP_COORD_PRECISION = 1e6;
   private static readonly CROP_MIN_SIZE = 0.05;
@@ -94,7 +99,9 @@ export class NewsPicPreview {
     });
 
     // Phone bezel — hidden until first rebuild() fills content
-    this.bezelEl = this.container.createDiv({ cls: 'newspic-phone-bezel' });
+    this.scrollEl = this.container.createDiv({ cls: 'newspic-preview-scroll' });
+    this.zoomBoxEl = this.scrollEl.createDiv({ cls: 'newspic-preview-zoom-box' });
+    this.bezelEl = this.zoomBoxEl.createDiv({ cls: 'newspic-phone-bezel' });
     this.bezelEl.style.visibility = 'hidden';
     this.frameEl = this.bezelEl.createDiv({ cls: 'newspic-phone-frame' });
 
@@ -135,6 +142,10 @@ export class NewsPicPreview {
     this.descEl = this.frameEl.createDiv({ cls: 'newspic-desc' });
 
     this.applyDeviceSize();
+    this.applyZoom();
+
+    // Keep the fit zoom correct when the window/panel resizes.
+    window.addEventListener('resize', this.onWindowResize);
   }
 
   // ── Crop ──
@@ -296,6 +307,57 @@ export class NewsPicPreview {
   setDeviceSize(size: DeviceSizeKey): void {
     this.deviceSize = size;
     this.applyDeviceSize();
+    this.applyZoom();
+  }
+
+  setZoom(mode: string): void {
+    this.zoom = mode;
+    this.applyZoom();
+  }
+
+  /**
+   * Scale the whole phone frame to the chosen zoom:
+   *  - 'fit' (default): the entire device fits the available width, floored
+   *    at 50% so small screens previewing big devices keep readable content
+   *    and fall back to horizontal scrolling;
+   *  - fixed percents (100%-50%): explicit zoom-out, max 1:1.
+   * The zoom box reserves the scaled footprint so the scroll wrapper scrolls
+   * exactly the visible frame (same as the news view preview).
+   */
+  private applyZoom(): void {
+    const bezel = this.bezelEl;
+    if (!bezel || !this.zoomBoxEl || !this.scrollEl) return;
+
+    const isNone = this.deviceSize === 'none';
+    let scale = 1;
+    if (!isNone) {
+      const mode = this.zoom;
+      if (mode === 'fit') {
+        const availableW = this.scrollEl.clientWidth || this.container.clientWidth || bezel.offsetWidth;
+        scale = Math.min(1, availableW / (bezel.offsetWidth || 1));
+        scale = Math.max(0.5, scale); // readable floor
+      } else {
+        scale = Math.max(0.5, Math.min(1, (Number(mode) || 100) / 100));
+      }
+    }
+
+    bezel.style.transform = scale >= 1 ? '' : `scale(${scale})`;
+    bezel.style.transformOrigin = 'top left';
+
+    if (isNone) {
+      this.zoomBoxEl.style.width = '100%';
+      this.zoomBoxEl.style.height = '';
+      this.zoomBoxEl.style.margin = '0 auto';
+      return;
+    }
+    const scaledW = Math.round(bezel.offsetWidth * scale);
+    const scaledH = Math.round(bezel.offsetHeight * scale);
+    this.zoomBoxEl.style.width = `${scaledW}px`;
+    this.zoomBoxEl.style.height = `${scaledH}px`;
+    // Center when it fits; when it overflows keep the left edge reachable
+    // via the horizontal scrollbar (margin:0 auto would clip the left side).
+    const scrollW = this.scrollEl.clientWidth || 0;
+    this.zoomBoxEl.style.margin = scaledW <= scrollW ? '0 auto' : '0';
   }
 
   private applyDeviceSize(): void {
@@ -358,6 +420,9 @@ export class NewsPicPreview {
     } catch (err) {
       this.setStatus('error', String(err));
     }
+    // Recompute the fit zoom now that the frame has real layout (the initial
+    // applyZoom runs before the container is visible/measured).
+    this.applyZoom();
   }
 
   private slideEls: HTMLElement[] = [];
@@ -383,8 +448,18 @@ export class NewsPicPreview {
       // "此图片来自微信公众平台" placeholder before the property takes effect.
       const img = slide.createEl('img', { cls: 'newspic-card-img' });
       img.referrerPolicy = 'no-referrer';
-      img.src = imageData.url || this.vault.adapter.getResourcePath(imageData.vaultPath);
-      img.addEventListener('error', () => { this.setStatus('error', imageData.vaultPath); }, { once: true });
+      const url = imageData.url || this.vault.adapter.getResourcePath(imageData.vaultPath);
+      img.src = url;
+      if (imageData.url && isWechatCdnUrl(imageData.url)) {
+        // Android WebView safety net: re-fetch via requestUrl (no referer,
+        // app network stack) and swap in a blob URL if the placeholder was
+        // served despite the no-referrer policy.
+        void hydrateWechatCdnImages([{ img, url: imageData.url }]);
+      } else {
+        // Only local/vault images report a hard load failure here; CDN images
+        // are retried through hydrateWechatCdnImages above.
+        img.addEventListener('error', () => { this.setStatus('error', imageData.vaultPath); }, { once: true });
+      }
       img.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const imageKey = imageData.vaultPath || imageData.url || img.src;
@@ -456,6 +531,7 @@ export class NewsPicPreview {
     if (this.cropKeyDown) document.removeEventListener('keydown', this.cropKeyDown);
     if (this.docMouseMove) document.removeEventListener('mousemove', this.docMouseMove);
     if (this.docMouseUp) document.removeEventListener('mouseup', this.docMouseUp);
+    window.removeEventListener('resize', this.onWindowResize);
     this.container.empty();
   }
 }

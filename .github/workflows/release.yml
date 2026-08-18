@@ -90,6 +90,7 @@ jobs:
           tag_name: ${{ env.VERSION }}
           files: |
             main.js
+            mathjax-chunk.js
             manifest.json
             styles.css
         env:

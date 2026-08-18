@@ -7,6 +7,7 @@ import { ItemView, type WorkspaceLeaf, TFile, MarkdownRenderer, Notice, setIcon,
 import type WeWritePlugin from '../main';
 import type { ThemeLoader } from '../styles/theme-loader';
 import { getSlotRegistry } from '../core/slot-registry';
+import { deferImgSrcs, restoreDeferredImgSrcs, hydrateWechatCdnImages } from '../utils/wechat-image-display';
 import type { Slot, SlotValue } from '../core/slot-types';
 import { getMathColorValues, getMathScaleValues } from '../core/slot-values';
 import { parseFlatFrontmatter, registerCustomValues, type CustomValueDef } from '../core/frontmatter-parser';
@@ -390,6 +391,12 @@ export class WeWriteThemeView extends ItemView {
 	 *  panelWidth / zoom px and scales it down, so a narrow panel can still
 	 *  show the big-screen layout. */
 	private themePreviewZoom = 1;
+	/** Last applied preview layout (zoom + panel width); used to skip no-op
+	 *  re-applies, e.g. the window resize caused by the Android soft keyboard,
+	 *  which would otherwise churn styles and can leave a focused input's text
+	 *  unpainted until the keyboard closes. */
+	private _lastPreviewPanelW = 0;
+	private _lastPreviewZoom = -1;
 	/** Section keys the user has explicitly expanded. Sections are collapsed by default. */
 	private expandedByUser = new Set<string>();
 	private dirty = false;
@@ -461,6 +468,11 @@ export class WeWriteThemeView extends ItemView {
      --input-height to 44px, which makes every text box/select/swatch look
      oversized next to the rest of the editor. */
   --input-height: 30px;
+  /* Android WebView auto-zooms focused inputs whose font-size is below
+     16px; the zoom animation can leave the field's text unpainted until the
+     keyboard closes. Pin text size so focusing never rescales the editor. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .wewrite-theme-view .wewrite-theme-editor-panel,
 .wewrite-theme-view .wewrite-theme-preview-panel,
@@ -507,13 +519,25 @@ export class WeWriteThemeView extends ItemView {
   .wewrite-theme-view input[type="text"], .wewrite-theme-view input[type="number"],
   .wewrite-theme-view input[type="search"] {
     height: var(--input-height, 30px) !important; min-height: 0 !important;
-    padding: 1px 8px !important;
+    padding: 1px 6px !important;
   }
   .wewrite-theme-view select {
     height: var(--input-height, 30px) !important; min-height: 0 !important;
   }
-  .wewrite-theme-view button:not(.wewrite-btn-icon) {
+  .wewrite-theme-view button:not(.wewrite-btn-icon):not(.wewrite-swatch-btn):not(.wewrite-swatch-btn-sm) {
     height: 38px !important; min-height: 38px !important;
+  }
+  /* Color swatches must stay square (inline width/height rules), so they are
+     excluded from the touch-friendly button height above; only neutralize the
+     mobile min-height and pin the height so nothing stretches them into
+     tall pills. */
+  .wewrite-theme-view button.wewrite-swatch-btn {
+    height: var(--input-height, 30px) !important;
+    min-height: 0 !important;
+  }
+  .wewrite-theme-view button.wewrite-swatch-btn-sm {
+    height: 20px !important;
+    min-height: 0 !important;
   }
   .wewrite-theme-view .wewrite-btn-icon {
     min-width: 44px !important; min-height: 44px !important;
@@ -622,7 +646,14 @@ export class WeWriteThemeView extends ItemView {
 			this.applyThemePreviewZoom();
 		});
 		// Re-apply on window resize (panel width changes).
-		this.registerDomEvent(window, 'resize', () => this.applyThemePreviewZoom());
+		this.registerDomEvent(window, 'resize', () => {
+			this.applyThemePreviewZoom();
+			// Android WebView workaround: opening/closing the soft keyboard
+			// resizes the window, and Chromium sometimes fails to repaint the
+			// focused field's text layer (the value is intact, just not drawn
+			// until the next full invalidation). Nudge a repaint on resize.
+			this.repaintFocusedInput();
+		});
 
 		this.previewContainer = previewPanel.createDiv({ cls: 'wewrite-theme-preview-content' });
 		this.previewContainer.style.cssText = 'flex:1;overflow-y:auto;padding:16px;min-height:0';
@@ -1698,7 +1729,7 @@ export class WeWriteThemeView extends ItemView {
 	): void {
 		const wrap = row.createDiv();
 		wrap.style.cssText = 'position:relative;width:var(--input-height,30px);height:var(--input-height,30px);flex-shrink:0';
-		const swatch = wrap.createEl('button');
+		const swatch = wrap.createEl('button', { cls: 'wewrite-swatch-btn' });
 		swatch.style.cssText = 'width:100%;height:100%;padding:0;border:1px solid var(--background-modifier-border);border-radius:3px;cursor:pointer;background:transparent;box-sizing:border-box;display:block';
 		if (opts.title) swatch.title = opts.title;
 		const block = swatch.createDiv();
@@ -1743,7 +1774,7 @@ export class WeWriteThemeView extends ItemView {
 
 			const swatchWrap = row.createDiv();
 			swatchWrap.style.cssText = 'position:relative;width:var(--input-height, 30px);height:var(--input-height, 30px);flex-shrink:0';
-			const swatch = swatchWrap.createEl('button');
+			const swatch = swatchWrap.createEl('button', { cls: 'wewrite-swatch-btn' });
 			swatch.style.cssText = 'width:100%;height:100%;padding:0;border:1px solid var(--background-modifier-border);border-radius:4px;cursor:pointer;background:transparent;box-sizing:border-box;display:block';
 			const swatchBlock = swatch.createDiv();
 			swatchBlock.style.cssText = 'width:100%;height:100%;border-radius:3px;box-sizing:border-box';
@@ -2007,7 +2038,7 @@ export class WeWriteThemeView extends ItemView {
 		wrap.title = title;
 		const text = wrap.createEl('input', { type: 'text', value, placeholder: '—' });
 		text.style.cssText = `width:${width}px;font-family:var(--font-monospace);font-size:10px;padding:1px 3px`;
-		const swatch = wrap.createEl('button');
+		const swatch = wrap.createEl('button', { cls: 'wewrite-swatch-btn-sm' });
 		swatch.style.cssText = 'width:20px;height:20px;padding:0;border:1px solid var(--background-modifier-border);border-radius:3px;cursor:pointer;background:transparent;flex-shrink:0';
 		swatch.title = `${title}（${t('color_picker.title')}）`;
 		const block = swatch.createDiv();
@@ -3838,9 +3869,17 @@ export class WeWriteThemeView extends ItemView {
 			// the article at its layout width and the scale transform.
 			this.previewContainer.innerHTML =
 				'<div class="wewrite-theme-preview-zoom"><div class="wewrite-theme-preview-scaled">' +
-				styledHtml +
+				deferImgSrcs(styledHtml) +
 				'</div></div>';
+			// New .zoom/.scaled nodes: forget the cached layout so the zoom
+			// is (re)applied even if the panel size did not change.
+			this._lastPreviewPanelW = 0;
+			this._lastPreviewZoom = -1;
 			this.applyThemePreviewZoom();
+			// WeChat CDN images: set no-referrer before src, then hydrate via
+			// requestUrl as an Android WebView placeholder safety net.
+			const cdnImages = restoreDeferredImgSrcs(this.previewContainer);
+			if (cdnImages.length > 0) void hydrateWechatCdnImages(cdnImages);
 
 			// Scroll preview to the last-changed element
 			if (this._lastChangedElementPath) {
@@ -3869,6 +3908,12 @@ export class WeWriteThemeView extends ItemView {
 		const s = this.themePreviewZoom;
 		// Container padding is fixed at 16px per side (inline style above).
 		const panelW = Math.max(280, container.clientWidth - 32);
+		// Nothing changed (e.g. keyboard open/close resizes height only):
+		// skip the style writes entirely. Android WebView can leave the
+		// focused input's text unpainted after a resize-triggered relayout.
+		if (s === this._lastPreviewZoom && panelW === this._lastPreviewPanelW) return;
+		this._lastPreviewZoom = s;
+		this._lastPreviewPanelW = panelW;
 		const layoutW = Math.round(panelW / s);
 		scaled.style.width = `${layoutW}px`;
 		// Measure the natural content height at the new layout width BEFORE
@@ -3878,6 +3923,27 @@ export class WeWriteThemeView extends ItemView {
 		scaled.style.transformOrigin = 'top left';
 		zoom.style.width = s >= 1 ? '100%' : `${Math.round(layoutW * s)}px`;
 		zoom.style.height = s >= 1 ? '' : `${Math.round(contentH * s)}px`;
+	}
+
+	/**
+	 * Force a repaint of the focused form control. Android WebView (Chromium)
+	 * has a long-standing bug where opening the on-screen keyboard resizes
+	 * the window and the focused <input>'s text layer is not repainted — the
+	 * field looks empty until the keyboard closes and forces a full redraw.
+	 * Toggling opacity (one frame, no layout impact) invalidates the element's
+	 * paint so the text reappears immediately.
+	 */
+	private repaintFocusedInput(): void {
+		const active = this.contentEl.querySelector<HTMLElement>('input:focus, textarea:focus, select:focus');
+		if (!active) return;
+		const prev = active.style.opacity;
+		active.style.opacity = '0.999';
+		// Reading offsetWidth forces a synchronous reflow while the new
+		// opacity is applied, so the paint invalidation actually happens.
+		void active.offsetWidth;
+		requestAnimationFrame(() => {
+			active.style.opacity = prev;
+		});
 	}
 
 	/** Replace ```mermaid blocks with themed PNG data URLs (cached per style+code). */
