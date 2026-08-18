@@ -2,10 +2,10 @@
 // Walks the corrections one by one: Accept (apply suggestion to the editor),
 // Ignore (skip), Previous / Next navigation, with keyboard support.
 
-import { App, Modal, type Editor } from 'obsidian';
+import { App, Modal, type Editor, type EventRef } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import { setEditorHighlight, type CMEditor } from '../utils/editor-highlight';
-import type { ProofCorrection } from '../ai/proofread-engine';
+import { resolveCorrectionOffsets, type ProofCorrection } from '../ai/proofread-engine';
 import { t } from '../i18n';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -23,20 +23,32 @@ export class ProofreadModal extends WeWriteModal {
   private suggestionEl!: HTMLElement;
   private descEl!: HTMLElement;
   private bodyEl!: HTMLElement;
+  private contextEl!: HTMLElement;
   private buttonRow!: HTMLElement;
   private acceptBtn!: HTMLButtonElement;
   private ignoreBtn!: HTMLButtonElement;
   private prevBtn!: HTMLButtonElement;
   private nextBtn!: HTMLButtonElement;
+  private changeRef: EventRef | null = null;
+  private corrections: ProofCorrection[];
 
   constructor(
     app: App,
     private editor: Editor,
-    private corrections: ProofCorrection[],
+    corrections: ProofCorrection[],
     /** Document offset where the proofread text starts (0 = whole note, selection start otherwise). */
-    private baseOffset: number,
+    baseOffset: number,
   ) {
     super(app);
+    // Compact (bottom-sheet style) on phones so the note behind stays
+    // visible while reviewing; centered dialog on desktop.
+    this.modalEl.addClass('wewrite-proofread-modal');
+    // Work in absolute document offsets from here on: the engine returns
+    // offsets relative to the proofread text (selection or whole note).
+    // Document-anchored positions re-anchor cleanly after edits (accept,
+    // undo, redo, manual changes).
+    this.corrections = corrections.map((c) => ({ ...c, start: c.start + baseOffset, end: c.end + baseOffset }));
+    this.corrections.sort((a, b) => a.start - b.start || a.end - b.end);
   }
 
   onOpen(): void {
@@ -50,6 +62,7 @@ export class ProofreadModal extends WeWriteModal {
     this.bodyEl = contentEl.createDiv({ cls: 'wewrite-proofread-body' });
     this.typeEl = this.bodyEl.createDiv({ cls: 'wewrite-proofread-type' });
     this.descEl = this.bodyEl.createDiv({ cls: 'wewrite-proofread-desc' });
+    this.contextEl = this.bodyEl.createDiv({ cls: 'wewrite-proofread-context' });
     this.originalEl = this.bodyEl.createDiv({ cls: 'wewrite-proofread-original' });
     this.suggestionEl = this.bodyEl.createDiv({ cls: 'wewrite-proofread-suggestion' });
 
@@ -77,6 +90,14 @@ export class ProofreadModal extends WeWriteModal {
       this.accept();
     });
 
+    // Keep correction positions in sync while the modal is open: the user can
+    // undo an accepted change or edit the note directly, which invalidates
+    // every stored offset. Re-anchor from the current text on each edit.
+    this.changeRef = this.app.workspace.on('editor-change', (changedEditor) => {
+      if (changedEditor !== this.editor) return;
+      this.reanchor();
+    });
+
     this.render();
   }
 
@@ -87,6 +108,7 @@ export class ProofreadModal extends WeWriteModal {
   }
 
   private render(): void {
+    this.reanchor();
     const current = this.current();
     if (!current) {
       this.progressEl.setText(t('modal.proofread.done_all'));
@@ -106,6 +128,8 @@ export class ProofreadModal extends WeWriteModal {
 
     this.descEl.setText(current.description || t('modal.proofread.no_description'));
 
+    this.renderContext(current);
+
     this.originalEl.empty();
     this.originalEl.createSpan({ text: t('modal.proofread.original'), cls: 'wewrite-proofread-label' });
     this.originalEl.createSpan({ text: current.original, cls: 'wewrite-proofread-original-text' });
@@ -119,22 +143,51 @@ export class ProofreadModal extends WeWriteModal {
     this.ignoreBtn.disabled = false;
     this.acceptBtn.disabled = false;
 
-    // Move the note to the current error and select it so the user sees the
-    // exact text that needs fixing.
+    // Paint every remaining correction in the note, emphasizing the current
+    // one; move the editor to it and select it.
+    setEditorHighlight(
+      this.editor as unknown as CMEditor,
+      this.corrections.map((c) => ({ from: c.start, to: c.end })),
+      this.index,
+    );
     this.syncEditorToCorrection(current);
   }
 
-  /** Scroll the editor to the correction range, select it and paint a
-   *  visible background highlight so the current error is unmistakable. */
+  /** Scroll the editor to the correction range and select it. */
   private syncEditorToCorrection(c: ProofCorrection): void {
-    const from = this.editor.offsetToPos(this.baseOffset + c.start);
-    const to = this.editor.offsetToPos(this.baseOffset + c.end);
+    const from = this.editor.offsetToPos(c.start);
+    const to = this.editor.offsetToPos(c.end);
     this.editor.setSelection(from, to);
     this.editor.scrollIntoView({ from, to }, true);
-    setEditorHighlight(this.editor as unknown as CMEditor, {
-      from: this.baseOffset + c.start,
-      to: this.baseOffset + c.end,
-    });
+  }
+
+  /** Show the sentence around the current error inside the dialog, with the
+   *  offending text highlighted — the note may be covered by the dialog
+   *  (full-screen modals on phones), so the context must be visible here. */
+  private renderContext(c: ProofCorrection): void {
+    const doc = this.editor.getValue();
+    const beforeLen = 40;
+    const afterLen = 60;
+    const bStart = Math.max(0, c.start - beforeLen);
+    const aEnd = Math.min(doc.length, c.end + afterLen);
+    const before = doc.slice(bStart, c.start);
+    const after = doc.slice(c.end, aEnd);
+
+    this.contextEl.empty();
+    if (bStart > 0) this.contextEl.createSpan({ text: '…' });
+    this.contextEl.createSpan({ text: before });
+    this.contextEl.createSpan({ text: c.original, cls: 'wewrite-proofread-context-hit' });
+    this.contextEl.createSpan({ text: after });
+    if (aEnd < doc.length) this.contextEl.createSpan({ text: '…' });
+  }
+
+  /** Re-locate every correction in the current document text. Handles accept
+   *  shifts, undo/redo and direct edits; unlocatable entries are dropped. */
+  private reanchor(): void {
+    const doc = this.editor.getValue();
+    this.corrections = resolveCorrectionOffsets(this.corrections, doc);
+    if (this.corrections.length === 0) return;
+    if (this.index >= this.corrections.length) this.index = this.corrections.length - 1;
   }
 
   private step(delta: number): void {
@@ -148,19 +201,12 @@ export class ProofreadModal extends WeWriteModal {
   private accept(): void {
     const c = this.current();
     if (!c) return;
-    const from = this.editor.offsetToPos(this.baseOffset + c.start);
-    const to = this.editor.offsetToPos(this.baseOffset + c.end);
+    const from = this.editor.offsetToPos(c.start);
+    const to = this.editor.offsetToPos(c.end);
     this.editor.replaceRange(c.suggestion, from, to);
-    // Shift the remaining corrections after the edited range.
-    const lengthDiff = c.suggestion.length - (c.end - c.start);
-    for (const other of this.corrections) {
-      if (other !== c && other.start >= c.end) {
-        other.start += lengthDiff;
-        other.end += lengthDiff;
-      }
-    }
     this.corrections.splice(this.index, 1);
     if (this.index >= this.corrections.length) this.index = this.corrections.length - 1;
+    // render() re-anchors the remaining corrections onto the new text.
     this.render();
   }
 
@@ -174,6 +220,7 @@ export class ProofreadModal extends WeWriteModal {
   onClose(): void {
     const { contentEl } = this;
     contentEl.empty();
+    if (this.changeRef) this.app.workspace.offref(this.changeRef);
     // Drop the temporary highlight when the review ends.
     setEditorHighlight(this.editor as unknown as CMEditor, null);
   }

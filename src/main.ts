@@ -42,7 +42,6 @@ import type { WeWriteSettings, AITextAccount } from './core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from './core/interfaces';
 import { createLogger, redact } from './utils/logger';
 import { editorHighlightExtension } from './utils/editor-highlight';
-import { initMathJaxLoader } from './utils/math-jax-loader';
 import { initI18n, disposeI18n, t } from './i18n';
 import { SyncEngine } from './sync/engine';
 import { SyncScheduler } from './sync/scheduler';
@@ -69,11 +68,6 @@ export default class WeWritePlugin extends Plugin {
     // Register WeWrite custom SVG icons (src/resources/icons/) before any
     // view renders, so setIcon()/getIcon() can use the wewrite-* ids.
     registerWewriteIcons();
-
-    // MathJax is bundled into a separate lazily-loaded chunk (mathjax-chunk.js)
-    // so the startup bundle stays small on low-end devices (iPhone 7/iOS 15.7).
-    // Record the plugin now so the chunk can be injected on first math render.
-    initMathJaxLoader(this);
 
     // Initialize API early (needed by settings load for material cache)
     this.apiManager = new WeChatApiManager();

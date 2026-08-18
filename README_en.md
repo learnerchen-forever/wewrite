@@ -14,7 +14,7 @@
 
 ## Why WeWrite 2.0
 
-- **Truly cross-platform.** Identical features on desktop and mobile. Runs smoothly on iPhone 7 with iOS 15.7. All buttons ≥ 44px. The cover editor supports pinch-to-zoom and drag.
+- **Truly cross-platform.** Identical features on desktop and mobile. Runs smoothly on mainstream devices. All buttons ≥ 44px. The cover editor supports pinch-to-zoom and drag.
 - **Zero CSS files.** Built on Obsidian's native rendering with a DOM styling pipeline — all styles are inlined into the HTML at render time, so WeChat never strips your formatting.
 - **Your data stays yours.** Images are uploaded directly to your WeChat Official Account media library — never through any third party. WeWrite only ever publishes to drafts; you always have final approval.
 - **Themes are notes.** Create a Markdown note with `wewrite_theme: true` to design an entire layout. Built-in templates are one click away, and the theme editor previews changes in real time.
@@ -124,6 +124,7 @@ Or install manually:
 
 Complete rewrite: mobile-first architecture, Obsidian native rendering + zero-CSS inline styling pipeline, theme-note system with 100+ decorations, AI writing assistant (proofread / synonyms / translate / Mermaid / formulas / image / summary), unified FNV1a-64 asset fingerprint database, three-zone cover editor, image post support, WebDAV multi-device sync, encrypted API key storage, settings import/export, automatic v1.x migration.
 
+- 2026.08.18 — Release 2.0.6.
 - 2026.08.17 — PDF embed rendering (PDF++ region screenshots / whole pages, zero-size via Obsidian's built-in PDF.js) and Dataview query support (evaluated and rendered as theme-styled text).
 - 2026.08.16 — 2.0.3: UI polish; image generation now supports the three latest domestic models (Qwen-Image 3, Wan 2.7, Seedance 5.0).
 - 2026.06.29 — WeWrite 2.0 released, supporting creation on all platforms.

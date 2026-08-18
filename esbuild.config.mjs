@@ -3,9 +3,10 @@ import process from "process";
 
 const prod = process.argv[2] === "production";
 
-// Shared options for both bundles. main.js (CJS plugin entry) and
-// mathjax-chunk.js (IIFE, loaded lazily on first math render) must use the
-// same target/defines so bundled code behaves identically.
+// Single-bundle build: everything (including mathjax-full) is bundled into
+// main.js. Obsidian's community-plugin installer only downloads main.js,
+// manifest.json and styles.css from a release, so any extra chunk file is
+// never installed on devices — mathjax must live in the main bundle.
 const common = {
   bundle: true,
   platform: "browser",
@@ -31,22 +32,9 @@ const mainCtx = await esbuild.context({
   sourcemap: prod ? false : "inline",
 });
 
-// MathJax lives in a separate chunk loaded on demand (first math render) so
-// the startup bundle stays small enough for low-end devices (iPhone 7/iOS 15).
-const chunkCtx = await esbuild.context({
-  ...common,
-  entryPoints: ["src/mathjax-entry.ts"],
-  format: "iife",
-  outfile: "mathjax-chunk.js",
-  sourcemap: prod ? false : "inline",
-});
-
 if (prod) {
   await mainCtx.rebuild();
-  await chunkCtx.rebuild();
   await mainCtx.dispose();
-  await chunkCtx.dispose();
 } else {
   await mainCtx.watch();
-  await chunkCtx.watch();
 }

@@ -2910,6 +2910,27 @@ button.wewrite-btn-icon.spinning svg {
   margin-bottom: 8px;
 }
 
+/* Surrounding context of the current correction, with the offending text
+   highlighted — stays readable even when the dialog covers the note. */
+.wewrite-proofread-modal .wewrite-proofread-context {
+  color: var(--text-normal);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  line-height: 1.7;
+  word-break: break-word;
+}
+.wewrite-proofread-modal .wewrite-proofread-context-hit {
+  background: rgba(250, 180, 0, 0.38);
+  box-shadow: 0 0 0 1px rgba(250, 180, 0, 0.3);
+  border-radius: 2px;
+  padding: 0 1px;
+  font-weight: 600;
+}
+
 .wewrite-proofread-modal .wewrite-proofread-original-text {
   text-decoration: line-through;
   color: var(--text-error);
@@ -2938,12 +2959,30 @@ button.wewrite-btn-icon.spinning svg {
   flex-wrap: wrap;
 }
 
+/* On phones the standard modal is full-screen and hides the note. Show the
+   review as a bottom sheet instead, so the highlighted note stays visible. */
+body.is-mobile .modal.wewrite-proofread-modal {
+  max-height: 72dvh;
+  align-self: flex-end;
+  margin-bottom: 0;
+  border-radius: 14px 14px 0 0;
+}
+
 /* Temporary range highlight painted by the AI proofread review (see
-   src/utils/editor-highlight.ts). Warm amber works on light and dark themes. */
-.wewrite-editor-highlight {
-  background: rgba(250, 180, 0, 0.38);
-  box-shadow: 0 0 0 1px rgba(250, 180, 0, 0.3);
+   src/utils/editor-highlight.ts). Warm amber works on light and dark themes.
+   The specific selector + !important keeps the mark visible even when the
+   editor is unfocused (modal open) and under themes that restyle <mark>. */
+.cm-editor .cm-content .wewrite-editor-highlight {
+  background: rgba(250, 180, 0, 0.38) !important;
+  box-shadow: 0 0 0 1px rgba(250, 180, 0, 0.3) !important;
   border-radius: 2px;
+}
+
+/* The correction currently under review gets a stronger outline so it stands
+   out from the other (light amber) correction marks. */
+.cm-editor .cm-content .wewrite-editor-highlight-current {
+  background: rgba(255, 160, 0, 0.5) !important;
+  box-shadow: 0 0 0 2px rgba(250, 160, 0, 0.55) !important;
 }
 
 .wewrite-synonyms-list {
