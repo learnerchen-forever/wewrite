@@ -22,6 +22,16 @@ import { formatBytes, storageUsedPercent, type ServerQuotaInfo } from '../sync/q
 
 const log = createLogger('Views:Settings');
 
+/** Minimal File System Access API surface used by the settings export. */
+interface WeWriteSavePickerWindow extends Window {
+  showSaveFilePicker?: (options?: {
+    suggestedName?: string;
+    types?: Array<{ description?: string; accept: Record<string, string[]> }>;
+  }) => Promise<FileSystemFileHandle>;
+}
+
+type MobileExportResult = 'saved' | 'cancelled' | 'shared' | 'downloaded' | 'unavailable';
+
 /**
  * Obsidian's setButtonText() and setIcon() each clear the button's existing
  * content, so chaining both keeps only whichever runs last (that is why the
@@ -1205,20 +1215,21 @@ export class WeWriteSettingTab extends PluginSettingTab {
           // after an await with "File chooser dialog can only be shown with a
           // user activation").
           //
-          // Mobile (Obsidian's Capacitor WebView): there is no save dialog, so
-          // open the system share sheet with the JSON file attached (the
-          // Android equivalent of choosing a destination). shareSettingsFile()
-          // is invoked synchronously here so the share call keeps the click's
-          // user activation.
+          // Mobile: the mechanism depends on the platform — see
+          // saveSettingsFileMobile(). It is invoked synchronously here so the
+          // picker / download / share call keeps the click's user activation.
           if (!isMobile) {
             this.downloadBlob(json, fileName);
           }
-          const sharePromise = isMobile ? this.shareSettingsFile(json, fileName) : Promise.resolve(false);
+          const exportResultPromise = isMobile
+            ? this.saveSettingsFileMobile(json, fileName)
+            : Promise.resolve<MobileExportResult>('unavailable');
 
           void (async () => {
             // Always persist a copy in the vault (no user activation needed)
             // so the export is findable even when the desktop save dialog is
-            // cancelled or the mobile share sheet is dismissed/unavailable.
+            // cancelled or the mobile save dialog / share sheet is
+            // unavailable or dismissed.
             const settings = this.plugin.settingsManager.getSettings();
             let vaultPath = `${settings.wewriteFolder}/${fileName}`;
             let counter = 1;
@@ -1232,12 +1243,23 @@ export class WeWriteSettingTab extends PluginSettingTab {
               await this.app.vault.adapter.mkdir(settings.wewriteFolder).catch(() => undefined);
               await this.app.vault.create(vaultPath, json);
               if (isMobile) {
-                const shared = await sharePromise;
-                if (shared) {
+                const result = await exportResultPromise;
+                if (result === 'saved' || result === 'shared') {
+                  // File written via the system save dialog / share sheet.
                   new Notice(t('notice.settings_exported'));
+                } else if (result === 'cancelled') {
+                  // User dismissed the system save dialog — the vault copy is
+                  // the safety net.
+                  new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
+                } else if (result === 'downloaded') {
+                  // Android without a system save dialog: a system download
+                  // may or may not have started (WebView-dependent). Show
+                  // where the guaranteed copy is and how to move it out.
+                  new AndroidExportGuidanceModal(this.app, vaultPath).open();
                 } else {
-                  // Share sheet unavailable or dismissed — point the user at
-                  // the copy that was actually written into the vault.
+                  // Save dialog / share sheet unavailable or dismissed —
+                  // point the user at the copy that was actually written into
+                  // the vault.
                   new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
                 }
               }
@@ -1359,27 +1381,146 @@ export class WeWriteSettingTab extends PluginSettingTab {
     return null;
   }
 
-  /** Attempt a file download via an anchor in the DOM (works on desktop + some Android WebViews). */
+  /**
+   * Attempt a file download via an anchor in the settings window's document
+   * (desktop).
+   *
+   * The anchor MUST be created in this.containerEl.ownerDocument — the same
+   * document that rendered the button — because a synthetic click in a
+   * different window's document (e.g. the main window while settings run in a
+   * pop-out window) is not covered by the click's user activation and the
+   * download is silently blocked.
+   */
   private downloadBlob(json: string, fileName: string): void {
+    const doc = this.containerEl.ownerDocument;
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = doc.createElement('a');
     a.href = url;
     a.download = fileName;
     a.style.display = 'none';
-    document.body.appendChild(a);
+    doc.body.appendChild(a);
     a.click();
     setTimeout(() => {
-      document.body.removeChild(a);
+      doc.body.removeChild(a);
       URL.revokeObjectURL(url);
       new Notice(t('notice.settings_exported'));
     }, 1000);
   }
 
   /**
-   * Mobile export: open the system share sheet with the settings JSON file
-   * attached so the user can pick a destination (Files / Drive / "save to
-   * device" etc.) — the Android equivalent of the desktop save dialog.
+   * Mobile export: write the settings file to a user-chosen system location
+   * when the platform supports it, otherwise fall back to a system download
+   * (Android) or the share sheet (iOS).
+   *
+   * 1. File System Access API — the native "save as" dialog where the user
+   *    picks the folder and file name. Available on desktop Chromium and on
+   *    Android WebView with Chrome 132+ (shipped Jan 2025; this is how the
+   *    legacy 1.x export worked). iOS WKWebView never exposes it.
+   * 2. Android without FSA: attempt a system download via an anchor in the
+   *    settings document. WebViews whose host app handles downloads save the
+   *    file into the system Downloads folder; WebViews without a download
+   *    handler silently ignore the click — the vault copy and the guidance
+   *    modal cover that case.
+   * 3. iOS: the system share sheet (existing iPhone behavior).
+   *
+   * Must be called synchronously from the button click so the picker /
+   * download / share call keeps the user activation. Returns 'saved' when the
+   * file was written to the user-chosen location, 'cancelled' when the save
+   * dialog was dismissed, 'shared' when the share sheet completed,
+   * 'downloaded' when an Android download was attempted, and 'unavailable'
+   * when no mechanism exists on this platform.
+   */
+  private async saveSettingsFileMobile(json: string, fileName: string): Promise<MobileExportResult> {
+    if (Platform.isAndroidApp) {
+      const win = this.containerEl.ownerDocument.defaultView as WeWriteSavePickerWindow | null;
+      const hasSavePicker = typeof win?.showSaveFilePicker === 'function';
+
+      // Android without the File System Access API (older WebView): trigger
+      // the download while the click's user activation is still valid (before
+      // any await), otherwise Chromium/WebView silently blocks it.
+      if (!hasSavePicker) {
+        this.downloadBlobInSettingsDoc(json, fileName);
+        return 'downloaded';
+      }
+
+      const pickerResult = await this.trySaveFilePicker(json, fileName);
+      if (pickerResult === 'saved') return 'saved';
+      if (pickerResult === 'cancelled') return 'cancelled';
+
+      // Picker present but failed (e.g. not a secure context) — best-effort
+      // download (activation may be spent).
+      this.downloadBlobInSettingsDoc(json, fileName);
+      return 'downloaded';
+    }
+
+    // iOS: no File System Access API in WKWebView — system share sheet
+    // (existing iPhone behavior). shareSettingsFile() invokes navigator.share
+    // synchronously so the click's user activation is preserved.
+    return (await this.shareSettingsFile(json, fileName)) ? 'shared' : 'unavailable';
+  }
+
+  /**
+   * Write the settings JSON through the File System Access API
+   * (showSaveFilePicker). Returns 'saved' on success, 'cancelled' when the
+   * user dismissed the dialog, and 'failed' when the API is missing or unusable.
+   */
+  private async trySaveFilePicker(json: string, fileName: string): Promise<'saved' | 'cancelled' | 'failed'> {
+    const win = this.containerEl.ownerDocument.defaultView as WeWriteSavePickerWindow | null;
+    const showSavePicker = win?.showSaveFilePicker;
+    if (typeof showSavePicker !== 'function') return 'failed';
+    try {
+      // Called synchronously inside the click's user activation.
+      const handle = await showSavePicker.call(win, {
+        suggestedName: fileName,
+        types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(new Blob([json], { type: 'application/json' }));
+      await writable.close();
+      return 'saved';
+    } catch (err) {
+      // AbortError = user cancelled the save dialog; other errors = picker
+      // not usable on this WebView.
+      if ((err as DOMException)?.name !== 'AbortError') {
+        log.warn('settings export save picker failed', { err: String(err) });
+      }
+      return (err as DOMException)?.name === 'AbortError' ? 'cancelled' : 'failed';
+    }
+  }
+
+  /**
+   * Attempt a system download of the settings JSON via an anchor in the
+   * settings window's document. Must run synchronously inside the click's
+   * user activation: downloads started after an await (or from the wrong
+   * window's document) are silently blocked by Chromium/WebView.
+   *
+   * On Android WebViews whose host app handles downloads the file lands in
+   * the system Downloads folder (with a notification); on WebViews without a
+   * download handler the click is a silent no-op — the vault copy written by
+   * the caller is the guaranteed fallback.
+   */
+  private downloadBlobInSettingsDoc(json: string, fileName: string): void {
+    const doc = this.containerEl.ownerDocument;
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = doc.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.style.display = 'none';
+    doc.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      doc.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 2000);
+  }
+
+  /**
+   * Mobile export fallback (iOS): open the system share sheet with the
+   * settings JSON file attached so the user can pick a destination (Files /
+   * Drive / "save to device" etc.) — the iOS equivalent of choosing a save
+   * location.
    *
    * Must be called synchronously from the button click so the share call keeps
    * the user activation. Resolves with true only when the share sheet was
@@ -1781,6 +1922,77 @@ class SyncResetModal extends Modal {
       this.onConfirm();
       this.close();
     });
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+/**
+ * Android-only: Obsidian's Android WebView exposes neither a system save
+ * dialog nor a share sheet, so the export could only guarantee the vault copy
+ * (a system download may also have started, depending on the WebView build).
+ * This modal tells the user exactly where the copy is and how to move it to
+ * the system file system through Obsidian's own file menu
+ * (file explorer → long-press → Share), which always works on Android.
+ */
+class AndroidExportGuidanceModal extends Modal {
+  constructor(app: App, private vaultPath: string) {
+    super(app);
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.style.padding = '16px';
+    contentEl.style.maxWidth = '420px';
+
+    const titleEl = contentEl.createDiv();
+    titleEl.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:12px;';
+    titleEl.setText(t('settings.export_android_title'));
+
+    const descEl = contentEl.createDiv();
+    descEl.style.cssText = 'margin-bottom:12px;line-height:1.7;font-size:13px;';
+    descEl.setText(t('settings.export_android_desc'));
+
+    // The guaranteed vault copy — selectable so it can be copied manually.
+    const pathBox = contentEl.createDiv();
+    pathBox.style.cssText = 'margin-bottom:12px;padding:8px 10px;background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:6px;font-size:12px;word-break:break-all;user-select:text;';
+    pathBox.setText(this.vaultPath);
+
+    const hintEl = contentEl.createDiv();
+    hintEl.style.cssText = 'margin-bottom:10px;line-height:1.6;font-size:13px;color:var(--text-muted);';
+    hintEl.setText(t('settings.export_android_download_hint'));
+
+    const stepsTitle = contentEl.createDiv();
+    stepsTitle.style.cssText = 'margin-bottom:6px;font-size:13px;font-weight:600;';
+    stepsTitle.setText(t('settings.export_android_steps_title'));
+
+    const stepsEl = contentEl.createEl('ul');
+    stepsEl.style.cssText = 'margin:0 0 16px 0;padding-left:20px;line-height:1.8;font-size:13px;';
+    for (const step of [
+      t('settings.export_android_step_filemanager'),
+      t('settings.export_android_step_longpress'),
+      t('settings.export_android_step_destination'),
+    ]) {
+      stepsEl.createEl('li', { text: step });
+    }
+
+    const btnRow = contentEl.createDiv();
+    btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+    const copyBtn = btnRow.createEl('button');
+    copyBtn.setText(t('settings.export_android_copy_path'));
+    copyBtn.addEventListener('click', () => {
+      void navigator.clipboard.writeText(this.vaultPath).then(() => {
+        new Notice(t('notice.path_copied'));
+      }).catch(() => {
+        // The path box above is selectable, so a clipboard failure is not fatal.
+      });
+    });
+    const okBtn = btnRow.createEl('button', { cls: 'mod-cta' });
+    okBtn.setText(t('misc.ok'));
+    okBtn.addEventListener('click', () => this.close());
   }
 
   onClose(): void {
