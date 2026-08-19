@@ -105,7 +105,9 @@ export class WeChatNewsPicView extends ItemView {
   private accountSelectEl!: HTMLSelectElement;
   private deviceSelectEl!: HTMLSelectElement;
   private zoomSelectEl!: HTMLSelectElement;
-  private previewZoom = 'fit';
+  /** Preview zoom mode: 'fit' (whole device visible, floored at 50%) or a
+   *  fixed percent string ('100' | '90' | ... | '50'). Default 80%. */
+  private previewZoom = '80';
 
   // ── Preview ──
   private preview!: NewsPicPreview;
@@ -244,9 +246,10 @@ export class WeChatNewsPicView extends ItemView {
     const screenLabel = row.createSpan({ cls: 'wewrite-newspic-row-label wewrite-label-icon' });
     screenLabel.setAttribute('title', t('misc.screen'));
     setIcon(screenLabel, 'wewrite-device');
-    // Init from global preference
+    // Init from global preference (only keys this view supports — the news
+    // view persists ipad8/ipad11 which have no newspic preset).
     const savedDeviceSize = (this.plugin.settingsManager.getSettings().lastDeviceSize || 'none') as DeviceSizeKey;
-    this.deviceSizeKey = savedDeviceSize;
+    this.deviceSizeKey = NEWSPIC_DEVICE_PRESETS[savedDeviceSize] ? savedDeviceSize : 'none';
 
     this.deviceSelectEl = row.createEl('select', { cls: 'dropdown wewrite-select wewrite-newspic-device-select' });
     for (const [key, preset] of Object.entries(NEWSPIC_DEVICE_PRESETS) as [DeviceSizeKey, typeof NEWSPIC_DEVICE_PRESETS['small']][]) {
@@ -263,7 +266,7 @@ export class WeChatNewsPicView extends ItemView {
       void this.plugin.saveSettings();
     });
 
-    // Preview zoom — compact select: 适应屏幕 (fit, default) + fixed percents.
+    // Preview zoom — compact select: 适应屏幕 (fit) + fixed percents (default 80%).
     // Scales the whole phone frame so a small screen can inspect a big
     // device layout; max zoom is 1:1, fit is floored at 50% (readable).
     const zoomIcon = row.createSpan({ cls: 'wewrite-newspic-row-label wewrite-label-icon' });
@@ -292,6 +295,7 @@ export class WeChatNewsPicView extends ItemView {
     const previewWrap = container.createDiv({ cls: 'wewrite-newspic-preview-wrap' });
     this.preview = new NewsPicPreview(previewWrap, this.app.vault);
     this.preview.setDeviceSize(this.deviceSizeKey);
+    this.preview.setZoom(this.previewZoom);
     this.preview.onImageContextMenu = (imageKey: string, event: MouseEvent) => {
       const menu = new Menu();
       menu.addItem((item) => {

@@ -101,8 +101,8 @@ export class WeChatNewsView extends ItemView {
   private zoomSelectEl!: HTMLSelectElement;
   private deviceSize = 'none';
   /** Preview zoom mode: 'fit' (whole device visible, floored at 50%) or a
-   *  fixed percent string ('100' | '90' | ... | '50'). */
-  private previewZoom = 'fit';
+   *  fixed percent string ('100' | '90' | ... | '50'). Default 80%. */
+  private previewZoom = '80';
   private deviceSizes: Record<string, { label: string; width: number; height: number; isNone?: boolean }> = {
     small:   { label: t('misc.device_iphone_se'),          width: 320, height: 568 },
     medium:  { label: t('misc.device_iphone_6_8'),       width: 375, height: 667 },
@@ -125,6 +125,11 @@ export class WeChatNewsView extends ItemView {
     this.plugin = plugin;
     this.themeLoader = themeLoader;
     this.renderer = new WechatRenderer({ ...DEFAULT_PRESET });
+    // Restore the last simulated screen type so a brand-new view opens with
+    // the same device the user last chose (see also applyNoteConfig, which
+    // lets a note's own deviceSize override this).
+    const lastDevice = plugin.settingsManager.getSettings().lastDeviceSize;
+    if (lastDevice && this.deviceSizes[lastDevice]) this.deviceSize = lastDevice;
   }
 
   getViewType(): string { return VIEW_TYPE_WECHAT_NEWS; }
@@ -833,7 +838,7 @@ export class WeChatNewsView extends ItemView {
       void this.plugin.saveSettings();
     });
 
-    // Preview zoom — compact select: 适应屏幕 (fit, default) + fixed percents.
+    // Preview zoom — compact select: 适应屏幕 (fit) + fixed percents (default 80%).
     // Scales the whole phone frame so a small screen can inspect a big
     // device layout; max zoom is 1:1, fit is floored at 50% (readable).
     const zoomIcon = screenRow.createSpan({ cls: 'wewrite-label-icon' });
@@ -987,7 +992,7 @@ export class WeChatNewsView extends ItemView {
 
   /**
    * Scale the whole phone frame (bezel) to the chosen zoom:
-   *  - 'fit' (default): the entire device fits the available width, floored
+   *  - 'fit': the entire device fits the available width, floored
    *    at 50% so small screens previewing huge devices keep readable text
    *    and fall back to horizontal scrolling (per the "小屏用滚动条展示大屏"
    *    principle);

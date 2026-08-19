@@ -37,7 +37,7 @@ export class NewsPicPreview {
   private currentImageIndex = 0;
   private config: NewsPicArticleConfig | null = null;
   private deviceSize: DeviceSizeKey = 'none';
-  private zoom: string = 'fit';
+  private zoom: string = '80';
   private touchStartX = 0;
   private touchStartY = 0;
   private mouseDragStartX = 0;

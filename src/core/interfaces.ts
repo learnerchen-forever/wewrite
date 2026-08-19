@@ -230,7 +230,7 @@ export const DEFAULT_SETTINGS: WeWriteSettings = {
   svgFallbackThresholdKb: 100,
   showCopyButton: false,
   logAICalling: false,
-  articleWatermark: false,
+  articleWatermark: true,
   // ── Sync (disabled by default) ──
   syncEnabled: false,
   syncWebdavUrl: '',

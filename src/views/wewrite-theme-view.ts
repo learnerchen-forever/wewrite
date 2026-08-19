@@ -387,10 +387,10 @@ export class WeWriteThemeView extends ItemView {
 	private paletteSectionEl: HTMLElement | null = null;
 	private previewCollapsed = false;
 	private editorCollapsed = false;
-	/** Preview zoom (1 = 100%). Zooming out re-lays the article out at
-	 *  panelWidth / zoom px and scales it down, so a narrow panel can still
-	 *  show the big-screen layout. */
-	private themePreviewZoom = 1;
+	/** Preview zoom (1 = 100%). Default 80%. Zooming out re-lays the article
+	 *  out at panelWidth / zoom px and scales it down, so a narrow panel can
+	 *  still show the big-screen layout. */
+	private themePreviewZoom = 0.8;
 	/** Last applied preview layout (zoom + panel width); used to skip no-op
 	 *  re-applies, e.g. the window resize caused by the Android soft keyboard,
 	 *  which would otherwise churn styles and can leave a focused input's text

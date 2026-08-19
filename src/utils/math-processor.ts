@@ -15,16 +15,49 @@ export interface MathFormula {
 }
 
 /** Extract math formulas from markdown in document order.
- *  Two-pass approach: first strip $$...$$ blocks (replacing with markers),
- *  then extract $...$ inline from remaining text. Markers track document
- *  position so formulas can be sorted back into original order. */
+ *
+ *  Fenced code blocks (``` ... ``` / ~~~ ... ~~~) and inline code spans
+ *  (`...`) are skipped: Obsidian/MathJax never renders `$...$` inside code,
+ *  but a naive scan would pair an opening `$` in one code fragment with a
+ *  closing `$` in another and invent a bogus formula (e.g. `${id}` …
+ *  `${statusText}` inside a JS sample produced "7 formulas / 6 containers"
+ *  in the theme editor preview).
+ *
+ *  Remaining text is scanned in two passes: first $$...$$ blocks, then
+ *  $...$ inline. Positions are tracked so formulas can be sorted back into
+ *  original document order. */
 export function extractMathFormulas(markdown: string): MathFormula[] {
 	const items: Array<{ tex: string; display: boolean; pos: number }> = [];
 
+	// Walk the markdown, scanning only the segments outside code.
+	const codeRx = /```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`/g;
+	let cursor = 0;
+	let m: RegExpExecArray | null;
+	while ((m = codeRx.exec(markdown)) !== null) {
+		if (m.index > cursor) {
+			collectMathFormulas(items, markdown.slice(cursor, m.index), cursor);
+		}
+		cursor = m.index + m[0].length;
+	}
+	if (cursor < markdown.length) {
+		collectMathFormulas(items, markdown.slice(cursor), cursor);
+	}
+
+	// Sort by position in original markdown
+	items.sort((a, b) => a.pos - b.pos);
+	return items.map(({ tex, display }) => ({ tex, display }));
+}
+
+/** Two-pass scan of a code-free segment: $$...$$ blocks, then $...$ inline. */
+function collectMathFormulas(
+	items: Array<{ tex: string; display: boolean; pos: number }>,
+	text: string,
+	basePos: number,
+): void {
 	// Pass 1: $$...$$ block math — replace with placeholder, record position
 	const blockRx = /\$\$([^$]+)\$\$/g;
-	markdown.replace(blockRx, (_full, tex, offset) => {
-		items.push({ tex: (tex as string).trim(), display: true, pos: offset as number });
+	text.replace(blockRx, (_full, tex, offset) => {
+		items.push({ tex: (tex as string).trim(), display: true, pos: basePos + (offset as number) });
 		return '';
 	});
 
@@ -32,15 +65,11 @@ export function extractMathFormulas(markdown: string): MathFormula[] {
 	// Use (^|[^$]) instead of negative lookbehind (?<!\$) for iOS 15.7 compatibility
 	const inlineRx = /(^|[^$])\$([^$\s](?:[^$]|\$[^\s])*?)\$(?!\$)/g;
 	inlineRx.lastIndex = 0;
-	let m: RegExpExecArray | null;
-	while ((m = inlineRx.exec(markdown)) !== null) {
-		// m[2] is the tex content, m.index + m[1].length points to the opening $
-		items.push({ tex: m[2].trim(), display: false, pos: m.index + m[1].length });
+	let mm: RegExpExecArray | null;
+	while ((mm = inlineRx.exec(text)) !== null) {
+		// mm[2] is the tex content, mm.index + mm[1].length points to the opening $
+		items.push({ tex: mm[2].trim(), display: false, pos: basePos + mm.index + mm[1].length });
 	}
-
-	// Sort by position in original markdown
-	items.sort((a, b) => a.pos - b.pos);
-	return items.map(({ tex, display }) => ({ tex, display }));
 }
 
 /** Convert MathJax <mjx-container> elements in a rendered container to

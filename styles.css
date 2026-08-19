@@ -1074,14 +1074,12 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   flex-shrink: 0;
 }
 
-/* Mobile: checkbox group wraps to its own row, input fills first row */
+/* Mobile: property rows may wrap only when they genuinely run out of space;
+   the checkbox group (e.g. 其他参数's icon + three toggles) fits on one line
+   even on small screens, so it is no longer forced onto its own row. */
 @media (max-width: 500px) {
   .wewrite-prop-row {
     flex-wrap: wrap;
-  }
-  .wewrite-checkbox-group {
-    flex: 1 0 100%;
-    margin-top: 4px;
   }
 }
 

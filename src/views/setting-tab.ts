@@ -1193,7 +1193,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       .setName(t('settings.export_settings'))
       .setDesc(t('settings.export_settings_desc'))
       .addButton((btn) =>
-        btn.setButtonText(t('settings.export_button')).onClick(() => {
+        buttonWithIcon(btn, 'download', t('settings.export_button')).onClick(() => {
           const exportData = this.plugin.settingsManager.exportToJSON();
           const json = JSON.stringify(exportData, null, 2);
           const dateStr = new Date().toISOString().slice(0, 10);
@@ -1205,20 +1205,20 @@ export class WeWriteSettingTab extends PluginSettingTab {
           // after an await with "File chooser dialog can only be shown with a
           // user activation").
           //
-          // Mobile (Obsidian's Capacitor WebView): there is no save dialog,
-          // and navigator.share is unreliable on Android — it can resolve
-          // without showing any share sheet (or anchor-downloads silently
-          // no-op), which is exactly the "export succeeded but no file" bug.
-          // So on mobile we skip the share sheet entirely and write a copy
-          // into the vault, then tell the user the exact path.
+          // Mobile (Obsidian's Capacitor WebView): there is no save dialog, so
+          // open the system share sheet with the JSON file attached (the
+          // Android equivalent of choosing a destination). shareSettingsFile()
+          // is invoked synchronously here so the share call keeps the click's
+          // user activation.
           if (!isMobile) {
             this.downloadBlob(json, fileName);
           }
+          const sharePromise = isMobile ? this.shareSettingsFile(json, fileName) : Promise.resolve(false);
 
           void (async () => {
             // Always persist a copy in the vault (no user activation needed)
             // so the export is findable even when the desktop save dialog is
-            // cancelled or the platform has no file save UI at all.
+            // cancelled or the mobile share sheet is dismissed/unavailable.
             const settings = this.plugin.settingsManager.getSettings();
             let vaultPath = `${settings.wewriteFolder}/${fileName}`;
             let counter = 1;
@@ -1232,8 +1232,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
               await this.app.vault.adapter.mkdir(settings.wewriteFolder).catch(() => undefined);
               await this.app.vault.create(vaultPath, json);
               if (isMobile) {
-                // Point the user at the real file; mobile has no save dialog.
-                new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
+                const shared = await sharePromise;
+                if (shared) {
+                  new Notice(t('notice.settings_exported'));
+                } else {
+                  // Share sheet unavailable or dismissed — point the user at
+                  // the copy that was actually written into the vault.
+                  new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
+                }
               }
             } catch (err) {
               log.warn('settings export vault write failed', { err: String(err) });
@@ -1247,32 +1253,15 @@ export class WeWriteSettingTab extends PluginSettingTab {
       .setName(t('settings.import_settings'))
       .setDesc(t('settings.import_settings_desc'))
       .addButton((btn) =>
-        btn.setButtonText(t('settings.import_button')).onClick(async () => {
-          const file = await this.pickSettingsFile();
-          if (!file) return;
-          try {
-            const text = await file.text();
-            const data = JSON.parse(text);
-            const result = await this.plugin.settingsManager.load(data);
-            this.plugin.settings = result.settings;
-            await this.plugin.saveSettings();
-            this.display();
-
-            const s = result.accountStats;
-            new Notice(t('notice.settings_imported', { wechat: s.wechatAccountsImported, aiText: s.aiTextAccountsImported, aiImage: s.aiImageGenAccountsImported }));
-            if (s.accountsSkipped > 0) {
-              new Notice(t('notice.settings_invalid_skipped', { count: s.accountsSkipped }));
-            }
-            if (result.format === 'legacy-v1') {
-              new Notice(t('notice.settings_imported_v1'));
-            }
-
-            if (result.warnings.length > 0) {
-              log.warn('import warnings', { warnings: result.warnings });
-            }
-          } catch (err) {
-            new Notice(t('notice.settings_import_failed', { error: String(err) }));
-          }
+        buttonWithIcon(btn, 'upload', t('settings.import_button')).onClick(() => {
+          // Synchronous, no spinner: create and click the hidden file input
+          // right here in the click's user activation (see
+          // openSettingsFilePicker for why the input must live in the
+          // settings window's document).
+          this.openSettingsFilePicker((file) => {
+            if (!file) return;
+            void this.importSettingsFile(file);
+          });
         }),
       );
 
@@ -1388,47 +1377,93 @@ export class WeWriteSettingTab extends PluginSettingTab {
   }
 
   /**
+   * Mobile export: open the system share sheet with the settings JSON file
+   * attached so the user can pick a destination (Files / Drive / "save to
+   * device" etc.) — the Android equivalent of the desktop save dialog.
+   *
+   * Must be called synchronously from the button click so the share call keeps
+   * the user activation. Resolves with true only when the share sheet was
+   * presented and the user completed the share; false means sharing is
+   * unsupported or was dismissed (the vault copy is the fallback).
+   */
+  private async shareSettingsFile(json: string, fileName: string): Promise<boolean> {
+    const nav = navigator as Navigator & {
+      canShare?: (data?: ShareData) => boolean;
+    };
+    if (typeof navigator.share !== 'function') return false;
+    try {
+      const file = new File([new Blob([json], { type: 'application/json' })], fileName, { type: 'application/json' });
+      if (nav.canShare && !nav.canShare({ files: [file] })) return false;
+      await navigator.share({ files: [file] });
+      return true;
+    } catch {
+      // AbortError = user dismissed the sheet; other errors = sharing not
+      // available on this WebView. Either way the vault copy is the fallback.
+      return false;
+    }
+  }
+
+  /**
    * Open the native file chooser for a .json settings file.
    *
-   * The <input type="file"> MUST be attached to the DOM and its click() MUST
-   * happen synchronously inside the button's user activation; otherwise
-   * Chromium/Electron reject the dialog with "File chooser dialog can only
-   * be shown with a user activation".
-   *
-   * We deliberately do NOT call showOpenFilePicker() first: it consumes the
-   * user activation and, on Obsidian's Electron build, rejects afterwards —
-   * which leaves the fallback input.click() outside the activation and blocks
-   * the dialog entirely. The 'change' event is the only completion signal;
-   * 'cancel' covers modern browsers, and any leftover hidden input from a
-   * dismissed dialog is removed the next time the picker opens (older Android
-   * WebViews do not reliably fire 'cancel').
+   * The <input type="file"> MUST be created in the document that renders the
+   * settings UI — since Obsidian 1.13+ opens settings in a pop-out window,
+   * the global `document` points at the main vault window. Clicking an input
+   * there is rejected with "File chooser dialog can only be shown with a user
+   * activation", the promise never settles, and the Import button spins
+   * forever. Attaching to this.containerEl.ownerDocument and calling click()
+   * synchronously inside the button's user activation is all that is needed.
    */
-  private pickSettingsFile(): Promise<File | null> {
-    return new Promise((resolve) => {
-      // Remove any leftover hidden input from a previously cancelled dialog.
-      document.querySelectorAll<HTMLInputElement>('input.wewrite-settings-file-input')
-        .forEach((el) => el.remove());
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      input.className = 'wewrite-settings-file-input';
-      input.style.display = 'none';
-      document.body.appendChild(input);
-      let settled = false;
-      const done = (file: File | null) => {
-        if (settled) return;
-        settled = true;
-        input.remove();
-        resolve(file);
-      };
-      input.addEventListener('change', () => done(input.files?.[0] ?? null));
-      // Chrome 113+/modern WebViews fire 'cancel' when the picker is
-      // dismissed. Never rely on window focus events for cancellation: the
-      // picker opening/closing also fires them, which used to settle the
-      // promise early and left the import stuck on Android.
-      input.addEventListener('cancel', () => done(null));
-      input.click();
-    });
+  private openSettingsFilePicker(onFile: (file: File | null) => void): void {
+    const doc = this.containerEl.ownerDocument;
+    // Remove any leftover hidden input from a previously cancelled dialog.
+    doc.querySelectorAll<HTMLInputElement>('input.wewrite-settings-file-input')
+      .forEach((el) => el.remove());
+    const input = doc.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.className = 'wewrite-settings-file-input';
+    input.style.display = 'none';
+    doc.body.appendChild(input);
+    let settled = false;
+    const done = (file: File | null) => {
+      if (settled) return;
+      settled = true;
+      input.remove();
+      onFile(file);
+    };
+    input.addEventListener('change', () => done(input.files?.[0] ?? null));
+    // Chrome 113+/modern WebViews fire 'cancel' when the picker is dismissed;
+    // older Android WebViews just leave the input until the next open.
+    input.addEventListener('cancel', () => done(null));
+    input.click();
+  }
+
+  /** Read and apply a settings JSON file picked by the user. */
+  private async importSettingsFile(file: File): Promise<void> {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const result = await this.plugin.settingsManager.load(data);
+      this.plugin.settings = result.settings;
+      await this.plugin.saveSettings();
+      this.display();
+
+      const s = result.accountStats;
+      new Notice(t('notice.settings_imported', { wechat: s.wechatAccountsImported, aiText: s.aiTextAccountsImported, aiImage: s.aiImageGenAccountsImported }));
+      if (s.accountsSkipped > 0) {
+        new Notice(t('notice.settings_invalid_skipped', { count: s.accountsSkipped }));
+      }
+      if (result.format === 'legacy-v1') {
+        new Notice(t('notice.settings_imported_v1'));
+      }
+
+      if (result.warnings.length > 0) {
+        log.warn('import warnings', { warnings: result.warnings });
+      }
+    } catch (err) {
+      new Notice(t('notice.settings_import_failed', { error: String(err) }));
+    }
   }
 
   // ── Collapsible Section Helper ──

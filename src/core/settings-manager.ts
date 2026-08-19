@@ -82,7 +82,7 @@ export const WeWriteSettingsSchema = z.object({
   svgFallbackThresholdKb: z.number().int().min(10).max(1000).catch(100),
   showCopyButton: z.boolean().catch(false),
   logAICalling: z.boolean().catch(false),
-  articleWatermark: z.boolean().catch(false),
+  articleWatermark: z.boolean().catch(true),
   // ── Sync ──
   syncEnabled: z.boolean().catch(false),
   syncWebdavUrl: z.string().catch(''),
