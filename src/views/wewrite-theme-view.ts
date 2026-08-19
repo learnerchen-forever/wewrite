@@ -511,8 +511,22 @@ export class WeWriteThemeView extends ItemView {
 .wewrite-theme-view .wewrite-theme-section [style*="padding:2px 0"] { padding: 4px 0 !important; }
 .wewrite-theme-view .wewrite-theme-section [style*="margin-bottom:8px"] { margin-bottom: 12px !important; }
 @media (max-width: 760px) {
+  /* The desktop split layout (height:100% + overflow:hidden + nested scroll
+     panels) is what breaks mobile input focus: with the soft keyboard open,
+     iOS/Android cannot scroll the focused field into view through the nested
+     overflow:hidden containers, so the editor jumps/blanks/zooms until the
+     keyboard closes. The News view's article-property inputs (e.g. author)
+     live in a normal scrolling .view-content and never had this problem. On
+     phones, scroll the view as one document: .view-content becomes the single
+     scroll container and the split stops constraining height. */
+  .wewrite-theme-view {
+    display: block !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
   .wewrite-theme-view .wewrite-theme-split {
-    flex-wrap: wrap !important; overflow-y: auto !important;
+    flex-wrap: wrap !important; overflow: visible !important; flex: none !important;
   }
   .wewrite-theme-view .wewrite-theme-editor-panel,
   .wewrite-theme-view .wewrite-theme-preview-panel {
@@ -586,6 +600,21 @@ export class WeWriteThemeView extends ItemView {
   .wewrite-theme-view .wewrite-theme-section input[type="text"],
   .wewrite-theme-view .wewrite-theme-section input[type="number"],
   .wewrite-theme-view .wewrite-theme-section select { min-width: 0; }
+}
+
+/* Same single-document scroll for the Obsidian mobile app at any width
+   (e.g. tablets in landscape, where the 760px media query does not fire but
+   the soft keyboard breaks the nested-scroll layout the same way). */
+body.is-mobile .wewrite-theme-view {
+  display: block !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+body.is-mobile .wewrite-theme-view .wewrite-theme-split {
+  flex-wrap: wrap !important;
+  overflow: visible !important;
+  flex: none !important;
 }
 `;
 
