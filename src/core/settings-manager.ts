@@ -82,6 +82,7 @@ export const WeWriteSettingsSchema = z.object({
   svgFallbackThresholdKb: z.number().int().min(10).max(1000).catch(100),
   showCopyButton: z.boolean().catch(false),
   logAICalling: z.boolean().catch(false),
+  articleWatermark: z.boolean().catch(false),
   // ── Sync ──
   syncEnabled: z.boolean().catch(false),
   syncWebdavUrl: z.string().catch(''),
@@ -169,6 +170,7 @@ function recoverPartialSettings(
     'activeAIImageGenAccountId', 'wewriteFolder', 'stylesDirectory', 'coverStorageMode',
     'coverStoragePath', 'dumpPublishContent',
     'logRenderPipeline', 'svgFallbackThresholdKb', 'showCopyButton', 'logAICalling',
+    'articleWatermark',
     'syncEnabled', 'syncWebdavUrl', 'syncUsername', 'syncPassword', 'syncRemoteDir', 'syncIntervalMinutes', 'syncLogDebug', 'syncMaxFileSizeMb', 'syncRiskAcknowledgedAt'] as const;
 
   for (const key of scalarKeys) {

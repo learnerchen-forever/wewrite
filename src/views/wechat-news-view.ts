@@ -1427,6 +1427,11 @@ export class WeChatNewsView extends ItemView {
       this.fallbackResult = fallback;
       this.lastRenderedForAccountId = this.plugin.settingsManager.getSettings().activeWeChatAccountId || '';
 
+      // Optional WeWrite watermark — appended at the bottom-right of News
+      // renderings when the setting is enabled (preview, copy and publish all
+      // share this.renderedHtml).
+      this.renderedHtml = this.appendArticleWatermark(this.renderedHtml);
+
       // Content size indicator in Article Settings label
       const contentKb = (fallback.finalByteLength / 1024).toFixed(1);
       const limitKb = (MAX_CONTENT_BYTES / 1024).toFixed(0);
@@ -1501,6 +1506,24 @@ export class WeChatNewsView extends ItemView {
         void this.renderContent();
       }
     }
+  }
+
+  /**
+   * Append the optional WeWrite watermark at the very end of the article,
+   * aligned to the bottom-right. The watermark sits inside the article's
+   * root <section> wrapper so it inherits the article background and is
+   * included in preview, copy and publish output.
+   */
+  private appendArticleWatermark(html: string): string {
+    if (!this.plugin.settingsManager.getSettings().articleWatermark) return html;
+    const watermark =
+      '<div style="text-align:right;margin-top:20px;padding-bottom:4px;">' +
+      '<span style="color:#b0b0b0;font-style:italic;font-size:12px;line-height:1.6;">' +
+      'published by wewrite@obsidian' +
+      '</span></div>';
+    const idx = html.lastIndexOf('</section>');
+    if (idx === -1) return html + watermark;
+    return html.slice(0, idx) + watermark + html.slice(idx);
   }
 
   /** Wait for Obsidian async plugins to finish rendering (callouts, mermaid, SVGs). */

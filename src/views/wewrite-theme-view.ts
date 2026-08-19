@@ -469,8 +469,10 @@ export class WeWriteThemeView extends ItemView {
      oversized next to the rest of the editor. */
   --input-height: 30px;
   /* Android WebView auto-zooms focused inputs whose font-size is below
-     16px; the zoom animation can leave the field's text unpainted until the
-     keyboard closes. Pin text size so focusing never rescales the editor. */
+     16px. NOTE: text-size-adjust does NOT prevent that focus zoom — the
+     reliable fix is a 16px minimum font-size on the form controls, applied
+     in the mobile media query below. This rule is kept as a belt-and-braces
+     guard for text inflation. */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -523,6 +525,17 @@ export class WeWriteThemeView extends ItemView {
   }
   .wewrite-theme-view select {
     height: var(--input-height, 30px) !important; min-height: 0 !important;
+  }
+  /* Android WebView auto-zooms focused inputs whose font-size is below
+     16px, which blanks the editor until the keyboard closes. 16px is the
+     minimum that disables the focus zoom — text-size-adjust alone does not
+     prevent it. Inline font-size:10px/12px styles lose to !important. */
+  .wewrite-theme-view input[type="text"],
+  .wewrite-theme-view input[type="number"],
+  .wewrite-theme-view input[type="search"],
+  .wewrite-theme-view textarea,
+  .wewrite-theme-view select {
+    font-size: 16px !important;
   }
   .wewrite-theme-view button:not(.wewrite-btn-icon):not(.wewrite-swatch-btn):not(.wewrite-swatch-btn-sm) {
     height: 38px !important; min-height: 38px !important;

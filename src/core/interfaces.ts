@@ -84,6 +84,8 @@ export interface WeWriteSettings {
   svgFallbackThresholdKb: number;
   showCopyButton: boolean;
   logAICalling: boolean;
+  /** Append a subtle "published by wewrite@obsidian" watermark to News articles. */
+  articleWatermark: boolean;
   lastDeviceSize?: string;
   /** Last selected render theme (styleId); used as the default for new notes. */
   lastStyleId?: string;
@@ -228,6 +230,7 @@ export const DEFAULT_SETTINGS: WeWriteSettings = {
   svgFallbackThresholdKb: 100,
   showCopyButton: false,
   logAICalling: false,
+  articleWatermark: false,
   // ── Sync (disabled by default) ──
   syncEnabled: false,
   syncWebdavUrl: '',

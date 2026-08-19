@@ -293,6 +293,17 @@ export class WeWriteSettingTab extends PluginSettingTab {
         }),
       );
 
+    // Article WeWrite watermark — appended to News renderings when enabled
+    new Setting(generalBody)
+      .setName(t('settings.article_watermark'))
+      .setDesc(t('settings.article_watermark_desc'))
+      .addToggle((t) =>
+        t.setValue(settings.articleWatermark).onChange(async (v) => {
+          settings.articleWatermark = v;
+          this.save();
+        }),
+      );
+
     // ── WeChat Accounts ──
     const wechatBody = this.addCollapsibleSection(containerEl, t('settings.wechat_accounts'), 'message-square');
 
@@ -1182,44 +1193,65 @@ export class WeWriteSettingTab extends PluginSettingTab {
       .setName(t('settings.export_settings'))
       .setDesc(t('settings.export_settings_desc'))
       .addButton((btn) =>
-        btn.setButtonText(t('settings.export_button')).onClick(async () => {
+        btn.setButtonText(t('settings.export_button')).onClick(() => {
           const exportData = this.plugin.settingsManager.exportToJSON();
           const json = JSON.stringify(exportData, null, 2);
           const dateStr = new Date().toISOString().slice(0, 10);
-          const settings = this.plugin.settingsManager.getSettings();
           const fileName = `wewrite-settings-${dateStr}.json`;
-          let vaultPath = `${settings.wewriteFolder}/${fileName}`;
 
-          // Avoid overwriting — append counter if file exists
-          let counter = 1;
-          while (await this.app.vault.adapter.exists(vaultPath)) {
-            vaultPath = `${settings.wewriteFolder}/wewrite-settings-${dateStr}(${counter}).json`;
-            counter++;
-          }
-
-          try {
-            await this.app.vault.create(vaultPath, json);
-
-            // Try system share on mobile so user can save outside vault
-            if (navigator.share) {
+          // The share sheet / save dialog MUST be triggered inside the click's
+          // user activation. Do it FIRST, before any await — otherwise
+          // Chromium (Electron desktop) and Android WebView refuse to show
+          // the dialog ("File chooser dialog can only be shown with a user
+          // activation") and the export "succeeds" without producing a file.
+          const canShare = typeof navigator.share === 'function';
+          void (async () => {
+            let shared = false;
+            if (canShare) {
+              // Mobile: open the system share sheet with the JSON attached.
+              // File share first (iOS); canShare may lie on Android, so fall
+              // back to sharing the text.
               const blob = new Blob([json], { type: 'application/json' });
               const file = new File([blob], fileName, { type: 'application/json' });
-              let shared = false;
-              // Try file share first (iOS); canShare may lie on Android
-              try { await navigator.share({ files: [file] }); shared = true; } catch {}
-              // Fall back to text share (Android) if file share didn't work
+              try { await navigator.share({ files: [file] }); shared = true; } catch { /* unsupported */ }
               if (!shared) {
-                try { await navigator.share({ text: json, title: 'WeWrite Settings' }); } catch {}
+                try { await navigator.share({ text: json, title: 'WeWrite Settings' }); shared = true; }
+                catch { /* user cancelled or share unavailable */ }
               }
-              new Notice(t('notice.settings_exported'));
             } else {
-              // Desktop without share API — try download link
+              // Desktop: trigger the native save dialog synchronously.
               this.downloadBlob(json, fileName);
+              shared = true; // downloadBlob shows its own success notice
             }
-          } catch {
-            // Vault write failed — fall back to download link
-            this.downloadBlob(json, fileName);
-          }
+
+            // Always persist a copy in the vault (no user activation needed)
+            // so the export is findable even when the share sheet or save
+            // dialog is cancelled or unavailable.
+            const settings = this.plugin.settingsManager.getSettings();
+            let vaultPath = `${settings.wewriteFolder}/${fileName}`;
+            let counter = 1;
+            while (await this.app.vault.adapter.exists(vaultPath)) {
+              vaultPath = `${settings.wewriteFolder}/wewrite-settings-${dateStr}(${counter}).json`;
+              counter++;
+            }
+            try {
+              await this.app.vault.create(vaultPath, json);
+              if (canShare) {
+                if (shared) {
+                  new Notice(t('notice.settings_exported'));
+                } else {
+                  // Share sheet was dismissed/unavailable — point the user
+                  // to the file that was actually saved.
+                  new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
+                }
+              }
+            } catch (err) {
+              log.warn('settings export vault write failed', { err: String(err) });
+              if (canShare) {
+                new Notice(t('notice.settings_export_failed', { error: String(err) }));
+              }
+            }
+          })();
         }),
       );
 
@@ -1227,38 +1259,32 @@ export class WeWriteSettingTab extends PluginSettingTab {
       .setName(t('settings.import_settings'))
       .setDesc(t('settings.import_settings_desc'))
       .addButton((btn) =>
-        btn.setButtonText(t('settings.import_button')).onClick(() => {
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = '.json';
-          input.onchange = async () => {
-            const file = input.files?.[0];
-            if (!file) return;
-            try {
-              const text = await file.text();
-              const data = JSON.parse(text);
-              const result = await this.plugin.settingsManager.load(data);
-              this.plugin.settings = result.settings;
-              await this.plugin.saveSettings();
-              this.display();
+        btn.setButtonText(t('settings.import_button')).onClick(async () => {
+          const file = await this.pickSettingsFile();
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            const result = await this.plugin.settingsManager.load(data);
+            this.plugin.settings = result.settings;
+            await this.plugin.saveSettings();
+            this.display();
 
-              const s = result.accountStats;
-              new Notice(t('notice.settings_imported', { wechat: s.wechatAccountsImported, aiText: s.aiTextAccountsImported, aiImage: s.aiImageGenAccountsImported }));
-              if (s.accountsSkipped > 0) {
-                new Notice(t('notice.settings_invalid_skipped', { count: s.accountsSkipped }));
-              }
-              if (result.format === 'legacy-v1') {
-                new Notice(t('notice.settings_imported_v1'));
-              }
-
-              if (result.warnings.length > 0) {
-                log.warn('import warnings', { warnings: result.warnings });
-              }
-            } catch (err) {
-              new Notice(t('notice.settings_import_failed', { error: String(err) }));
+            const s = result.accountStats;
+            new Notice(t('notice.settings_imported', { wechat: s.wechatAccountsImported, aiText: s.aiTextAccountsImported, aiImage: s.aiImageGenAccountsImported }));
+            if (s.accountsSkipped > 0) {
+              new Notice(t('notice.settings_invalid_skipped', { count: s.accountsSkipped }));
             }
-          };
-          input.click();
+            if (result.format === 'legacy-v1') {
+              new Notice(t('notice.settings_imported_v1'));
+            }
+
+            if (result.warnings.length > 0) {
+              log.warn('import warnings', { warnings: result.warnings });
+            }
+          } catch (err) {
+            new Notice(t('notice.settings_import_failed', { error: String(err) }));
+          }
         }),
       );
 
@@ -1371,6 +1397,57 @@ export class WeWriteSettingTab extends PluginSettingTab {
       URL.revokeObjectURL(url);
       new Notice(t('notice.settings_exported'));
     }, 1000);
+  }
+
+  /**
+   * Open the native file chooser for a .json settings file.
+   *
+   * Desktop (Electron) prefers the File System Access API
+   * (showOpenFilePicker) and falls back to a hidden <input type="file">
+   * that is attached to the DOM before clicking. The input click happens
+   * synchronously inside the user gesture so Chromium allows the dialog —
+   * a detached input can be rejected with "File chooser dialog can only be
+   * shown with a user activation" on some Electron/WebView builds. Android
+   * WebView does not expose showOpenFilePicker, so it uses the input path
+   * (which works there).
+   */
+  private async pickSettingsFile(): Promise<File | null> {
+    const win = window as unknown as {
+      showOpenFilePicker?: (options?: {
+        types?: Array<{ description?: string; accept: Record<string, string[]> }>;
+        multiple?: boolean;
+      }) => Promise<Array<{ getFile: () => Promise<File> }>>;
+    };
+    if (typeof win.showOpenFilePicker === 'function') {
+      try {
+        const [handle] = await win.showOpenFilePicker({
+          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+          multiple: false,
+        });
+        return await handle.getFile();
+      } catch (err) {
+        // AbortError = user cancelled the dialog; anything else (e.g. an
+        // activation hiccup) falls back to the hidden input below.
+        if ((err as DOMException)?.name === 'AbortError') return null;
+      }
+    }
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      input.addEventListener('change', () => {
+        input.remove();
+        resolve(input.files?.[0] ?? null);
+      });
+      // Dialog dismissed without a selection: clean up the hidden input.
+      window.addEventListener('focus', () => {
+        input.remove();
+        resolve(null);
+      }, { once: true });
+      input.click();
+    });
   }
 
   // ── Collapsible Section Helper ──
