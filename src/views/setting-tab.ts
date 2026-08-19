@@ -1,6 +1,6 @@
 // Plugin Settings Tab — IP display, collapsible sections, auto-expand inputs
 
-import { App, PluginSettingTab, Setting, Notice, Modal, setIcon, requestUrl, SuggestModal, ButtonComponent, type TFolder } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, Modal, setIcon, requestUrl, SuggestModal, ButtonComponent, Platform, type TFolder } from 'obsidian';
 import type WeWritePlugin from '../main';
 import type { WeChatAccount, AITextAccount, AIImageGenAccount, AIProviderType, ImageGenProviderType, WeWriteSettings } from '../core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS, DEFAULT_SETTINGS } from '../core/interfaces';
@@ -1198,35 +1198,27 @@ export class WeWriteSettingTab extends PluginSettingTab {
           const json = JSON.stringify(exportData, null, 2);
           const dateStr = new Date().toISOString().slice(0, 10);
           const fileName = `wewrite-settings-${dateStr}.json`;
+          const isMobile = Platform.isMobile;
 
-          // The share sheet / save dialog MUST be triggered inside the click's
-          // user activation. Do it FIRST, before any await — otherwise
-          // Chromium (Electron desktop) and Android WebView refuse to show
-          // the dialog ("File chooser dialog can only be shown with a user
-          // activation") and the export "succeeds" without producing a file.
-          const canShare = typeof navigator.share === 'function';
+          // Desktop: trigger the native save dialog synchronously inside the
+          // click's user activation (Chromium/Electron refuse a dialog started
+          // after an await with "File chooser dialog can only be shown with a
+          // user activation").
+          //
+          // Mobile (Obsidian's Capacitor WebView): there is no save dialog,
+          // and navigator.share is unreliable on Android — it can resolve
+          // without showing any share sheet (or anchor-downloads silently
+          // no-op), which is exactly the "export succeeded but no file" bug.
+          // So on mobile we skip the share sheet entirely and write a copy
+          // into the vault, then tell the user the exact path.
+          if (!isMobile) {
+            this.downloadBlob(json, fileName);
+          }
+
           void (async () => {
-            let shared = false;
-            if (canShare) {
-              // Mobile: open the system share sheet with the JSON attached.
-              // File share first (iOS); canShare may lie on Android, so fall
-              // back to sharing the text.
-              const blob = new Blob([json], { type: 'application/json' });
-              const file = new File([blob], fileName, { type: 'application/json' });
-              try { await navigator.share({ files: [file] }); shared = true; } catch { /* unsupported */ }
-              if (!shared) {
-                try { await navigator.share({ text: json, title: 'WeWrite Settings' }); shared = true; }
-                catch { /* user cancelled or share unavailable */ }
-              }
-            } else {
-              // Desktop: trigger the native save dialog synchronously.
-              this.downloadBlob(json, fileName);
-              shared = true; // downloadBlob shows its own success notice
-            }
-
             // Always persist a copy in the vault (no user activation needed)
-            // so the export is findable even when the share sheet or save
-            // dialog is cancelled or unavailable.
+            // so the export is findable even when the desktop save dialog is
+            // cancelled or the platform has no file save UI at all.
             const settings = this.plugin.settingsManager.getSettings();
             let vaultPath = `${settings.wewriteFolder}/${fileName}`;
             let counter = 1;
@@ -1235,21 +1227,17 @@ export class WeWriteSettingTab extends PluginSettingTab {
               counter++;
             }
             try {
+              // vault.create() does not create parent folders; make sure the
+              // configured folder exists first (ignore "already exists").
+              await this.app.vault.adapter.mkdir(settings.wewriteFolder).catch(() => undefined);
               await this.app.vault.create(vaultPath, json);
-              if (canShare) {
-                if (shared) {
-                  new Notice(t('notice.settings_exported'));
-                } else {
-                  // Share sheet was dismissed/unavailable — point the user
-                  // to the file that was actually saved.
-                  new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
-                }
+              if (isMobile) {
+                // Point the user at the real file; mobile has no save dialog.
+                new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
               }
             } catch (err) {
               log.warn('settings export vault write failed', { err: String(err) });
-              if (canShare) {
-                new Notice(t('notice.settings_export_failed', { error: String(err) }));
-              }
+              new Notice(t('notice.settings_export_failed', { error: String(err) }));
             }
           })();
         }),
@@ -1402,50 +1390,43 @@ export class WeWriteSettingTab extends PluginSettingTab {
   /**
    * Open the native file chooser for a .json settings file.
    *
-   * Desktop (Electron) prefers the File System Access API
-   * (showOpenFilePicker) and falls back to a hidden <input type="file">
-   * that is attached to the DOM before clicking. The input click happens
-   * synchronously inside the user gesture so Chromium allows the dialog —
-   * a detached input can be rejected with "File chooser dialog can only be
-   * shown with a user activation" on some Electron/WebView builds. Android
-   * WebView does not expose showOpenFilePicker, so it uses the input path
-   * (which works there).
+   * The <input type="file"> MUST be attached to the DOM and its click() MUST
+   * happen synchronously inside the button's user activation; otherwise
+   * Chromium/Electron reject the dialog with "File chooser dialog can only
+   * be shown with a user activation".
+   *
+   * We deliberately do NOT call showOpenFilePicker() first: it consumes the
+   * user activation and, on Obsidian's Electron build, rejects afterwards —
+   * which leaves the fallback input.click() outside the activation and blocks
+   * the dialog entirely. The 'change' event is the only completion signal;
+   * 'cancel' covers modern browsers, and any leftover hidden input from a
+   * dismissed dialog is removed the next time the picker opens (older Android
+   * WebViews do not reliably fire 'cancel').
    */
-  private async pickSettingsFile(): Promise<File | null> {
-    const win = window as unknown as {
-      showOpenFilePicker?: (options?: {
-        types?: Array<{ description?: string; accept: Record<string, string[]> }>;
-        multiple?: boolean;
-      }) => Promise<Array<{ getFile: () => Promise<File> }>>;
-    };
-    if (typeof win.showOpenFilePicker === 'function') {
-      try {
-        const [handle] = await win.showOpenFilePicker({
-          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-          multiple: false,
-        });
-        return await handle.getFile();
-      } catch (err) {
-        // AbortError = user cancelled the dialog; anything else (e.g. an
-        // activation hiccup) falls back to the hidden input below.
-        if ((err as DOMException)?.name === 'AbortError') return null;
-      }
-    }
+  private pickSettingsFile(): Promise<File | null> {
     return new Promise((resolve) => {
+      // Remove any leftover hidden input from a previously cancelled dialog.
+      document.querySelectorAll<HTMLInputElement>('input.wewrite-settings-file-input')
+        .forEach((el) => el.remove());
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = '.json';
+      input.className = 'wewrite-settings-file-input';
       input.style.display = 'none';
       document.body.appendChild(input);
-      input.addEventListener('change', () => {
+      let settled = false;
+      const done = (file: File | null) => {
+        if (settled) return;
+        settled = true;
         input.remove();
-        resolve(input.files?.[0] ?? null);
-      });
-      // Dialog dismissed without a selection: clean up the hidden input.
-      window.addEventListener('focus', () => {
-        input.remove();
-        resolve(null);
-      }, { once: true });
+        resolve(file);
+      };
+      input.addEventListener('change', () => done(input.files?.[0] ?? null));
+      // Chrome 113+/modern WebViews fire 'cancel' when the picker is
+      // dismissed. Never rely on window focus events for cancellation: the
+      // picker opening/closing also fires them, which used to settle the
+      // promise early and left the import stuck on Android.
+      input.addEventListener('cancel', () => done(null));
       input.click();
     });
   }

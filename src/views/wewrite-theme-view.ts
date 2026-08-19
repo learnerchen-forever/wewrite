@@ -3,7 +3,7 @@
 // Slot cards replace flat variable dropdowns. Each element type expands to show
 // its composable slots, each with a curated dropdown + inline preview.
 
-import { ItemView, type WorkspaceLeaf, TFile, MarkdownRenderer, Notice, setIcon, type EventRef } from 'obsidian';
+import { ItemView, type WorkspaceLeaf, TFile, MarkdownRenderer, Notice, setIcon, Platform, type EventRef } from 'obsidian';
 import type WeWritePlugin from '../main';
 import type { ThemeLoader } from '../styles/theme-loader';
 import { getSlotRegistry } from '../core/slot-registry';
@@ -397,6 +397,11 @@ export class WeWriteThemeView extends ItemView {
 	 *  unpainted until the keyboard closes. */
 	private _lastPreviewPanelW = 0;
 	private _lastPreviewZoom = -1;
+	/** Mobile-only observer that detects soft-keyboard open/close via the
+	 *  --keyboard-height variable Obsidian publishes on <html>. */
+	private _keyboardObserver: MutationObserver | null = null;
+	/** rAF handle for the full-view repaint nudge (Android WebView). */
+	private _repaintRaf = 0;
 	/** Section keys the user has explicitly expanded. Sections are collapsed by default. */
 	private expandedByUser = new Set<string>();
 	private dirty = false;
@@ -469,10 +474,12 @@ export class WeWriteThemeView extends ItemView {
      oversized next to the rest of the editor. */
   --input-height: 30px;
   /* Android WebView auto-zooms focused inputs whose font-size is below
-     16px. NOTE: text-size-adjust does NOT prevent that focus zoom — the
-     reliable fix is a 16px minimum font-size on the form controls, applied
-     in the mobile media query below. This rule is kept as a belt-and-braces
-     guard for text inflation. */
+     16px. Keeping the mobile media query's 16px minimum font-size prevents
+     that focus zoom; the separate "editor goes blank when the keyboard
+     opens" symptom is NOT the focus zoom — it is the WebView failing to
+     repaint after the keyboard resize, handled by setupMobileKeyboardRepaint
+     + forceFullRepaint. This rule stays as a belt-and-braces guard against
+     text inflation / focus zoom. */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -527,9 +534,10 @@ export class WeWriteThemeView extends ItemView {
     height: var(--input-height, 30px) !important; min-height: 0 !important;
   }
   /* Android WebView auto-zooms focused inputs whose font-size is below
-     16px, which blanks the editor until the keyboard closes. 16px is the
-     minimum that disables the focus zoom — text-size-adjust alone does not
-     prevent it. Inline font-size:10px/12px styles lose to !important. */
+     16px (a separate issue from the keyboard blank-screen repaint bug, which
+     is handled in TypeScript). 16px is the minimum that disables the focus
+     zoom — text-size-adjust alone does not prevent it. Inline
+     font-size:10px/12px styles lose to !important. */
   .wewrite-theme-view input[type="text"],
   .wewrite-theme-view input[type="number"],
   .wewrite-theme-view input[type="search"],
@@ -663,10 +671,15 @@ export class WeWriteThemeView extends ItemView {
 			this.applyThemePreviewZoom();
 			// Android WebView workaround: opening/closing the soft keyboard
 			// resizes the window, and Chromium sometimes fails to repaint the
-			// focused field's text layer (the value is intact, just not drawn
-			// until the next full invalidation). Nudge a repaint on resize.
+			// whole view (not just the focused field's text layer) until the
+			// next full invalidation. Nudge a repaint on resize.
+			if (Platform.isMobile) this.forceFullRepaint();
 			this.repaintFocusedInput();
 		});
+		// Obsidian mobile signals keyboard open/close by updating
+		// --keyboard-height on <html>; watch it so we repaint at the exact
+		// moment the keyboard state changes, even when no window resize fires.
+		this.setupMobileKeyboardRepaint();
 
 		this.previewContainer = previewPanel.createDiv({ cls: 'wewrite-theme-preview-content' });
 		this.previewContainer.style.cssText = 'flex:1;overflow-y:auto;padding:16px;min-height:0';
@@ -711,6 +724,15 @@ export class WeWriteThemeView extends ItemView {
 			unsub();
 		}
 		this._eventBusUnsubs = [];
+		// Stop watching the soft keyboard (mobile).
+		if (this._keyboardObserver) {
+			this._keyboardObserver.disconnect();
+			this._keyboardObserver = null;
+		}
+		if (this._repaintRaf) {
+			cancelAnimationFrame(this._repaintRaf);
+			this._repaintRaf = 0;
+		}
 		// Reset renderer
 		this.renderer = new WechatRenderer();
 	}
@@ -3936,6 +3958,71 @@ export class WeWriteThemeView extends ItemView {
 		scaled.style.transformOrigin = 'top left';
 		zoom.style.width = s >= 1 ? '100%' : `${Math.round(layoutW * s)}px`;
 		zoom.style.height = s >= 1 ? '' : `${Math.round(contentH * s)}px`;
+	}
+
+	/**
+	 * Mobile-only: watch Obsidian's --keyboard-height variable on <html>.
+	 *
+	 * Obsidian mobile publishes the current soft-keyboard height there, so a
+	 * change is a reliable open/close signal even on platforms where the
+	 * WebView is not resized (and no window 'resize' event fires). When the
+	 * keyboard state changes, re-apply the preview layout and force the whole
+	 * view to repaint (Android WebView can otherwise leave the previously
+	 * rasterized layer blank until the keyboard closes).
+	 */
+	private setupMobileKeyboardRepaint(): void {
+		if (!Platform.isMobile) return;
+		this._keyboardObserver?.disconnect();
+		let lastHeight = this.currentKeyboardHeight();
+		const sync = () => {
+			const height = this.currentKeyboardHeight();
+			if (height === lastHeight) return;
+			lastHeight = height;
+			this.applyThemePreviewZoom();
+			this.forceFullRepaint();
+		};
+		this._keyboardObserver = new MutationObserver(sync);
+		this._keyboardObserver.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ['style'],
+		});
+		// Initial sync in case the keyboard is already open when the view opens.
+		sync();
+	}
+
+	private currentKeyboardHeight(): number {
+		return parseFloat(
+			document.documentElement.style.getPropertyValue('--keyboard-height') || '0'
+		);
+	}
+
+	/**
+	 * Force Chromium to re-raster the whole view. Android WebView has a
+	 * long-standing bug where the soft keyboard resize invalidates the layout
+	 * but not the previously composited layer, so the entire editor goes blank
+	 * (not just the focused input) until the keyboard closes. Toggling a
+	 * single child (repaintFocusedInput) cannot fix a stale parent layer, so
+	 * hide the content root for one frame — visibility, not display, so the
+	 * focused input keeps focus and the keyboard stays open — force a
+	 * synchronous reflow, then restore on the next frame so the browser
+	 * cannot coalesce the two style changes into a no-op.
+	 */
+	private forceFullRepaint(): void {
+		const c = this.contentEl;
+		if (!c) return;
+		if (this._repaintRaf) {
+			cancelAnimationFrame(this._repaintRaf);
+			this._repaintRaf = 0;
+		}
+		const prevVisibility = c.style.visibility;
+		c.style.visibility = 'hidden';
+		// Reading offsetHeight forces a synchronous reflow while the new
+		// visibility is applied, so the invalidation actually happens.
+		void c.offsetHeight;
+		this._repaintRaf = requestAnimationFrame(() => {
+			this._repaintRaf = 0;
+			c.style.visibility = prevVisibility;
+		});
 	}
 
 	/**

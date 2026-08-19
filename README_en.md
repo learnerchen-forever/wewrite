@@ -124,6 +124,7 @@ Or install manually:
 
 Complete rewrite: mobile-first architecture, Obsidian native rendering + zero-CSS inline styling pipeline, theme-note system with 100+ decorations, AI writing assistant (proofread / synonyms / translate / Mermaid / formulas / image / summary), unified FNV1a-64 asset fingerprint database, three-zone cover editor, image post support, WebDAV multi-device sync, encrypted API key storage, settings import/export, automatic v1.x migration.
 
+- 2026.08.19 — Release 2.0.8.
 - 2026.08.19 — Release 2.0.7.
 - 2026.08.18 — Release 2.0.6.
 - 2026.08.17 — PDF embed rendering (PDF++ region screenshots / whole pages, zero-size via Obsidian's built-in PDF.js) and Dataview query support (evaluated and rendered as theme-styled text).
