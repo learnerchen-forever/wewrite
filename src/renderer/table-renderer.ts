@@ -29,6 +29,28 @@ function appendStyle(el: Element, css: string): void {
 	el.setAttribute('style', current ? current + ';' + css : css);
 }
 
+/**
+ * Responsive-table cell wrap policy, applied to every <th>/<td> in ALL table
+ * decorations so it cannot be re-broken by a decoration or the environment.
+ *
+ * Why these three declarations:
+ *  - word-break:normal      CJK wraps between characters; Latin words break only
+ *                           at spaces/hyphens, so single English words like
+ *                           "Callout" are never chopped mid-word.
+ *  - overflow-wrap:normal   Overrides the article wrapper's inherited
+ *                           `word-wrap:break-word`, which is what split "Callout"
+ *                           into "Cal/lou/t" when a {width:100%} table was
+ *                           squeezed to fit the article width.
+ *  - white-space:normal     Reverts any `white-space:nowrap` (e.g. some built-in
+ *                           headers) so long content wraps instead of forcing the
+ *                           table/column onto one line.
+ *
+ * The table itself is sized with `min-width:100%` (not `width:100%`) so it can
+ * grow past the article and scroll horizontally inside its overflow-x wrapper
+ * instead of compressing its columns and folding words.
+ */
+const CELL_WRAP_CSS = 'word-break:normal;overflow-wrap:normal;white-space:normal;';
+
 function expandFragment(
 	fragment: string | undefined,
 	params: Record<string, string>,
@@ -58,7 +80,10 @@ function renderTableElement(
 ): void {
 	const tableEl = el as HTMLElement;
 	const parts = decoration.parts || {};
-	appendStyle(tableEl, 'border-collapse:collapse;width:100%');
+	// `min-width:100%` (not `width:100%`) lets a table wider than the article
+	// grow out of the column box and trigger the overflow-x scrollbar in its
+	// wrapper, instead of squeezing columns and folding words to fit 100%.
+	appendStyle(tableEl, 'border-collapse:collapse;min-width:100%');
 	appendStyle(tableEl, expandFragment(parts.table, params, tokens));
 
 	const thCss = expandFragment(parts.th, params, tokens);
@@ -103,6 +128,11 @@ function renderTableElement(
 			row.querySelectorAll('th, td').forEach((cell) => appendStyle(cell as HTMLElement, zebraCss));
 		});
 	}
+
+	// Final pass: enforce the responsive wrap policy on every cell (header AND
+	// body, including firstCol/zebra cells). Appended LAST so it overrides any
+	// word-break / white-space a decoration or a custom theme may have set.
+	el.querySelectorAll('th, td').forEach((cell) => appendStyle(cell as HTMLElement, CELL_WRAP_CSS));
 }
 
 /** Whether the preset carries a meaningful new table config. */

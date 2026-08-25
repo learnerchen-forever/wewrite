@@ -72,8 +72,8 @@ export function getTableDecorationLibrary(): TableDecoration[] {
 			},
 			parts: {
 				table: 'border-radius:{{radius}}px;overflow:hidden;box-shadow:{{shadow}};border-collapse:separate;border-spacing:0;color:#3f3f3f;',
-				th: 'background:rgba(0,0,0,0.05);color:#3f3f3f;border:1px solid {{borderColor}};padding:0.25em 0.5em;text-align:left;word-break:keep-all;',
-				td: 'border:1px solid {{borderColor}};color:#3f3f3f;padding:0.5em 1em;text-align:left;word-break:keep-all;',
+				th: 'background:rgba(0,0,0,0.05);color:#3f3f3f;border:1px solid {{borderColor}};padding:0.25em 0.5em;text-align:left;',
+				td: 'border:1px solid {{borderColor}};color:#3f3f3f;padding:0.5em 1em;text-align:left;',
 				zebra: 'background:{{zebraColor}};',
 			},
 			family: 'card',
@@ -201,7 +201,7 @@ export function getTableDecorationLibrary(): TableDecoration[] {
 			},
 			parts: {
 				table: 'border:1px solid {{borderColor}};border-radius:{{radius}}px;overflow:hidden;box-shadow:{{shadow}};border-collapse:collapse;font-size:14px;line-height:1.5;color:#424242;',
-				th: 'background:{{headerBg}};color:{{headerColor}};border:1px solid {{borderColor}};padding:10px 8px;text-align:left;font-weight:bold;font-size:0.9em;white-space:nowrap;',
+				th: 'background:{{headerBg}};color:{{headerColor}};border:1px solid {{borderColor}};padding:10px 8px;text-align:left;font-weight:bold;font-size:0.9em;',
 				td: 'border:1px solid {{borderColor}};color:#555555;padding:8px;text-align:left;font-size:0.9em;',
 				zebra: 'background:{{zebraColor}};',
 			},

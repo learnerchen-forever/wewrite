@@ -22,7 +22,7 @@ export const DEFAULT_PRESET: ThemePreset = {
 	margin: 16,
 	background: '#ffffff',
 	sectionBg: '#ffffff',
-	fontFamily: FONT_FAMILIES['sans-serif'],
+	fontFamily: 'inherit',
 	fontSize: 16,
 	lineHeight: 1.8,
 	letterSpacing: 1,
@@ -99,9 +99,13 @@ export function hexToRgba(hex: string, alpha: number): string {
 }
 
 function resolveFontFamily(input: string): string {
-	if (!input) return FONT_FAMILIES['sans-serif'];
+	// 'inherit' (or empty) means "no article font" — do not override, and let
+	// the WeChat platform default font flow through by inheritance. This keeps
+	// the built-in/custom default themes faithful to the platform's own font
+	// unless a theme explicitly opts into a specific font family.
+	if (!input || input === 'inherit') return 'inherit';
 	if (Object.keys(FONT_FAMILIES).includes(input)) return FONT_FAMILIES[input as keyof typeof FONT_FAMILIES];
-	return input; // Already a CSS stack
+	return input; // Already a CSS stack or an explicit inherit
 }
 
 function resolveAccentColor(preset: ThemePreset): string {
@@ -576,17 +580,22 @@ export class ThemeResolver {
 
 			case 'table-wrapper': {
 				// Scroll container only — table slot CSS is scoped to the table
-				// / th / td elements so the wrapper is never tinted.
-				return 'overflow-x: auto;';
+				// / th / td elements so the wrapper is never tinted. The table is
+				// sized min-width:100%, so when it grows past the article width
+				// this section scrolls horizontally instead of compressing columns.
+				return 'overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;';
 			}
 
 			case 'table': {
 				// Outer border + row size belong on the table; header styles
 				// and zebra are scoped to th / zebra rows respectively.
+				// `min-width:100%` (not `width:100%`) lets a wide table grow past
+				// the article and scroll in its overflow-x wrapper rather than
+				// compressing columns and folding words to fit 100%.
 				const slotCss = this.resolveSlotCSS('blocks.table', ['headerStyle', 'striped']);
 				const tbl = p.table as TableElementStyle;
 				return joinStyles(
-					`font-size: ${tbl?.fontSize || 14}px; border-collapse: collapse; width: 100%;`,
+					`font-size: ${tbl?.fontSize || 14}px; border-collapse: collapse; min-width: 100%;`,
 					slotCss,
 				);
 			}
@@ -595,7 +604,7 @@ export class ThemeResolver {
 				const tbl = p.table as TableElementStyle;
 				// Header styling belongs to th cells only.
 				const slotCss = this.resolveSlotCSS('blocks.table', ['striped']);
-				const base = `background: ${tbl?.headerBg || '#f6f8fa'}; color: ${this.bodyTextColor()}; padding: ${tbl?.cellPadding || 10}px; border: 1px solid ${tbl?.borderColor || '#e8eaed'}; font-weight: 600; text-align: left;`;
+				const base = `background: ${tbl?.headerBg || '#f6f8fa'}; color: ${this.bodyTextColor()}; padding: ${tbl?.cellPadding || 10}px; border: 1px solid ${tbl?.borderColor || '#e8eaed'}; font-weight: 600; text-align: left; word-break: normal; overflow-wrap: normal; white-space: normal;`;
 				return joinStyles(base, slotCss);
 			}
 
@@ -603,7 +612,7 @@ export class ThemeResolver {
 				const tbl = p.table as TableElementStyle;
 				// Body cells must NOT inherit headerStyle (background/color).
 				const slotCss = this.resolveSlotCSS('blocks.table', ['headerStyle', 'striped']);
-				const base = `padding: ${tbl?.cellPadding || 10}px; border: 1px solid ${tbl?.borderColor || '#e8eaed'};`;
+				const base = `padding: ${tbl?.cellPadding || 10}px; border: 1px solid ${tbl?.borderColor || '#e8eaed'}; word-break: normal; overflow-wrap: normal; white-space: normal;`;
 				return joinStyles(base, slotCss);
 			}
 

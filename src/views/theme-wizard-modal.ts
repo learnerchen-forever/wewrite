@@ -82,7 +82,7 @@ const ELEMENT_PRESETS: Record<string, ElementPreset[]> = {
 export class ThemeWizardModal extends WeWriteModal {
 	private state: WizardState = {
 		accent: '#0366d6',
-		family: 'sans-serif',
+		family: 'inherit',
 		baseSize: 16,
 		lineHeight: 1.8,
 		letterSpacing: 1,

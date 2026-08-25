@@ -264,7 +264,7 @@ wewrite_theme_name: "${name}"
 wewrite_theme_description: "${desc}"
 global_margin: 16
 global_bg: "#ffffff"
-global_font_family: "sans-serif"
+global_font_family: "inherit"
 global_font_size: 16
 global_line_height: 1.8
 global_letter_spacing: 0

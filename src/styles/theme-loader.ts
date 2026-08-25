@@ -1,7 +1,7 @@
 // Theme Loader — discovers, parses, caches, and watches custom theme notes
 // Bridges vault markdown notes → ThemePreset objects for the renderer
 
-import { type Vault, type TFile } from 'obsidian';
+import { type Vault, type TFile, type MetadataCache } from 'obsidian';
 import type { ThemePreset } from '../core/interfaces';
 import { frontmatterToThemePreset, DEFAULT_PRESET } from '../renderer/theme-resolver';
 import { parseFlatFrontmatter, registerCustomValues } from '../core/frontmatter-parser';
@@ -22,6 +22,7 @@ import {
 import { parseInlineFrontmatter } from '../core/inline-config';
 import { BUILTIN_PRESETS } from './style-template';
 import { createLogger } from '../utils/logger';
+import { eventBus } from '../core/event-bus';
 import matter from 'gray-matter';
 import { t } from '../i18n';
 
@@ -39,15 +40,19 @@ export interface ThemeDescriptor {
 
 export class ThemeLoader {
   private vault: Vault;
+  /** Metadata cache — used to detect the theme marker across the whole vault
+   *  without reading every markdown note. */
+  private metadataCache: MetadataCache;
   private themesDir: string;
   /** Legacy vault-root themes/ dir, scanned for backward compatibility. */
   private fallbackDir: string | null;
   private cache: Map<string, ThemeDescriptor> = new Map();
 
-  constructor(vault: Vault, themesDir: string) {
+  constructor(vault: Vault, themesDir: string, metadataCache: MetadataCache) {
     this.vault = vault;
     this.themesDir = themesDir;
     this.fallbackDir = themesDir !== 'themes' ? 'themes' : null;
+    this.metadataCache = metadataCache;
   }
 
   /** Update the themes directory and re-scan */
@@ -89,7 +94,16 @@ export class ThemeLoader {
       await this.scanDirectory(fallbackDir);
     }
 
+    // Scan the whole vault for themed notes (wewrite_theme / wewrite_style
+    // marker) that live outside {wewriteFolder}/themes, so users can store
+    // and apply custom themes from anywhere in their vault.
+    await this.scanVaultForThemes();
+
     log.info('themes loaded', { total: this.cache.size, fromVault: this.getVaultThemes().length });
+
+    // Notify open views (news view style dropdown, theme editor) so a newly
+    // discovered / updated / removed vault theme appears in real time.
+    eventBus.emit({ type: 'theme-changed', themePath: '' });
   }
 
   private async scanDirectory(dir: import('obsidian').TAbstractFile): Promise<void> {
@@ -113,60 +127,134 @@ export class ThemeLoader {
       log.info('scanThemes: checking .md file', { path: childPath });
 
       try {
-        const content = await this.vault.read(child as TFile);
-        const fm = this.parseFrontmatter(content);
-        if (!fm) {
-          log.info('scanThemes: no frontmatter parsed', { path: childPath });
-          continue;
-        }
-        if (fm.wewrite_theme !== true && fm.wewrite_style !== true) {
+        const descriptor = await this.readDescriptor(child as TFile);
+        if (!descriptor) {
           log.info('scanThemes: not a theme note (no wewrite_theme/wewrite_style marker)', { path: childPath });
           continue;
         }
-
-        log.info('scanThemes: theme marker found, converting', { path: childPath, hasWewriteTheme: fm.wewrite_theme === true, hasWewriteStyle: fm.wewrite_style === true });
-
-        const preset = frontmatterToThemePreset(fm);
-        if (!preset) {
-          log.info('scanThemes: frontmatterToThemePreset returned null', { path: childPath });
-          continue;
-        }
-
-        // Inject modifier config from v2 theme format
-        const { config: modifierConfig, customValues } = parseFlatFrontmatter(fm);
-        if (customValues.length > 0) registerCustomValues(customValues);
-        if (Object.keys(modifierConfig).length > 0) {
-          preset.modifierConfig = modifierConfig;
-          log.info('scanThemes: injected modifier config', { path: childPath, modifierKeys: Object.keys(modifierConfig).length });
-        }
-        this.applyHeadingConfig(preset, fm);
-        this.applyBlockquoteConfig(preset, fm);
-        this.applyCalloutConfig(preset, fm);
-        this.applyMermaidConfig(preset, fm);
-        this.applyImageConfig(preset, fm);
-        this.applyMathConfig(preset, fm);
-        this.applyExcalidrawConfig(preset, fm);
-        this.applyTableConfig(preset, fm);
-        this.applyDividerConfig(preset, fm);
-        this.applyOrderedListConfig(preset, fm);
-        this.applyUnorderedListConfig(preset, fm);
-        this.applyTaskListConfig(preset, fm);
-        this.applyInlineConfig(preset, fm);
-
-        const name = (fm.wewrite_theme_name as string) || preset.name || (child as TFile).basename;
-        const description = (fm.wewrite_theme_description as string) || '';
-
-        this.cache.set(childPath, {
-          source: 'vault',
-          id: childPath,
-          name,
-          description,
-          preset,
-        });
-        log.info('scanThemes: theme added to cache', { path: childPath, name });
+        this.cache.set(childPath, descriptor);
+        log.info('scanThemes: theme added to cache', { path: childPath, name: descriptor.name });
       } catch (err) {
         log.warn('failed to parse theme note', { path: childPath, err: String(err) });
       }
+    }
+  }
+
+  /** Discover theme notes anywhere in the vault (outside the scanned dirs).
+   *  Uses the MetadataCache frontmatter for O(1) marker detection, so non-theme
+   *  notes are never read; only actual themes get a full file read + parse. */
+  private async scanVaultForThemes(): Promise<void> {
+    let files: TFile[] = [];
+    try {
+      files = this.vault.getMarkdownFiles();
+    } catch (err) {
+      log.warn('scanVaultForThemes: getMarkdownFiles failed', { err: String(err) });
+      return;
+    }
+
+    for (const file of files) {
+      // Already handled by the primary / fallback directory scans (file-based read).
+      if (this.isUnderDir(file.path, this.themesDir)) continue;
+      if (this.fallbackDir && this.isUnderDir(file.path, this.fallbackDir)) continue;
+      if (this.cache.has(file.path)) continue;
+
+      const fm = this.getCachedFrontmatter(file);
+      if (!fm) continue;
+      if (fm.wewrite_theme !== true && fm.wewrite_style !== true) continue;
+
+      const descriptor = await this.readDescriptor(file);
+      if (descriptor) {
+        this.cache.set(file.path, descriptor);
+        log.info('scanVaultForThemes: vault theme added', { path: file.path, name: descriptor.name });
+      }
+    }
+  }
+
+  /** Build a ThemeDescriptor from a markdown file's frontmatter, or null when
+   *  the note is not a theme (missing wewrite_theme / wewrite_style). */
+  private buildDescriptor(file: TFile, fm: Record<string, unknown>): ThemeDescriptor | null {
+    if (fm.wewrite_theme !== true && fm.wewrite_style !== true) return null;
+
+    const preset = frontmatterToThemePreset(fm);
+    if (!preset) return null;
+
+    // Inject modifier config from v2 theme format
+    const { config: modifierConfig, customValues } = parseFlatFrontmatter(fm);
+    if (customValues.length > 0) registerCustomValues(customValues);
+    if (Object.keys(modifierConfig).length > 0) {
+      preset.modifierConfig = modifierConfig;
+      log.info('buildDescriptor: injected modifier config', { path: file.path, modifierKeys: Object.keys(modifierConfig).length });
+    }
+    this.applyHeadingConfig(preset, fm);
+    this.applyBlockquoteConfig(preset, fm);
+    this.applyCalloutConfig(preset, fm);
+    this.applyMermaidConfig(preset, fm);
+    this.applyImageConfig(preset, fm);
+    this.applyMathConfig(preset, fm);
+    this.applyExcalidrawConfig(preset, fm);
+    this.applyTableConfig(preset, fm);
+    this.applyDividerConfig(preset, fm);
+    this.applyOrderedListConfig(preset, fm);
+    this.applyUnorderedListConfig(preset, fm);
+    this.applyTaskListConfig(preset, fm);
+    this.applyInlineConfig(preset, fm);
+
+    const name = (fm.wewrite_theme_name as string) || preset.name || file.basename;
+    const description = (fm.wewrite_theme_description as string) || '';
+    return { source: 'vault', id: file.path, name, description, preset };
+  }
+
+  /** Read + parse a markdown file and build a theme descriptor (null if not a theme). */
+  private async readDescriptor(file: TFile): Promise<ThemeDescriptor | null> {
+    const content = await this.vault.read(file);
+    const fm = this.parseFrontmatter(content);
+    if (!fm) return null;
+    return this.buildDescriptor(file, fm);
+  }
+
+  /** Read the file with gary-matter frontmatter parsing (fallback when the
+   *  MetadataCache has not indexed a freshly created file yet). */
+  private async readFrontmatter(file: TFile): Promise<Record<string, unknown> | null> {
+    const content = await this.vault.read(file);
+    return this.parseFrontmatter(content);
+  }
+
+  /** Frontmatter from the MetadataCache (cheap; never reads the vault). */
+  private getCachedFrontmatter(file: TFile): Record<string, unknown> | null {
+    const cache = this.metadataCache.getFileCache(file);
+    const fm = cache?.frontmatter;
+    if (!fm || typeof fm !== 'object') return null;
+    return fm as Record<string, unknown>;
+  }
+
+  private isMarkdown(file: TFile): boolean {
+    return file.extension === 'md';
+  }
+
+  private isUnderDir(path: string, dir: string): boolean {
+    return path === dir || path.startsWith(dir + '/');
+  }
+
+  /** Remove a cached theme; emit a change event only when something was removed. */
+  private removeIfCached(file: TFile): void {
+    if (this.cache.has(file.path)) {
+      this.cache.delete(file.path);
+      eventBus.emit({ type: 'theme-changed', themePath: file.path });
+    }
+  }
+
+  /** Apply a frontmatter change for one file: add/update when it is a theme,
+   *  remove when it stopped being one. */
+  private async processFrontmatter(file: TFile, fm: Record<string, unknown>): Promise<void> {
+    const isTheme = fm.wewrite_theme === true || fm.wewrite_style === true;
+    if (!isTheme) {
+      this.removeIfCached(file);
+      return;
+    }
+    const descriptor = await this.readDescriptor(file);
+    if (descriptor) {
+      this.cache.set(file.path, descriptor);
+      eventBus.emit({ type: 'theme-changed', themePath: file.path });
     }
   }
 
@@ -200,16 +288,18 @@ export class ThemeLoader {
     return null;
   }
 
-  /** Start watching the themes directory for file changes */
+  /** Start watching for theme notes across the whole vault (a theme may live
+   *  anywhere). Frontmatter re-parse is the reliable signal for theme
+   *  membership, so non-theme notes are never read on change. */
   startWatching(): void {
-    this.vault.on('modify', (file) => {
-      void this.handleFileChange(file as TFile);
-    });
     this.vault.on('create', (file) => {
-      void this.handleFileCreate(file as TFile);
+      void this.handleFileCreated(file as TFile);
     });
     this.vault.on('delete', (file) => {
       this.handleFileDelete(file as TFile);
+    });
+    this.metadataCache.on('changed', (file) => {
+      void this.handleFileChanged(file as TFile);
     });
   }
 
@@ -363,65 +453,35 @@ export class ThemeLoader {
     return data;
   }
 
-  private async handleFileChange(file: TFile): Promise<void> {
-    // Watch BOTH the primary directory and the legacy fallback — previously
-    // the fallback was scanned at startup but never refreshed on modify,
-    // so edits there stayed stale until restart (while deletes applied).
-    const inPrimary = file.path.startsWith(this.themesDir);
-    const inFallback = this.fallbackDir ? file.path.startsWith(this.fallbackDir) : false;
-    if ((!inPrimary && !inFallback) || file.extension !== 'md') return;
-
-    try {
-      const content = await this.vault.read(file);
-      const fm = this.parseFrontmatter(content);
-      if (!fm || (fm.wewrite_theme !== true && fm.wewrite_style !== true)) {
-        this.cache.delete(file.path);
-        return;
-      }
-
-      const preset = frontmatterToThemePreset(fm);
-      if (!preset) return;
-
-      // Inject modifier config from v2 theme format
-      const { config: modifierConfig, customValues } = parseFlatFrontmatter(fm);
-      if (customValues.length > 0) registerCustomValues(customValues);
-      if (Object.keys(modifierConfig).length > 0) {
-        preset.modifierConfig = modifierConfig;
-      }
-      this.applyHeadingConfig(preset, fm);
-      this.applyBlockquoteConfig(preset, fm);
-      this.applyCalloutConfig(preset, fm);
-      this.applyMermaidConfig(preset, fm);
-      this.applyImageConfig(preset, fm);
-      this.applyMathConfig(preset, fm);
-      this.applyExcalidrawConfig(preset, fm);
-      this.applyTableConfig(preset, fm);
-      this.applyDividerConfig(preset, fm);
-      this.applyOrderedListConfig(preset, fm);
-      this.applyUnorderedListConfig(preset, fm);
-      this.applyTaskListConfig(preset, fm);
-      this.applyInlineConfig(preset, fm);
-
-      const name = (fm.wewrite_theme_name as string) || preset.name || file.basename;
-      const description = (fm.wewrite_theme_description as string) || '';
-
-      const descriptor: ThemeDescriptor = {
-        source: 'vault', id: file.path, name, description, preset,
-      };
-
-      this.cache.set(file.path, descriptor);
-    } catch (err) {
-      log.warn('failed to reload theme note', { path: file.path, err: String(err) });
+  /** Frontmatter changed anywhere in the vault — refresh a theme note or drop
+   *  one that stopped being a theme. Marker detection uses the pre-cached
+   *  frontmatter, so non-theme notes are never read. */
+  private async handleFileChanged(file: TFile): Promise<void> {
+    if (!this.isMarkdown(file)) return;
+    const fm = this.getCachedFrontmatter(file);
+    if (!fm) {
+      this.removeIfCached(file);
+      return;
     }
+    await this.processFrontmatter(file, fm);
   }
 
-  private async handleFileCreate(file: TFile): Promise<void> {
-    await this.handleFileChange(file);
+  /** A note was created anywhere in the vault. The MetadataCache may not have
+   *  indexed it yet, so fall back to reading it when there is no cached
+   *  frontmatter. */
+  private async handleFileCreated(file: TFile): Promise<void> {
+    if (!this.isMarkdown(file)) return;
+    const cachedFm = this.getCachedFrontmatter(file);
+    if (cachedFm) {
+      await this.processFrontmatter(file, cachedFm);
+      return;
+    }
+    const fm = await this.readFrontmatter(file);
+    if (!fm) return;
+    await this.processFrontmatter(file, fm);
   }
 
   private handleFileDelete(file: TFile): void {
-    if (this.cache.has(file.path)) {
-      this.cache.delete(file.path);
-    }
+    this.removeIfCached(file);
   }
 }

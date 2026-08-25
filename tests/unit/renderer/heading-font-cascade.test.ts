@@ -11,7 +11,11 @@ describe('Heading font cascade', () => {
   it('defaults to the article font (inherit emits no override)', () => {
     const resolver = new ThemeResolver({ ...DEFAULT_PRESET });
     const h1 = resolver.getStyle('h1');
-    expect(h1).toContain(FONT_FAMILIES['sans-serif']);
+    // The article font now defaults to the platform font ('inherit'): the
+    // heading must not force a specific stack, just inherit it.
+    expect(h1).toContain('font-family: inherit');
+    expect(h1).not.toContain(FONT_FAMILIES['sans-serif']);
+    expect(h1).not.toContain(FONT_FAMILIES['serif']);
   });
 
   it('heading.font applies to every level', () => {
@@ -68,7 +72,9 @@ describe('Heading font cascade', () => {
         'heading.h2': { font: 'inherit' },
       },
     });
-    expect(resolver.getStyle('h2')).toContain(FONT_FAMILIES['sans-serif']);
+    // h2 inherits the article font — now the platform 'inherit', not a stack.
+    expect(resolver.getStyle('h2')).toContain('font-family: inherit');
     expect(resolver.getStyle('h2')).not.toContain(FONT_FAMILIES['serif']);
+    expect(resolver.getStyle('h2')).not.toContain(FONT_FAMILIES['sans-serif']);
   });
 });

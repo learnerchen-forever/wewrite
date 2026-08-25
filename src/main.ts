@@ -94,7 +94,7 @@ export default class WeWritePlugin extends Plugin {
 
     // Initialize theme system — themes live in {wewriteFolder}/themes
     const themesPath = getWeWriteSubPath(this.settings.wewriteFolder, WEWRITE_SUBDIRS.customizedThemes);
-    this.themeLoader = new ThemeLoader(this.app.vault, themesPath);
+    this.themeLoader = new ThemeLoader(this.app.vault, themesPath, this.app.metadataCache);
     await this.themeLoader.scanThemes();
     this.themeLoader.startWatching();
 

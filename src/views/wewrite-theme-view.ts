@@ -315,7 +315,7 @@ export class WeWriteThemeView extends ItemView {
 	private themeName = '';
 	private modifierConfig: Record<string, Record<string, string>> = {};
 	private paletteAccent = '#0366d6';
-	private typographyFamily = 'sans-serif';
+	private typographyFamily = 'inherit';
 	private typographyBaseSize = 16;
 	private typographyLineHeight = 1.8;
 	private typographyLetterSpacing = 1;
@@ -829,7 +829,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 			if (fm.wewrite_theme === true || fm.wewrite_style === true) {
 				this.themeName = (fm.wewrite_theme_name || fm.wewrite_style_name || '') as string;
 				this.paletteAccent = (fm['palette.accent'] as string) || '#0366d6';
-				this.typographyFamily = (fm['typography.family'] as string) || 'sans-serif';
+				this.typographyFamily = (fm['typography.family'] as string) || 'inherit';
 				this.typographyBaseSize = (fm['typography.baseSize'] as number) || 16;
 				this.typographyLineHeight = (fm['typography.lineHeight'] as number) || 1.8;
 				this.typographyLetterSpacing = (fm['typography.letterSpacing'] as number) || 1;

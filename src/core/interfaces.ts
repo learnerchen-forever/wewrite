@@ -457,6 +457,8 @@ export interface FontFamilyOption {
 }
 
 export const FONT_FAMILY_OPTIONS: FontFamilyOption[] = [
+  // ── Platform default ──
+  { id: 'inherit', name: '平台默认 (跟随平台)', category: 'sans', css: 'inherit' },
   // ── Sans-serif ──
   { id: 'system', name: '系统默认 (System UI)', category: 'sans', css: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif' },
   { id: 'sans-serif', name: '无衬线 (Sans-serif)', category: 'sans', css: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif' },

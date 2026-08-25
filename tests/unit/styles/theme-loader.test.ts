@@ -15,15 +15,21 @@ const mockVault = {
   on: jest.fn(),
   read: jest.fn(),
   getAbstractFileByPath: jest.fn().mockReturnValue(null),
+  getMarkdownFiles: jest.fn().mockReturnValue([]),
   createFolder: jest.fn(),
   create: jest.fn(),
 } as unknown as import('obsidian').Vault;
+
+const mockMetadataCache = {
+  getFileCache: jest.fn().mockReturnValue(null),
+  on: jest.fn(),
+} as unknown as import('obsidian').MetadataCache;
 
 describe('ThemeLoader', () => {
   let loader: ThemeLoader;
 
   beforeEach(() => {
-    loader = new ThemeLoader(mockVault, 'styles');
+    loader = new ThemeLoader(mockVault, 'styles', mockMetadataCache);
     jest.clearAllMocks();
   });
 

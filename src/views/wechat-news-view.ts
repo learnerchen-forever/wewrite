@@ -211,6 +211,13 @@ export class WeChatNewsView extends ItemView {
         this.renderContent();
       }
     }));
+
+    // Rebuild the style dropdown when themes are added / updated / removed
+    // anywhere in the vault (built-in, {wewriteFolder}/themes, or a custom
+    // theme note stored in any vault folder).
+    this._eventBusUnsubs.push(eventBus.on('theme-changed', () => {
+      this.rebuildStyleDropdown();
+    }));
   }
 
   async onClose(): Promise<void> {
