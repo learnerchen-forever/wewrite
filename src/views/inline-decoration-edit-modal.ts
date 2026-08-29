@@ -1,10 +1,10 @@
-// inline-decoration-edit-modal.ts — Template editor for inline decorations
+﻿// inline-decoration-edit-modal.ts — Template editor for inline decorations
 //
 // Built-in decorations are read-only ("另存为副本" to fork); custom decorations
 // can be renamed, re-templated and have their params edited. A live preview
 // renders the template against the current theme preset (as a bold run).
 
-import { App, Modal, Notice } from 'obsidian';
+import { App, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { InlineDecoration } from '../core/inline-decoration-types';
@@ -35,7 +35,7 @@ export class InlineDecorationEditModal extends WeWriteModal {
 	private params: Record<string, DecorationParam> = {};
 	private paramsListEl: HTMLElement | null = null;
 	private previewEl: HTMLElement | null = null;
-	private previewTimer: ReturnType<typeof setTimeout> | null = null;
+	private previewTimer: number | null = null;
 
 	constructor(app: App, options: InlineDecorationEditOptions) {
 		super(app);
@@ -194,8 +194,8 @@ export class InlineDecorationEditModal extends WeWriteModal {
 	}
 
 	private schedulePreview(): void {
-		if (this.previewTimer) clearTimeout(this.previewTimer);
-		this.previewTimer = setTimeout(() => this.updatePreview(), 200);
+		if (this.previewTimer) window.clearTimeout(this.previewTimer);
+		this.previewTimer = window.setTimeout(() => this.updatePreview(), 200);
 	}
 
 	private updatePreview(): void {
@@ -238,6 +238,6 @@ export class InlineDecorationEditModal extends WeWriteModal {
 	}
 
 	onClose(): void {
-		if (this.previewTimer) clearTimeout(this.previewTimer);
+		if (this.previewTimer) window.clearTimeout(this.previewTimer);
 	}
 }

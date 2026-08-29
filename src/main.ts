@@ -1,8 +1,8 @@
 // WeWrite v2.0 — Obsidian Plugin Entry Point
 
 // Polyfill Node.js Buffer for browser/WebView (used by js-yaml via gray-matter)
-if (typeof (globalThis as unknown as { Buffer?: unknown }).Buffer === 'undefined') {
-  (globalThis as unknown as { Buffer: unknown }).Buffer = class {
+if (typeof (window as unknown as { Buffer?: unknown }).Buffer === 'undefined') {
+  (window as unknown as { Buffer: unknown }).Buffer = class {
     static from(data: string, _encoding?: string): Uint8Array {
       return new TextEncoder().encode(data);
     }
@@ -40,6 +40,7 @@ import type { TextCallRecord } from './ai/text-client';
 import { globalSpinner } from './utils/global-spinner';
 import type { WeWriteSettings, AITextAccount } from './core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from './core/interfaces';
+import { ensureFolderExists } from './utils/vault-helpers';
 import { createLogger, redact } from './utils/logger';
 import { editorHighlightExtension } from './utils/editor-highlight';
 import { initI18n, disposeI18n, t } from './i18n';
@@ -59,7 +60,7 @@ export default class WeWritePlugin extends Plugin {
   configStore!: NoteConfigStore;
   private materialCacheLoaded = false;
   private materialViewEnsured = false;
-  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveTimer: number | null = null;
   syncEngine!: SyncEngine;
   syncScheduler!: SyncScheduler;
   private syncRibbonEl?: HTMLElement;
@@ -186,8 +187,8 @@ export default class WeWritePlugin extends Plugin {
     this.registerDomEvent(document, 'visibilitychange', () => {
       if (document.visibilityState === 'visible' && this.settings.syncEnabled) {
         // Debounce: wait 3 seconds before syncing to avoid spamming on rapid switches
-        if (this.visibilityTimer) clearTimeout(this.visibilityTimer);
-        this.visibilityTimer = setTimeout(() => {
+        if (this.visibilityTimer) window.clearTimeout(this.visibilityTimer);
+        this.visibilityTimer = window.setTimeout(() => {
           this.visibilityTimer = null;
           if (document.visibilityState === 'visible' && !this.syncScheduler?.isInCooldown) {
             void this.syncScheduler?.syncNow('manual');
@@ -243,9 +244,9 @@ export default class WeWritePlugin extends Plugin {
     this.syncEngine?.cancel();
 
     // Clear all pending timers
-    if (this.saveTimer !== null) { clearTimeout(this.saveTimer); this.saveTimer = null; }
-    if (this.fileChangeDebounceTimer) { clearTimeout(this.fileChangeDebounceTimer); this.fileChangeDebounceTimer = null; }
-    if (this.visibilityTimer) { clearTimeout(this.visibilityTimer); this.visibilityTimer = null; }
+    if (this.saveTimer !== null) { window.clearTimeout(this.saveTimer); this.saveTimer = null; }
+    if (this.fileChangeDebounceTimer) { window.clearTimeout(this.fileChangeDebounceTimer); this.fileChangeDebounceTimer = null; }
+    if (this.visibilityTimer) { window.clearTimeout(this.visibilityTimer); this.visibilityTimer = null; }
 
     // Detach material view leaves so they are not persisted in workspace state.
     this.app.workspace.getLeavesOfType(VIEW_TYPE_MATERIAL).forEach((leaf) => leaf.detach());
@@ -333,14 +334,14 @@ export default class WeWritePlugin extends Plugin {
   }
 
   /** Debounced sync trigger on local file changes. Fires 30s after the last change. */
-  private fileChangeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private visibilityTimer: ReturnType<typeof setTimeout> | null = null;
+  private fileChangeDebounceTimer: number | null = null;
+  private visibilityTimer: number | null = null;
   private readonly FILE_CHANGE_DEBOUNCE_MS = 30_000;
 
   private onVaultFileChange(): void {
     if (!this.settings.syncEnabled) return;
-    if (this.fileChangeDebounceTimer) clearTimeout(this.fileChangeDebounceTimer);
-    this.fileChangeDebounceTimer = setTimeout(() => {
+    if (this.fileChangeDebounceTimer) window.clearTimeout(this.fileChangeDebounceTimer);
+    this.fileChangeDebounceTimer = window.setTimeout(() => {
       if (this.syncScheduler?.isInCooldown) return;
       void this.syncScheduler?.syncNow('manual');
     }, this.FILE_CHANGE_DEBOUNCE_MS);
@@ -374,8 +375,8 @@ export default class WeWritePlugin extends Plugin {
 
   /** Debounced save — coalesces rapid auto-save calls into a single write. */
   scheduleSave(): void {
-    if (this.saveTimer !== null) clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => {
+    if (this.saveTimer !== null) window.clearTimeout(this.saveTimer);
+    this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
       void this.saveSettings();
     }, 500);
@@ -412,7 +413,6 @@ export default class WeWritePlugin extends Plugin {
       id: 'open-wechat-news-view',
       name: t('command.open_wechat_news_view'),
       callback: () => this.openWeChatNewsView(),
-      hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'W' }],
     });
 
     // Open WeChat NewsPic View command
@@ -420,7 +420,6 @@ export default class WeWritePlugin extends Plugin {
       id: 'open-wechat-newspic-view',
       name: t('command.open_wechat_newspic_view'),
       callback: () => this.openWeChatNewsPicView(),
-      hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'P' }],
     });
 
     // US6: Material Management command
@@ -433,7 +432,7 @@ export default class WeWritePlugin extends Plugin {
     // New theme wizard
     this.addCommand({
       id: 'new-theme-wizard',
-      name: 'New WeWrite Theme...',
+      name: t('command.new_wechat_theme'),
       callback: () => this.openThemeWizard(),
     });
 
@@ -966,6 +965,10 @@ export default class WeWritePlugin extends Plugin {
     const fileName = `${themeName}.md`;
 
     try {
+      // vault.create() throws ENOENT when the parent folder doesn't exist,
+      // so ensure the themes directory (and any missing parents) is present
+      // first. Level-by-level creation is mobile-safe.
+      await ensureFolderExists(this.app, themesDir);
       await this.app.vault.create(`${themesDir}/${fileName}`, frontmatter);
       new Notice(t('notice.theme_created', { name: themeName }));
       // Refresh theme loader cache

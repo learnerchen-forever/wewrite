@@ -1,10 +1,10 @@
-// blockquote-decoration-edit-modal.ts — Template editor for blockquote decorations
+﻿// blockquote-decoration-edit-modal.ts — Template editor for blockquote decorations
 //
 // Mirrors the heading decoration editor: built-ins are read-only ("另存为副本"
 // to fork), custom decorations can be renamed / re-templated / re-parametrized,
 // and the live preview renders against the current theme preset.
 
-import { App, Modal, Notice } from 'obsidian';
+import { App, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { BlockquoteDecoration } from '../core/blockquote-decoration-types';
@@ -34,7 +34,7 @@ export class BlockquoteDecorationEditModal extends WeWriteModal {
 	private params: Record<string, DecorationParam> = {};
 	private paramsListEl: HTMLElement | null = null;
 	private previewEl: HTMLElement | null = null;
-	private previewTimer: ReturnType<typeof setTimeout> | null = null;
+	private previewTimer: number | null = null;
 
 	constructor(app: App, options: BlockquoteDecorationEditOptions) {
 		super(app);
@@ -194,8 +194,8 @@ export class BlockquoteDecorationEditModal extends WeWriteModal {
 	}
 
 	private schedulePreview(): void {
-		if (this.previewTimer) clearTimeout(this.previewTimer);
-		this.previewTimer = setTimeout(() => this.updatePreview(), 200);
+		if (this.previewTimer) window.clearTimeout(this.previewTimer);
+		this.previewTimer = window.setTimeout(() => this.updatePreview(), 200);
 	}
 
 	private updatePreview(): void {
@@ -238,6 +238,6 @@ export class BlockquoteDecorationEditModal extends WeWriteModal {
 	}
 
 	onClose(): void {
-		if (this.previewTimer) clearTimeout(this.previewTimer);
+		if (this.previewTimer) window.clearTimeout(this.previewTimer);
 	}
 }

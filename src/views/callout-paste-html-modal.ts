@@ -1,11 +1,11 @@
-// callout-paste-html-modal.ts — Extract a callout decoration from pasted HTML
+﻿// callout-paste-html-modal.ts — Extract a callout decoration from pasted HTML
 //
 // Mirrors the blockquote paste-HTML flow: paste any callout node (section/div),
 // the extractor parameterizes container shape, title/body typography, the icon
 // glyph and the detected type's colors, then fills the remaining 12 types with
 // Obsidian defaults using the same background recipe.
 
-import { App, Modal, Notice } from 'obsidian';
+import { App, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { CalloutDecoration } from '../core/callout-decoration-types';
 import { extractCalloutFromHtml } from '../core/callout-extract';
@@ -67,10 +67,10 @@ export class CalloutPasteHtmlModal extends WeWriteModal {
 		this.previewEl = contentEl.createDiv();
 		this.previewEl.style.cssText = 'border:1px solid var(--background-modifier-border);border-radius:4px;padding:8px;background:#ffffff;color:#333333;min-height:40px;display:none';
 
-		let parseTimeout: ReturnType<typeof setTimeout>;
+		let parseTimeout: number;
 		textarea.addEventListener('input', () => {
-			clearTimeout(parseTimeout);
-			parseTimeout = setTimeout(() => this.onHtml(textarea.value), 400);
+			window.clearTimeout(parseTimeout);
+			parseTimeout = window.setTimeout(() => this.onHtml(textarea.value), 400);
 		});
 
 		const btnRow = contentEl.createDiv();

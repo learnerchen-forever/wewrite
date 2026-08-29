@@ -1,4 +1,4 @@
-// dataview-renderer.ts — Render Dataview queries for WeChat publishing
+﻿// dataview-renderer.ts — Render Dataview queries for WeChat publishing
 //
 // Dataview output is NOT an image (unlike Mermaid): the plugin renders a
 // query into a live HTML structure (task lists, lists, tables, paragraphs,
@@ -210,7 +210,7 @@ async function waitForDataviewOutput(
       }
     }
 
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => window.setTimeout(r, 150));
   }
   log.warn('dataview render: timed out waiting for plugin output', { codePreview: block.code.slice(0, 80) });
   return null;

@@ -1,4 +1,4 @@
-// CoverZone — reusable image zone with drag/drop and ImageEditModal integration
+﻿// CoverZone — reusable image zone with drag/drop and ImageEditModal integration
 
 import type { App } from 'obsidian';
 import { Menu, Modal, Notice, requestUrl, type TFile } from 'obsidian';
@@ -253,7 +253,7 @@ export class CoverZone {
           || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext);
         if (isImage) {
           await this.importFile(file);
-          setTimeout(() => { this.hasDragged = false; }, 0);
+          window.setTimeout(() => { this.hasDragged = false; }, 0);
           return;
         }
       }
@@ -270,7 +270,7 @@ export class CoverZone {
             const file = new File([blob], `material_${mat.mediaId}.png`, { type: blob.type });
             const accountId = this.currentAccountIdProvider?.() || '';
             await this.importFile(file, { mediaId: mat.mediaId, wechatUrl: mat.url, accountId });
-            setTimeout(() => { this.hasDragged = false; }, 0);
+            window.setTimeout(() => { this.hasDragged = false; }, 0);
             return;
           }
         } catch { /* fall through */ }
@@ -286,7 +286,7 @@ export class CoverZone {
       if (wikiMatch) {
         const vaultPath = wikiMatch[1].split('|')[0].trim();
         await this.setImageFromPath(vaultPath);
-        setTimeout(() => { this.hasDragged = false; }, 0);
+        window.setTimeout(() => { this.hasDragged = false; }, 0);
         return;
       }
 
@@ -298,7 +298,7 @@ export class CoverZone {
           if (fileParam) {
             const vaultPath = decodeURIComponent(fileParam);
             await this.setImageFromPath(vaultPath);
-            setTimeout(() => { this.hasDragged = false; }, 0);
+            window.setTimeout(() => { this.hasDragged = false; }, 0);
             return;
           }
         } catch { /* fall through */ }
@@ -310,7 +310,7 @@ export class CoverZone {
       if (appUrl) {
         const vaultPath = decodeURIComponent(appUrl.replace(/^app:\/\/[^/]+\//, ''));
         await this.setImageFromPath(vaultPath);
-        setTimeout(() => { this.hasDragged = false; }, 0);
+        window.setTimeout(() => { this.hasDragged = false; }, 0);
         return;
       }
 
@@ -319,7 +319,7 @@ export class CoverZone {
         (plain.startsWith('http') ? plain : '');
       if (httpUrl) {
         await this.downloadAndSet(httpUrl);
-        setTimeout(() => { this.hasDragged = false; }, 0);
+        window.setTimeout(() => { this.hasDragged = false; }, 0);
         return;
       }
 
@@ -333,7 +333,7 @@ export class CoverZone {
         await this.setImageFromPath(vaultPath);
       }
 
-      setTimeout(() => { this.hasDragged = false; }, 0);
+      window.setTimeout(() => { this.hasDragged = false; }, 0);
     });
   }
 
@@ -350,7 +350,7 @@ export class CoverZone {
       input.remove();
       if (file) await this.importFile(file);
     };
-    setTimeout(() => input.click(), 0);
+    window.setTimeout(() => input.click(), 0);
   }
 
   private openVaultPicker(): void {
@@ -417,7 +417,7 @@ export class CoverZone {
         this.nameEl.addEventListener('input', resetAndShow);
         resetAndShow();
 
-        setTimeout(() => this.nameEl.focus(), 50);
+        window.setTimeout(() => this.nameEl.focus(), 50);
       }
 
       private getFiltered(): TFile[] {

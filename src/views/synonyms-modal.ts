@@ -1,7 +1,7 @@
 // synonyms-modal.ts — Synonym picker: replace the current selection with a
 // chosen synonym. Keyboard: ↑/↓ navigate, Enter confirm, Esc cancel.
 
-import { App, Modal } from 'obsidian';
+import { App } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import { t } from '../i18n';
 
@@ -51,7 +51,7 @@ export class SynonymsModal extends WeWriteModal {
     items[this.selectedIndex]?.removeClass('selected');
     this.selectedIndex = index;
     items[this.selectedIndex]?.addClass('selected');
-    const selected = items[this.selectedIndex] as HTMLElement | undefined;
+    const selected = items[this.selectedIndex];
     selected?.scrollIntoView({ block: 'nearest' });
   }
 

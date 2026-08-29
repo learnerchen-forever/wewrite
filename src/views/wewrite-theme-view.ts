@@ -7,7 +7,9 @@ import { ItemView, type WorkspaceLeaf, TFile, MarkdownRenderer, Notice, setIcon,
 import type WeWritePlugin from '../main';
 import type { ThemeLoader } from '../styles/theme-loader';
 import { getSlotRegistry } from '../core/slot-registry';
+import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { deferImgSrcs, restoreDeferredImgSrcs, hydrateWechatCdnImages } from '../utils/wechat-image-display';
+import { ensureFolderExists } from '../utils/vault-helpers';
 import type { Slot, SlotValue } from '../core/slot-types';
 import { getMathColorValues, getMathScaleValues } from '../core/slot-values';
 import { parseFlatFrontmatter, registerCustomValues, type CustomValueDef } from '../core/frontmatter-parser';
@@ -440,7 +442,7 @@ export class WeWriteThemeView extends ItemView {
 				return;
 			}
 			this._pendingFilePath = null;
-			setTimeout(() => { void this.setFile(state.filePath); }, 100);
+			window.setTimeout(() => { void this.setFile(state.filePath); }, 100);
 		}
 	}
 
@@ -465,158 +467,7 @@ export class WeWriteThemeView extends ItemView {
 		// Scoped layout / responsive / uniform-control styles (inline styles in
 		// the code below handle the rest; this sheet only adds what inline
 		// styles cannot: media queries and control-height normalization).
-		const styleEl = c.createEl('style');
-		styleEl.textContent = `
-.wewrite-theme-view {
-  display: flex; flex-direction: column; height: 100%; overflow: hidden;
-  /* Keep the desktop control height on mobile too — Obsidian mobile raises
-     --input-height to 44px, which makes every text box/select/swatch look
-     oversized next to the rest of the editor. */
-  --input-height: 30px;
-  /* Android WebView auto-zooms focused inputs whose font-size is below
-     16px. Keeping the mobile media query's 16px minimum font-size prevents
-     that focus zoom; the separate "editor goes blank when the keyboard
-     opens" symptom is NOT the focus zoom — it is the WebView failing to
-     repaint after the keyboard resize, handled by setupMobileKeyboardRepaint
-     + forceFullRepaint. This rule stays as a belt-and-braces guard against
-     text inflation / focus zoom. */
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
-.wewrite-theme-view .wewrite-theme-editor-panel,
-.wewrite-theme-view .wewrite-theme-preview-panel,
-.wewrite-theme-view .wewrite-theme-preview-content { min-height: 0; }
-.wewrite-theme-view input[type="text"], .wewrite-theme-view input[type="number"],
-.wewrite-theme-view input[type="search"], .wewrite-theme-view select {
-  height: var(--input-height, 30px); box-sizing: border-box; border-radius: 6px;
-}
-.wewrite-theme-view button:not(.wewrite-btn-icon) {
-  height: var(--input-height, 30px); padding: 0 10px; border-radius: 6px; font-size: 12px;
-}
-/* Range sliders own their touch: dragging a thumb must not pan the editor
-   scroll or trigger Obsidian mobile's view-swipe gesture mid-drag. */
-.wewrite-theme-view input[type="range"] { touch-action: none; }
-/* Header bar: icon buttons stay fixed-size, the theme-name input grows.
-   On narrow screens the input wraps onto its own full-width row. */
-.wewrite-theme-view .wewrite-theme-header {
-  padding: 8px 12px; border-bottom: 1px solid var(--background-modifier-border);
-  display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap;
-}
-.wewrite-theme-view .wewrite-theme-header .wewrite-input { flex: 1 1 200px; min-width: 120px; }
-.wewrite-theme-view .wewrite-theme-header .wewrite-btn-icon { flex-shrink: 0; }
-/* Collapsed sections: hide everything except the header (class-based, so
-   inline display:flex rows keep their layout when a section re-opens). */
-.wewrite-theme-view .wewrite-theme-section.wewrite-theme-section-collapsed > *:not(.wewrite-theme-section-header) { display: none !important; }
-/* Element rows: a bit more air between labels / selects / params. */
-.wewrite-theme-view .wewrite-theme-section [style*="padding:2px 0"] { padding: 4px 0 !important; }
-.wewrite-theme-view .wewrite-theme-section [style*="margin-bottom:8px"] { margin-bottom: 12px !important; }
-@media (max-width: 760px) {
-  /* The desktop split layout (height:100% + overflow:hidden + nested scroll
-     panels) is what breaks mobile input focus: with the soft keyboard open,
-     iOS/Android cannot scroll the focused field into view through the nested
-     overflow:hidden containers, so the editor jumps/blanks/zooms until the
-     keyboard closes. The News view's article-property inputs (e.g. author)
-     live in a normal scrolling .view-content and never had this problem. On
-     phones, scroll the view as one document: .view-content becomes the single
-     scroll container and the split stops constraining height. */
-  .wewrite-theme-view {
-    display: block !important;
-    height: 100% !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-  }
-  .wewrite-theme-view .wewrite-theme-split {
-    flex-wrap: wrap !important; overflow: visible !important; flex: none !important;
-  }
-  .wewrite-theme-view .wewrite-theme-editor-panel,
-  .wewrite-theme-view .wewrite-theme-preview-panel {
-    flex: 1 1 100% !important; min-width: 0 !important;
-  }
-  .wewrite-theme-view .wewrite-theme-preview-panel {
-    border-left: none !important; border-top: 1px solid var(--background-modifier-border);
-  }
-  .wewrite-theme-view .wewrite-theme-splitter { display: none !important; }
-  /* Text boxes/selects keep the desktop height (30px) — the 44px forced
-     height made them look empty and clipped short values. Buttons stay
-     touch-friendly. */
-  .wewrite-theme-view input[type="text"], .wewrite-theme-view input[type="number"],
-  .wewrite-theme-view input[type="search"] {
-    height: var(--input-height, 30px) !important; min-height: 0 !important;
-    padding: 1px 6px !important;
-  }
-  .wewrite-theme-view select {
-    height: var(--input-height, 30px) !important; min-height: 0 !important;
-  }
-  /* Android WebView auto-zooms focused inputs whose font-size is below
-     16px (a separate issue from the keyboard blank-screen repaint bug, which
-     is handled in TypeScript). 16px is the minimum that disables the focus
-     zoom — text-size-adjust alone does not prevent it. Inline
-     font-size:10px/12px styles lose to !important. */
-  .wewrite-theme-view input[type="text"],
-  .wewrite-theme-view input[type="number"],
-  .wewrite-theme-view input[type="search"],
-  .wewrite-theme-view textarea,
-  .wewrite-theme-view select {
-    font-size: 16px !important;
-  }
-  .wewrite-theme-view button:not(.wewrite-btn-icon):not(.wewrite-swatch-btn):not(.wewrite-swatch-btn-sm) {
-    height: 38px !important; min-height: 38px !important;
-  }
-  /* Color swatches must stay square (inline width/height rules), so they are
-     excluded from the touch-friendly button height above; only neutralize the
-     mobile min-height and pin the height so nothing stretches them into
-     tall pills. */
-  .wewrite-theme-view button.wewrite-swatch-btn {
-    height: var(--input-height, 30px) !important;
-    min-height: 0 !important;
-  }
-  .wewrite-theme-view button.wewrite-swatch-btn-sm {
-    height: 20px !important;
-    min-height: 0 !important;
-  }
-  .wewrite-theme-view .wewrite-btn-icon {
-    min-width: 44px !important; min-height: 44px !important;
-  }
-  /* Header: the theme-name input takes its own full-width row on top. */
-  .wewrite-theme-view .wewrite-theme-header { gap: 8px; }
-  .wewrite-theme-view .wewrite-theme-header .wewrite-input { flex: 1 1 100% !important; order: -1; }
-  /* Mobile: flat group list — drop the per-group border box and the inner
-     box borders; the section header divider is the only line. */
-  .wewrite-theme-view .wewrite-theme-editor-panel { padding: 6px 8px !important; }
-  .wewrite-theme-view .wewrite-theme-section {
-    padding: 6px 8px !important; border: none !important; border-radius: 0 !important;
-    margin-bottom: 8px !important;
-  }
-  .wewrite-theme-view .wewrite-theme-section-header {
-    min-height: 44px !important; padding-top: 10px !important; padding-bottom: 10px !important;
-    margin: -6px -8px 6px !important;
-  }
-  .wewrite-theme-view .wewrite-theme-section [style*="padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px"] {
-    border: none !important; border-radius: 0 !important; padding: 4px 0 !important;
-  }
-  /* Section internals: let flex rows wrap instead of overflowing, and give
-     every control room to shrink. */
-  .wewrite-theme-view .wewrite-theme-section [style*="display:flex"] { flex-wrap: wrap; }
-  .wewrite-theme-view .wewrite-theme-section input[type="text"],
-  .wewrite-theme-view .wewrite-theme-section input[type="number"],
-  .wewrite-theme-view .wewrite-theme-section select { min-width: 0; }
-}
-
-/* Same single-document scroll for the Obsidian mobile app at any width
-   (e.g. tablets in landscape, where the 760px media query does not fire but
-   the soft keyboard breaks the nested-scroll layout the same way). */
-body.is-mobile .wewrite-theme-view {
-  display: block !important;
-  height: 100% !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-}
-body.is-mobile .wewrite-theme-view .wewrite-theme-split {
-  flex-wrap: wrap !important;
-  overflow: visible !important;
-  flex: none !important;
-}
-`;
+		
 
 		// Header bar
 		const header = c.createDiv({ cls: 'wewrite-theme-header' });
@@ -718,7 +569,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 			if (leaf?.view === this && this._pendingFilePath) {
 				const fp = this._pendingFilePath;
 				this._pendingFilePath = null;
-				setTimeout(() => { void this.setFile(fp); }, 100);
+				window.setTimeout(() => { void this.setFile(fp); }, 100);
 			}
 		});
 
@@ -736,11 +587,11 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 		}
 		// Clear timers
 		if (this.previewDebounceTimer) {
-			clearTimeout(this.previewDebounceTimer);
+			window.clearTimeout(this.previewDebounceTimer);
 			this.previewDebounceTimer = null;
 		}
 		if (this._autoSaveTimer) {
-			clearTimeout(this._autoSaveTimer);
+			window.clearTimeout(this._autoSaveTimer);
 			this._autoSaveTimer = null;
 		}
 		// Unregister workspace listener
@@ -1270,7 +1121,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 				}
 				deleteBtn.setAttribute('data-armed', '1');
 				deleteBtn.textContent = t('deco_ui.confirm_delete');
-				setTimeout(() => {
+				window.setTimeout(() => {
 					deleteBtn.removeAttribute('data-armed');
 					deleteBtn.textContent = t('deco_ui.delete_decoration');
 				}, 3000);
@@ -1396,7 +1247,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 				}
 				deleteBtn.setAttribute('data-armed', '1');
 				deleteBtn.textContent = t('deco_ui.confirm_delete');
-				setTimeout(() => {
+				window.setTimeout(() => {
 					deleteBtn.removeAttribute('data-armed');
 					deleteBtn.textContent = t('deco_ui.delete_decoration');
 				}, 3000);
@@ -1644,7 +1495,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 				}
 				deleteBtn.setAttribute('data-armed', '1');
 				deleteBtn.textContent = t('deco_ui.confirm_delete');
-				setTimeout(() => {
+				window.setTimeout(() => {
 					deleteBtn.removeAttribute('data-armed');
 					deleteBtn.textContent = t('deco_ui.delete_decoration');
 				}, 3000);
@@ -1926,7 +1777,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 				}
 				deleteBtn.setAttribute('data-armed', '1');
 				deleteBtn.textContent = t('deco_ui.confirm_delete');
-				setTimeout(() => {
+				window.setTimeout(() => {
 					deleteBtn.removeAttribute('data-armed');
 					deleteBtn.textContent = t('deco_ui.delete_decoration');
 				}, 3000);
@@ -2547,7 +2398,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 				}
 				deleteBtn.setAttribute('data-armed', '1');
 				deleteBtn.textContent = t('deco_ui.confirm_delete');
-				setTimeout(() => {
+				window.setTimeout(() => {
 					deleteBtn.removeAttribute('data-armed');
 					deleteBtn.textContent = t('deco_ui.delete_decoration');
 				}, 3000);
@@ -2719,7 +2570,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 				}
 				deleteBtn.setAttribute('data-armed', '1');
 				deleteBtn.textContent = t('deco_ui.confirm_delete');
-				setTimeout(() => {
+				window.setTimeout(() => {
 					deleteBtn.removeAttribute('data-armed');
 					deleteBtn.textContent = t('deco_ui.delete_decoration');
 				}, 3000);
@@ -2957,7 +2808,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 				}
 				deleteBtn.setAttribute('data-armed', '1');
 				deleteBtn.textContent = t('deco_ui.confirm_delete');
-				setTimeout(() => {
+				window.setTimeout(() => {
 					deleteBtn.removeAttribute('data-armed');
 					deleteBtn.textContent = t('deco_ui.delete_decoration');
 				}, 3000);
@@ -3866,8 +3717,8 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 		this.schedulePreviewUpdate();
 	}
 
-	private previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-	private _autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+	private previewDebounceTimer: number | null = null;
+	private _autoSaveTimer: number | null = null;
 	private _cachedNativeHtml: string | null = null;
 	private _cachedNoteBody = '';
 	private _mermaidPreviewCache = new Map<string, string>();
@@ -3875,8 +3726,8 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 
 	private schedulePreviewUpdate(): void {
 		if (!this.renderer) return;
-		if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer);
-		this.previewDebounceTimer = setTimeout(() => {
+		if (this.previewDebounceTimer) window.clearTimeout(this.previewDebounceTimer);
+		this.previewDebounceTimer = window.setTimeout(() => {
 			this.previewDebounceTimer = null;
 			// The cached native HTML bakes in code-block settings (line numbers,
 			// token colors, font, wrap), so any slot/theme change must re-run the
@@ -3887,8 +3738,8 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 			this.renderPreviewContent();
 		}, 150);
 		// Auto-save after 2s of inactivity
-		if (this._autoSaveTimer) clearTimeout(this._autoSaveTimer);
-		this._autoSaveTimer = setTimeout(() => {
+		if (this._autoSaveTimer) window.clearTimeout(this._autoSaveTimer);
+		this._autoSaveTimer = window.setTimeout(() => {
 			this._autoSaveTimer = null;
 			void this.flushSave(true);
 		}, 2000);
@@ -4048,7 +3899,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 		// Reading offsetHeight forces a synchronous reflow while the new
 		// visibility is applied, so the invalidation actually happens.
 		void c.offsetHeight;
-		this._repaintRaf = requestAnimationFrame(() => {
+		this._repaintRaf = window.requestAnimationFrame(() => {
 			this._repaintRaf = 0;
 			c.style.visibility = prevVisibility;
 		});
@@ -4070,7 +3921,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 		// Reading offsetWidth forces a synchronous reflow while the new
 		// opacity is applied, so the paint invalidation actually happens.
 		void active.offsetWidth;
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			active.style.opacity = prev;
 		});
 	}
@@ -4123,7 +3974,7 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 		el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
 		// Remove highlight after animation
-		setTimeout(() => {
+		window.setTimeout(() => {
 			el.style.outline = prevOutline;
 			el.style.outlineOffset = prevOutlineOffset;
 			el.style.transition = '';
@@ -4580,15 +4431,28 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
 		try {
 			const nameMatch = frontmatter.match(/wewrite_theme_name:\s*"([^"]+)"/);
 			const themeName = nameMatch ? nameMatch[1] : t('theme.default_name');
-			const fileName = `${themeName.replace(/[/\\?%*:|"<>]/g, '-')}.md`;
-			const filePath = `themes/${fileName}`;
+			const safeName = themeName.replace(/[/\\?%*:|"<>]/g, '-');
+			const fileName = `${safeName}.md`;
+
+			// Save into the ACTUAL themes directory ({wewriteFolder}/themes),
+			// matching ThemeLoader's primary scan path (and the plugin wizard).
+			// The hardcoded vault-root 'themes/' is only a legacy fallback scan
+			// path and may not exist at all.
+			const settings = this.plugin.settingsManager.getSettings();
+			const themesDir = getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.customizedThemes);
+			const filePath = `${themesDir}/${fileName}`;
 
 			let finalPath = filePath;
 			let counter = 1;
 			while (await this.app.vault.adapter.exists(finalPath)) {
-				finalPath = `themes/${themeName.replace(/[/\\?%*:|"<>]/g, '-')}-${counter}.md`;
+				finalPath = `${themesDir}/${safeName}-${counter}.md`;
 				counter++;
 			}
+
+			// vault.create() throws ENOENT when the parent folder doesn't exist,
+			// so ensure the themes directory (and any missing parents) is present
+			// first. Level-by-level creation is mobile-safe.
+			await ensureFolderExists(this.app, themesDir);
 
 			await this.app.vault.create(finalPath, frontmatter);
 			const file = this.app.vault.getAbstractFileByPath(finalPath);

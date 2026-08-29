@@ -124,6 +124,7 @@ Or install manually:
 
 Complete rewrite: mobile-first architecture, Obsidian native rendering + zero-CSS inline styling pipeline, theme-note system with 100+ decorations, AI writing assistant (proofread / synonyms / translate / Mermaid / formulas / image / summary), unified FNV1a-64 asset fingerprint database, three-zone cover editor, image post support, WebDAV multi-device sync, encrypted API key storage, settings import/export, automatic v1.x migration.
 
+- 2026.08.29 — Release 2.0.13.
 - 2026.08.25 — Release 2.0.12.
 - 2026.08.19 — Release 2.0.11.
 - 2026.08.19 — Release 2.0.10.

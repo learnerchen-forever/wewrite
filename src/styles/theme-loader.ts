@@ -445,12 +445,20 @@ export class ThemeLoader {
     }
   }
 
-  /** Parse YAML frontmatter from markdown content. Public for testability. */
+  /** Parse YAML frontmatter from markdown content. Public for testability.
+   *  Malformed YAML (e.g. a duplicated mapping key) must not throw — log a
+   *  warning and skip the file so a broken theme note never produces an
+   *  unhandled promise rejection. */
   parseFrontmatter(content: string): Record<string, unknown> | null {
-    const parsed = matter(content);
-    const data = parsed.data as Record<string, unknown>;
-    if (!data || Object.keys(data).length === 0) return null;
-    return data;
+    try {
+      const parsed = matter(content);
+      const data = parsed.data as Record<string, unknown>;
+      if (!data || Object.keys(data).length === 0) return null;
+      return data;
+    } catch (err) {
+      log.warn('failed to parse theme frontmatter (malformed YAML, skipping)', { err: String(err) });
+      return null;
+    }
   }
 
   /** Frontmatter changed anywhere in the vault — refresh a theme note or drop
@@ -458,12 +466,16 @@ export class ThemeLoader {
    *  frontmatter, so non-theme notes are never read. */
   private async handleFileChanged(file: TFile): Promise<void> {
     if (!this.isMarkdown(file)) return;
-    const fm = this.getCachedFrontmatter(file);
-    if (!fm) {
-      this.removeIfCached(file);
-      return;
+    try {
+      const fm = this.getCachedFrontmatter(file);
+      if (!fm) {
+        this.removeIfCached(file);
+        return;
+      }
+      await this.processFrontmatter(file, fm);
+    } catch (err) {
+      log.warn('handleFileChanged failed', { path: file.path, err: String(err) });
     }
-    await this.processFrontmatter(file, fm);
   }
 
   /** A note was created anywhere in the vault. The MetadataCache may not have
@@ -471,14 +483,18 @@ export class ThemeLoader {
    *  frontmatter. */
   private async handleFileCreated(file: TFile): Promise<void> {
     if (!this.isMarkdown(file)) return;
-    const cachedFm = this.getCachedFrontmatter(file);
-    if (cachedFm) {
-      await this.processFrontmatter(file, cachedFm);
-      return;
+    try {
+      const cachedFm = this.getCachedFrontmatter(file);
+      if (cachedFm) {
+        await this.processFrontmatter(file, cachedFm);
+        return;
+      }
+      const fm = await this.readFrontmatter(file);
+      if (!fm) return;
+      await this.processFrontmatter(file, fm);
+    } catch (err) {
+      log.warn('handleFileCreated failed', { path: file.path, err: String(err) });
     }
-    const fm = await this.readFrontmatter(file);
-    if (!fm) return;
-    await this.processFrontmatter(file, fm);
   }
 
   private handleFileDelete(file: TFile): void {

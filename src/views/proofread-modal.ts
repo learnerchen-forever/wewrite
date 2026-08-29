@@ -1,8 +1,8 @@
-// proofread-modal.ts — Word-style sequential proofread review.
+﻿// proofread-modal.ts — Word-style sequential proofread review.
 // Walks the corrections one by one: Accept (apply suggestion to the editor),
 // Ignore (skip), Previous / Next navigation, with keyboard support.
 
-import { App, Modal, type Editor, type EventRef } from 'obsidian';
+import { App, type Editor, type EventRef } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import { setEditorHighlight, type CMEditor } from '../utils/editor-highlight';
 import { resolveCorrectionOffsets, type ProofCorrection } from '../ai/proofread-engine';

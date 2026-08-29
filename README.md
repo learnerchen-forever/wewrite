@@ -10,6 +10,12 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
 </p>
 
+> **WeWrite** is an Obsidian plugin that renders your notes into WeChat Official Account
+> article formatting and publishes them to your WeChat drafts. Write in Markdown, style a
+> full theme from a single note, and publish end-to-end from desktop or phone. Your images
+> are uploaded straight to your own WeChat media library — never through any third party.
+> See [README_en.md](README_en.md) for the full English documentation.
+
 ---
 
 ## 为什么选择 WeWrite 2.0
@@ -124,6 +130,7 @@ Dataview 查询（`dataview` / `dataviewjs` 代码块与行内 `$= ...`）经 Da
 
 全面重构：移动优先架构、Obsidian 原生渲染 + 零-CSS 内联样式管线、主题笔记系统 + 100+ 装饰项、AI 写作助手（校对/同义词/翻译/Mermaid/公式/文生图/摘要）、统一 FNV1a-64 素材指纹库、三区封面编辑器、图片消息支持、WebDAV 多端同步、API Key 加密存储、设置导入/导出、v1.x 自动迁移。
 
+- 2026.08.29 — 发布 2.0.13。
 - 2026.08.25 — 发布 2.0.12。
 - 2026.08.19 — 发布 2.0.11。
 - 2026.08.19 — 发布 2.0.10。

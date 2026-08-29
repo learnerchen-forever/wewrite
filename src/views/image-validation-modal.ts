@@ -106,7 +106,7 @@ export class ImageValidationModal {
       cancelBtn.addEventListener('click', () => this.resolve('cancel'));
       convertBtn.addEventListener('click', () => this.resolve('convert'));
 
-      const overlay = this.modalEl.querySelector('.wewrite-validate-overlay')! as HTMLElement;
+      const overlay = this.modalEl.querySelector('.wewrite-validate-overlay')!;
       overlay.addEventListener('click', (e) => e.stopPropagation());
     });
   }

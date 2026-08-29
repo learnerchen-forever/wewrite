@@ -3,9 +3,9 @@
 // Step 2: typography preset + fine-tune
 // Step 3: per-element visual preset picker
 
-import { App, Modal, Setting } from 'obsidian';
+import { App, Setting } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
-import { generatePalette, classifyHueFamily, hexToHSL } from '../core/palette-engine';
+import { generatePalette, classifyHueFamily } from '../core/palette-engine';
 import { FONT_FAMILIES, FONT_FAMILY_OPTIONS } from '../core/interfaces';
 import { createFontFamilySelect } from '../utils/font-select';
 import { t } from '../i18n';
@@ -289,7 +289,7 @@ export class ThemeWizardModal extends WeWriteModal {
 
 		// Live preview
 		const preview = container.createDiv({ cls: 'wewrite-wizard-typo-preview' });
-		preview.style.cssText = `margin-top:12px;padding:12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-family:${FONT_FAMILIES[this.state.family as keyof typeof FONT_FAMILIES] || FONT_FAMILIES['sans-serif']};font-size:${this.state.baseSize}px;line-height:${this.state.lineHeight};letter-spacing:${this.state.letterSpacing}px`;
+		preview.style.cssText = `margin-top:12px;padding:12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-family:${FONT_FAMILIES[this.state.family] || FONT_FAMILIES['sans-serif']};font-size:${this.state.baseSize}px;line-height:${this.state.lineHeight};letter-spacing:${this.state.letterSpacing}px`;
 		preview.createEl('p', { text: t('wizard.preview_body') });
 		preview.createEl('p', { text: t('wizard.preview_markup') });
 

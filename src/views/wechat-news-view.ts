@@ -157,7 +157,7 @@ export class WeChatNewsView extends ItemView {
         return;
       }
       this._pendingFilePath = null;
-      setTimeout(() => { void this.setFile(state.filePath); }, 100);
+      window.setTimeout(() => { void this.setFile(state.filePath); }, 100);
     }
   }
 
@@ -185,7 +185,7 @@ export class WeChatNewsView extends ItemView {
         if (this._pendingFilePath) {
           const fp = this._pendingFilePath;
           this._pendingFilePath = null;
-          setTimeout(() => { void this.setFile(fp); }, 100);
+          window.setTimeout(() => { void this.setFile(fp); }, 100);
         }
       } else {
         this.restoreBottomBars();
@@ -1504,7 +1504,11 @@ export class WeChatNewsView extends ItemView {
       if (cdnImages.length > 0) void hydrateWechatCdnImages(cdnImages);
       this.setupImageContextMenus();
     } catch (err) {
-      this.previewEl.innerHTML = `<p style="color:var(--text-error)">${t('notice.render_error', { error: String(err) })}</p>`;
+      const errText = String(err).replace(
+        /[&<>"']/g,
+        (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c] ?? c,
+      );
+      this.previewEl.innerHTML = `<p style="color:var(--text-error)">${t('notice.render_error', { error: errText })}</p>`;
       new Notice(t('notice.render_error', { error: String(err) }));
     } finally {
       // Safety net: remove any Pass-1 render container left behind by an

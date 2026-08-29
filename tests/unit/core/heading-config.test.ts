@@ -152,19 +152,19 @@ describe('parseHeadingFrontmatter', () => {
 describe('resolveHeadingConfig', () => {
   it('generates the default scale at body 16', () => {
     const resolved = resolveHeadingConfig({}, 16);
-    expect(HEADING_LEVELS.map(l => resolved.levels[l].fontSize)).toEqual([24, 21, 18, 17, 16, 15]);
-    expect(HEADING_LEVELS.map(l => resolved.levels[l].fontWeight)).toEqual([700, 700, 600, 600, 500, 500]);
+    expect(HEADING_LEVELS.map(l => resolved.levels[l].fontSize)).toEqual([17, 16, 16, 15.5, 15, 14.5]);
+    expect(HEADING_LEVELS.map(l => resolved.levels[l].fontWeight)).toEqual([700, 650, 600, 550, 500, 450]);
   });
 
-  it('applies the px floor when body size is small', () => {
+  it('keeps the default sizes regardless of body size (fixed small-screen set)', () => {
     const resolved = resolveHeadingConfig({}, 14);
-    expect(HEADING_LEVELS.map(l => resolved.levels[l].fontSize)).toEqual([21, 18, 16, 15, 15, 15]);
+    expect(HEADING_LEVELS.map(l => resolved.levels[l].fontSize)).toEqual([17, 16, 16, 15.5, 15, 14.5]);
   });
 
   it('honors custom scale ratios and weight generation', () => {
     const { config } = parseHeadingFrontmatter({
       'heading.scale': {
-        size: { min: 14 },
+        size: { h1Ratio: 1.5, min: 14 },
         weight: { h1: 800, step: -200, stepEvery: 1, min: 400 },
       },
     });
@@ -183,7 +183,7 @@ describe('resolveHeadingConfig', () => {
     expect(resolved.levels.h1.fontSize).toBe(22);
     expect(resolved.levels.h2.fontSize).toBe(22);
     expect(resolved.levels.h2.fontWeight).toBe(400);
-    expect(resolved.levels.h3.fontSize).toBe(18); // auto → generated
+    expect(resolved.levels.h3.fontSize).toBe(16); // auto → generated
     expect(resolved.levels.h1.fontWeight).toBe(700); // untouched levels keep the chain
   });
 
@@ -222,8 +222,8 @@ describe('resolveHeadingConfig', () => {
 describe('computeHeadingScale / resolveHeadingDecoration', () => {
   it('exposes DEFAULT_HEADING_SCALE for renderers', () => {
     expect(DEFAULT_HEADING_SCALE.size.min).toBe(15);
-    expect(DEFAULT_HEADING_SCALE.weight.min).toBe(500);
-    expect(computeHeadingScale(undefined, 16).h6).toEqual({ fontSize: 15, fontWeight: 500 });
+    expect(DEFAULT_HEADING_SCALE.weight.min).toBe(450);
+    expect(computeHeadingScale(undefined, 16).h6).toEqual({ fontSize: 14.5, fontWeight: 450 });
   });
 
   it('resolves builtin decorations with sparse param overrides', () => {

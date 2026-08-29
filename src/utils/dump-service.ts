@@ -150,7 +150,7 @@ export class DumpService {
       try {
         const newPath = file.path.replace(oldDir, newDir);
         const conflict = this.app.vault.getAbstractFileByPath(newPath);
-        if (conflict) await this.app.vault.delete(conflict);
+        if (conflict) await this.app.fileManager.trashFile(conflict);
         await this.app.vault.rename(file, newPath);
         moved++;
       } catch (err) {

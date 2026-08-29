@@ -1,4 +1,4 @@
-// list-decoration-edit-modal.ts — Template editor for list (ul/ol) decorations
+﻿// list-decoration-edit-modal.ts — Template editor for list (ul/ol) decorations
 //
 // Mirrors the divider decoration editor: built-ins are read-only ("另存为副本"
 // to fork), custom decorations can be renamed / re-templated / re-parametrized,
@@ -6,7 +6,7 @@
 // A list decoration has two templates: the root (replaces the list, with
 // {items}) and the per-item template (with {item} / {number} / {marker}).
 
-import { App, Modal, Notice } from 'obsidian';
+import { App, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { ListDecoration } from '../core/list-decoration-types';
@@ -38,7 +38,7 @@ export class ListDecorationEditModal extends WeWriteModal {
 	private params: Record<string, DecorationParam> = {};
 	private paramsListEl: HTMLElement | null = null;
 	private previewEl: HTMLElement | null = null;
-	private previewTimer: ReturnType<typeof setTimeout> | null = null;
+	private previewTimer: number | null = null;
 
 	constructor(app: App, options: ListDecorationEditOptions) {
 		super(app);
@@ -215,8 +215,8 @@ export class ListDecorationEditModal extends WeWriteModal {
 	}
 
 	private schedulePreview(): void {
-		if (this.previewTimer) clearTimeout(this.previewTimer);
-		this.previewTimer = setTimeout(() => this.updatePreview(), 200);
+		if (this.previewTimer) window.clearTimeout(this.previewTimer);
+		this.previewTimer = window.setTimeout(() => this.updatePreview(), 200);
 	}
 
 	private updatePreview(): void {
@@ -260,6 +260,6 @@ export class ListDecorationEditModal extends WeWriteModal {
 	}
 
 	onClose(): void {
-		if (this.previewTimer) clearTimeout(this.previewTimer);
+		if (this.previewTimer) window.clearTimeout(this.previewTimer);
 	}
 }

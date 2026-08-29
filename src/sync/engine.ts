@@ -118,7 +118,7 @@ function tasksFromDecision(
 }
 
 function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 // ── Error classification and retry ──
@@ -546,7 +546,7 @@ export class SyncEngine {
           // File didn't exist locally before — delete it
           const file = this.app.vault.getAbstractFileByPath(path);
           if (file) {
-            await this.app.vault.trash(file as import('obsidian').TFile, true);
+            await this.app.fileManager.trashFile(file as import('obsidian').TFile);
           }
         }
 

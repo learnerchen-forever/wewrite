@@ -1,4 +1,4 @@
-// SyncScheduler — manages periodic sync with backoff, startup delay, and UI feedback
+﻿// SyncScheduler — manages periodic sync with backoff, startup delay, and UI feedback
 
 import { setIcon, type IconName } from 'obsidian';
 import { createLogger } from '../utils/logger';
@@ -27,10 +27,10 @@ const DEFAULT_OPTIONS: SchedulerOptions = {
 };
 
 export class SyncScheduler {
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private startupTimer: ReturnType<typeof setTimeout> | null = null;
+  private timer: number | null = null;
+  private startupTimer: number | null = null;
   /** One-shot timer that resumes a paused (quota-exhausted) sync as soon as the cooldown expires. */
-  private resumeTimer: ReturnType<typeof setTimeout> | null = null;
+  private resumeTimer: number | null = null;
   private consecutiveFailures = 0;
   private currentIntervalMs: number;
 
@@ -61,7 +61,7 @@ export class SyncScheduler {
     this.currentIntervalMs = opts.intervalMinutes * 60 * 1000;
 
     // Periodic sync
-    this.timer = setInterval(() => {
+    this.timer = window.setInterval(() => {
       this.intervalTick();
     }, this.currentIntervalMs);
 
@@ -70,7 +70,7 @@ export class SyncScheduler {
       const remainingMin = Math.round((this.engine.getCooldownUntil() - Date.now()) / 60000);
       log.info('skipping startup sync — cooldown active from previous session', { remainingMin });
     } else {
-      this.startupTimer = setTimeout(() => {
+      this.startupTimer = window.setTimeout(() => {
         void this.syncNow('startup');
       }, opts.startupDelaySeconds * 1000);
     }
@@ -103,11 +103,11 @@ export class SyncScheduler {
   /** Stop periodic sync. */
   stop(): void {
     if (this.timer) {
-      clearInterval(this.timer);
+      window.clearInterval(this.timer);
       this.timer = null;
     }
     if (this.startupTimer) {
-      clearTimeout(this.startupTimer);
+      window.clearTimeout(this.startupTimer);
       this.startupTimer = null;
     }
     this.clearResumeTimer();
@@ -116,7 +116,7 @@ export class SyncScheduler {
 
   private clearResumeTimer(): void {
     if (this.resumeTimer) {
-      clearTimeout(this.resumeTimer);
+      window.clearTimeout(this.resumeTimer);
       this.resumeTimer = null;
     }
   }
@@ -137,7 +137,7 @@ export class SyncScheduler {
       remainingMin: Math.round(remainingMs / 60000),
       resumeAt: new Date(resumeAt).toLocaleString(),
     });
-    this.resumeTimer = setTimeout(() => {
+    this.resumeTimer = window.setTimeout(() => {
       this.resumeTimer = null;
       if (Date.now() >= this.engine.getCooldownUntil()) {
         log.info('auto-resume: cooldown expired, resuming sync');
@@ -152,8 +152,8 @@ export class SyncScheduler {
     this.options = opts;
     if (this.timer) {
       this.currentIntervalMs = minutes * 60 * 1000;
-      clearInterval(this.timer);
-      this.timer = setInterval(() => {
+      window.clearInterval(this.timer);
+      this.timer = window.setInterval(() => {
         this.intervalTick();
       }, this.currentIntervalMs);
       log.debug('interval updated', { minutes });
@@ -180,8 +180,8 @@ export class SyncScheduler {
       if (this.timer && this.currentIntervalMs !== (this.options.intervalMinutes || 10) * 60 * 1000) {
         const opts = { ...DEFAULT_OPTIONS, ...this.options };
         this.currentIntervalMs = opts.intervalMinutes * 60 * 1000;
-        clearInterval(this.timer);
-        this.timer = setInterval(() => {
+        window.clearInterval(this.timer);
+        this.timer = window.setInterval(() => {
           this.intervalTick();
         }, this.currentIntervalMs);
         log.info('timer reset to configured interval after successful sync');
@@ -251,8 +251,8 @@ export class SyncScheduler {
 
     // Restart timer with longer interval
     if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = setInterval(() => {
+      window.clearInterval(this.timer);
+      this.timer = window.setInterval(() => {
         void this.syncNow('interval');
       }, this.currentIntervalMs + backoffMs);
     }

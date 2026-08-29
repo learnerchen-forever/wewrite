@@ -1,4 +1,4 @@
-// NewsPic Preview Renderer — phone-frame slideshow with swipe dots + description
+﻿// NewsPic Preview Renderer — phone-frame slideshow with swipe dots + description
 
 import type { Vault } from 'obsidian';
 import type { NewsPicArticleConfig, CoverCropPercent, CropPercentCoords } from '../core/interfaces';
@@ -68,7 +68,7 @@ export class NewsPicPreview {
   private docMouseMove: ((e: MouseEvent) => void) | null = null;
   private docMouseUp: (() => void) | null = null;
   private _status: PreviewStatus = 'empty';
-  private _statusTimer: ReturnType<typeof setTimeout> | null = null;
+  private _statusTimer: number | null = null;
   private onWindowResize = (): void => { this.applyZoom(); };
 
   private static readonly CROP_COORD_PRECISION = 1e6;
@@ -515,8 +515,8 @@ export class NewsPicPreview {
     };
     this.statusEl.addClass(`newspic-status-${status}`);
     this.statusEl.textContent = icons[status] ? `${icons[status]} ${texts[status]}` : texts[status] || '';
-    if (this._statusTimer) clearTimeout(this._statusTimer);
-    if (status === 'ready') this._statusTimer = setTimeout(() => {
+    if (this._statusTimer) window.clearTimeout(this._statusTimer);
+    if (status === 'ready') this._statusTimer = window.setTimeout(() => {
       if (this._status === 'ready') { this.statusEl.textContent = ''; this.statusEl.removeClass('newspic-status-ready'); }
     }, NewsPicPreview.STATUS_READY_TIMEOUT_MS);
     this.onStatusChange?.({ status, errorPath });
@@ -525,7 +525,7 @@ export class NewsPicPreview {
   getStatus(): PreviewState { return { status: this._status }; }
 
   destroy(): void {
-    if (this._statusTimer) clearTimeout(this._statusTimer);
+    if (this._statusTimer) window.clearTimeout(this._statusTimer);
     if (this.cropMouseMove) document.removeEventListener('mousemove', this.cropMouseMove);
     if (this.cropMouseUp) document.removeEventListener('mouseup', this.cropMouseUp);
     if (this.cropKeyDown) document.removeEventListener('keydown', this.cropKeyDown);

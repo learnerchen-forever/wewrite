@@ -1,4 +1,4 @@
-// Diagram Renderer — converts Excalidraw and Mermaid diagrams to PNG for NewsPic extraction
+﻿// Diagram Renderer — converts Excalidraw and Mermaid diagrams to PNG for NewsPic extraction
 
 import { MarkdownRenderer, Component, type App } from 'obsidian';
 import { createLogger } from '../utils/logger';
@@ -358,7 +358,7 @@ async function waitForExcalidrawElement(
     const wrapper = container.querySelector('.excalidraw-svg svg, [class*="excalidraw"] svg') as SVGSVGElement | null;
     if (wrapper) return wrapper;
 
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => window.setTimeout(r, 200));
   }
   return null;
 }
@@ -405,7 +405,7 @@ async function waitForSvg(container: HTMLElement, timeoutMs: number): Promise<st
   while (Date.now() - start < timeoutMs) {
     const svg = container.querySelector('svg');
     if (svg) return svg.outerHTML;
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => window.setTimeout(r, 150));
   }
   return null;
 }

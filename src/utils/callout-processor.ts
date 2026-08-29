@@ -1,4 +1,4 @@
-// Shared callout & admonition DOM post-processing.
+﻿// Shared callout & admonition DOM post-processing.
 // Used by both the WeChat news view and the theme editor preview.
 //
 // After MarkdownRenderer.render() produces live DOM, callouts and admonitions
@@ -41,7 +41,7 @@ export async function waitForCalloutPlugins(el: HTMLElement, maxWait = 5000): Pr
 
     if (!hasLoadingCallouts && !hasPendingContent && !hasPendingIcons && !hasPending) break;
     if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => window.setTimeout(r, 200));
   }
 }
 

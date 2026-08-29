@@ -1,7 +1,7 @@
-// paste-html-modal.ts — Modal for pasting HTML to create custom slot values
+﻿// paste-html-modal.ts — Modal for pasting HTML to create custom slot values
 // Always generates a DomTransform wrapper for consistency.
 
-import { App, Modal, Setting, Notice } from 'obsidian';
+import { App, Setting, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { SlotValue } from '../core/slot-types';
 import { t } from '../i18n';
@@ -64,10 +64,10 @@ export class PasteHtmlModal extends WeWriteModal {
 		previewContainer.style.display = 'none';
 
 		// Auto-parse on input (debounced)
-		let parseTimeout: ReturnType<typeof setTimeout>;
+		let parseTimeout: number;
 		textarea.addEventListener('input', () => {
-			clearTimeout(parseTimeout);
-			parseTimeout = setTimeout(() => {
+			window.clearTimeout(parseTimeout);
+			parseTimeout = window.setTimeout(() => {
 				const html = textarea.value.trim();
 				if (!html) {
 					previewContainer.style.display = 'none';

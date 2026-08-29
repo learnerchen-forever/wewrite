@@ -1,10 +1,10 @@
-// list-paste-html-modal.ts — Extract a list (ul/ol) decoration from pasted HTML
+﻿// list-paste-html-modal.ts — Extract a list (ul/ol) decoration from pasted HTML
 //
 // Adapted from the divider paste-HTML flow: paste a <ul>/<ol> (or a section
 // wrapping one, e.g. 无序例 2 的卡片), colors are tokenized, shape values become
 // editable parameter chips, and the live preview renders against the theme.
 
-import { App, Modal, Notice } from 'obsidian';
+import { App, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { ListDecoration } from '../core/list-decoration-types';
@@ -36,7 +36,7 @@ export class ListPasteHtmlModal extends WeWriteModal {
 	private nameValue = '';
 	private chipsEl: HTMLElement | null = null;
 	private previewEl: HTMLElement | null = null;
-	private previewTimer: ReturnType<typeof setTimeout> | null = null;
+	private previewTimer: number | null = null;
 
 	constructor(app: App, options: ListPasteHtmlOptions) {
 		super(app);
@@ -82,10 +82,10 @@ export class ListPasteHtmlModal extends WeWriteModal {
 		this.previewEl = contentEl.createDiv();
 		this.previewEl.style.cssText = 'border:1px solid var(--background-modifier-border);border-radius:4px;padding:8px;background:#ffffff;color:#333333;min-height:60px;display:none';
 
-		let parseTimeout: ReturnType<typeof setTimeout>;
+		let parseTimeout: number;
 		textarea.addEventListener('input', () => {
-			clearTimeout(parseTimeout);
-			parseTimeout = setTimeout(() => this.onHtml(textarea.value), 400);
+			window.clearTimeout(parseTimeout);
+			parseTimeout = window.setTimeout(() => this.onHtml(textarea.value), 400);
 		});
 
 		const btnRow = contentEl.createDiv();
@@ -175,8 +175,8 @@ export class ListPasteHtmlModal extends WeWriteModal {
 	}
 
 	private schedulePreview(): void {
-		if (this.previewTimer) clearTimeout(this.previewTimer);
-		this.previewTimer = setTimeout(() => {
+		if (this.previewTimer) window.clearTimeout(this.previewTimer);
+		this.previewTimer = window.setTimeout(() => {
 			if (!this.previewEl || !this.extraction) return;
 			const params: Record<string, string> = {};
 			for (const [key, active] of Object.entries(this.active)) {
@@ -211,6 +211,6 @@ export class ListPasteHtmlModal extends WeWriteModal {
 	}
 
 	onClose(): void {
-		if (this.previewTimer) clearTimeout(this.previewTimer);
+		if (this.previewTimer) window.clearTimeout(this.previewTimer);
 	}
 }

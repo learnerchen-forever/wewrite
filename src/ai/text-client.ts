@@ -1,4 +1,4 @@
-// text-client.ts — Multi-provider LLM chat client for WeWrite AI assistance.
+﻿// text-client.ts — Multi-provider LLM chat client for WeWrite AI assistance.
 //
 // Supports the same provider set as the settings' AI Text accounts:
 //   openai / openai-compatible / openrouter  → POST {base}/chat/completions
@@ -53,7 +53,7 @@ export interface TextCallRecord {
 const DEFAULT_MAX_TOKENS = 2048;
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise((r) => window.setTimeout(r, ms));
 }
 
 /**

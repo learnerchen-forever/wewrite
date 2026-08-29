@@ -1,4 +1,4 @@
-// color-picker-modal.ts — one color editor for every platform.
+﻿// color-picker-modal.ts — one color editor for every platform.
 //
 // The native <input type="color"> dialog renders very differently across
 // platforms (full editor on desktop, a minimal two-step dialog on Android, a
@@ -9,7 +9,7 @@
 //   - a live preview chip + hex readout.
 // The choice is applied on 确定 only; 取消 discards it.
 
-import { App, Modal } from 'obsidian';
+import { App } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import { hexToRgb, hslToHex, type HSL } from '../core/palette-engine';
 import { t } from '../i18n';
@@ -85,76 +85,7 @@ function hsvToHex(hsv: HSV): string {
 	return hslToHex(hsvToHsl(hsv));
 }
 
-const MODAL_CSS = `
-.wewrite-cp-modal { width: 420px; max-width: 94vw; }
-.wewrite-cp { display: flex; flex-direction: column; gap: 14px; }
-/* Two columns: color area (left) + preview / mode tabs / fields (right) —
-   no dead space on the right of the color area. */
-.wewrite-cp-body { display: flex; gap: 16px; align-items: center; }
-.wewrite-cp-left { display: flex; gap: 10px; align-items: flex-start; }
-.wewrite-cp-svwrap {
-  position: relative; width: 170px; height: 170px; border-radius: 8px;
-  border: 1px solid var(--background-modifier-border); overflow: hidden;
-  cursor: crosshair; touch-action: none; flex-shrink: 0;
-}
-.wewrite-cp-svdot {
-  position: absolute; width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
-  transform: translate(-50%, -50%); pointer-events: none;
-}
-.wewrite-cp-huewrap {
-  position: relative; width: 22px; height: 170px; border-radius: 8px;
-  border: 1px solid var(--background-modifier-border); overflow: hidden;
-  cursor: ns-resize; touch-action: none; flex-shrink: 0;
-  background: linear-gradient(to bottom, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
-}
-.wewrite-cp-huedot {
-  position: absolute; left: -3px; right: -3px; height: 8px; border-radius: 4px;
-  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
-  transform: translateY(-50%); pointer-events: none;
-}
-.wewrite-cp-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
-.wewrite-cp-previewrow { display: flex; align-items: center; gap: 10px; }
-.wewrite-cp-preview {
-  width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0;
-  border: 1px solid var(--background-modifier-border);
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
-}
-.wewrite-cp-hexreadout {
-  font-family: var(--font-monospace); font-size: 13px; color: var(--text-muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.wewrite-cp-modes { display: flex; gap: 6px; }
-.wewrite-cp-modebtn {
-  flex: 1; min-width: 0; height: 30px; padding: 0 6px; border-radius: 6px;
-  font-size: 12px; background: var(--background-secondary); color: var(--text-normal);
-  cursor: pointer; border: 1px solid var(--background-modifier-border);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.wewrite-cp-modebtn:hover { background: var(--background-modifier-hover); }
-.wewrite-cp-modebtn-active {
-  background: var(--interactive-accent) !important;
-  color: var(--text-on-accent) !important;
-  border-color: var(--interactive-accent) !important;
-}
-.wewrite-cp-field { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
-.wewrite-cp-field label { width: 44px; flex-shrink: 0; }
-.wewrite-cp-field input { flex: 1; min-width: 0; height: 32px !important; padding: 0 8px !important; }
-.wewrite-cp-footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 10px; }
-@media (max-width: 760px) {
-  .wewrite-cp-modal { width: calc(100vw - 40px); }
-  /* On a phone the two columns stack; stretch (not center) so the fields
-     use the full dialog width instead of floating in a narrow centered
-     column with dead space on both sides. */
-  .wewrite-cp-body { flex-direction: column; align-items: stretch; }
-  .wewrite-cp-left { justify-content: center; }
-  .wewrite-cp-right { width: 100%; }
-  .wewrite-cp-svwrap { width: 150px; height: 150px; }
-  .wewrite-cp-huewrap { height: 150px; }
-  .wewrite-cp-modebtn { height: 36px; }
-  .wewrite-cp-field input { height: 36px !important; }
-}
-`;
+
 
 export class ColorPickerModal extends WeWriteModal {
 	private readonly opts: ColorPickerOptions;
@@ -186,7 +117,6 @@ export class ColorPickerModal extends WeWriteModal {
 		const c = this.contentEl;
 		c.empty();
 		c.addClass('wewrite-cp');
-		c.createEl('style', { text: MODAL_CSS });
 
 		const body = c.createDiv({ cls: 'wewrite-cp-body' });
 

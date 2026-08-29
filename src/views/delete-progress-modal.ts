@@ -1,4 +1,4 @@
-import { Modal, setIcon, type App } from 'obsidian';
+﻿import { setIcon, type App } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { MaterialItem, MaterialType, WeChatAccount } from '../core/interfaces';
 import type { MaterialManager } from '../media/material-manager';
@@ -45,23 +45,6 @@ export class DeleteProgressModal extends WeWriteModal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('wewrite-delete-progress-modal');
-
-    // Styles
-    const style = contentEl.createEl('style');
-    style.textContent = `
-      .wewrite-delete-progress-modal { min-width: 360px; max-width: 480px; }
-      .wewrite-delete-progress-header { font-weight: 600; margin-bottom: 8px; }
-      .wewrite-delete-progress-count { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
-      .wewrite-delete-progress-list { max-height: 300px; overflow-y: auto; margin-bottom: 16px; }
-      .wewrite-delete-task-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
-      .wewrite-delete-task-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
-      .wewrite-delete-task-icon { flex-shrink: 0; }
-      .wewrite-delete-task-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .wewrite-deleting { color: var(--text-accent); }
-      .wewrite-delete-done { color: var(--color-green); }
-      .wewrite-delete-error { color: var(--color-red); }
-      .wewrite-delete-progress-footer { text-align: right; }
-    `;
 
     // Header
     const header = contentEl.createDiv({ cls: 'wewrite-delete-progress-header' });
@@ -184,7 +167,7 @@ export class DeleteProgressModal extends WeWriteModal {
     // Brief pause so user sees final state, then auto-close
     this.cancelBtn.setAttribute('disabled', 'true');
     this.cancelBtn.textContent = this.cancelled ? t('material.deleting_cancelled') : t('material.deleting_done');
-    await new Promise((r) => setTimeout(r, 1500));
+    await new Promise((r) => window.setTimeout(r, 1500));
     this.close();
   }
 

@@ -1,4 +1,4 @@
-// RateLimiter — token bucket + interval + concurrency guard for WebDAV requests.
+﻿// RateLimiter — token bucket + interval + concurrency guard for WebDAV requests.
 // Detects provider (坚果云 vs generic) and applies appropriate pacing defaults.
 // Also provides error classification and Retry-After header parsing.
 //
@@ -171,7 +171,7 @@ const TEMPORARY_BLOCK_PENALTY_MS = 2 * 60 * 1000;
 // ── Helpers ──
 
 function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 function extractStatusCode(err: unknown): number | undefined {
@@ -224,7 +224,7 @@ export class RateLimiter {
   private lastRequestTime = 0;
   private activeCount = 0;
   private queue: Array<() => void> = [];
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  private timer: number | null = null;
   private penaltyUntil = 0;
   /** Start of the current request window (fixed 30-min slots for 坚果云). */
   private windowStartTs: number;
@@ -310,7 +310,7 @@ export class RateLimiter {
           remainingMs: Math.round(waitMs),
           queueSize: this.queue.length,
         });
-        this.timer = setTimeout(() => {
+        this.timer = window.setTimeout(() => {
           this.timer = null;
           this.processQueue();
         }, Math.min(waitMs, 5000));
@@ -334,7 +334,7 @@ export class RateLimiter {
       if (!this.timer) {
         const ratePerMs = this.config.tokenCapacity / this.config.tokenPeriodMs;
         const waitMs = Math.min(Math.ceil(1 / ratePerMs), 5000);
-        this.timer = setTimeout(() => {
+        this.timer = window.setTimeout(() => {
           this.timer = null;
           this.processQueue();
         }, waitMs);
@@ -347,7 +347,7 @@ export class RateLimiter {
     const elapsed = now - this.lastRequestTime;
     if (elapsed < this.config.minIntervalMs) {
       if (!this.timer) {
-        this.timer = setTimeout(() => {
+        this.timer = window.setTimeout(() => {
           this.timer = null;
           this.processQueue();
         }, this.config.minIntervalMs - elapsed);

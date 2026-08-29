@@ -137,3 +137,28 @@ export async function readVaultFile(
 export function isMarkdownFile(file: TFile | null | undefined): file is TFile {
   return file !== null && file !== undefined && file.extension?.toLowerCase() === 'md';
 }
+
+/**
+ * Ensure a folder (and any missing parent folders) exists in the vault.
+ *
+ * Builds the path level by level rather than relying on a single
+ * `vault.createFolder()` call. Obsidian's `createFolder` creates intermediate
+ * folders on desktop, but nested folder creation has a known mobile quirk
+ * where the new folder may not register immediately in the file browser;
+ * creating each ancestor explicitly is the robust, cross-platform pattern
+ * (see src/sync/tasks/remove.ts).
+ *
+ * Uses only Obsidian Vault APIs (`adapter.exists` + `createFolder`) — never
+ * Node fs — so it is safe on iOS/Android.
+ */
+export async function ensureFolderExists(app: App, folderPath: string): Promise<void> {
+  if (!folderPath) return;
+  const parts = folderPath.split('/').filter(Boolean);
+  let current = '';
+  for (const part of parts) {
+    current += (current ? '/' : '') + part;
+    if (!(await app.vault.adapter.exists(current))) {
+      await app.vault.createFolder(current);
+    }
+  }
+}

@@ -400,7 +400,7 @@ export class ImageEditModal {
       this.dragTarget = null;
       this.areaB.style.cursor = (!this.dVisible && !this.fVisible && this.zoom > this.getMinZoom())
         ? 'grab' : '';
-      setTimeout(() => { this.hasDragged = false; }, 0);
+      window.setTimeout(() => { this.hasDragged = false; }, 0);
     };
     window.addEventListener('mouseup', this.boundMouseUp);
 
@@ -505,7 +505,7 @@ export class ImageEditModal {
       if (this.isDragging) {
         this.isDragging = false;
         this.dragTarget = null;
-        setTimeout(() => { this.hasDragged = false; }, 0);
+        window.setTimeout(() => { this.hasDragged = false; }, 0);
       }
       this.pinchStartDistance = 0;
     };
@@ -707,7 +707,7 @@ export class ImageEditModal {
           this.resetView();
           this.setupInteraction();
         } else {
-          setTimeout(initWhenReady, 50);
+          window.setTimeout(initWhenReady, 50);
         }
       };
       initWhenReady();
@@ -731,7 +731,7 @@ export class ImageEditModal {
       });
 
       // Overlay click is a no-op (doesn't close the modal)
-      const overlay = this.modalEl.querySelector('.wewrite-image-edit-overlay')! as HTMLElement;
+      const overlay = this.modalEl.querySelector('.wewrite-image-edit-overlay')!;
       overlay.addEventListener('click', (e) => e.stopPropagation());
 
       // ESC key cancels

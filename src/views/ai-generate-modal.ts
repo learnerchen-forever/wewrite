@@ -1,9 +1,9 @@
-// ai-generate-modal.ts — Dialog for LLM generation of Obsidian-compatible
+﻿// ai-generate-modal.ts — Dialog for LLM generation of Obsidian-compatible
 // Mermaid diagrams and math formulas. The user describes what they want; the
 // selected note text is passed along as context; the result is inserted at the
 // cursor position.
 
-import { App, Modal, Notice } from 'obsidian';
+import { App, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import { t } from '../i18n';
 

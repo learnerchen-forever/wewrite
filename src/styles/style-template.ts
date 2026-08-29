@@ -44,12 +44,16 @@ function buildPreset(def: PresetDef): ThemePreset {
 		coloredHeader: false,
 		paragraphGap: def.typography.paragraphGap || 14,
 		headings: {
-			h1: { fontSize: 28, fontWeight: 700, color: '#3f3f3f', marginBottom: 16 },
-			h2: { fontSize: 22, fontWeight: 700, color: '#3f3f3f', marginBottom: 12 },
-			h3: { fontSize: 18, fontWeight: 600, color: '#3f3f3f', marginBottom: 10 },
-			h4: { fontSize: 16, fontWeight: 600, color: '#3f3f3f', marginBottom: 8 },
-			h5: { fontSize: 15, fontWeight: 600, color: '#3f3f3f', marginBottom: 6 },
-			h6: { fontSize: 14, fontWeight: 600, color: '#888888', marginBottom: 4 },
+			// Small-screen WeChat: heading sizes hug the body size and the
+			// hierarchy comes from weight + decoration, not size. Shallow,
+			// near-body gradient (17/16/16/15.5/15/14.5), weights decreasing
+			// per level (700/650/600/550/500/450).
+			h1: { fontSize: 17, fontWeight: 700, color: '#3f3f3f', marginBottom: 16 },
+			h2: { fontSize: 16, fontWeight: 650, color: '#3f3f3f', marginBottom: 12 },
+			h3: { fontSize: 16, fontWeight: 600, color: '#3f3f3f', marginBottom: 10 },
+			h4: { fontSize: 15.5, fontWeight: 550, color: '#3f3f3f', marginBottom: 8 },
+			h5: { fontSize: 15, fontWeight: 500, color: '#3f3f3f', marginBottom: 6 },
+			h6: { fontSize: 14.5, fontWeight: 450, color: '#888888', marginBottom: 4 },
 		},
 		headingDecorations: { h1: 'none', h2: 'none', h3: 'none', h4: 'none', h5: 'none', h6: 'none' },
 		blockquoteStyle: 'soft',

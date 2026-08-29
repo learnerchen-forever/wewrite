@@ -80,5 +80,19 @@ heading_colored: true
       expect(fm!.code_line_numbers).toBe(false);
       expect(fm!.heading_colored).toBe(true);
     });
+
+    it('should not throw on duplicated mapping keys (malformed YAML) and skip the file', () => {
+      // Regression: fallback templates used to emit a base key twice (e.g.
+      // global_font_size), producing "duplicated mapping key" YAML errors.
+      const content = `---
+wewrite_theme: true
+global_bg: "#ffffff"
+global_bg: "#1a1a2e"
+global_font_size: 16
+global_font_size: 15
+---`;
+      expect(() => loader.parseFrontmatter(content)).not.toThrow();
+      expect(loader.parseFrontmatter(content)).toBeNull();
+    });
   });
 });

@@ -1,4 +1,4 @@
-// Plugin Settings Tab — IP display, collapsible sections, auto-expand inputs
+﻿// Plugin Settings Tab — IP display, collapsible sections, auto-expand inputs
 
 import { App, PluginSettingTab, Setting, Notice, Modal, setIcon, requestUrl, SuggestModal, ButtonComponent, Platform, type TFolder } from 'obsidian';
 import type WeWritePlugin from '../main';
@@ -93,7 +93,7 @@ function generateId(): string {
 
 export class WeWriteSettingTab extends PluginSettingTab {
   plugin: WeWritePlugin;
-  private _syncProgressTimer: ReturnType<typeof setInterval> | null = null;
+  private _syncProgressTimer: number | null = null;
   private _langUnsub?: () => void;
   /** Server info (quota/plan) display — rebuilt on display(), updated by testConnection & sync. */
   private _serverInfoEl?: HTMLElement;
@@ -111,7 +111,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     // Clear any stale sync progress polling from a previous display() cycle
     if (this._syncProgressTimer) {
-      clearInterval(this._syncProgressTimer);
+      window.clearInterval(this._syncProgressTimer);
       this._syncProgressTimer = null;
     }
     this.plugin.syncEngine?.onProgress(null);
@@ -1043,7 +1043,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     let syncActionBtn!: ButtonComponent;
 
     const stopProgressPolling = () => {
-      if (this._syncProgressTimer) { clearInterval(this._syncProgressTimer); this._syncProgressTimer = null; }
+      if (this._syncProgressTimer) { window.clearInterval(this._syncProgressTimer); this._syncProgressTimer = null; }
       this.plugin.syncEngine?.onProgress(null);
       if (progressEl) progressEl.style.display = 'none';
     };
@@ -1109,7 +1109,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           progressEl.style.display = 'none';
         }
       });
-      this._syncProgressTimer = setInterval(() => {
+      this._syncProgressTimer = window.setInterval(() => {
         if (!isSyncRunning()) {
           updateStatusUI(s);
           // Persist the quota-wait state after a paused (partial) cycle: the
@@ -1294,8 +1294,8 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // Double rAF ensures the browser has completed layout after the DOM rebuild.
     // Proportional ratio handles content height changes from add/remove account.
     if (scrollAncestor && savedScrollRatio !== null) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
           scrollAncestor.scrollTop = savedScrollRatio * scrollAncestor.scrollHeight;
         });
       });
@@ -1314,7 +1314,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     this._langUnsub = undefined;
     // Clean up sync progress polling when leaving settings tab
     if (this._syncProgressTimer) {
-      clearInterval(this._syncProgressTimer);
+      window.clearInterval(this._syncProgressTimer);
       this._syncProgressTimer = null;
     }
     this.plugin.syncEngine?.onProgress(null);
@@ -1401,7 +1401,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     a.style.display = 'none';
     doc.body.appendChild(a);
     a.click();
-    setTimeout(() => {
+    window.setTimeout(() => {
       doc.body.removeChild(a);
       URL.revokeObjectURL(url);
       new Notice(t('notice.settings_exported'));
@@ -1510,7 +1510,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     a.style.display = 'none';
     doc.body.appendChild(a);
     a.click();
-    setTimeout(() => {
+    window.setTimeout(() => {
       doc.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 2000);

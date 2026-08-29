@@ -1,7 +1,7 @@
-// translate-modal.ts — Translate the selected text into a chosen target
+﻿// translate-modal.ts — Translate the selected text into a chosen target
 // language, then replace the selection or copy the result.
 
-import { App, Modal, Notice } from 'obsidian';
+import { App, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import { t } from '../i18n';
 

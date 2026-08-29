@@ -48,7 +48,7 @@ describe('plain heading rendering', () => {
 
     const h1 = doc.querySelector('h1')!;
     const h1Style = h1.getAttribute('style')!;
-    expect(h1Style).toContain('font-size:24px');
+    expect(h1Style).toContain('font-size:17px');
     expect(h1Style).toContain('font-weight:700');
     expect(h1Style).toContain('font-family:');
     expect(h1Style).toContain('color:#0366d6'); // default accent
@@ -57,8 +57,8 @@ describe('plain heading rendering', () => {
     expect(h1Style).toContain('margin-bottom:16px');
 
     const h6 = doc.querySelector('h6')!;
-    expect(h6.getAttribute('style')).toContain('font-size:15px');
-    expect(h6.getAttribute('style')).toContain('font-weight:500');
+    expect(h6.getAttribute('style')).toContain('font-size:14.5px');
+    expect(h6.getAttribute('style')).toContain('font-weight:450');
   });
 });
 
@@ -80,8 +80,8 @@ describe('decoration template expansion', () => {
     expect(h2.getAttribute('data-wewrite-decoration')).toBe('plaque');
     const style = h2.getAttribute('style')!;
     expect(style).toContain('border-bottom:solid 2px #0366d6');
-    expect(style).toContain('font-size:21px');
-    expect(style).toContain('font-weight:700');
+    expect(style).toContain('font-size:16px');
+    expect(style).toContain('font-weight:650');
     expect(style).toContain('margin-top:20px');
     expect(style).toContain('margin-bottom:12px');
     expect(h2.textContent).toBe('Title');
@@ -105,7 +105,7 @@ describe('decoration template expansion', () => {
     const textSpan = first.querySelector('span:last-child')!;
     expect(textSpan.textContent).toBe('One');
     expect(textSpan.getAttribute('style')).toContain('background:#ce9c61'); // default colorB kept
-    expect(textSpan.getAttribute('style')).toContain('font-size:21px');
+    expect(textSpan.getAttribute('style')).toContain('font-size:16px');
 
     expect(headings[1].querySelector('span')!.textContent).toBe('02');
   });
@@ -120,10 +120,10 @@ describe('decoration template expansion', () => {
     expect(spans).toHaveLength(2);
     const [numberSpan, textSpan] = Array.from(spans);
     expect(numberSpan.textContent).toBe('01');
-    expect(numberSpan.getAttribute('style')).toContain('font-size:21px');
-    expect(numberSpan.getAttribute('style')).toContain('font-weight:700');
-    expect(textSpan.getAttribute('style')).toContain('font-size:21px');
-    expect(textSpan.getAttribute('style')).toContain('font-weight:700');
+    expect(numberSpan.getAttribute('style')).toContain('font-size:16px');
+    expect(numberSpan.getAttribute('style')).toContain('font-weight:650');
+    expect(textSpan.getAttribute('style')).toContain('font-size:16px');
+    expect(textSpan.getAttribute('style')).toContain('font-weight:650');
     expect(numberSpan.getAttribute('style')).toContain('margin-right:3px');
   });
 
@@ -153,7 +153,7 @@ describe('decoration template expansion', () => {
     });
     const ghost = doc.querySelector('section > div')!;
     expect(ghost.getAttribute('style')).toContain('font-size:2.5em');
-    expect(ghost.getAttribute('style')).not.toContain('font-size:24px');
+    expect(ghost.getAttribute('style')).not.toContain('font-size:17px');
   });
 
   it('drops the conditional block entirely when numbering is off', () => {
@@ -221,7 +221,7 @@ describe('decoration template expansion', () => {
     expect(section.getAttribute('data-wewrite-decoration')).toBe('myBox');
     const span = section.querySelector('span')!;
     expect(span.textContent).toBe('Custom');
-    expect(span.getAttribute('style')).toContain('font-size:18px');
+    expect(span.getAttribute('style')).toContain('font-size:16px');
     expect(span.getAttribute('style')).toContain('font-weight:600');
   });
 
@@ -229,7 +229,7 @@ describe('decoration template expansion', () => {
     const doc = renderHtml('<h1>Title</h1>', { 'heading.decoration': 'nope' });
     const h1 = doc.querySelector('h1')!;
     expect(h1.hasAttribute('data-wewrite-decoration')).toBe(false);
-    expect(h1.getAttribute('style')).toContain('font-size:24px');
+    expect(h1.getAttribute('style')).toContain('font-size:17px');
     expect(h1.textContent).toBe('Title');
   });
 });
@@ -273,7 +273,7 @@ describe('WechatRenderer integration', () => {
     const result = renderer.processPreRenderedHtml('<article><h2>Hello</h2></article>', 'test.md');
 
     expect(result.html).toContain('border-bottom:solid 2px #0366d6');
-    expect(result.html).toContain('font-size:21px');
+    expect(result.html).toContain('font-size:16px');
     expect(result.html).toContain('data-wewrite-decoration="plaque"');
   });
 });

@@ -1,6 +1,6 @@
 // Material View — WeChat material management with account-aware sync
 
-import { ItemView, setIcon, Notice, Platform, Modal, type App, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, setIcon, Notice, Platform, Modal, Menu, type App, type WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE_WECHAT_NEWS, WeChatNewsView } from './wechat-news-view';
 import { VIEW_TYPE_WECHAT_NEWSPIC } from './wechat-newspic-view';
 import type WeWritePlugin from '../main';
@@ -618,7 +618,7 @@ export class MaterialView extends ItemView {
       wrap.style.maxHeight = '0px';
       wrap.style.opacity = '0';
       wrap.style.overflow = 'hidden';
-      setTimeout(() => wrap.remove(), 350);
+      window.setTimeout(() => wrap.remove(), 350);
       new Notice(t('notice.draft_deleted'));
     } else {
       row.style.transform = 'translateX(0px)';
@@ -873,7 +873,6 @@ export class MaterialView extends ItemView {
   }
 
   private showImageContextMenu(item: MaterialItem, x: number, y: number): void {
-    const { Menu } = require('obsidian');
     const menu = new Menu();
 
     const addCoverItem = (zone: 'a' | 'b' | 'c', label: string) => {
@@ -939,7 +938,6 @@ export class MaterialView extends ItemView {
   }
 
   private showDraftContextMenu(item: MaterialItem, x: number, y: number): void {
-    const { Menu } = require('obsidian');
     const menu = new Menu();
 
     menu.addItem((i: { setTitle: (t: string) => void; onClick: (cb: () => void) => void }) => {
@@ -993,13 +991,6 @@ class ConfirmDeleteModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('wewrite-confirm-delete-modal');
-
-    const style = contentEl.createEl('style');
-    style.textContent = `
-      .wewrite-confirm-delete-modal { min-width: 300px; max-width: 400px; }
-      .wewrite-confirm-delete-message { margin-bottom: 16px; font-size: 14px; }
-      .wewrite-confirm-delete-buttons { display: flex; justify-content: flex-end; gap: 8px; }
-    `;
 
     contentEl.createDiv({
       cls: 'wewrite-confirm-delete-message',

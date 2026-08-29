@@ -1,4 +1,4 @@
-// ai-image-client.ts — Unified AI text-to-image client
+﻿// ai-image-client.ts — Unified AI text-to-image client
 //
 // Supported providers (each has an incompatible request shape / size syntax):
 //   - dashscope (阿里万相 2.6):  原生 DashScope 同步文生图 API
@@ -445,7 +445,7 @@ async function getJson(
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 // ── 阿里万相 2.6（wan2.6-t2i）调用 ──

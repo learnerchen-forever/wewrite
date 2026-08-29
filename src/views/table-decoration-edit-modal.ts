@@ -1,10 +1,10 @@
-// table-decoration-edit-modal.ts — Decoration editor for tables
+﻿// table-decoration-edit-modal.ts — Decoration editor for tables
 //
 // Mirrors the blockquote decoration editor: built-ins are read-only ("另存为副本"
 // to fork), custom decorations can be renamed / re-parametrized / re-styled per
 // part, and the live preview renders a sample table against the current theme.
 
-import { App, Modal, Notice } from 'obsidian';
+import { App, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { TableDecoration, TableDecorationParts } from '../core/table-decoration-types';
@@ -61,7 +61,7 @@ export class TableDecorationEditModal extends WeWriteModal {
 	private parts: TableDecorationParts = {};
 	private paramsListEl: HTMLElement | null = null;
 	private previewEl: HTMLElement | null = null;
-	private previewTimer: ReturnType<typeof setTimeout> | null = null;
+	private previewTimer: number | null = null;
 
 	constructor(app: App, options: TableDecorationEditOptions) {
 		super(app);
@@ -206,8 +206,8 @@ export class TableDecorationEditModal extends WeWriteModal {
 	}
 
 	private schedulePreview(): void {
-		if (this.previewTimer) clearTimeout(this.previewTimer);
-		this.previewTimer = setTimeout(() => this.updatePreview(), 200);
+		if (this.previewTimer) window.clearTimeout(this.previewTimer);
+		this.previewTimer = window.setTimeout(() => this.updatePreview(), 200);
 	}
 
 	private updatePreview(): void {
@@ -247,6 +247,6 @@ export class TableDecorationEditModal extends WeWriteModal {
 	}
 
 	onClose(): void {
-		if (this.previewTimer) clearTimeout(this.previewTimer);
+		if (this.previewTimer) window.clearTimeout(this.previewTimer);
 	}
 }

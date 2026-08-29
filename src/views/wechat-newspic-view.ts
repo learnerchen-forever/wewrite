@@ -1,4 +1,4 @@
-// WeChatNewsPic ItemView — compact config rows + phone-frame slideshow preview
+﻿// WeChatNewsPic ItemView — compact config rows + phone-frame slideshow preview
 // Images and description auto-extracted from source markdown note (read-only).
 
 import { ItemView, Menu, setIcon, Notice, requestUrl, type WorkspaceLeaf, type TFile } from 'obsidian';
@@ -138,7 +138,7 @@ export class WeChatNewsPicView extends ItemView {
       // Only render if this is the active leaf (prevents background views
       // from rendering on Obsidian startup).
       if (this.app.workspace.activeLeaf !== this.leaf) return;
-      setTimeout(() => { void this.setFile(state.filePath); }, 100);
+      window.setTimeout(() => { void this.setFile(state.filePath); }, 100);
     }
   }
 
@@ -343,18 +343,18 @@ export class WeChatNewsPicView extends ItemView {
         let cache = this.app.metadataCache.getFileCache(noteFile);
         if (!cache?.embeds?.length) {
           await new Promise<void>((resolve) => {
-            const timeout = setTimeout(() => resolve(), 2000);
+            const timeout = window.setTimeout(() => resolve(), 2000);
             const ref = this.app.metadataCache.on('resolved', () => {
               cache = this.app.metadataCache.getFileCache(noteFile);
-              if (cache?.embeds?.length) { clearTimeout(timeout); this.app.metadataCache.offref(ref); resolve(); }
+              if (cache?.embeds?.length) { window.clearTimeout(timeout); this.app.metadataCache.offref(ref); resolve(); }
             });
             const cr = this.app.metadataCache.on('changed', (f) => {
               if (f.path === filePath) {
                 cache = this.app.metadataCache.getFileCache(noteFile);
-                if (cache?.embeds?.length) { clearTimeout(timeout); this.app.metadataCache.offref(ref); this.app.metadataCache.offref(cr); resolve(); }
+                if (cache?.embeds?.length) { window.clearTimeout(timeout); this.app.metadataCache.offref(ref); this.app.metadataCache.offref(cr); resolve(); }
               }
             });
-            setTimeout(() => { this.app.metadataCache.offref(ref); this.app.metadataCache.offref(cr); }, 2100);
+            window.setTimeout(() => { this.app.metadataCache.offref(ref); this.app.metadataCache.offref(cr); }, 2100);
           });
         }
 
@@ -1515,7 +1515,7 @@ class NewsPicPublishModal {
   setFinished(success: boolean, onClosed?: () => void): void {
     void this.publishLogger.flush(success);
     if (success) {
-      setTimeout(() => {
+      window.setTimeout(() => {
         this.close();
         onClosed?.();
       }, 2000);

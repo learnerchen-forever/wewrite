@@ -1,9 +1,9 @@
-// article-pattern-css-modal.ts — Modal for editing the article background-pattern CSS.
+﻿// article-pattern-css-modal.ts — Modal for editing the article background-pattern CSS.
 // Unlike the generic paste-HTML modal, this one shows a clear example and lets
 // the user edit the pattern properties (background-image/size/position/repeat)
 // directly as CSS.
 
-import { App, Modal, Notice } from 'obsidian';
+import { App, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { SlotValue } from '../core/slot-types';
 import { t } from '../i18n';

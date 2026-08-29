@@ -19,7 +19,7 @@ import {
 const log = createLogger('Sync:WebDAV');
 
 function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 // ── requestUrl patch for webdav npm package ──
@@ -44,7 +44,7 @@ export function ensureWebdavPatched(): void {
     // Native fetch on desktop Electron is blocked by CORS for app:// → WebDAV.
     // The webdav npm package (v5.x) already percent-encodes path segments via
     // encodePath() before constructing the URL, so we pass the URL through as-is.
-    (globalThis as unknown as { fetch: typeof fetch }).fetch = async (url: string | URL | Request, init?: RequestInit) => {
+    (window as unknown as { fetch: typeof fetch }).fetch = async (url: string | URL | Request, init?: RequestInit) => {
       const method = init?.method || 'GET';
       const body = init?.body as string | ArrayBuffer | undefined;
       const safeUrl: string = typeof url === 'string' ? url : String(url);

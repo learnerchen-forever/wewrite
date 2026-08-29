@@ -213,7 +213,7 @@ export class ThemeDownloader {
   private getUrl(url: string): Promise<RequestUrlResponse> {
     return new Promise((resolve, reject) => {
       let settled = false;
-      const timer = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         if (settled) return;
         settled = true;
         reject(new Error(`request timed out after ${REQUEST_TIMEOUT_MS}ms`));
@@ -223,13 +223,13 @@ export class ThemeDownloader {
         (resp) => {
           if (settled) return;
           settled = true;
-          clearTimeout(timer);
+          window.clearTimeout(timer);
           resolve(resp);
         },
         (err) => {
           if (settled) return;
           settled = true;
-          clearTimeout(timer);
+          window.clearTimeout(timer);
           reject(err);
         },
       );
@@ -258,22 +258,36 @@ export class ThemeDownloader {
 
   private buildFallbackTemplates(): { file: string; content: string }[] {
     const make = (name: string, desc: string, file: string, overrides: Record<string, string | number>) => {
-      let fm = `---
-wewrite_theme: true
-wewrite_theme_name: "${name}"
-wewrite_theme_description: "${desc}"
-global_margin: 16
-global_bg: "#ffffff"
-global_font_family: "inherit"
-global_font_size: 16
-global_line_height: 1.8
-global_letter_spacing: 0
-global_text_color: "#333333"
-link_color: "#0366d6"
-link_decoration: "underline"
-`;
-      for (const [k, v] of Object.entries(overrides)) {
-        fm += typeof v === 'string' ? `${k}: "${v}"\n` : `${k}: ${v}\n`;
+      // Build the frontmatter from a single merged object so no key is emitted
+      // twice. Previously the override keys were appended AFTER the base block,
+      // which duplicated e.g. global_font_size / global_bg and produced invalid
+      // YAML ("duplicated mapping key") that broke theme parsing.
+      const data: Record<string, string | number | boolean> = {
+        wewrite_theme: true,
+        wewrite_theme_name: name,
+        wewrite_theme_description: desc,
+        global_margin: 16,
+        global_bg: '#ffffff',
+        global_font_family: 'inherit',
+        global_font_size: 16,
+        global_line_height: 1.8,
+        global_letter_spacing: 0,
+        global_text_color: '#333333',
+        link_color: '#0366d6',
+        link_decoration: 'underline',
+        ...overrides,
+      };
+
+      let fm = '---\n';
+      for (const [k, v] of Object.entries(data)) {
+        if (typeof v === 'boolean') {
+          fm += `${k}: ${v}\n`;
+        } else if (typeof v === 'number') {
+          fm += `${k}: ${v}\n`;
+        } else {
+          const s = String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+          fm += `${k}: "${s}"\n`;
+        }
       }
       fm += `---
 

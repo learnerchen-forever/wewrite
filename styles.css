@@ -711,7 +711,6 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   white-space: nowrap;
   flex-shrink: 0;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .wewrite-material-toolbar-left {
@@ -3078,3 +3077,249 @@ body.is-mobile .modal.wewrite-proofread-modal {
     box-sizing: border-box;
   }
 }
+
+/* WeWrite - Delete progress modal (migrated from runtime <style>) */
+.wewrite-delete-progress-modal { min-width: 360px; max-width: 480px; }
+.wewrite-delete-progress-header { font-weight: 600; margin-bottom: 8px; }
+.wewrite-delete-progress-count { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+.wewrite-delete-progress-list { max-height: 300px; overflow-y: auto; margin-bottom: 16px; }
+.wewrite-delete-task-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
+.wewrite-delete-task-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.wewrite-delete-task-icon { flex-shrink: 0; }
+.wewrite-delete-task-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wewrite-deleting { color: var(--text-accent); }
+.wewrite-delete-done { color: var(--color-green); }
+.wewrite-delete-error { color: var(--color-red); }
+.wewrite-delete-progress-footer { text-align: right; }
+
+/* WeWrite - Confirm delete modal (migrated from runtime <style>) */
+.wewrite-confirm-delete-modal { min-width: 300px; max-width: 400px; }
+.wewrite-confirm-delete-message { margin-bottom: 16px; font-size: 14px; }
+.wewrite-confirm-delete-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+
+
+/* WeWrite - Color picker modal (migrated from runtime <style>) */
+
+.wewrite-cp-modal { width: 420px; max-width: 94vw; }
+.wewrite-cp { display: flex; flex-direction: column; gap: 14px; }
+/* Two columns: color area (left) + preview / mode tabs / fields (right) —
+   no dead space on the right of the color area. */
+.wewrite-cp-body { display: flex; gap: 16px; align-items: center; }
+.wewrite-cp-left { display: flex; gap: 10px; align-items: flex-start; }
+.wewrite-cp-svwrap {
+  position: relative; width: 170px; height: 170px; border-radius: 8px;
+  border: 1px solid var(--background-modifier-border); overflow: hidden;
+  cursor: crosshair; touch-action: none; flex-shrink: 0;
+}
+.wewrite-cp-svdot {
+  position: absolute; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+  transform: translate(-50%, -50%); pointer-events: none;
+}
+.wewrite-cp-huewrap {
+  position: relative; width: 22px; height: 170px; border-radius: 8px;
+  border: 1px solid var(--background-modifier-border); overflow: hidden;
+  cursor: ns-resize; touch-action: none; flex-shrink: 0;
+  background: linear-gradient(to bottom, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.wewrite-cp-huedot {
+  position: absolute; left: -3px; right: -3px; height: 8px; border-radius: 4px;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+  transform: translateY(-50%); pointer-events: none;
+}
+.wewrite-cp-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.wewrite-cp-previewrow { display: flex; align-items: center; gap: 10px; }
+.wewrite-cp-preview {
+  width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0;
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+.wewrite-cp-hexreadout {
+  font-family: var(--font-monospace); font-size: 13px; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wewrite-cp-modes { display: flex; gap: 6px; }
+.wewrite-cp-modebtn {
+  flex: 1; min-width: 0; height: 30px; padding: 0 6px; border-radius: 6px;
+  font-size: 12px; background: var(--background-secondary); color: var(--text-normal);
+  cursor: pointer; border: 1px solid var(--background-modifier-border);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wewrite-cp-modebtn:hover { background: var(--background-modifier-hover); }
+.wewrite-cp-modebtn-active {
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  border-color: var(--interactive-accent) !important;
+}
+.wewrite-cp-field { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+.wewrite-cp-field label { width: 44px; flex-shrink: 0; }
+.wewrite-cp-field input { flex: 1; min-width: 0; height: 32px !important; padding: 0 8px !important; }
+.wewrite-cp-footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 10px; }
+@media (max-width: 760px) {
+  .wewrite-cp-modal { width: calc(100vw - 40px); }
+  /* On a phone the two columns stack; stretch (not center) so the fields
+     use the full dialog width instead of floating in a narrow centered
+     column with dead space on both sides. */
+  .wewrite-cp-body { flex-direction: column; align-items: stretch; }
+  .wewrite-cp-left { justify-content: center; }
+  .wewrite-cp-right { width: 100%; }
+  .wewrite-cp-svwrap { width: 150px; height: 150px; }
+  .wewrite-cp-huewrap { height: 150px; }
+  .wewrite-cp-modebtn { height: 36px; }
+  .wewrite-cp-field input { height: 36px !important; }
+}
+
+
+
+/* WeWrite - Theme view (migrated from runtime <style>) */
+
+.wewrite-theme-view {
+  display: flex; flex-direction: column; height: 100%; overflow: hidden;
+  /* Keep the desktop control height on mobile too — Obsidian mobile raises
+     --input-height to 44px, which makes every text box/select/swatch look
+     oversized next to the rest of the editor. */
+  --input-height: 30px;
+  /* Android WebView auto-zooms focused inputs whose font-size is below
+     16px. Keeping the mobile media query's 16px minimum font-size prevents
+     that focus zoom; the separate "editor goes blank when the keyboard
+     opens" symptom is NOT the focus zoom — it is the WebView failing to
+     repaint after the keyboard resize, handled by setupMobileKeyboardRepaint
+     + forceFullRepaint. This rule stays as a belt-and-braces guard against
+     text inflation / focus zoom. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.wewrite-theme-view .wewrite-theme-editor-panel,
+.wewrite-theme-view .wewrite-theme-preview-panel,
+.wewrite-theme-view .wewrite-theme-preview-content { min-height: 0; }
+.wewrite-theme-view input[type="text"], .wewrite-theme-view input[type="number"],
+.wewrite-theme-view input[type="search"], .wewrite-theme-view select {
+  height: var(--input-height, 30px); box-sizing: border-box; border-radius: 6px;
+}
+.wewrite-theme-view button:not(.wewrite-btn-icon) {
+  height: var(--input-height, 30px); padding: 0 10px; border-radius: 6px; font-size: 12px;
+}
+/* Range sliders own their touch: dragging a thumb must not pan the editor
+   scroll or trigger Obsidian mobile's view-swipe gesture mid-drag. */
+.wewrite-theme-view input[type="range"] { touch-action: none; }
+/* Header bar: icon buttons stay fixed-size, the theme-name input grows.
+   On narrow screens the input wraps onto its own full-width row. */
+.wewrite-theme-view .wewrite-theme-header {
+  padding: 8px 12px; border-bottom: 1px solid var(--background-modifier-border);
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap;
+}
+.wewrite-theme-view .wewrite-theme-header .wewrite-input { flex: 1 1 200px; min-width: 120px; }
+.wewrite-theme-view .wewrite-theme-header .wewrite-btn-icon { flex-shrink: 0; }
+/* Collapsed sections: hide everything except the header (class-based, so
+   inline display:flex rows keep their layout when a section re-opens). */
+.wewrite-theme-view .wewrite-theme-section.wewrite-theme-section-collapsed > *:not(.wewrite-theme-section-header) { display: none !important; }
+/* Element rows: a bit more air between labels / selects / params. */
+.wewrite-theme-view .wewrite-theme-section [style*="padding:2px 0"] { padding: 4px 0 !important; }
+.wewrite-theme-view .wewrite-theme-section [style*="margin-bottom:8px"] { margin-bottom: 12px !important; }
+@media (max-width: 760px) {
+  /* The desktop split layout (height:100% + overflow:hidden + nested scroll
+     panels) is what breaks mobile input focus: with the soft keyboard open,
+     iOS/Android cannot scroll the focused field into view through the nested
+     overflow:hidden containers, so the editor jumps/blanks/zooms until the
+     keyboard closes. The News view's article-property inputs (e.g. author)
+     live in a normal scrolling .view-content and never had this problem. On
+     phones, scroll the view as one document: .view-content becomes the single
+     scroll container and the split stops constraining height. */
+  .wewrite-theme-view {
+    display: block !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  .wewrite-theme-view .wewrite-theme-split {
+    flex-wrap: wrap !important; overflow: visible !important; flex: none !important;
+  }
+  .wewrite-theme-view .wewrite-theme-editor-panel,
+  .wewrite-theme-view .wewrite-theme-preview-panel {
+    flex: 1 1 100% !important; min-width: 0 !important;
+  }
+  .wewrite-theme-view .wewrite-theme-preview-panel {
+    border-left: none !important; border-top: 1px solid var(--background-modifier-border);
+  }
+  .wewrite-theme-view .wewrite-theme-splitter { display: none !important; }
+  /* Text boxes/selects keep the desktop height (30px) — the 44px forced
+     height made them look empty and clipped short values. Buttons stay
+     touch-friendly. */
+  .wewrite-theme-view input[type="text"], .wewrite-theme-view input[type="number"],
+  .wewrite-theme-view input[type="search"] {
+    height: var(--input-height, 30px) !important; min-height: 0 !important;
+    padding: 1px 6px !important;
+  }
+  .wewrite-theme-view select {
+    height: var(--input-height, 30px) !important; min-height: 0 !important;
+  }
+  /* Android WebView auto-zooms focused inputs whose font-size is below
+     16px (a separate issue from the keyboard blank-screen repaint bug, which
+     is handled in TypeScript). 16px is the minimum that disables the focus
+     zoom — text-size-adjust alone does not prevent it. Inline
+     font-size:10px/12px styles lose to !important. */
+  .wewrite-theme-view input[type="text"],
+  .wewrite-theme-view input[type="number"],
+  .wewrite-theme-view input[type="search"],
+  .wewrite-theme-view textarea,
+  .wewrite-theme-view select {
+    font-size: 16px !important;
+  }
+  .wewrite-theme-view button:not(.wewrite-btn-icon):not(.wewrite-swatch-btn):not(.wewrite-swatch-btn-sm) {
+    height: 38px !important; min-height: 38px !important;
+  }
+  /* Color swatches must stay square (inline width/height rules), so they are
+     excluded from the touch-friendly button height above; only neutralize the
+     mobile min-height and pin the height so nothing stretches them into
+     tall pills. */
+  .wewrite-theme-view button.wewrite-swatch-btn {
+    height: var(--input-height, 30px) !important;
+    min-height: 0 !important;
+  }
+  .wewrite-theme-view button.wewrite-swatch-btn-sm {
+    height: 20px !important;
+    min-height: 0 !important;
+  }
+  .wewrite-theme-view .wewrite-btn-icon {
+    min-width: 44px !important; min-height: 44px !important;
+  }
+  /* Header: the theme-name input takes its own full-width row on top. */
+  .wewrite-theme-view .wewrite-theme-header { gap: 8px; }
+  .wewrite-theme-view .wewrite-theme-header .wewrite-input { flex: 1 1 100% !important; order: -1; }
+  /* Mobile: flat group list — drop the per-group border box and the inner
+     box borders; the section header divider is the only line. */
+  .wewrite-theme-view .wewrite-theme-editor-panel { padding: 6px 8px !important; }
+  .wewrite-theme-view .wewrite-theme-section {
+    padding: 6px 8px !important; border: none !important; border-radius: 0 !important;
+    margin-bottom: 8px !important;
+  }
+  .wewrite-theme-view .wewrite-theme-section-header {
+    min-height: 44px !important; padding-top: 10px !important; padding-bottom: 10px !important;
+    margin: -6px -8px 6px !important;
+  }
+  .wewrite-theme-view .wewrite-theme-section [style*="padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px"] {
+    border: none !important; border-radius: 0 !important; padding: 4px 0 !important;
+  }
+  /* Section internals: let flex rows wrap instead of overflowing, and give
+     every control room to shrink. */
+  .wewrite-theme-view .wewrite-theme-section [style*="display:flex"] { flex-wrap: wrap; }
+  .wewrite-theme-view .wewrite-theme-section input[type="text"],
+  .wewrite-theme-view .wewrite-theme-section input[type="number"],
+  .wewrite-theme-view .wewrite-theme-section select { min-width: 0; }
+}
+
+/* Same single-document scroll for the Obsidian mobile app at any width
+   (e.g. tablets in landscape, where the 760px media query does not fire but
+   the soft keyboard breaks the nested-scroll layout the same way). */
+body.is-mobile .wewrite-theme-view {
+  display: block !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+body.is-mobile .wewrite-theme-view .wewrite-theme-split {
+  flex-wrap: wrap !important;
+  overflow: visible !important;
+  flex: none !important;
+}
+

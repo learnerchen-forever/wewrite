@@ -101,8 +101,24 @@ export interface ResolvedHeadingConfig {
 }
 
 export const DEFAULT_HEADING_SCALE: Required<HeadingScaleConfig> = {
+	// Ratios are only used for a custom gradient when a theme explicitly
+	// provides scale.size ratios; otherwise the fixed DEFAULT_LEVEL_SIZES apply.
 	size: { h1Ratio: 1.5, highRatio: 0.86, lowRatio: 0.95, min: 15 },
-	weight: { h1: 700, step: -100, stepEvery: 2, min: 500 },
+	weight: { h1: 700, step: -50, stepEvery: 1, min: 450 },
+};
+
+/**
+ * Default per-level heading sizes. WeChat is read mostly on small screens, so
+ * headings hug the body size and the hierarchy comes from weight + decoration,
+ * not size. Shallow near-body gradient with H2==H3 and a fractional H4 (15.5px).
+ */
+export const DEFAULT_LEVEL_SIZES: Record<HeadingLevel, number> = {
+	h1: 17,
+	h2: 16,
+	h3: 16,
+	h4: 15.5,
+	h5: 15,
+	h6: 14.5,
 };
 
 export const DEFAULT_LEVEL_MARGINS: Record<HeadingLevel, { top: number; bottom: number }> = {
@@ -365,24 +381,39 @@ export function computeHeadingScale(
 	scale: HeadingScaleConfig | undefined,
 	bodySize: number,
 ): Record<HeadingLevel, { fontSize: number; fontWeight: number }> {
-	const s = { ...DEFAULT_HEADING_SCALE.size, ...(scale?.size || {}) } as Required<HeadingScaleSizeConfig>;
 	const w = { ...DEFAULT_HEADING_SCALE.weight, ...(scale?.weight || {}) } as Required<HeadingScaleWeightConfig>;
 
-	let cur = s.h1Ratio * bodySize;
-	const raw = [cur];
-	cur *= s.highRatio;
-	raw.push(cur);
-	cur *= s.highRatio;
-	raw.push(cur);
-	for (let i = 0; i < 3; i++) {
-		cur *= s.lowRatio;
+	// Custom gradient only when the theme explicitly provides size ratios; the
+	// default is the fixed small-screen DEFAULT_LEVEL_SIZES (so H2==H3 and the
+	// fractional H4 hold even though a pure ratio chain can't).
+	const explicitSize = scale?.size || {};
+	const hasRatio = explicitSize.h1Ratio !== undefined
+		|| explicitSize.highRatio !== undefined
+		|| explicitSize.lowRatio !== undefined;
+
+	let sizes: Record<HeadingLevel, number>;
+	if (hasRatio) {
+		const s = { ...DEFAULT_HEADING_SCALE.size, ...explicitSize } as Required<HeadingScaleSizeConfig>;
+		let cur = s.h1Ratio * bodySize;
+		const raw = [cur];
+		cur *= s.highRatio;
 		raw.push(cur);
+		cur *= s.highRatio;
+		raw.push(cur);
+		for (let i = 0; i < 3; i++) {
+			cur *= s.lowRatio;
+			raw.push(cur);
+		}
+		const min = s.min;
+		const sizeArr = raw.map(v => Math.max(Math.round(v), min));
+		sizes = Object.fromEntries(HEADING_LEVELS.map((level, i) => [level, sizeArr[i]])) as Record<HeadingLevel, number>;
+	} else {
+		sizes = { ...DEFAULT_LEVEL_SIZES };
 	}
 
-	const sizes = raw.map(v => Math.max(Math.round(v), s.min));
 	const weights = HEADING_LEVELS.map((_, i) => Math.max(w.h1 + w.step * Math.floor(i / w.stepEvery), w.min));
 
-	return Object.fromEntries(HEADING_LEVELS.map((level, i) => [level, { fontSize: sizes[i], fontWeight: weights[i] }])) as Record<HeadingLevel, { fontSize: number; fontWeight: number }>;
+	return Object.fromEntries(HEADING_LEVELS.map((level, i) => [level, { fontSize: sizes[level], fontWeight: weights[i] }])) as Record<HeadingLevel, { fontSize: number; fontWeight: number }>;
 }
 
 /** Merge scale → global → level and fill every field with its final value. */

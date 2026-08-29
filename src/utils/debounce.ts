@@ -1,13 +1,13 @@
-// Debounce utility — delays function execution until after `delay` ms of inactivity
+﻿// Debounce utility — delays function execution until after `delay` ms of inactivity
 
 export function debounce<T extends (...args: unknown[]) => unknown>(fn: T, delay: number): T {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let timeoutId: number | null = null;
 
   const debounced = function (this: unknown, ...args: unknown[]) {
     if (timeoutId !== null) {
-      clearTimeout(timeoutId);
+      window.clearTimeout(timeoutId);
     }
-    timeoutId = setTimeout(() => {
+    timeoutId = window.setTimeout(() => {
       timeoutId = null;
       fn.apply(this, args);
     }, delay);
