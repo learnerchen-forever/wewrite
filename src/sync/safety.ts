@@ -44,7 +44,7 @@ export interface PathCheckResult {
  * Validate a vault-relative path for sync safety.
  * Rejects: absolute paths, traversal attempts, system files, excluded dirs/extensions.
  */
-export function validatePath(vaultPath: string): PathCheckResult {
+export function validatePath(vaultPath: string, configDir?: string): PathCheckResult {
   // Must be vault-relative (no leading /)
   if (vaultPath.startsWith('/') || vaultPath.startsWith('\\')) {
     return { allowed: false, reason: 'path must be vault-relative' };
@@ -63,6 +63,16 @@ export function validatePath(vaultPath: string): PathCheckResult {
   // Must be non-empty
   if (vaultPath.trim().length === 0) {
     return { allowed: false, reason: 'empty path' };
+  }
+
+  // Exclude the Obsidian configuration folder. It is not necessarily
+  // '.obsidian' (users can customize it), so derive it from Vault#configDir.
+  if (configDir) {
+    const norm = vaultPath.replace(/\\/g, '/');
+    const cd = configDir.replace(/^\/+/, '').replace(/\/+$/, '');
+    if (norm === cd || norm.startsWith(cd + '/')) {
+      return { allowed: false, reason: `excluded config dir component: ${configDir}` };
+    }
   }
 
   // Check excluded directories
@@ -143,12 +153,13 @@ export function validateCycleSize(fileCount: number): SizeCheckResult {
 export function filterUnsafePaths<T extends { size: number }>(
   stats: Map<string, T>,
   maxFileSizeBytes = MAX_FILE_SIZE,
+  configDir?: string,
 ): { safe: Map<string, T>; skipped: Array<{ path: string; reason: string }> } {
   const safe = new Map<string, T>();
   const skipped: Array<{ path: string; reason: string }> = [];
 
   for (const [path, stat] of stats) {
-    const pathCheck = validatePath(path);
+    const pathCheck = validatePath(path, configDir);
     if (!pathCheck.allowed) {
       skipped.push({ path, reason: pathCheck.reason! });
       log.debug('skipping path', { path, reason: pathCheck.reason });

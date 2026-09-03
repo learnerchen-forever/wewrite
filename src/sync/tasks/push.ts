@@ -4,7 +4,7 @@ import type { Vault } from 'obsidian';
 import type { SyncBackend } from '../backend/interface';
 import type { SyncRecordData, TaskResult } from '../types';
 import { upsertRecordEntry } from '../record';
-import { sha256Hex, normalizeMtime } from '../hash';
+import { normalizeMtime } from '../hash';
 import { BaseTask } from './base';
 import { TaskError } from '../types';
 import { createLogger } from '../../utils/logger';

@@ -80,7 +80,7 @@ function absoluteToVaultRelativeByName(app: App, absPath: string): string | null
 
 /** Check if a string looks like an absolute filesystem path (not vault-relative). */
 function isAbsolutePath(p: string): boolean {
-	return /^[A-Za-z]:[\/\\]/.test(p) || p.startsWith('/');
+	return /^[A-Za-z]:[/\\]/.test(p) || p.startsWith('/');
 }
 
 // ── Path resolution (sync) ──

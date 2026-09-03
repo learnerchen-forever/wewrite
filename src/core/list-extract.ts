@@ -164,7 +164,7 @@ export function extractListFromHtml(html: string, accentHex: string): ExtractedL
 
 	// 1. Section wrapper containing a list → root template keeps the section.
 	if (root.tagName !== 'UL' && root.tagName !== 'OL') {
-		const list = root.querySelector('ul, ol') as HTMLElement | null;
+		const list = root.querySelector('ul, ol');
 		if (!list) return null;
 
 		rewriteStyle(root, rootKeyFor);
@@ -313,7 +313,7 @@ export function extractTaskListFromHtml(html: string, _accentHex: string): Extra
 	const template = `<{tag} style="${(rootNext || 'list-style-type:none;margin:8px 0;padding:0').replace(/"/g, '&quot;')}">{items}</{tag}>`;
 
 	// 4. 条目模板：li 间距 → itemGap，marker span 使用提取的图标与参数。
-	const firstLi = list.querySelector(':scope > li') as HTMLElement | null;
+	const firstLi = list.querySelector(':scope > li');
 	const liStyle = firstLi ? mapStyleDeclarations(firstLi.getAttribute('style') || '', (prop, value) => {
 		if (prop === 'margin' || prop === 'margin-bottom') {
 			const px = pxOf(value, 5);

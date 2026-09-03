@@ -1,10 +1,10 @@
-﻿// table-decoration-edit-modal.ts — Decoration editor for tables
+// table-decoration-edit-modal.ts — Decoration editor for tables
 //
 // Mirrors the blockquote decoration editor: built-ins are read-only ("另存为副本"
 // to fork), custom decorations can be renamed / re-parametrized / re-styled per
 // part, and the live preview renders a sample table against the current theme.
 
-import { App, Notice } from 'obsidian';
+import { App } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { TableDecoration, TableDecorationParts } from '../core/table-decoration-types';

@@ -1,7 +1,7 @@
 // Vault helper utilities — path resolution, attachment folder, frontmatter reading
 
 import type { App, TFile } from 'obsidian';
-import { normalizePath } from 'obsidian';
+import { normalizePath, Platform } from 'obsidian';
 
 /**
  * Get the attachment folder path for a given note.
@@ -82,6 +82,9 @@ export function isSupportedMediaExtension(ext: string): boolean {
  *  major canvas/SVG issues in iOS 17. Obsidian forum confirms Mermaid
  *  fails on iOS < 17: https://forum.obsidian.md/t/107464 */
 export function isIosVersionBelow17(): boolean {
+  // Use the Obsidian Platform API for OS detection; the user agent is only
+  // parsed for the version number, which Platform does not expose.
+  if (!Platform.isIosApp) return false;
   const ua = navigator.userAgent;
   const match = ua.match(/iPhone OS (\d+)[._](\d+)/);
   if (!match) return false;

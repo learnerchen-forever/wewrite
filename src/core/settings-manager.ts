@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import type { WeWriteSettings, WeChatAccount, AITextAccount, AIImageGenAccount, ImportResult, ImportFormat, ExportData } from './interfaces';
 import { DEFAULT_SETTINGS } from './interfaces';
-import { ALI_MAAS_BASE_URL_TEMPLATE, LEGACY_DASHSCOPE_ASYNC_URL, LEGACY_WANX_2_1_MODEL, WAN_2_6_MODEL } from './image-gen-defaults';
+import { ALI_MAAS_BASE_URL_TEMPLATE, LEGACY_WANX_2_1_MODEL, WAN_2_6_MODEL } from './image-gen-defaults';
 import { encryptSettingsKeys, decryptSettingsKeys } from '../utils/encryption';
 import { compareVersions } from '../utils/version-utils';
 import { migrateLegacyToV2 } from '../utils/migration';

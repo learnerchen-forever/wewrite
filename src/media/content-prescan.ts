@@ -3,11 +3,11 @@
 // Ported from main-16.js prescanSvgs (td) / prescanImages (rd) patterns.
 
 import type { ProgressCallback } from '../core/interfaces';
-import type { App, TFile } from 'obsidian';
+import { type App, TFile } from 'obsidian';
 import { svgToPngBuffer } from './svg-to-png';
 import { canvasToBlobSafe, clampCanvasDimensions } from './diagram-renderer';
 import { MediaRegistry } from './media-registry';
-import { compressToTarget, type ProcessResult } from './cover-processor';
+import { compressToTarget } from './cover-processor';
 import { resizeImage } from './image-processor';
 import { createLogger } from '../utils/logger';
 import { resolveLocalImagePath } from './local-image-resolver';
@@ -449,8 +449,9 @@ export async function prescanImages(
           details.push({ index: detailIdx, source: fileName, action: 'failed', note: 'file not found in vault' });
           continue;
         }
-        buf = await app.vault.readBinary(file as TFile);
-        if (isSvg) svgText = await app.vault.read(file as TFile);
+        if (!(file instanceof TFile)) continue;
+        buf = await app.vault.readBinary(file);
+        if (isSvg) svgText = await app.vault.read(file);
       }
 
       // Check if this source was already converted in an earlier phase.

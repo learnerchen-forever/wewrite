@@ -9,7 +9,6 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('MediaRegistry');
 
-const STORAGE_KEY = 'wewrite_media_db';
 const SCHEMA_VERSION = 1;
 
 export class MediaRegistry {
@@ -24,7 +23,7 @@ export class MediaRegistry {
   /** Compute fingerprint from an SVG string (encodes to UTF-8 first). */
   computeSvgFingerprint(svgString: string, mimeType = 'image/svg+xml'): string {
     const encoded = new TextEncoder().encode(svgString);
-    return computeFingerprint(mimeType, encoded.buffer as ArrayBuffer);
+    return computeFingerprint(mimeType, encoded.buffer);
   }
 
   // ── Lookups ──

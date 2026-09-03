@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import matter from 'gray-matter';
+import { parseFrontmatter, splitFrontmatter, stringifyFrontmatter } from '../../../src/utils/frontmatter';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>');
@@ -34,7 +34,7 @@ const THEME_FILES = [
 
 function loadTheme(file: string) {
   const content = fs.readFileSync(path.join(THEMES_DIR, file), 'utf8');
-  const fm = matter(content).data as Record<string, unknown>;
+  const fm = (parseFrontmatter(content) as Record<string, unknown>);
   const { config, customDecorations } = parseHeadingFrontmatter(fm);
   const preset = frontmatterToThemePreset(fm)!;
   preset.headingConfig = config;

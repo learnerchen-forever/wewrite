@@ -30,7 +30,7 @@ function buildPreset(def: PresetDef): ThemePreset {
 		// Default to 'inherit' (platform font) unless the style explicitly needs
 		// a specific family — keeps the built-in themes faithful to WeChat's
 		// default font instead of forcing sans-serif.
-		fontFamily: def.typography.family ? FONT_FAMILIES[def.typography.family as keyof typeof FONT_FAMILIES] || def.typography.family : 'inherit',
+		fontFamily: def.typography.family ? FONT_FAMILIES[def.typography.family] || def.typography.family : 'inherit',
 		fontSize: def.typography.baseSize || 16,
 		lineHeight: def.typography.lineHeight || 1.8,
 		letterSpacing: def.typography.letterSpacing || 1,
@@ -71,7 +71,7 @@ function buildPreset(def: PresetDef): ThemePreset {
 		modifierConfig: slots,
 		...(def.callout ? { calloutConfig: def.callout } : {}),
 		...(def.image ? { imageConfig: def.image } : {}),
-	} as ThemePreset;
+	};
 }
 
 // ── 10 built-in presets ──

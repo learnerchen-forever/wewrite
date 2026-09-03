@@ -2,7 +2,7 @@
 // load frontmatter → change a heading background slot → build file content
 // (matter.stringify with raw frontmatter + modifierConfig) → re-parse.
 
-import matter from 'gray-matter';
+import { parseFrontmatter, splitFrontmatter, stringifyFrontmatter } from '../../../src/utils/frontmatter';
 import * as fs from 'fs';
 import * as path from 'path';
 import { parseFlatFrontmatter, registerCustomValues } from '../../../src/core/frontmatter-parser';
@@ -11,7 +11,7 @@ import { isKnownSlotKey } from '../../../src/views/wewrite-theme-view';
 const THEME_PATH = path.join(__dirname, '..', '..', '..', 'themes', '001-晨曦蓝调.md');
 
 function loadConfig(content: string) {
-  const fm = matter(content).data as Record<string, unknown>;
+  const fm = (parseFrontmatter(content) as Record<string, unknown>);
   const { config, customValues } = parseFlatFrontmatter(fm);
   registerCustomValues(customValues);
   return { fm, config, customValues };
@@ -36,7 +36,7 @@ describe('Theme editor full flow (real theme file)', () => {
     if (customValues.length > 0) {
       outFm['custom_values'] = { 'heading.h1.background': customValues.map((c) => c.value) };
     }
-    const saved = matter.stringify(matter(content).content, outFm);
+    const saved = stringifyFrontmatter(splitFrontmatter(content).body, outFm);
 
     // Reload
     const reloaded = loadConfig(saved);
@@ -65,21 +65,21 @@ describe('Theme editor full flow (real theme file)', () => {
       fm[key] = value;
     }
 
-    const parsed = matter(matter.stringify('body', fm)).data as Record<string, unknown>;
+    const parsed = parseFrontmatter(stringifyFrontmatter('body', fm)) as Record<string, unknown>;
     expect(parsed['heading.h1.background']).toBeUndefined();
     expect(parsed['heading.font']).toBe('serif');
     expect(parsed['custom_values']).toBeDefined();
   });
 
   it('normalizes legacy record-key values on load', () => {
-    const fm = matter(matter.stringify('# t', {
+    const fm = parseFrontmatter(stringifyFrontmatter('# t', {
       wewrite_theme: true,
       'heading.background': 'gradient',
       'heading.border': 'bottomLine',
       'heading.h1.background': 'accentFill',
       'heading.h1.border': 'leftBar',
       'blocks.table.headerStyle': 'plain',
-    })).data as Record<string, unknown>;
+    })) as Record<string, unknown>;
 
     const { config } = parseFlatFrontmatter(fm);
     expect(config['heading']?.background).toBe('gradientBg');

@@ -1,4 +1,4 @@
-﻿// Diagram Renderer — converts Excalidraw and Mermaid diagrams to PNG for NewsPic extraction
+// Diagram Renderer — converts Excalidraw and Mermaid diagrams to PNG for NewsPic extraction
 
 import { MarkdownRenderer, Component, type App } from 'obsidian';
 import { createLogger } from '../utils/logger';

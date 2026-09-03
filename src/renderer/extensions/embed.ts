@@ -22,15 +22,15 @@ export function parseEmbedParams(rawAlt: string): EmbedParams {
     // Width×Height: e.g., "200x150"
     const dimsMatch = token.match(/^(\d+)\s*[xX×]\s*(\d+)$/);
     if (dimsMatch) {
-      width = parseInt(dimsMatch[1]!, 10);
-      height = parseInt(dimsMatch[2]!, 10);
+      width = parseInt(dimsMatch[1], 10);
+      height = parseInt(dimsMatch[2], 10);
       continue;
     }
 
     // Width only: e.g., "200"
     const widthMatch = token.match(/^(\d+)$/);
     if (widthMatch) {
-      width = parseInt(widthMatch[1]!, 10);
+      width = parseInt(widthMatch[1], 10);
       continue;
     }
 

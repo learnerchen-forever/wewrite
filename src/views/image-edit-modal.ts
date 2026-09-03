@@ -3,7 +3,6 @@
 import { setIcon } from 'obsidian';
 import type { ImageEditModalConfig, ImageEditResult } from '../core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
-import type { MediaRegistry } from '../media/media-registry';
 import { canvasToBlobSafe } from '../media/diagram-renderer';
 import { compressToTarget } from '../media/cover-processor';
 import { t } from '../i18n';
@@ -124,31 +123,31 @@ export class ImageEditModal {
         </div>
       </div>`;
 
-    this.areaB = this.modalEl.querySelector('.wewrite-image-edit-area')! as HTMLElement;
+    this.areaB = this.modalEl.querySelector('.wewrite-image-edit-area') as HTMLElement;
 
     // Set icons on buttons
-    const cancelBtn = this.modalEl.querySelector('.wewrite-iem-cancel')! as HTMLButtonElement;
+    const cancelBtn = this.modalEl.querySelector('.wewrite-iem-cancel') as HTMLButtonElement;
     cancelBtn.setAttribute('aria-label', t('imageEdit.cancel'));
     setIcon(cancelBtn, 'cross');
 
-    this.cropBtn = this.modalEl.querySelector('.wewrite-iem-crop')! as HTMLButtonElement;
+    this.cropBtn = this.modalEl.querySelector('.wewrite-iem-crop') as HTMLButtonElement;
     this.cropBtn.setAttribute('aria-label', t('imageEdit.crop'));
     setIcon(this.cropBtn, 'wewrite-crop');
 
     // Frame elements
-    this.frameD = this.modalEl.querySelector('.wewrite-iem-frame-d')! as HTMLElement;
-    this.frameF = this.modalEl.querySelector('.wewrite-iem-frame-f')! as HTMLElement;
+    this.frameD = this.modalEl.querySelector('.wewrite-iem-frame-d') as HTMLElement;
+    this.frameF = this.modalEl.querySelector('.wewrite-iem-frame-f') as HTMLElement;
 
     if (this.config.showCropFrames) {
       // D checkbox only exists when D frame is not redundant (aspectRatio !== 2.35)
       if (!this.dRedundant) {
-        this.chkD = this.modalEl.querySelector('#wewrite-iem-chk-d')! as HTMLInputElement;
+        this.chkD = this.modalEl.querySelector('#wewrite-iem-chk-d') as HTMLInputElement;
         this.chkD.addEventListener('change', () => {
           this.dVisible = this.chkD.checked;
           this.frameD.style.display = this.dVisible ? '' : 'none';
         });
       }
-      this.chkF = this.modalEl.querySelector('#wewrite-iem-chk-f')! as HTMLInputElement;
+      this.chkF = this.modalEl.querySelector('#wewrite-iem-chk-f') as HTMLInputElement;
       this.chkF.addEventListener('change', () => {
         this.fVisible = this.chkF.checked;
         this.frameF.style.display = this.fVisible ? '' : 'none';
@@ -717,17 +716,19 @@ export class ImageEditModal {
       cancelBtn.addEventListener('click', () => this.resolve(null));
 
       // Crop button
-      this.cropBtn.addEventListener('click', async () => {
-        this.cropBtn.disabled = true;
-        try {
-          const result = await this.doCrop();
-          this.resolve(result);
-        } catch (err) {
-          log.error('unexpected crop error', { err: String(err) });
-          this.resolve(null);
-        } finally {
-          this.cropBtn.disabled = false;
-        }
+      this.cropBtn.addEventListener('click', () => {
+        void (async () => {
+          this.cropBtn.disabled = true;
+          try {
+            const result = await this.doCrop();
+            this.resolve(result);
+          } catch (err) {
+            log.error('unexpected crop error', { err: String(err) });
+            this.resolve(null);
+          } finally {
+            this.cropBtn.disabled = false;
+          }
+        })();
       });
 
       // Overlay click is a no-op (doesn't close the modal)

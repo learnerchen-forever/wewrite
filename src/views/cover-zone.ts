@@ -1,4 +1,4 @@
-﻿// CoverZone — reusable image zone with drag/drop and ImageEditModal integration
+// CoverZone — reusable image zone with drag/drop and ImageEditModal integration
 
 import type { App } from 'obsidian';
 import { Menu, Modal, Notice, requestUrl, type TFile } from 'obsidian';
@@ -237,103 +237,105 @@ export class CoverZone {
       this.zoneEl.style.borderColor = 'var(--background-modifier-border)';
     });
 
-    this.zoneEl.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      this.hasDragged = true;
-      this.zoneEl.style.borderColor = 'var(--background-modifier-border)';
+    this.zoneEl.addEventListener('drop', (e) => {
+      void (async () => {
+        e.preventDefault();
+        this.hasDragged = true;
+        this.zoneEl.style.borderColor = 'var(--background-modifier-border)';
 
-      const dt = e.dataTransfer;
-      if (!dt) return;
+        const dt = e.dataTransfer;
+        if (!dt) return;
 
-      if (dt.files && dt.files.length > 0) {
-        const file = dt.files[0];
-        // On Android, webp files may have empty type — accept by extension too
-        const ext = file.name.split('.').pop()?.toLowerCase() || '';
-        const isImage = file.type.startsWith('image/')
-          || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext);
-        if (isImage) {
-          await this.importFile(file);
+        if (dt.files && dt.files.length > 0) {
+          const file = dt.files[0];
+          // On Android, webp files may have empty type — accept by extension too
+          const ext = file.name.split('.').pop()?.toLowerCase() || '';
+          const isImage = file.type.startsWith('image/')
+            || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext);
+          if (isImage) {
+            await this.importFile(file);
+            window.setTimeout(() => { this.hasDragged = false; }, 0);
+            return;
+          }
+        }
+
+        const materialJson = dt.getData('application/wewrite-material');
+        if (materialJson) {
+          try {
+            const mat = JSON.parse(materialJson) as { mediaId: string; url: string; name: string; type: string };
+            if (mat.url) {
+              // All zones: download CDN image, fingerprint, save locally.
+              // media_id is cached per-account via thumbMediaIds — never on zone.
+              const resp = await requestUrl({ url: mat.url });
+              const blob = new Blob([resp.arrayBuffer], { type: resp.headers['content-type'] || 'image/jpeg' });
+              const file = new File([blob], `material_${mat.mediaId}.png`, { type: blob.type });
+              const accountId = this.currentAccountIdProvider?.() || '';
+              await this.importFile(file, { mediaId: mat.mediaId, wechatUrl: mat.url, accountId });
+              window.setTimeout(() => { this.hasDragged = false; }, 0);
+              return;
+            }
+          } catch { /* fall through */ }
+        }
+
+        const plain = dt.getData('text/plain') || '';
+        const html = dt.getData('text/html') || '';
+        const uriList = dt.getData('text/uri-list') || '';
+
+
+        // 1. Wikilink format: [[path/to/image.png]]
+        const wikiMatch = plain.match(/\[\[([^\]]+\.(?:png|jpg|jpeg|gif|webp|bmp))\]\]/i);
+        if (wikiMatch) {
+          const vaultPath = wikiMatch[1].split('|')[0].trim();
+          await this.setImageFromPath(vaultPath);
           window.setTimeout(() => { this.hasDragged = false; }, 0);
           return;
         }
-      }
 
-      const materialJson = dt.getData('application/wewrite-material');
-      if (materialJson) {
-        try {
-          const mat = JSON.parse(materialJson) as { mediaId: string; url: string; name: string; type: string };
-          if (mat.url) {
-            // All zones: download CDN image, fingerprint, save locally.
-            // media_id is cached per-account via thumbMediaIds — never on zone.
-            const resp = await requestUrl({ url: mat.url });
-            const blob = new Blob([resp.arrayBuffer], { type: resp.headers['content-type'] || 'image/jpeg' });
-            const file = new File([blob], `material_${mat.mediaId}.png`, { type: blob.type });
-            const accountId = this.currentAccountIdProvider?.() || '';
-            await this.importFile(file, { mediaId: mat.mediaId, wechatUrl: mat.url, accountId });
-            window.setTimeout(() => { this.hasDragged = false; }, 0);
-            return;
-          }
-        } catch { /* fall through */ }
-      }
+        // 2. Obsidian open URL (from file explorer drag)
+        if (uriList.startsWith('obsidian://')) {
+          try {
+            const urlObj = new URL(uriList);
+            const fileParam = urlObj.searchParams.get('file');
+            if (fileParam) {
+              const vaultPath = decodeURIComponent(fileParam);
+              await this.setImageFromPath(vaultPath);
+              window.setTimeout(() => { this.hasDragged = false; }, 0);
+              return;
+            }
+          } catch { /* fall through */ }
+        }
 
-      const plain = dt.getData('text/plain') || '';
-      const html = dt.getData('text/html') || '';
-      const uriList = dt.getData('text/uri-list') || '';
+        // 3. app:// URL (Obsidian resource path)
+        const appUrl = (uriList.startsWith('app://') ? uriList : '') ||
+          (plain.startsWith('app://') ? plain : '');
+        if (appUrl) {
+          const vaultPath = decodeURIComponent(appUrl.replace(/^app:\/\/[^/]+\//, ''));
+          await this.setImageFromPath(vaultPath);
+          window.setTimeout(() => { this.hasDragged = false; }, 0);
+          return;
+        }
 
+        // 4. HTTP(S) URL
+        const httpUrl = (uriList.startsWith('http') ? uriList : '') ||
+          (plain.startsWith('http') ? plain : '');
+        if (httpUrl) {
+          await this.downloadAndSet(httpUrl);
+          window.setTimeout(() => { this.hasDragged = false; }, 0);
+          return;
+        }
 
-      // 1. Wikilink format: [[path/to/image.png]]
-      const wikiMatch = plain.match(/\[\[([^\]]+\.(?:png|jpg|jpeg|gif|webp|bmp))\]\]/i);
-      if (wikiMatch) {
-        const vaultPath = wikiMatch[1].split('|')[0].trim();
-        await this.setImageFromPath(vaultPath);
+        // 5. Vault path from plain text or HTML img src
+        const imgMatch = html.match(/<img[^>]+src="([^"]+)"/i);
+        const textPath = plain.match(/^(.+\.(?:png|jpg|jpeg|gif|webp|bmp))$/im)?.[1]?.trim();
+        const vaultPath = textPath || (imgMatch?.[1]?.startsWith('app://')
+          ? '' : imgMatch?.[1]?.replace(/^app:\/\/[^/]+\//, ''));
+
+        if (vaultPath) {
+          await this.setImageFromPath(vaultPath);
+        }
+
         window.setTimeout(() => { this.hasDragged = false; }, 0);
-        return;
-      }
-
-      // 2. Obsidian open URL (from file explorer drag)
-      if (uriList.startsWith('obsidian://')) {
-        try {
-          const urlObj = new URL(uriList);
-          const fileParam = urlObj.searchParams.get('file');
-          if (fileParam) {
-            const vaultPath = decodeURIComponent(fileParam);
-            await this.setImageFromPath(vaultPath);
-            window.setTimeout(() => { this.hasDragged = false; }, 0);
-            return;
-          }
-        } catch { /* fall through */ }
-      }
-
-      // 3. app:// URL (Obsidian resource path)
-      const appUrl = (uriList.startsWith('app://') ? uriList : '') ||
-        (plain.startsWith('app://') ? plain : '');
-      if (appUrl) {
-        const vaultPath = decodeURIComponent(appUrl.replace(/^app:\/\/[^/]+\//, ''));
-        await this.setImageFromPath(vaultPath);
-        window.setTimeout(() => { this.hasDragged = false; }, 0);
-        return;
-      }
-
-      // 4. HTTP(S) URL
-      const httpUrl = (uriList.startsWith('http') ? uriList : '') ||
-        (plain.startsWith('http') ? plain : '');
-      if (httpUrl) {
-        await this.downloadAndSet(httpUrl);
-        window.setTimeout(() => { this.hasDragged = false; }, 0);
-        return;
-      }
-
-      // 5. Vault path from plain text or HTML img src
-      const imgMatch = html.match(/<img[^>]+src="([^"]+)"/i);
-      const textPath = plain.match(/^(.+\.(?:png|jpg|jpeg|gif|webp|bmp))$/im)?.[1]?.trim();
-      const vaultPath = textPath || (imgMatch?.[1]?.startsWith('app://')
-        ? '' : imgMatch?.[1]?.replace(/^app:\/\/[^/]+\//, ''));
-
-      if (vaultPath) {
-        await this.setImageFromPath(vaultPath);
-      }
-
-      window.setTimeout(() => { this.hasDragged = false; }, 0);
+      })();
     });
   }
 

@@ -49,7 +49,7 @@ export class AIImageGenerateModal {
     this.generateBtn = this.modalEl.querySelector('.mod-cta')!;
     this.modalEl.querySelector('.wewrite-publish-overlay')!.addEventListener('click', (e: Event) => { e.stopPropagation(); });
     this.modalEl.querySelector('.wewrite-publish-cancel:not(.mod-cta)')!.addEventListener('click', () => this.close());
-    this.generateBtn.addEventListener('click', () => this.generate());
+    this.generateBtn.addEventListener('click', () => { void this.generate(); });
   }
 
   open(): void { this.modalEl.style.display = 'flex'; }

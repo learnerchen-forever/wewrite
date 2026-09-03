@@ -2,10 +2,7 @@
 
 import { Modal, Notice, type App } from 'obsidian';
 import type { JournalEntry } from './journal';
-import { createLogger } from '../utils/logger';
 import { t } from '../i18n';
-
-const log = createLogger('Sync:JournalViewer');
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -85,25 +82,27 @@ export class JournalViewer extends Modal {
           cls: 'wewrite-journal-rollback-btn',
         });
         btn.setAttribute('title', t('journal.rollback_title'));
-        btn.addEventListener('click', async () => {
-          btn.disabled = true;
-          btn.setText('...');
-          try {
-            const result = await this.onRollback!(entry.id);
-            new Notice(result.ok ? result.message : t('journal.rollback_failed', { message: result.message }));
-            if (result.ok) {
-              // Reload: remove entry from list and update count
-              row.remove();
-              this.entries = this.entries.filter(e => e.id !== entry.id);
-              const countEl = this.contentEl.querySelector('.wewrite-journal-count span');
-              if (countEl) countEl.textContent = t('journal.entry_count', { count: String(this.entries.length) });
+        btn.addEventListener('click', () => {
+          void (async () => {
+            btn.disabled = true;
+            btn.setText('...');
+            try {
+              const result = await this.onRollback!(entry.id);
+              new Notice(result.ok ? result.message : t('journal.rollback_failed', { message: result.message }));
+              if (result.ok) {
+                // Reload: remove entry from list and update count
+                row.remove();
+                this.entries = this.entries.filter(e => e.id !== entry.id);
+                const countEl = this.contentEl.querySelector('.wewrite-journal-count span');
+                if (countEl) countEl.textContent = t('journal.entry_count', { count: String(this.entries.length) });
+              }
+            } catch (err) {
+              new Notice(t('journal.rollback_error', { error: String(err) }));
+            } finally {
+              btn.disabled = false;
+              btn.setText('↩');
             }
-          } catch (err) {
-            new Notice(t('journal.rollback_error', { error: String(err) }));
-          } finally {
-            btn.disabled = false;
-            btn.setText('↩');
-          }
+          })();
         });
       }
     }

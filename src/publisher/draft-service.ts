@@ -1,15 +1,13 @@
 // Draft service — WeChat draft creation, update, and lifecycle
 
 import { WeChatApiManager } from './api-manager';
-import { createLogger, summarizeBody } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 
 const log = createLogger('DraftService');
 
 const DRAFT_ADD_ENDPOINT = '/draft/add';
 const DRAFT_UPDATE_ENDPOINT = '/draft/update';
 const DRAFT_DELETE_ENDPOINT = '/draft/delete';
-const DRAFT_GET_ENDPOINT = '/draft/get';
-const DRAFT_BATCHGET_ENDPOINT = '/draft/batchget';
 const FREEPUBLISH_ENDPOINT = '/freepublish/submit';
 const MASS_SENDALL_ENDPOINT = '/message/mass/sendall';
 const MASS_PREVIEW_ENDPOINT = '/message/mass/preview';

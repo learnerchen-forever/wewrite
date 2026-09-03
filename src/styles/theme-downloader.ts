@@ -8,9 +8,11 @@
 // 3. Built-in fallback templates (when both remotes are unreachable)
 
 import type { App, RequestUrlResponse } from 'obsidian';
-import { Notice, requestUrl } from 'obsidian';
+import { Notice, requestUrl, TFile, TFolder } from 'obsidian';
 import { t } from '../i18n';
 import { createLogger } from '../utils/logger';
+import yaml from 'js-yaml';
+import { extractFrontmatterBlock } from '../utils/frontmatter';
 
 const log = createLogger('Styles');
 
@@ -230,7 +232,7 @@ export class ThemeDownloader {
           if (settled) return;
           settled = true;
           window.clearTimeout(timer);
-          reject(err);
+          reject(err instanceof Error ? err : new Error(String(err)));
         },
       );
     });
@@ -239,21 +241,70 @@ export class ThemeDownloader {
   // ── Fallback: built-in templates when both remotes are unreachable ──
 
   private async saveFallbackTemplates(saveDir: string): Promise<void> {
-    const templates = this.buildFallbackTemplates();
-
     if (!(await this.app.vault.adapter.exists(saveDir))) {
       await this.app.vault.createFolder(saveDir);
     }
+    const { created, repaired } = await this.applyFallbackTemplates(saveDir, { createMissing: true, repairMalformed: true });
+    new Notice(t('notice.templates_downloaded', { count: created + repaired, dir: saveDir }));
+  }
 
-    let downloaded = 0;
+  /**
+   * Public: repair any existing fallback template file whose frontmatter is
+   * malformed (e.g. the old builder emitted duplicate YAML keys → "duplicated
+   * mapping key"). Never creates new templates — used on plugin load to fix
+   * files the previous version already wrote incorrectly. Returns the number
+   * of files rewritten.
+   */
+  async repairFallbackTemplates(saveDir: string): Promise<number> {
+    if (!saveDir) return 0;
+    const { repaired } = await this.applyFallbackTemplates(saveDir, { createMissing: false, repairMalformed: true });
+    return repaired;
+  }
+
+  /** Create missing and/or repair malformed fallback templates. */
+  private async applyFallbackTemplates(
+    saveDir: string,
+    opts: { createMissing: boolean; repairMalformed: boolean },
+  ): Promise<{ created: number; repaired: number }> {
+    if (!opts.createMissing && !opts.repairMalformed) return { created: 0, repaired: 0 };
+    const templates = this.buildFallbackTemplates();
+    let created = 0;
+    let repaired = 0;
+
     for (const tpl of templates) {
       const vaultPath = `${saveDir}/${tpl.file}`;
-      if (this.app.vault.getAbstractFileByPath(vaultPath)) continue;
-      await this.app.vault.create(vaultPath, tpl.content);
-      downloaded++;
+      const existing = this.app.vault.getAbstractFileByPath(vaultPath);
+
+      if (!existing) {
+        if (opts.createMissing) {
+          await this.app.vault.create(vaultPath, tpl.content);
+          created++;
+        }
+        continue;
+      }
+      if (!opts.repairMalformed) continue;
+      if (existing instanceof TFolder) continue;
+
+      const current = await this.app.vault.read(existing as TFile);
+      if (this.isMalformedFrontmatter(current)) {
+        await this.app.vault.modify(existing as TFile, tpl.content);
+        repaired++;
+      }
     }
 
-    new Notice(t('notice.templates_downloaded', { count: downloaded, dir: saveDir }));
+    return { created, repaired };
+  }
+
+  /** True when the note's YAML frontmatter cannot be parsed (e.g. duplicate keys). */
+  private isMalformedFrontmatter(content: string): boolean {
+    const block = extractFrontmatterBlock(content);
+    if (block === null) return false;
+    try {
+      yaml.load(block);
+      return false;
+    } catch {
+      return true;
+    }
   }
 
   private buildFallbackTemplates(): { file: string; content: string }[] {

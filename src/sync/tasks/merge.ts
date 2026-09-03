@@ -67,7 +67,7 @@ export class MergeTask extends BaseTask {
         base = storedBaseText;
       } else {
         const localBuffer = new TextEncoder().encode(localContent);
-        const currentLocalHash = await sha256Hex(localBuffer.buffer as ArrayBuffer);
+        const currentLocalHash = await sha256Hex(localBuffer.buffer);
 
         if (currentLocalHash === this.recordedLocalHash) {
           base = localContent;
@@ -93,7 +93,7 @@ export class MergeTask extends BaseTask {
       // Update sync record
       const localStat = await this.vault.adapter.stat(this.localPath);
       const mergedBuffer = new TextEncoder().encode(result.merged);
-      const mergedHash = await sha256Hex(mergedBuffer.buffer as ArrayBuffer);
+      const mergedHash = await sha256Hex(mergedBuffer.buffer);
 
       const updateEntry: import('../types').SyncEntry = {
         localMtime: localStat?.mtime ?? Date.now(),

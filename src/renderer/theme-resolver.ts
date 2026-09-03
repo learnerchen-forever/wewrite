@@ -147,11 +147,11 @@ export class ThemeResolver {
 	private _headingDomMap = new Map<string, ResolvedSlot['dom']>();
 
 	constructor(preset?: Partial<ThemePreset>) {
-		this.preset = preset ? { ...DEFAULT_PRESET, ...preset } as ThemePreset : { ...DEFAULT_PRESET };
+		this.preset = preset ? { ...DEFAULT_PRESET, ...preset } : { ...DEFAULT_PRESET };
 	}
 
 	updateStyle(preset: Partial<ThemePreset>): void {
-		this.preset = { ...DEFAULT_PRESET, ...preset } as ThemePreset;
+		this.preset = { ...DEFAULT_PRESET, ...preset };
 		this._tokens = undefined;
 		this._headingDomMap.clear();
 	}
@@ -530,7 +530,7 @@ export class ThemeResolver {
 
 			case 'ul': {
 				const slotCss = this.resolveSlotCSS('blocks.list', ['numbering']);
-				const list = p.list as ListElementStyle;
+				const list = p.list;
 				return joinStyles(
 					`padding-left: ${list?.indent || 24}px; margin-bottom: ${list?.gap || 4}px;`,
 					slotCss,
@@ -539,7 +539,7 @@ export class ThemeResolver {
 
 			case 'ol': {
 				const slotCss = this.resolveSlotCSS('blocks.list', ['bullet']);
-				const list = p.list as ListElementStyle;
+				const list = p.list;
 				return joinStyles(
 					`padding-left: ${list?.indent || 24}px; margin-bottom: ${list?.gap || 4}px;`,
 					slotCss,
@@ -547,12 +547,12 @@ export class ThemeResolver {
 			}
 
 			case 'li': {
-				const list = p.list as ListElementStyle;
+				const list = p.list;
 				return `margin-bottom: ${list?.gap || 4}px;`;
 			}
 
 			case 'figure': {
-				const img = p.image as ImageElementStyle;
+				const img = p.image;
 				return joinStyles(
 					`margin-bottom: ${img?.figurePadding || 8}px;`,
 				);
@@ -570,7 +570,7 @@ export class ThemeResolver {
 			}
 
 			case 'img': {
-				const img = p.image as ImageElementStyle;
+				const img = p.image;
 				const base = `border-radius: ${img?.borderRadius || 4}px; max-width: 100%;`;
 				return base;
 			}
@@ -596,7 +596,7 @@ export class ThemeResolver {
 				// the article and scroll in its overflow-x wrapper rather than
 				// compressing columns and folding words to fit 100%.
 				const slotCss = this.resolveSlotCSS('blocks.table', ['headerStyle', 'striped']);
-				const tbl = p.table as TableElementStyle;
+				const tbl = p.table;
 				return joinStyles(
 					`font-size: ${tbl?.fontSize || 14}px; border-collapse: collapse; min-width: 100%;`,
 					slotCss,
@@ -604,7 +604,7 @@ export class ThemeResolver {
 			}
 
 			case 'th': {
-				const tbl = p.table as TableElementStyle;
+				const tbl = p.table;
 				// Header styling belongs to th cells only.
 				const slotCss = this.resolveSlotCSS('blocks.table', ['striped']);
 				const base = `background: ${tbl?.headerBg || '#f6f8fa'}; color: ${this.bodyTextColor()}; padding: ${tbl?.cellPadding || 10}px; border: 1px solid ${tbl?.borderColor || '#e8eaed'}; font-weight: 600; text-align: left; word-break: normal; overflow-wrap: normal; white-space: normal;`;
@@ -612,7 +612,7 @@ export class ThemeResolver {
 			}
 
 			case 'td': {
-				const tbl = p.table as TableElementStyle;
+				const tbl = p.table;
 				// Body cells must NOT inherit headerStyle (background/color).
 				const slotCss = this.resolveSlotCSS('blocks.table', ['headerStyle', 'striped']);
 				const base = `padding: ${tbl?.cellPadding || 10}px; border: 1px solid ${tbl?.borderColor || '#e8eaed'}; word-break: normal; overflow-wrap: normal; white-space: normal;`;
@@ -636,12 +636,12 @@ export function frontmatterToThemePreset(fm: Record<string, unknown>): ThemePres
 	if (fm.wewrite_style !== true && fm.wewrite_theme !== true) return null;
 
 	const preset: Partial<ThemePreset> = {};
-	if (typeof fm['wewrite_theme_name'] === 'string') preset.name = fm['wewrite_theme_name'] as string;
-	if (typeof fm['wewrite_style_name'] === 'string') preset.name = fm['wewrite_style_name'] as string;
+	if (typeof fm['wewrite_theme_name'] === 'string') preset.name = fm['wewrite_theme_name'];
+	if (typeof fm['wewrite_style_name'] === 'string') preset.name = fm['wewrite_style_name'];
 
 	// ── Palette ──
 	if (typeof fm['palette.accent'] === 'string') {
-		const accent = fm['palette.accent'] as string;
+		const accent = fm['palette.accent'];
 		preset.accentColor = accent;
 		// Derive the full palette from the accent so accentDeep/accentBg/
 		// accentBorder/text/textMuted match the chosen color. Explicit
@@ -657,43 +657,43 @@ export function frontmatterToThemePreset(fm: Record<string, unknown>): ThemePres
 	// keeping the rgba() encoding for generated accentBg/accentBorder.
 	const overrides: NonNullable<ThemePreset['paletteOverrides']> = {};
 	if (typeof fm['palette.accentDeep'] === 'string') {
-		preset.accentColorDeep = fm['palette.accentDeep'] as string;
+		preset.accentColorDeep = fm['palette.accentDeep'];
 		overrides.accentDeep = preset.accentColorDeep;
 	}
 	if (typeof fm['palette.accentBg'] === 'string') {
-		preset.accentBg = fm['palette.accentBg'] as string;
+		preset.accentBg = fm['palette.accentBg'];
 		overrides.accentBg = preset.accentBg;
 	}
 	if (typeof fm['palette.accentBorder'] === 'string') {
-		preset.accentBorder = fm['palette.accentBorder'] as string;
+		preset.accentBorder = fm['palette.accentBorder'];
 		overrides.accentBorder = preset.accentBorder;
 	}
 	if (typeof fm['palette.text'] === 'string') {
-		preset.textColor = fm['palette.text'] as string;
+		preset.textColor = fm['palette.text'];
 		overrides.text = preset.textColor;
 	}
 	if (typeof fm['palette.textMuted'] === 'string') {
-		preset.mutedTextColor = fm['palette.textMuted'] as string;
+		preset.mutedTextColor = fm['palette.textMuted'];
 		overrides.textMuted = preset.mutedTextColor;
 	}
 	if (Object.keys(overrides).length > 0) preset.paletteOverrides = overrides;
 
 	// ── Typography ──
 	if (typeof fm['typography.family'] === 'string') {
-		const fam = fm['typography.family'] as string;
-		preset.fontFamily = FONT_FAMILIES[fam as keyof typeof FONT_FAMILIES] || fam;
+		const fam = fm['typography.family'];
+		preset.fontFamily = FONT_FAMILIES[fam] || fam;
 	}
-	if (typeof fm['typography.baseSize'] === 'number') preset.fontSize = fm['typography.baseSize'] as number;
-	if (typeof fm['typography.lineHeight'] === 'number') preset.lineHeight = fm['typography.lineHeight'] as number;
-	if (typeof fm['typography.letterSpacing'] === 'number') preset.letterSpacing = fm['typography.letterSpacing'] as number;
-	if (typeof fm['typography.paragraphGap'] === 'number') preset.paragraphGap = fm['typography.paragraphGap'] as number;
+	if (typeof fm['typography.baseSize'] === 'number') preset.fontSize = fm['typography.baseSize'];
+	if (typeof fm['typography.lineHeight'] === 'number') preset.lineHeight = fm['typography.lineHeight'];
+	if (typeof fm['typography.letterSpacing'] === 'number') preset.letterSpacing = fm['typography.letterSpacing'];
+	if (typeof fm['typography.paragraphGap'] === 'number') preset.paragraphGap = fm['typography.paragraphGap'];
 
 	// ── Page ──
 	if (typeof fm['article.background'] === 'string') {
 		const bgMap: Record<string, string> = { transparent: 'transparent', white: '#ffffff', warm: '#fffdf8', cool: '#f8faff', gray: '#f5f5f5', dark: '#1e293b' };
-		preset.background = bgMap[fm['article.background'] as string] || '#ffffff';
+		preset.background = bgMap[fm['article.background']] || '#ffffff';
 		preset.sectionBg = preset.background;
 	}
 
-	return { ...DEFAULT_PRESET, ...preset } as ThemePreset;
+	return { ...DEFAULT_PRESET, ...preset };
 }

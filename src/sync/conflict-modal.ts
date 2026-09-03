@@ -78,9 +78,9 @@ export class ConflictModal extends Modal {
     }
   }
 
-  private addButton(container: HTMLElement, text: string, onClick: () => void): void {
+  private addButton(container: HTMLElement, text: string, onClick: () => void | Promise<void>): void {
     const btn = container.createEl('button', { text, cls: 'wewrite-conflict-btn' });
-    btn.addEventListener('click', onClick);
+    btn.addEventListener('click', () => { void onClick(); });
   }
 
   private async resolveAllConflicts(resolution: ConflictResolution): Promise<void> {

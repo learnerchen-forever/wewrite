@@ -1,4 +1,4 @@
-﻿// ai-image-client.ts — Unified AI text-to-image client
+// ai-image-client.ts — Unified AI text-to-image client
 //
 // Supported providers (each has an incompatible request shape / size syntax):
 //   - dashscope (阿里万相 2.6):  原生 DashScope 同步文生图 API
@@ -188,16 +188,6 @@ function parsePixelSize(raw: string): { w: number; h: number } | null {
   const h = parseInt(m[2], 10);
   if (!Number.isFinite(w) || !Number.isFinite(h) || w < 16 || h < 16 || w > 8192 || h > 8192) return null;
   return { w, h };
-}
-
-/** Parse "2K"/"4K" shorthand into pixels (short edge). */
-function parseKShorthand(raw: string): { w: number; h: number } | null {
-  const m = raw.trim().match(/^(\d+)\s*[kK]$/);
-  if (!m) return null;
-  const k = parseInt(m[1], 10);
-  if (k < 1 || k > 4) return null;
-  const short = k * 1024;
-  return { w: short, h: short };
 }
 
 /** Nearest DashScope size by pixel distance (keeps aspect if close). */

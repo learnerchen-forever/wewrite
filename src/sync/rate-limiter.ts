@@ -1,4 +1,4 @@
-﻿// RateLimiter — token bucket + interval + concurrency guard for WebDAV requests.
+// RateLimiter — token bucket + interval + concurrency guard for WebDAV requests.
 // Detects provider (坚果云 vs generic) and applies appropriate pacing defaults.
 // Also provides error classification and Retry-After header parsing.
 //
@@ -169,10 +169,6 @@ const JGY_TEMPORARY_BLOCK_PATTERNS: RegExp[] = [
 const TEMPORARY_BLOCK_PENALTY_MS = 2 * 60 * 1000;
 
 // ── Helpers ──
-
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => window.setTimeout(resolve, ms));
-}
 
 function extractStatusCode(err: unknown): number | undefined {
   if (!err || typeof err !== 'object') return undefined;
@@ -413,7 +409,6 @@ export class RateLimiter {
   /** Current request-window budget state for status display. */
   getBudgetInfo(): RequestBudgetInfo {
     this.rollWindow();
-    const now = Date.now();
     const max = this.config.maxRequestsPerWindow;
     const windowMs = this.config.requestWindowMs;
     return {

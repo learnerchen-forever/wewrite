@@ -1,4 +1,4 @@
-﻿// WeChat API Manager — dual-path access token (direct + central proxy),
+// WeChat API Manager — dual-path access token (direct + central proxy),
 // two-tier retry, circuit breaker, IP whitelist error guidance
 
 import { requestUrl } from 'obsidian';
@@ -237,7 +237,7 @@ export class WeChatApiManager {
           headers: Object.keys(headers).length > 0 ? headers : undefined,
           throw: false,
         });
-        const elapsed = stopTimer();
+        stopTimer();
 
         const data = response.json as { errcode?: number; errmsg?: string } | null;
 

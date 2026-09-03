@@ -146,26 +146,28 @@ export class MaterialView extends ItemView {
       }
     }
 
-    selector.addEventListener('change', async () => {
-      const sm = this.plugin.settingsManager;
-      sm.updateSettings({ activeWeChatAccountId: selector.value });
-      await this.plugin.saveSettings();
+    selector.addEventListener('change', () => {
+      void (async () => {
+        const sm = this.plugin.settingsManager;
+        sm.updateSettings({ activeWeChatAccountId: selector.value });
+        await this.plugin.saveSettings();
 
-      const newAccountId = selector.value;
-      eventBus.emit({ type: 'account-changed', accountId: newAccountId });
+        const newAccountId = selector.value;
+        eventBus.emit({ type: 'account-changed', accountId: newAccountId });
 
-      // Reload cached data for the newly selected account (all 3 tabs)
-      this.tabInitialized = { image: false, draft_news: false, draft_newspic: false };
-      this.currentPage = { image: 1, draft_news: 1, draft_newspic: 1 };
-      this.items['image'] = this.materialManager.getCachedItems(newAccountId, 'image');
-      this.items['draft_news'] = this.materialManager.getCachedItems(newAccountId, 'draft_news');
-      this.items['draft_newspic'] = this.materialManager.getCachedItems(newAccountId, 'draft_newspic');
-      this.refreshTabUI();
-      this.renderTabContent();
+        // Reload cached data for the newly selected account (all 3 tabs)
+        this.tabInitialized = { image: false, draft_news: false, draft_newspic: false };
+        this.currentPage = { image: 1, draft_news: 1, draft_newspic: 1 };
+        this.items['image'] = this.materialManager.getCachedItems(newAccountId, 'image');
+        this.items['draft_news'] = this.materialManager.getCachedItems(newAccountId, 'draft_news');
+        this.items['draft_newspic'] = this.materialManager.getCachedItems(newAccountId, 'draft_newspic');
+        this.refreshTabUI();
+        this.renderTabContent();
 
-      // Start syncing all 3 tabs in background
-      void this.syncTab('image');
-      void this.syncTab('draft_news');
+        // Start syncing all 3 tabs in background
+        void this.syncTab('image');
+        void this.syncTab('draft_news');
+      })();
     });
   }
 
@@ -189,7 +191,7 @@ export class MaterialView extends ItemView {
       const iconEl = tab.createSpan({ cls: 'wewrite-material-tab-icon' });
       setIcon(iconEl, icon);
 
-      const countEl = tab.createSpan({
+      tab.createSpan({
         cls: 'wewrite-material-tab-count',
         attr: { 'data-tab-type': type },
         text: countText,
@@ -402,7 +404,7 @@ export class MaterialView extends ItemView {
     if (totalCount === 0 && items.length === 0) {
       const empty = scroll.createDiv({ cls: 'wewrite-material-empty' });
       empty.createSpan({ text: t('material.empty') });
-      const action = empty.createSpan({ cls: 'wewrite-material-empty-action', text: t('material.empty_action') });
+      empty.createSpan({ cls: 'wewrite-material-empty-action', text: t('material.empty_action') });
       empty.addEventListener('click', () => { void this.syncTab(type); });
       return;
     }
@@ -469,11 +471,11 @@ export class MaterialView extends ItemView {
   private renderItemListForType(type: MaterialType): void {
     const content = this.contentEl.querySelector('.wewrite-material-tab-content') as HTMLElement | null;
     if (!content) return;
-    const existingScroll = content.querySelector('.wewrite-material-scroll') as HTMLElement | null;
+    const existingScroll = content.querySelector('.wewrite-material-scroll');
     if (existingScroll) existingScroll.remove();
-    const existingNav = content.querySelector('.wewrite-material-pagenav-spacer') as HTMLElement | null;
+    const existingNav = content.querySelector('.wewrite-material-pagenav-spacer');
     if (existingNav) existingNav.remove();
-    const existingPagenav = content.querySelector('.wewrite-material-pagenav') as HTMLElement | null;
+    const existingPagenav = content.querySelector('.wewrite-material-pagenav');
     if (existingPagenav) existingPagenav.remove();
     this.renderItemList(content, type);
   }
@@ -638,7 +640,7 @@ export class MaterialView extends ItemView {
     const nav = container.createDiv({ cls: 'wewrite-material-pagenav' });
 
     // Info: "Page X of Y"
-    const info = nav.createSpan({ cls: 'wewrite-material-pagenav-info', text: t('material.page_info', { current, total: totalPages }) });
+    nav.createSpan({ cls: 'wewrite-material-pagenav-info', text: t('material.page_info', { current, total: totalPages }) });
 
     // Button row
     const btnRow = nav.createDiv({ cls: 'wewrite-material-pagenav-btns' });
@@ -700,7 +702,7 @@ export class MaterialView extends ItemView {
   }
 
   private updateDeleteButtonState(type: MaterialType): void {
-    const delBtn = this.contentEl.querySelector('.wewrite-material-delete-btn') as HTMLButtonElement | null;
+    const delBtn = this.contentEl.querySelector('.wewrite-material-delete-btn');
     if (!delBtn) return;
     if (this.selectedItems[type].size === 0) {
       delBtn.setAttribute('disabled', 'true');
@@ -914,23 +916,25 @@ export class MaterialView extends ItemView {
 
     menu.addItem((i: { setTitle: (t: string) => void; onClick: (cb: () => void) => void }) => {
       i.setTitle(t('contextMenu.copy_url'));
-      i.onClick(async () => { await navigator.clipboard.writeText(item.url || item.mediaId); });
+      i.onClick(() => { void (async () => { await navigator.clipboard.writeText(item.url || item.mediaId); })(); });
     });
 
     menu.addItem((i: { setTitle: (t: string) => void; onClick: (cb: () => void) => void }) => {
       i.setTitle(t('contextMenu.delete'));
-      i.onClick(async () => {
-        const account = this.getActiveAccount();
-        if (!account) return;
-        const { DeleteProgressModal } = await import('./delete-progress-modal');
-        const modal = new DeleteProgressModal(this.app, account, 'image', [item], this.materialManager);
-        modal.open();
-        await modal.closed;
-        const result = modal.getResult();
-        if (result.deleted > 0) {
-          await this.syncTab('image');
-          new Notice(t('notice.material_deleted'));
-        }
+      i.onClick(() => {
+        void (async () => {
+          const account = this.getActiveAccount();
+          if (!account) return;
+          const { DeleteProgressModal } = await import('./delete-progress-modal');
+          const modal = new DeleteProgressModal(this.app, account, 'image', [item], this.materialManager);
+          modal.open();
+          await modal.closed;
+          const result = modal.getResult();
+          if (result.deleted > 0) {
+            await this.syncTab('image');
+            new Notice(t('notice.material_deleted'));
+          }
+        })();
       });
     });
 
@@ -954,23 +958,25 @@ export class MaterialView extends ItemView {
 
     menu.addItem((i: { setTitle: (t: string) => void; onClick: (cb: () => void) => void }) => {
       i.setTitle(t('contextMenu.copy_url'));
-      i.onClick(async () => { await navigator.clipboard.writeText(item.url || item.mediaId); });
+      i.onClick(() => { void (async () => { await navigator.clipboard.writeText(item.url || item.mediaId); })(); });
     });
 
     menu.addItem((i: { setTitle: (t: string) => void; onClick: (cb: () => void) => void }) => {
       i.setTitle(t('contextMenu.delete'));
-      i.onClick(async () => {
-        const account = this.getActiveAccount();
-        if (!account) return;
-        const { DeleteProgressModal } = await import('./delete-progress-modal');
-        const modal = new DeleteProgressModal(this.app, account, item.type, [item], this.materialManager);
-        modal.open();
-        await modal.closed;
-        const result = modal.getResult();
-        if (result.deleted > 0) {
-          await this.syncTab('draft_news');
-          new Notice(t('notice.draft_deleted'));
-        }
+      i.onClick(() => {
+        void (async () => {
+          const account = this.getActiveAccount();
+          if (!account) return;
+          const { DeleteProgressModal } = await import('./delete-progress-modal');
+          const modal = new DeleteProgressModal(this.app, account, item.type, [item], this.materialManager);
+          modal.open();
+          await modal.closed;
+          const result = modal.getResult();
+          if (result.deleted > 0) {
+            await this.syncTab('draft_news');
+            new Notice(t('notice.draft_deleted'));
+          }
+        })();
       });
     });
 

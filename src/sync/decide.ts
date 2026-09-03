@@ -154,7 +154,7 @@ function classifyAndAct(
 
   // Case 1: New local file or folder
   if (hasLocal && !hasRemote && !hasRecord) {
-    if (local!.isDir) {
+    if (local.isDir) {
       return {
         result: { type: 'auto', tasks: [mkdirRemoteTask(path, remoteBaseDir)], isDelete: false },
         detail: makeDetail(path, 'mkdir_remote', 'Case 1: new local folder', local, remote, record),
@@ -168,7 +168,7 @@ function classifyAndAct(
 
   // Case 2: New remote file or folder
   if (!hasLocal && hasRemote && !hasRecord) {
-    if (remote!.isDir) {
+    if (remote.isDir) {
       return {
         result: { type: 'auto', tasks: [{ kind: 'mkdir_local', localPath: path, remotePath: `${remoteBaseDir}/${path}`.replace(/\/\//g, '/') }], isDelete: false },
         detail: makeDetail(path, 'mkdir_local', 'Case 2: new remote folder', local, remote, record),
@@ -181,7 +181,7 @@ function classifyAndAct(
   }
 
   // Type mismatch cases
-  if (hasLocal && hasRemote && local!.isDir !== remote!.isDir) {
+  if (hasLocal && hasRemote && local.isDir !== remote.isDir) {
     return {
       result: { type: 'conflict', reason: 'type_mismatch' },
       detail: makeDetail(path, 'conflict', 'Case 16/17: file vs folder type mismatch', local, remote, record),
@@ -190,19 +190,19 @@ function classifyAndAct(
 
   // Both exist, no record
   if (hasLocal && hasRemote && !hasRecord) {
-    if (local!.hash === remote!.hash) {
+    if (local.hash === remote.hash) {
       return {
         result: { type: 'auto', tasks: [], isDelete: false },
         detail: makeDetail(path, 'no-op', 'Case 3: both sides identical hash', local, remote, record),
       };
     }
-    if (local!.mtime > remote!.mtime) {
+    if (local.mtime > remote.mtime) {
       return {
         result: { type: 'auto', tasks: [pushTask(path, remoteBaseDir)], isDelete: false },
         detail: makeDetail(path, 'push', 'Case 4: local newer (no record)', local, remote, record),
       };
     }
-    if (remote!.mtime > local!.mtime) {
+    if (remote.mtime > local.mtime) {
       return {
         result: { type: 'auto', tasks: [pullTask(path, remoteBaseDir)], isDelete: false },
         detail: makeDetail(path, 'pull', 'Case 5: remote newer (no record)', local, remote, record),
@@ -216,8 +216,8 @@ function classifyAndAct(
 
   // Both exist, record exists
   if (hasLocal && hasRemote && hasRecord) {
-    const localChg = isChanged(local!, record, 'local');
-    const remoteChg = isChanged(remote!, record, 'remote');
+    const localChg = isChanged(local, record, 'local');
+    const remoteChg = isChanged(remote, record, 'remote');
 
     if (!localChg && !remoteChg) {
       return {
@@ -256,7 +256,7 @@ function classifyAndAct(
 
   // Local exists, remote absent, record exists
   if (hasLocal && !hasRemote && hasRecord) {
-    const localChg = isChanged(local!, record, 'local');
+    const localChg = isChanged(local, record, 'local');
     if (!localChg) {
       return {
         result: { type: 'auto', tasks: [removeLocalTask(path, remoteBaseDir)], isDelete: true },
@@ -271,7 +271,7 @@ function classifyAndAct(
 
   // Remote exists, local absent, record exists
   if (!hasLocal && hasRemote && hasRecord) {
-    const remoteChg = isChanged(remote!, record, 'remote');
+    const remoteChg = isChanged(remote, record, 'remote');
     if (!remoteChg) {
       return {
         result: { type: 'auto', tasks: [removeRemoteTask(path, remoteBaseDir)], isDelete: true },

@@ -78,4 +78,14 @@ export class WeWriteModal extends Modal {
     super(app);
     enableModalDrag(this);
   }
+
+  /**
+   * Modal#open() is typed void, but several subclasses resolve a result
+   * asynchronously after opening and callers `await modal.open()`. Widening the
+   * return type here (runtime behavior is unchanged) makes those Promise-based
+   * overrides type-correct instead of a void-contract violation.
+   */
+  open(): unknown {
+    return super.open();
+  }
 }

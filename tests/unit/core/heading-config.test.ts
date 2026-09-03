@@ -9,7 +9,7 @@ import {
   customDecorationsToFrontmatter,
   isHeadingVarKey,
 } from '../../../src/core/heading-config';
-import matter from 'gray-matter';
+import { parseFrontmatter, splitFrontmatter, stringifyFrontmatter } from '../../../src/utils/frontmatter';
 
 describe('parseHeadingFrontmatter', () => {
   it('parses flat global keys', () => {
@@ -271,7 +271,7 @@ describe('heading config serialization', () => {
     });
 
     const fm = headingConfigToFrontmatter(config);
-    const parsed = matter(matter.stringify('# t', fm)).data as Record<string, unknown>;
+    const parsed = parseFrontmatter(stringifyFrontmatter('# t', fm)) as Record<string, unknown>;
     const { config: round } = parseHeadingFrontmatter(parsed);
     expect(round).toEqual(config);
   });
@@ -306,7 +306,7 @@ describe('heading config serialization', () => {
     const out = customDecorationsToFrontmatter(customDecorations)!;
     expect(out['heading.decoration']).toHaveLength(1);
 
-    const parsed = matter(matter.stringify('# t', { custom_values: out })).data as Record<string, unknown>;
+    const parsed = parseFrontmatter(stringifyFrontmatter('# t', { custom_values: out })) as Record<string, unknown>;
     const round = parseHeadingFrontmatter(parsed);
     expect(round.customDecorations[0]).toMatchObject({ id: 'my', name: 'My', template: '<h2>{text}</h2>' });
     expect(round.customDecorations[0].params.c.default).toBe('#fff');

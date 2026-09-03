@@ -265,7 +265,7 @@ export class MaterialManager {
     let draftTotalCount = 0;
     const count = 20;
 
-    do {
+    for (;;) {
       const response = await this.apiManager.request<{
         item?: Array<{
           media_id: string;
@@ -322,7 +322,7 @@ export class MaterialManager {
 
       offset += count;
       if (offset >= draftTotalCount) break;
-    } while (true);
+    }
 
     // Cache per-account (page-keyed; drafts use single page since not paginated in UI)
     const newsItems = allDrafts.filter(i => i.type === 'draft_news');

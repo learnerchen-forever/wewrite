@@ -81,9 +81,10 @@ heading_colored: true
       expect(fm!.heading_colored).toBe(true);
     });
 
-    it('should not throw on duplicated mapping keys (malformed YAML) and skip the file', () => {
+    it('recovers from duplicated mapping keys by keeping the last value (no throw)', () => {
       // Regression: fallback templates used to emit a base key twice (e.g.
-      // global_font_size), producing "duplicated mapping key" YAML errors.
+      // global_font_size), producing "duplicated mapping key". The parser must
+      // not throw — dedupe top-level keys, last value wins.
       const content = `---
 wewrite_theme: true
 global_bg: "#ffffff"
@@ -92,7 +93,11 @@ global_font_size: 16
 global_font_size: 15
 ---`;
       expect(() => loader.parseFrontmatter(content)).not.toThrow();
-      expect(loader.parseFrontmatter(content)).toBeNull();
+      const fm = loader.parseFrontmatter(content);
+      expect(fm).not.toBeNull();
+      expect(fm!.wewrite_theme).toBe(true);
+      expect(fm!.global_bg).toBe('#1a1a2e'); // last duplicate wins
+      expect(fm!.global_font_size).toBe(15);
     });
   });
 });

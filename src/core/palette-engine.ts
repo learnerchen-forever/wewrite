@@ -121,7 +121,7 @@ export function onAccentColor(bgHex: string): string {
 // ── Hue family classification ──
 
 export function classifyHueFamily(hex: string): HueFamily {
-	const { h, s, l: _l } = hexToHSL(hex);
+	const { h, s } = hexToHSL(hex);
 	if (s < 15) return 'neutral';
 	if (h >= 0 && h <= 60) return 'warm';
 	if (h > 60 && h <= 180) return 'natural';

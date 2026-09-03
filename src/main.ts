@@ -10,12 +10,13 @@ if (typeof (window as unknown as { Buffer?: unknown }).Buffer === 'undefined') {
   };
 }
 
-import { Plugin, MarkdownView, Notice, requestUrl, Platform, type TFile, Menu, MenuItem, type Editor } from 'obsidian';
+import { Plugin, MarkdownView, Notice, requestUrl, Platform, TFile, Menu, MenuItem, type Editor } from 'obsidian';
 import { SettingsManager } from './core/settings-manager';
 import { eventBus } from './core/event-bus';
 import { registerWewriteIcons } from './core/icon-registry';
 import { detectLegacySettings, migrateLegacyToV2, cleanupLegacyData } from './utils/migration';
 import { ThemeLoader } from './styles/theme-loader';
+import { ThemeDownloader } from './styles/theme-downloader';
 import { WeChatApiManager } from './publisher/api-manager';
 import { MaterialManager } from './media/material-manager';
 import { MediaRegistry } from './media/media-registry';
@@ -46,7 +47,6 @@ import { editorHighlightExtension } from './utils/editor-highlight';
 import { initI18n, disposeI18n, t } from './i18n';
 import { SyncEngine } from './sync/engine';
 import { SyncScheduler } from './sync/scheduler';
-import { setIcon } from 'obsidian';
 
 const log = createLogger('Main');
 
@@ -84,7 +84,7 @@ export default class WeWritePlugin extends Plugin {
     this.mediaRegistry = new MediaRegistry();
 
     // Initialize note config store for cold storage of per-note configurations
-    this.configStore = new NoteConfigStore(this.app.vault.adapter);
+    this.configStore = new NoteConfigStore(this.app.vault.adapter, this.app.vault.configDir);
 
     this.settingsManager = new SettingsManager(this.manifest.version);
     await this.loadSettings();
@@ -96,6 +96,13 @@ export default class WeWritePlugin extends Plugin {
     // Initialize theme system — themes live in {wewriteFolder}/themes
     const themesPath = getWeWriteSubPath(this.settings.wewriteFolder, WEWRITE_SUBDIRS.customizedThemes);
     this.themeLoader = new ThemeLoader(this.app.vault, themesPath, this.app.metadataCache);
+
+    // Repair fallback template files that the previous builder wrote with
+    // duplicated YAML keys (invalid frontmatter). Rewrite the malformed ones so
+    // they parse cleanly and stop producing console warnings; never create new
+    // templates here. Run before scanning so the first scan sees valid files.
+    await new ThemeDownloader(this.app).repairFallbackTemplates(themesPath);
+
     await this.themeLoader.scanThemes();
     this.themeLoader.startWatching();
 
@@ -169,7 +176,7 @@ export default class WeWritePlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on('delete', (file) => {
         if (file.path) {
-          this.configStore.delete(file.path);
+          void this.configStore.delete(file.path);
         }
       }),
     );
@@ -238,7 +245,7 @@ export default class WeWritePlugin extends Plugin {
     log.info('plugin loaded', { version: this.manifest.version });
   }
 
-  async onunload(): Promise<void> {
+  onunload(): void {
     // Cancel any in-progress sync
     this.syncScheduler?.stop();
     this.syncEngine?.cancel();
@@ -277,12 +284,12 @@ export default class WeWritePlugin extends Plugin {
   async saveSettings(): Promise<void> {
     const encrypted = await this.settingsManager.toEncryptedJSON();
     if (this.materialCacheLoaded) {
-      (encrypted as Record<string, unknown>).wewrite_material_cache = this.materialManager.getCache();
+      encrypted.wewrite_material_cache = this.materialManager.getCache();
     }
-    (encrypted as Record<string, unknown>).wewrite_media_db = this.mediaRegistry.serialize();
+    encrypted.wewrite_media_db = this.mediaRegistry.serialize();
     // Persist sync state alongside settings
     if (this.syncEngine) {
-      Object.assign(encrypted as Record<string, unknown>, this.syncEngine.getStateForSave());
+      Object.assign(encrypted, this.syncEngine.getStateForSave());
     }
     await this.saveData(encrypted);
   }
@@ -474,7 +481,8 @@ export default class WeWritePlugin extends Plugin {
     this.registerEvent(
       this.app.workspace.on('file-menu', (...data: unknown[]) => {
         const menu = data[0] as Menu;
-        const file = data[1] as TFile;
+        const file = data[1];
+        if (!(file instanceof TFile)) return;
         if (file.extension === 'md') {
           if (this.hasThemeFrontmatter(file)) {
             menu.addItem((item: MenuItem) => {
@@ -1228,7 +1236,6 @@ export default class WeWritePlugin extends Plugin {
    *  into the new unified WeWrite folder structure. */
   private async migrateDirectoriesToWeWriteFolder(): Promise<void> {
     const wewriteFolder = this.settings.wewriteFolder;
-    const wewriteRootExists = await this.app.vault.adapter.exists(wewriteFolder);
 
     // Old directories to check and migrate
     const oldDirs = [

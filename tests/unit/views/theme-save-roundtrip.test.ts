@@ -2,7 +2,7 @@
 // matter.stringify → reload parseFlatFrontmatter, to verify slot keys
 // (e.g. heading.font) persist and come back unchanged.
 
-import matter from 'gray-matter';
+import { parseFrontmatter, splitFrontmatter, stringifyFrontmatter } from '../../../src/utils/frontmatter';
 import { parseFlatFrontmatter, registerCustomValues } from '../../../src/core/frontmatter-parser';
 import { getSlotRegistry } from '../../../src/core/slot-registry';
 import { ThemeResolver, DEFAULT_PRESET } from '../../../src/renderer/theme-resolver';
@@ -24,8 +24,8 @@ describe('Theme editor save round-trip', () => {
       'article.frameBorder': 'hairline',
     };
 
-    const fileContent = matter.stringify('# 主题\n\n正文', fm);
-    const parsed = matter(fileContent).data as Record<string, unknown>;
+    const fileContent = stringifyFrontmatter('# 主题\n\n正文', fm);
+    const parsed = (parseFrontmatter(fileContent) as Record<string, unknown>);
 
     expect(parsed['heading.font']).toBe('serif');
     expect(parsed['heading.h1.font']).toBe('microsoft-yahei');
@@ -50,7 +50,7 @@ describe('Theme editor save round-trip', () => {
         ],
       },
     };
-    const parsed = matter(matter.stringify('# t', fm)).data as Record<string, unknown>;
+    const parsed = parseFrontmatter(stringifyFrontmatter('# t', fm)) as Record<string, unknown>;
     const { config, customValues } = parseFlatFrontmatter(parsed);
 
     expect(config['heading.h1']?.border).toBe('custom-border-1');
@@ -76,7 +76,7 @@ describe('Theme editor save round-trip', () => {
         wewrite_theme: true,
         'heading.background': valueId,
       };
-      const parsed = matter(matter.stringify('# t', fm)).data as Record<string, unknown>;
+      const parsed = parseFrontmatter(stringifyFrontmatter('# t', fm)) as Record<string, unknown>;
       expect(parsed['heading.background']).toBe(valueId);
 
       const { config } = parseFlatFrontmatter(parsed);

@@ -7,7 +7,6 @@ import { requestUrl, type App, type TFile } from 'obsidian';
 import { isSupportedFormat, isWithinSizeLimit, resizeImage } from './image-processor';
 import { compressToTarget } from './cover-processor';
 import { MediaRegistry } from './media-registry';
-import { convertCachePath } from './content-prescan';
 import { canvasToBlobSafe, clampCanvasDimensions } from './diagram-renderer';
 import { createLogger } from '../utils/logger';
 import { readLocalImage } from './local-image-resolver';

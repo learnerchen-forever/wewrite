@@ -1,9 +1,9 @@
 // WeChatNews ItemView — three-part layout: publish toolbar, article properties, phone-frame preview
 
-import { ItemView, Menu, setIcon, Notice, requestUrl, MarkdownRenderer, type App, type EventRef, type WorkspaceLeaf, type TFile } from 'obsidian';
+import { ItemView, Menu, setIcon, Notice, requestUrl, MarkdownRenderer, type App, type EventRef, type WorkspaceLeaf, TFile } from 'obsidian';
 import type WeWritePlugin from '../main';
 import { WechatRenderer } from '../renderer/wechat-renderer';
-import type { ThemePreset, NewsArticleConfig, CoverZoneState } from '../core/interfaces';
+import type { NewsArticleConfig } from '../core/interfaces';
 import { NEWS_CONFIG_DEFAULT, getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { DEFAULT_PRESET } from '../renderer/theme-resolver';
 import type { ThemeLoader } from '../styles/theme-loader';
@@ -13,7 +13,7 @@ import { parseEmbedParams } from '../renderer/extensions/embed';
 import { DumpService } from '../utils/dump-service';
 import { PublishLogBuilder } from '../utils/publish-logger';
 import { writeAICallLog, AIImageGenLogger } from '../utils/ai-logger';
-import { createLogger, redact } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 import { buildMultipartBody } from '../publisher/api-manager';
 import { generateImage, normalizeImageSize, AIImageSizeError, sizeHintExample, type AIImageAccountLike } from '../publisher/ai-image-client';
 import { guessMimeType, extractMimeType } from '../media/image-validator';
@@ -21,9 +21,9 @@ import { compactBlockWhitespace } from '../renderer/wechat-cleaner';
 import { waitForCalloutPlugins, processCalloutsAndAdmonitions } from '../utils/callout-processor';
 import { processCodeBlocksInPlace } from '../utils/code-block-utils';
 import { sanitizeSvgElement } from '../renderer/wechat-svg-sanitizer';
-import { applySvgFallback, MAX_CONTENT_BYTES, type FallbackResult, type SvgConversionItem } from '../media/svg-fallback';
+import { applySvgFallback, MAX_CONTENT_BYTES, type FallbackResult } from '../media/svg-fallback';
 import { prescanSvgs, prescanImages } from '../media/content-prescan';
-import { RenderLogger, type SvgProcessResult, type ImageProcessResult, type MermaidProcessResult, type ExcalidrawProcessResult, type PdfProcessResult, type SvgInlineResult, type DataviewProcessResult } from '../utils/render-logger';
+import { RenderLogger, type SvgProcessResult, type MermaidProcessResult, type ExcalidrawProcessResult, type PdfProcessResult, type SvgInlineResult, type DataviewProcessResult } from '../utils/render-logger';
 import { extractMermaidBlocks, renderMermaidToPng, cacheDiagramPng, extractExcalidrawEmbeds, renderExcalidrawToPng, canvasToBlobSafe } from '../media/diagram-renderer';
 import { extractPdfEmbeds, PdfRenderSession, pdfRegionCacheKey, cachePdfRegionPng, PDF_RENDER_SCALE } from '../media/pdf-embed-renderer';
 import { preprocessDataviewInMarkdown } from '../media/dataview-renderer';
@@ -152,7 +152,7 @@ export class WeChatNewsView extends ItemView {
       this.refreshTitle();
       // Defer heavy rendering when view is not the active leaf (e.g. during
       // workspace restoration). The active-leaf-change listener will pick it up.
-      if (this.app.workspace.activeLeaf !== this.leaf) {
+      if (this.app.workspace.getActiveViewOfType(WeChatNewsView) !== this) {
         this._pendingFilePath = state.filePath;
         return;
       }
@@ -208,7 +208,7 @@ export class WeChatNewsView extends ItemView {
     this._eventBusUnsubs.push(onLanguageChange(() => {
       this.refreshTitle();
       if (this.filePath) {
-        this.renderContent();
+        void this.renderContent();
       }
     }));
 
@@ -342,7 +342,7 @@ export class WeChatNewsView extends ItemView {
     setIcon(refreshBtn, 'wewrite-refresh');
     refreshBtn.addEventListener('click', () => {
       this.previewEl.innerHTML = '';
-      this.renderContent();
+      void this.renderContent();
     });
 
     // Publish button
@@ -351,7 +351,7 @@ export class WeChatNewsView extends ItemView {
       attr: { 'aria-label': t('misc.publish_drafts') },
     });
     setIcon(this.publishBtnEl, 'wewrite-publish');
-    this.publishBtnEl.addEventListener('click', () => this.publishToDraft());
+    this.publishBtnEl.addEventListener('click', () => { void this.publishToDraft(); });
 
     // Copy HTML button (visibility controlled by settings)
     this.copyBtnEl = this.toolbarEl.createEl('button', {
@@ -359,7 +359,7 @@ export class WeChatNewsView extends ItemView {
       attr: { 'aria-label': t('misc.copy_html') },
     });
     setIcon(this.copyBtnEl, 'wewrite-copy');
-    this.copyBtnEl.addEventListener('click', () => this.copyHtmlToClipboard());
+    this.copyBtnEl.addEventListener('click', () => { void this.copyHtmlToClipboard(); });
     this.updateCopyButtonVisibility();
   }
 
@@ -478,7 +478,7 @@ export class WeChatNewsView extends ItemView {
     const spacer = row1.createDiv({ cls: 'wewrite-prop-spacer' });
     const aiBtn = row1.createEl('button', { cls: 'wewrite-btn-icon wewrite-ai-btn', attr: { 'aria-label': t('misc.generate_digest') } });
     setIcon(aiBtn, 'wewrite-ai-generate');
-    aiBtn.addEventListener('click', () => this.generateDigest());
+    aiBtn.addEventListener('click', () => { void this.generateDigest(); });
 
     // Row 2: textarea with floating counter
     const row2 = this.propsBodyEl.createDiv({ cls: 'wewrite-prop-row wewrite-prop-row-full' });
@@ -541,8 +541,8 @@ export class WeChatNewsView extends ItemView {
             statusCode: resp.status,
             error: null,
             durationMs: digestMs,
-            prompt: (payload.messages[1].content as string).slice(0, 2000),
-            requestBody: { model: payload.model, temperature: payload.temperature, max_tokens: payload.max_tokens, promptLen: (payload.messages[1].content as string).length },
+            prompt: payload.messages[1].content.slice(0, 2000),
+            requestBody: { model: payload.model, temperature: payload.temperature, max_tokens: payload.max_tokens, promptLen: payload.messages[1].content.length },
             resultSummary: `Digest (${summary.length} chars): "${summary}"`,
           });
         }
@@ -557,7 +557,7 @@ export class WeChatNewsView extends ItemView {
             statusCode: resp.status,
             error: 'Empty response from AI',
             durationMs: digestMs,
-            prompt: (payload.messages[1].content as string).slice(0, 2000),
+            prompt: payload.messages[1].content.slice(0, 2000),
             requestBody: { model: payload.model, temperature: payload.temperature, max_tokens: payload.max_tokens },
           });
         }
@@ -650,7 +650,7 @@ export class WeChatNewsView extends ItemView {
       settings.wewriteFolder,
     );
     this.coverComposer.setOnChange(() => this.saveCoverState());
-    this.coverComposer.setOnAiGenerate((zoneId: string) => this.generateCover(zoneId as 'a' | 'b' | 'c'));
+    this.coverComposer.setOnAiGenerate((zoneId: string) => { void this.generateCover(zoneId as 'a' | 'b' | 'c'); });
     this.coverComposer.setCurrentAccountIdProvider(() => {
       const s = this.plugin.settingsManager.getSettings();
       const acct = s.wechatAccounts.find((a) => a.id === s.activeWeChatAccountId);
@@ -708,37 +708,39 @@ export class WeChatNewsView extends ItemView {
         this.config.aiCoverSizes[zoneCategory] = size;
         this.markConfigDirty();
       },
-      async (imageUrl) => {
-      if (imageUrl) {
-        try {
-          const resp = await requestUrl({ url: imageUrl });
-          const ct = resp.headers['content-type'] || 'image/png';
-          const ext = ct.split('/')[1]?.split(';')[0] || 'png';
-          const mimeType = ct.split(';')[0];
+      (imageUrl) => {
+        void (async () => {
+          if (imageUrl) {
+            try {
+              const resp = await requestUrl({ url: imageUrl });
+              const ct = resp.headers['content-type'] || 'image/png';
+              const ext = ct.split('/')[1]?.split(';')[0] || 'png';
+              const mimeType = ct.split(';')[0];
 
-          // Save to {wewriteFolder}/cache/ via MediaRegistry for fingerprint dedup
-          const storagePath = getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.cache);
-          const { resolveCacheStorageDir } = await import('../utils/vault-helpers');
-          const targetDir = resolveCacheStorageDir(storagePath);
-          const path = await this.mediaRegistry.ingestImage(
-            resp.arrayBuffer,
-            mimeType,
-            `wewrite_ai_cover_${zoneCategory}`,
-            ext,
-            targetDir,
-            { createBinary: (p, d) => this.plugin.app.vault.createBinary(p, d).then(() => undefined) },
-          );
+              // Save to {wewriteFolder}/cache/ via MediaRegistry for fingerprint dedup
+              const storagePath = getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.cache);
+              const { resolveCacheStorageDir } = await import('../utils/vault-helpers');
+              const targetDir = resolveCacheStorageDir(storagePath);
+              const path = await this.mediaRegistry.ingestImage(
+                resp.arrayBuffer,
+                mimeType,
+                `wewrite_ai_cover_${zoneCategory}`,
+                ext,
+                targetDir,
+                { createBinary: (p, d) => this.plugin.app.vault.createBinary(p, d).then(() => undefined) },
+              );
 
-          this.coverComposer.setFullState({
-            [zoneId]: { imagePath: path, mediaId: '' }
-          });
-          const zoneLabel = zoneCategory.toUpperCase();
-          new Notice(t('notice.cover_set_success', { label: zoneLabel }));
-        } catch (err) {
-          log.warn('AI cover save failed', { err: String(err) });
-        }
-      }
-    },
+              this.coverComposer.setFullState({
+                [zoneId]: { imagePath: path, mediaId: '' }
+              });
+              const zoneLabel = zoneCategory.toUpperCase();
+              new Notice(t('notice.cover_set_success', { label: zoneLabel }));
+            } catch (err) {
+              log.warn('AI cover save failed', { err: String(err) });
+            }
+          }
+        })();
+      },
       settings.wewriteFolder,
       settings.logAICalling,
     );
@@ -1592,7 +1594,7 @@ export class WeChatNewsView extends ItemView {
       const textarea = modalEl.querySelector('textarea')!;
       const cancelBtn = modalEl.querySelector('.wewrite-caption-cancel')!;
       const saveBtn = modalEl.querySelector('.wewrite-caption-save')!;
-      const overlay = modalEl.querySelector('.wewrite-caption-overlay')! as HTMLElement;
+      const overlay = modalEl.querySelector('.wewrite-caption-overlay')!;
       overlay.addEventListener('click', (e) => e.stopPropagation());
 
       const cleanup = () => { modalEl.remove(); resolve(); };
@@ -1660,7 +1662,7 @@ export class WeChatNewsView extends ItemView {
       const alignBtns = modalEl.querySelectorAll('.dim-align-btn');
       const cancelBtn = modalEl.querySelector('.wewrite-caption-cancel')!;
       const saveBtn = modalEl.querySelector('.wewrite-caption-save')!;
-      const overlay = modalEl.querySelector('.wewrite-caption-overlay')! as HTMLElement;
+      const overlay = modalEl.querySelector('.wewrite-caption-overlay')!;
       overlay.addEventListener('click', (e) => e.stopPropagation());
 
       let align: 'left' | 'right' | 'center' | undefined = a as 'left' | 'right' | 'center' | undefined || undefined;
@@ -1727,7 +1729,12 @@ export class WeChatNewsView extends ItemView {
           continue;
         }
 
-        const svgText = await this.plugin.app.vault.read(file as TFile);
+        if (!(file instanceof TFile)) {
+          log.warn('processSvgImages: SVG path is not a file', { vaultPath });
+          continue;
+        }
+
+        const svgText = await this.plugin.app.vault.read(file);
         // Strip XML declaration if present (some tools export <?xml ...?> before <svg>)
         const svgBody = svgText.replace(/^\s*<\?xml[^?]*\?>\s*/i, '').trim();
         if (!svgBody.startsWith('<svg') && !svgBody.startsWith('<!DOCTYPE svg')) {
@@ -2367,12 +2374,12 @@ export class WeChatNewsView extends ItemView {
         log.debug('fingerprint pre-resolution: looking up', { localPath: task.localPath,
           hasQuery: task.localPath?.includes('?'), hasFragment: task.localPath?.includes('#') });
         const afile = this.plugin.app.vault.getAbstractFileByPath(task.localPath);
-        if (!afile || !('extension' in afile)) {
+        if (!afile || !(afile instanceof TFile)) {
           log.debug('fingerprint pre-resolution: file not found or not a file', { localPath: task.localPath });
           continue;
         }
 
-        const buf = await this.plugin.app.vault.readBinary(afile as TFile);
+        const buf = await this.plugin.app.vault.readBinary(afile);
         const fileName = afile.path.split('/').pop() || '';
         const mime = guessMimeType(fileName);
         const fp = this.plugin.mediaRegistry.computeFingerprint(mime, buf);
@@ -2520,7 +2527,7 @@ export class WeChatNewsView extends ItemView {
             // Replace app:// URL (with optional ?query cache-busting suffix) with new app://local/ path.
             // Try decoded, encodeURI, AND encodeURIComponent forms — the HTML may contain any of
             // these depending on platform URL serialization (Android WebView uses %2F for slashes).
-            const pattern = `app://[^/]+/[^"]*?PATH(\\?[^"'\s>]*)?`;
+            const pattern = `app://[^/]+/[^"]*?PATH(\\?[^"'\\s>]*)?`;
             this.renderedHtml = this.renderedHtml
               .replace(new RegExp(pattern.replace('PATH', escapedPath), 'g'),
                 `app://local/${encodeURI(newPath)}`)
@@ -2761,7 +2768,7 @@ export class WeChatNewsView extends ItemView {
 
   private markConfigDirty(): void {
     this.configDirty = true;
-    this.debouncedSaveConfig();
+    void this.debouncedSaveConfig();
   }
 
   private debouncedSaveConfig = debounce(async () => {
@@ -2990,7 +2997,7 @@ class PublishProgressModal {
       }
     }
 
-    const runningRow = this.taskListEl.querySelector('.task-running') as HTMLElement | null;
+    const runningRow = this.taskListEl.querySelector('.task-running');
     if (runningRow) {
       runningRow.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
@@ -3215,10 +3222,10 @@ class PublishProgressModal {
       log.debug('uploadMedia: remote image fetched', { fileName, fileSize: buf.byteLength, mimeType });
     } else {
       log.debug('    reading vault file...');
-      let file = this.plugin.app.vault.getAbstractFileByPath(localPath) as TFile;
+      const file = this.plugin.app.vault.getAbstractFileByPath(localPath);
       // On Android Capacitor, files may exist on disk but not be indexed by vault.
       // Fall back to adapter-based read which can access files outside the vault index.
-      if (!file) {
+      if (!file || !(file instanceof TFile)) {
         log.debug('    file not in vault index — trying adapter fallback...');
         const resolved = await readLocalImage(this.plugin.app, localPath);
         if (resolved) {
@@ -3437,7 +3444,7 @@ class ImageGenerateDialog {
     this.generateBtn = this.modalEl.querySelector('.mod-cta')!;
     this.modalEl.querySelector('.wewrite-publish-overlay')!.addEventListener('click', (e: Event) => { e.stopPropagation(); });
     this.modalEl.querySelector('.wewrite-publish-cancel:not(.mod-cta)')!.addEventListener('click', () => this.close());
-    this.generateBtn.addEventListener('click', () => this.generate());
+    this.generateBtn.addEventListener('click', () => { void this.generate(); });
   }
 
   open(): void { this.modalEl.style.display = 'flex'; }

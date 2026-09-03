@@ -18,10 +18,6 @@ import {
 
 const log = createLogger('Sync:WebDAV');
 
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => window.setTimeout(resolve, ms));
-}
-
 // ── requestUrl patch for webdav npm package ──
 
 let patched = false;
@@ -87,7 +83,7 @@ export function ensureWebdavPatched(): void {
       for (const [k, v] of Object.entries(result.headers)) {
         const key = k.toLowerCase();
         const val = String(v);
-        if (/[^\u0000-\u00FF]/.test(val)) {
+        if (/[\u0100-\uFFFF]/.test(val)) {
           responseHeaders[key] = encodeURIComponent(val);
         } else {
           responseHeaders[key] = val;
@@ -265,7 +261,6 @@ export class WebDAVBackend implements SyncBackend {
     };
     const limiter = this.initLimiter();
     const stats = new Map<string, FileStat>();
-    const isJgy = this.url.includes('jianguoyun.com');
     const chunkSize = limiter.config.walkChunkSize;
     const checkItemLimit = limiter.config.checkItemLimit;
 
@@ -415,9 +410,9 @@ export class WebDAVBackend implements SyncBackend {
     try {
       const content = await client.getFileContents(remote);
       if (typeof content === 'string') {
-        return new TextEncoder().encode(content).buffer as ArrayBuffer;
+        return new TextEncoder().encode(content).buffer;
       }
-      return content as ArrayBuffer;
+      return content;
     } catch (err) {
       this.classifyAndLog('readFile', path, err);
       throw err;

@@ -8,7 +8,7 @@ import type { SyncBackend, ConnectionResult } from './backend/interface';
 import { WebDAVBackend, ensureWebdavPatched, getLastResponseInfo, clearLastResponseInfo } from './backend/webdav';
 import { RateLimiter, classifyErrorFallback, BudgetExhaustedError } from './rate-limiter';
 import { decide } from './decide';
-import { loadRecord, getRecordFiles, setRecordFiles, upsertRecordEntry, initRecord, garbageCollectRecord, createEmptyRecord } from './record';
+import { loadRecord, getRecordFiles, upsertRecordEntry, initRecord, garbageCollectRecord, createEmptyRecord } from './record';
 import { sha256Hex } from './hash';
 import { PushTask } from './tasks/push';
 import { PullTask } from './tasks/pull';
@@ -105,7 +105,6 @@ function tasksFromDecision(
         break;
       case 'merge': {
         const rs = remoteStats.get(t.localPath);
-        const ls = localStats.get(t.localPath);
         const rec = getRecord().files[t.localPath];
         result.push(new MergeTask(backend, vault, getRecord, t.localPath, rp,
           rs?.mtime ?? 0, rs?.size ?? 0, rs?.hash ?? '',
@@ -122,10 +121,6 @@ function delay(ms: number): Promise<void> {
 }
 
 // ── Error classification and retry ──
-
-class SyncAbortError extends Error {
-  constructor(message: string) { super(message); this.name = 'SyncAbortError'; }
-}
 
 /**
  * Sleep for `ms` milliseconds, polling `isCancelled()` every 500ms.
@@ -351,7 +346,7 @@ export class SyncEngine {
     this.cancelled = true;
     // Clear rate-limiter penalty so the engine doesn't stay blocked after cancel
     if (this.backend instanceof WebDAVBackend) {
-      (this.backend as WebDAVBackend).getLimiter()?.clearPenalty();
+      this.backend.getLimiter()?.clearPenalty();
     }
   }
 
@@ -364,7 +359,7 @@ export class SyncEngine {
     const currentRemoteDir = this.syncSettings.remoteDir;
     // Invalidate cached backend if remoteDir changed
     if (this.backend instanceof WebDAVBackend) {
-      const be = this.backend as WebDAVBackend;
+      const be = this.backend;
       if (be.getBaseDir() !== currentRemoteDir) {
         log.info('remote directory changed, recreating backend', {
           old: be.getBaseDir(),
@@ -424,7 +419,7 @@ export class SyncEngine {
   /** Get current rate limiter state for diagnostics. Returns null if no WebDAV backend. */
   getRateLimiterState(): { tokens: number; capacity: number; level: number } | null {
     if (this.backend instanceof WebDAVBackend) {
-      const limiter = (this.backend as WebDAVBackend).getLimiter();
+      const limiter = this.backend.getLimiter();
       return limiter?.getState() ?? null;
     }
     return null;
@@ -517,7 +512,7 @@ export class SyncEngine {
           // Never fall back to an empty buffer: writing it would truncate the
           // remote file to 0 bytes. A read failure aborts the rollback.
           const rollbackContent = snapshot.baseText != null
-            ? new TextEncoder().encode(snapshot.baseText).buffer as ArrayBuffer
+            ? new TextEncoder().encode(snapshot.baseText).buffer
             : await this.app.vault.adapter.readBinary(path);
           await backend.writeFile(path, rollbackContent, { overwrite: true });
 
@@ -666,7 +661,7 @@ export class SyncEngine {
         log.debug('quota probe done', { quota: this.lastQuotaInfo });
       }
       if (backend instanceof WebDAVBackend) {
-        backendLimiter = (backend as WebDAVBackend).getLimiter();
+        backendLimiter = backend.getLimiter();
       }
 
       // 1. Walk local
@@ -791,8 +786,8 @@ export class SyncEngine {
 
       // 2.5 Safety: filter unsafe paths and oversized files
       const maxBytes = this.syncSettings.maxFileSizeMb * 1024 * 1024;
-      const localSafety = filterUnsafePaths(localStats, maxBytes);
-      const remoteSafety = filterUnsafePaths(remoteStats, maxBytes);
+      const localSafety = filterUnsafePaths(localStats, maxBytes, this.app.vault.configDir);
+      const remoteSafety = filterUnsafePaths(remoteStats, maxBytes, this.app.vault.configDir);
       const localSkipped = localStats.size - localSafety.safe.size;
       const remoteSkipped = remoteStats.size - remoteSafety.safe.size;
       if (localSkipped > 0) log.debug('local safety skipped', { count: localSkipped });

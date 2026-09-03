@@ -1,4 +1,4 @@
-﻿// Shared callout & admonition DOM post-processing.
+// Shared callout & admonition DOM post-processing.
 // Used by both the WeChat news view and the theme editor preview.
 //
 // After MarkdownRenderer.render() produces live DOM, callouts and admonitions
@@ -77,8 +77,8 @@ export function processCalloutsAndAdmonitions(container: HTMLElement): void {
     const borderBottom = styles.borderBottom || 'none';
     const borderLeft = styles.borderLeft || 'none';
 
-    const titleEl = block.querySelector('.callout-title') as HTMLElement | null;
-    const contentEl = block.querySelector('.callout-content') as HTMLElement | null;
+    const titleEl = block.querySelector('.callout-title');
+    const contentEl = block.querySelector('.callout-content');
 
     let titleColor = '#333333';
     let titleFontSize = '15px';
@@ -141,7 +141,7 @@ export function processCalloutsAndAdmonitions(container: HTMLElement): void {
       bodySection.innerHTML = contentEl.innerHTML;
     } else {
       const clone = block.cloneNode(true) as HTMLElement;
-      const cloneTitle = clone.querySelector('.callout-title') as HTMLElement | null;
+      const cloneTitle = clone.querySelector('.callout-title');
       if (cloneTitle) cloneTitle.remove();
       bodySection.innerHTML = clone.innerHTML;
     }

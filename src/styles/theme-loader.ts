@@ -1,9 +1,9 @@
 // Theme Loader — discovers, parses, caches, and watches custom theme notes
 // Bridges vault markdown notes → ThemePreset objects for the renderer
 
-import { type Vault, type TFile, type MetadataCache } from 'obsidian';
+import { type Vault, TFile, type MetadataCache } from 'obsidian';
 import type { ThemePreset } from '../core/interfaces';
-import { frontmatterToThemePreset, DEFAULT_PRESET } from '../renderer/theme-resolver';
+import { frontmatterToThemePreset } from '../renderer/theme-resolver';
 import { parseFlatFrontmatter, registerCustomValues } from '../core/frontmatter-parser';
 import { parseHeadingFrontmatter } from '../core/heading-config';
 import { parseBlockquoteFrontmatter } from '../core/blockquote-config';
@@ -23,8 +23,8 @@ import { parseInlineFrontmatter } from '../core/inline-config';
 import { BUILTIN_PRESETS } from './style-template';
 import { createLogger } from '../utils/logger';
 import { eventBus } from '../core/event-bus';
-import matter from 'gray-matter';
-import { t } from '../i18n';
+import yaml from 'js-yaml';
+import { extractFrontmatterBlock } from '../utils/frontmatter';
 
 const log = createLogger('Themes');
 
@@ -120,14 +120,14 @@ export class ThemeLoader {
     log.info('scanThemes: found children', { count: children.length });
 
     for (const child of children) {
-      if (!(child as TFile).extension) continue;
-      if ((child as TFile).extension !== 'md') continue;
+      if (!child.extension) continue;
+      if (child.extension !== 'md') continue;
 
-      const childPath = (child as TFile).path;
+      const childPath = child.path;
       log.info('scanThemes: checking .md file', { path: childPath });
 
       try {
-        const descriptor = await this.readDescriptor(child as TFile);
+        const descriptor = await this.readDescriptor(child);
         if (!descriptor) {
           log.info('scanThemes: not a theme note (no wewrite_theme/wewrite_style marker)', { path: childPath });
           continue;
@@ -293,13 +293,15 @@ export class ThemeLoader {
    *  membership, so non-theme notes are never read on change. */
   startWatching(): void {
     this.vault.on('create', (file) => {
-      void this.handleFileCreated(file as TFile);
+      if (!(file instanceof TFile)) return;
+      void this.handleFileCreated(file);
     });
     this.vault.on('delete', (file) => {
-      this.handleFileDelete(file as TFile);
+      if (!(file instanceof TFile)) return;
+      this.handleFileDelete(file);
     });
     this.metadataCache.on('changed', (file) => {
-      void this.handleFileChanged(file as TFile);
+      void this.handleFileChanged(file);
     });
   }
 
@@ -446,19 +448,46 @@ export class ThemeLoader {
   }
 
   /** Parse YAML frontmatter from markdown content. Public for testability.
-   *  Malformed YAML (e.g. a duplicated mapping key) must not throw — log a
-   *  warning and skip the file so a broken theme note never produces an
-   *  unhandled promise rejection. */
+   *  Duplicated top-level mapping keys are deduped (last value wins) BEFORE
+   *  parsing, so js-yaml never hits "duplicated mapping key" — that error also
+   *  poisons gray-matter's memo cache, so it is avoided up front. Any other
+   *  parse error is logged and the file skipped. */
   parseFrontmatter(content: string): Record<string, unknown> | null {
+    const cleaned = this.dedupeFrontmatterKeys(content);
+    const block = extractFrontmatterBlock(cleaned);
+    if (block === null) return null;
     try {
-      const parsed = matter(content);
-      const data = parsed.data as Record<string, unknown>;
-      if (!data || Object.keys(data).length === 0) return null;
-      return data;
+      const data = yaml.load(block) as unknown;
+      if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+      return data as Record<string, unknown>;
     } catch (err) {
       log.warn('failed to parse theme frontmatter (malformed YAML, skipping)', { err: String(err) });
       return null;
     }
+  }
+
+  /** Remove duplicated top-level YAML mapping keys (keep the last occurrence).
+   *  Returns the input unchanged when there are no top-level duplicates. */
+  private dedupeFrontmatterKeys(content: string): string {
+    const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(content);
+    if (!m) return content;
+    const block = m[0];
+    const lines = m[1].split(/\r?\n/);
+    // Walk from the end so the FIRST key we see for any name is its LAST
+    // occurrence in the original — keep that and drop earlier duplicates.
+    const seen = new Set<string>();
+    const keep = new Set<number>();
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const key = /^([A-Za-z0-9_.-]+):/.exec(lines[i])?.[1];
+      if (key) {
+        if (seen.has(key)) continue; // an earlier duplicate → drop it
+        seen.add(key);
+      }
+      keep.add(i);
+    }
+    const newYaml = lines.filter((_, i) => keep.has(i)).join('\n');
+    const newBlock = block.replace(m[1], newYaml);
+    return content.replace(block, newBlock);
   }
 
   /** Frontmatter changed anywhere in the vault — refresh a theme note or drop

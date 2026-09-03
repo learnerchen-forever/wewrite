@@ -1,4 +1,4 @@
-﻿import { setIcon, type App } from 'obsidian';
+import { setIcon, type App } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import type { MaterialItem, MaterialType, WeChatAccount } from '../core/interfaces';
 import type { MaterialManager } from '../media/material-manager';
@@ -87,7 +87,7 @@ export class DeleteProgressModal extends WeWriteModal {
     });
 
     // Start
-    this.run();
+    void this.run();
   }
 
   private cancel(): void {

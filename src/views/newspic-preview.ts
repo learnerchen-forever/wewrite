@@ -1,12 +1,9 @@
-﻿// NewsPic Preview Renderer — phone-frame slideshow with swipe dots + description
+// NewsPic Preview Renderer — phone-frame slideshow with swipe dots + description
 
 import type { Vault } from 'obsidian';
 import type { NewsPicArticleConfig, CoverCropPercent, CropPercentCoords } from '../core/interfaces';
-import { createLogger } from '../utils/logger';
 import { t } from '../i18n';
 import { isWechatCdnUrl, hydrateWechatCdnImages } from '../utils/wechat-image-display';
-
-const log = createLogger('Views:NewsPicPreview');
 
 export interface CropModeState { active: boolean; ratio: '1_1' | '16_9' | '235_1'; }
 export type PreviewStatus = 'empty' | 'idle' | 'rebuilding' | 'ready' | 'error';

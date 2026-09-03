@@ -1,9 +1,5 @@
 // Three-way merge for markdown files — common-prefix/suffix line merge with conflict markers
 
-import { createLogger } from '../utils/logger';
-
-const log = createLogger('Sync:Merge');
-
 export interface MergeResult {
   merged: string;
   hasConflicts: boolean;

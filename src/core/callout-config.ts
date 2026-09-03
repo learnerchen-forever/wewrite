@@ -88,7 +88,7 @@ function parseCustomDecorations(customValues: unknown): CalloutDecoration[] {
 				const style: CalloutTypeStyle = {};
 				for (const field of TYPE_FIELDS) {
 					if (typeof raw[field] === 'string' && raw[field]) {
-						(style as Record<string, string>)[field] = raw[field] as string;
+						style[field] = raw[field];
 					}
 				}
 				if (Object.keys(style).length > 0) types[type] = style;
@@ -155,7 +155,7 @@ export function parseCalloutFrontmatter(
 				const field = rest.slice(dot + 1);
 				config.decorationTypes = config.decorationTypes || {};
 				config.decorationTypes[type] = config.decorationTypes[type] || {};
-				config.decorationTypes[type]![field] = value;
+				config.decorationTypes[type][field] = value;
 			}
 		}
 	}
@@ -282,7 +282,7 @@ export function customCalloutDecorationsToFrontmatter(
 				if (!style) continue;
 				const fields: Record<string, string> = {};
 				for (const field of TYPE_FIELDS) {
-					if (style[field]) fields[field] = style[field] as string;
+					if (style[field]) fields[field] = style[field];
 				}
 				if (Object.keys(fields).length > 0) types[type] = fields;
 			}

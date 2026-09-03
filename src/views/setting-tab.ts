@@ -1,8 +1,8 @@
-﻿// Plugin Settings Tab — IP display, collapsible sections, auto-expand inputs
+// Plugin Settings Tab — IP display, collapsible sections, auto-expand inputs
 
 import { App, PluginSettingTab, Setting, Notice, Modal, setIcon, requestUrl, SuggestModal, ButtonComponent, Platform, type TFolder } from 'obsidian';
 import type WeWritePlugin from '../main';
-import type { WeChatAccount, AITextAccount, AIImageGenAccount, AIProviderType, ImageGenProviderType, WeWriteSettings } from '../core/interfaces';
+import type { AIProviderType, ImageGenProviderType, WeWriteSettings } from '../core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS, DEFAULT_SETTINGS } from '../core/interfaces';
 import {
   ALI_MAAS_BASE_URL_TEMPLATE,
@@ -107,7 +107,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  async display(): Promise<void> {
+  /** PluginSettingTab#display() is typed void; Obsidian calls it to (re)build
+   *  the pane. The heavy rendering is async, so delegate to a private method
+   *  and keep the override's void contract. */
+  display(): void {
+    void this.renderTab();
+  }
+
+  async renderTab(): Promise<void> {
     const { containerEl } = this;
     // Clear any stale sync progress polling from a previous display() cycle
     if (this._syncProgressTimer) {
@@ -133,7 +140,6 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const generalBody = this.addCollapsibleSection(containerEl, t('settings.general'), 'settings');
 
     // WeWrite Folder — central directory with fixed subdirectories
-    const wfLabel = getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.cache);
     const folderSetting = new Setting(generalBody);
     // Dedicated row layout: the text input flexes to fill the remaining row
     // (PC + mobile) while the 浏览 button keeps its natural width and stays
@@ -151,18 +157,22 @@ export class WeWriteSettingTab extends PluginSettingTab {
           // Don't call display() on every keystroke — it collapses all sections.
           // display() and theme directory update happen on blur instead.
         });
-        t.inputEl.addEventListener('blur', async () => {
-          await this.plugin.updateThemesDirectory();
-          this.display();
+        t.inputEl.addEventListener('blur', () => {
+          void (async () => {
+            await this.plugin.updateThemesDirectory();
+            void this.display();
+          })();
         });
       })
       .addButton((btn) =>
         btn.setButtonText(t('settings.browse')).onClick(() => {
-          new FolderPickerModal(this.app, async (path) => {
-            settings.wewriteFolder = path;
-            this.save();
-            await this.plugin.updateThemesDirectory();
-            this.display();
+          new FolderPickerModal(this.app, (path) => {
+            void (async () => {
+              settings.wewriteFolder = path;
+              this.save();
+              await this.plugin.updateThemesDirectory();
+              void this.display();
+            })();
           }).open();
         }),
       );
@@ -210,7 +220,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         btn.setButtonText(t('settings.clear_button')).setWarning().onClick(async () => {
           const count = this.plugin.mediaRegistry.clear();
           await this.plugin.saveSettings();
-          this.display();
+          void this.display();
           new Notice(t('notice.fingerprints_cleared', { count }));
         }),
       );
@@ -224,7 +234,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         btn.setButtonText(t('settings.clear_button')).setWarning().onClick(async () => {
           const count = await this.plugin.configStore.clearAll();
           await this.plugin.saveSettings();
-          this.display();
+          void this.display();
           new Notice(t('notice.note_configs_cleared', { count }));
         }),
       );
@@ -298,7 +308,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             });
           }
 
-          this.display();
+          void this.display();
           new Notice(t('notice.reset_complete', { fpCount, cfgCount, cacheCount: cacheDeleted, debugCount: debugDeleted }));
         }),
       );
@@ -455,7 +465,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           buttonWithIcon(btn, 'check', t('settings.set_active')).onClick(() => {
             settings.activeWeChatAccountId = account.id;
             this.save();
-            this.display();
+            void this.display();
           }),
         );
       }
@@ -466,7 +476,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeWeChatAccountId = settings.wechatAccounts[0]?.id || '';
           }
           this.save();
-          this.display();
+          void this.display();
         }),
       );
     }
@@ -477,7 +487,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           id: generateId(), name: t('settings.new_account'), appId: '', appSecret: '',
         });
         this.save();
-        this.display();
+        void this.display();
       }),
     );
 
@@ -563,7 +573,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           buttonWithIcon(btn, 'check', t('settings.set_active')).onClick(() => {
             settings.activeAITextAccountId = account.id;
             this.save();
-            this.display();
+            void this.display();
           }),
         );
       }
@@ -574,7 +584,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeAITextAccountId = settings.aiTextAccounts[0]?.id || '';
           }
           this.save();
-          this.display();
+          void this.display();
         }),
       );
     }
@@ -586,7 +596,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o',
         });
         this.save();
-        this.display();
+        void this.display();
       }),
     );
 
@@ -630,7 +640,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             account.model = defs.model;
             account.defaultSize = defs.defaultSize;
             this.save();
-            this.display();
+            void this.display();
           });
       });
 
@@ -704,7 +714,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           buttonWithIcon(btn, 'check', t('settings.set_active')).onClick(() => {
             settings.activeAIImageGenAccountId = account.id;
             this.save();
-            this.display();
+            void this.display();
           }),
         );
       }
@@ -715,7 +725,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeAIImageGenAccountId = settings.aiImageGenAccounts[0]?.id || '';
           }
           this.save();
-          this.display();
+          void this.display();
         }),
       );
     }
@@ -729,7 +739,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           model: defs.model, defaultSize: defs.defaultSize,
         });
         this.save();
-        this.display();
+        void this.display();
       }),
     );
 
@@ -834,7 +844,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             if (conflicts.length > 0) {
               settings.syncEnabled = false;
               this.save();
-              this.display();
+              void this.display();
               new SyncConflictModal(this.app, conflicts).open();
               return;
             }
@@ -845,7 +855,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
               );
               settings.syncEnabled = true;
               this.save();
-              this.display();
+              void this.display();
               this.plugin.startSyncTimer();
             }).open();
             return;
@@ -855,7 +865,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           this.plugin.syncEngine?.cancel();
           settings.syncEnabled = false;
           this.save();
-          this.display();
+          void this.display();
         }),
       );
 
@@ -1305,7 +1315,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     this._langUnsub?.();
     this._langUnsub = onLanguageChange(() => {
       this.containerEl.empty();
-      this.display();
+      void this.display();
     });
   }
 
@@ -1588,7 +1598,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       const result = await this.plugin.settingsManager.load(data);
       this.plugin.settings = result.settings;
       await this.plugin.saveSettings();
-      this.display();
+      void this.display();
 
       const s = result.accountStats;
       new Notice(t('notice.settings_imported', { wechat: s.wechatAccountsImported, aiText: s.aiTextAccountsImported, aiImage: s.aiImageGenAccountsImported }));
@@ -1746,7 +1756,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
   private save(): void {
     this.plugin.settings = this.plugin.settingsManager.getSettings();
-    this.plugin.saveSettings();
+    void this.plugin.saveSettings();
   }
 }
 

@@ -2,7 +2,10 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('NoteConfigStore');
 
-const BASE_DIR = '.obsidian/wewrite/notes/';
+// Obsidian's configuration folder is not necessarily '.obsidian' (users can
+// customize it), so the path is derived from Vault#configDir (defaults to
+// '.obsidian').
+const DEFAULT_CONFIG_DIR = '.obsidian';
 
 interface VaultAdapter {
   read(normalizedPath: string): Promise<string>;
@@ -16,13 +19,15 @@ interface VaultAdapter {
 
 export class NoteConfigStore {
   private adapter: VaultAdapter;
+  private baseDir: string;
 
-  constructor(adapter: VaultAdapter) {
+  constructor(adapter: VaultAdapter, configDir = DEFAULT_CONFIG_DIR) {
     this.adapter = adapter;
+    this.baseDir = `${configDir.replace(/\/$/, '')}/wewrite/notes/`;
   }
 
   getBaseDir(): string {
-    return BASE_DIR;
+    return this.baseDir;
   }
 
   /** Hash a vault path into a 12-char hex directory name (djb2 algorithm) */
@@ -36,7 +41,7 @@ export class NoteConfigStore {
   }
 
   private configPath(noteId: string, type: 'news' | 'newspic'): string {
-    return `${BASE_DIR}${noteId}/${type}.json`;
+    return `${this.baseDir}${noteId}/${type}.json`;
   }
 
   async load<T>(notePath: string, type: 'news' | 'newspic'): Promise<T | null> {
@@ -55,7 +60,7 @@ export class NoteConfigStore {
 
   async save<T>(notePath: string, type: 'news' | 'newspic', config: T): Promise<void> {
     const id = this.noteId(notePath);
-    const dir = `${BASE_DIR}${id}/`;
+    const dir = `${this.baseDir}${id}/`;
     const path = this.configPath(id, type);
     try {
       const dirExists = await this.adapter.exists(dir);
@@ -70,7 +75,7 @@ export class NoteConfigStore {
 
   async delete(notePath: string): Promise<void> {
     const id = this.noteId(notePath);
-    const dir = `${BASE_DIR}${id}/`;
+    const dir = `${this.baseDir}${id}/`;
     try {
       const exists = await this.adapter.exists(dir);
       if (!exists) return;
@@ -83,9 +88,9 @@ export class NoteConfigStore {
   /** Count how many notes have at least one saved config. */
   async count(): Promise<number> {
     try {
-      const baseExists = await this.adapter.exists(BASE_DIR);
+      const baseExists = await this.adapter.exists(this.baseDir);
       if (!baseExists) return 0;
-      const listing = await this.adapter.list(BASE_DIR);
+      const listing = await this.adapter.list(this.baseDir);
       return listing.folders.length;
     } catch {
       return 0;
@@ -94,11 +99,11 @@ export class NoteConfigStore {
 
   async clearAll(): Promise<number> {
     try {
-      const baseExists = await this.adapter.exists(BASE_DIR);
+      const baseExists = await this.adapter.exists(this.baseDir);
       if (!baseExists) return 0;
-      const listing = await this.adapter.list(BASE_DIR);
+      const listing = await this.adapter.list(this.baseDir);
       const count = listing.folders.length;
-      await this.adapter.rmdir(BASE_DIR, true);
+      await this.adapter.rmdir(this.baseDir, true);
       return count;
     } catch (err) {
       log.warn('clearAll failed', { err: String(err) });
@@ -121,8 +126,8 @@ export class NoteConfigStore {
       return;
     }
 
-    const oldDir = `${BASE_DIR}${oldId}/`;
-    const newDir = `${BASE_DIR}${newId}/`;
+    const oldDir = `${this.baseDir}${oldId}/`;
+    const newDir = `${this.baseDir}${newId}/`;
 
     try {
       const oldDirExists = await this.adapter.exists(oldDir);

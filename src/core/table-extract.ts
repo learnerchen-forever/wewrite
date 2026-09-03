@@ -136,7 +136,7 @@ export function extractTableFromHtml(html: string, accentHex: string): Extracted
 		? Array.from(root.querySelectorAll('tbody tr'))
 		: Array.from(root.querySelectorAll('tr')).slice(1);
 	if (bodyRows.length > 0) {
-		const td = (bodyRows[0] as HTMLElement).querySelector('th, td') as HTMLElement | null;
+		const td = bodyRows[0].querySelector('th, td');
 		if (td) {
 			const tdCss = rewriteCss(td.getAttribute('style') || '');
 			if (tdCss) parts.td = tdCss;
@@ -146,7 +146,7 @@ export function extractTableFromHtml(html: string, accentHex: string): Extracted
 	// Zebra: compare the first two body rows' cell backgrounds.
 	if (bodyRows.length >= 2) {
 		const bgOf = (row: Element): string => {
-			const cell = row.querySelector('th, td') as HTMLElement | null;
+			const cell = row.querySelector('th, td');
 			const style = cell?.getAttribute('style') || '';
 			const m = /(?:background(?:-color)?)\s*:\s*([^;]+)/i.exec(style);
 			return m ? m[1].trim() : '';

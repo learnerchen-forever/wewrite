@@ -64,7 +64,7 @@ function parseCustomDecorations(customValues: unknown): MermaidDecoration[] {
 		if (isObj(d.colors)) {
 			const next = { ...colors };
 			for (const k of COLOR_KEYS) {
-				if (typeof d.colors[k] === 'string' && d.colors[k]) next[k] = d.colors[k] as string;
+				if (typeof d.colors[k] === 'string' && d.colors[k]) next[k] = d.colors[k];
 			}
 			colors = next;
 		}

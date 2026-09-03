@@ -1,7 +1,7 @@
-﻿// WeChatNewsPic ItemView — compact config rows + phone-frame slideshow preview
+// WeChatNewsPic ItemView — compact config rows + phone-frame slideshow preview
 // Images and description auto-extracted from source markdown note (read-only).
 
-import { ItemView, Menu, setIcon, Notice, requestUrl, type WorkspaceLeaf, type TFile } from 'obsidian';
+import { ItemView, Menu, setIcon, Notice, requestUrl, type WorkspaceLeaf, TFile } from 'obsidian';
 import { t, onLanguageChange } from '../i18n';
 import type WeWritePlugin from '../main';
 import { NoteConfigStore } from '../data/note-config-store';
@@ -137,7 +137,7 @@ export class WeChatNewsPicView extends ItemView {
       this.refreshTitle();
       // Only render if this is the active leaf (prevents background views
       // from rendering on Obsidian startup).
-      if (this.app.workspace.activeLeaf !== this.leaf) return;
+      if (this.app.workspace.getActiveViewOfType(WeChatNewsPicView) !== this) return;
       window.setTimeout(() => { void this.setFile(state.filePath); }, 100);
     }
   }
@@ -252,7 +252,7 @@ export class WeChatNewsPicView extends ItemView {
     this.deviceSizeKey = NEWSPIC_DEVICE_PRESETS[savedDeviceSize] ? savedDeviceSize : 'none';
 
     this.deviceSelectEl = row.createEl('select', { cls: 'dropdown wewrite-select wewrite-newspic-device-select' });
-    for (const [key, preset] of Object.entries(NEWSPIC_DEVICE_PRESETS) as [DeviceSizeKey, typeof NEWSPIC_DEVICE_PRESETS['small']][]) {
+    for (const [key] of Object.entries(NEWSPIC_DEVICE_PRESETS) as [DeviceSizeKey, typeof NEWSPIC_DEVICE_PRESETS['small']][]) {
       const opt = document.createElement('option');
       opt.value = key; opt.text = devicePresetLabel(key);
       if (key === this.deviceSizeKey) opt.selected = true;
@@ -482,7 +482,7 @@ export class WeChatNewsPicView extends ItemView {
       for (const [accountId, val] of Object.entries(config.imageMediaIds)) {
         if (Array.isArray(val)) {
           const nm: Record<string, string> = {};
-          (val as string[]).forEach((mid, i) => { if (config!.images[i]) nm[config!.images[i].vaultPath] = mid; });
+          val.forEach((mid, i) => { if (config.images[i]) nm[config.images[i].vaultPath] = mid; });
           config.imageMediaIds[accountId] = nm;
         }
       }
@@ -583,7 +583,7 @@ export class WeChatNewsPicView extends ItemView {
             accountUrls: {},
           });
 
-          this.config!.images.push({
+          this.config.images.push({
             vaultPath: pngPath,
             url: '',
             order: this.config.images.length,
@@ -598,7 +598,7 @@ export class WeChatNewsPicView extends ItemView {
         } catch (err) {
           log.warn('SVG→PNG conversion failed during extraction', { err: String(err) });
           // Fallback: add raw SVG for publish-time conversion
-          (this.config!.images as NewsPicImage[]).push({
+          this.config.images.push({
             vaultPath: '',
             url: '',
             order: this.config.images.length,
@@ -643,7 +643,7 @@ export class WeChatNewsPicView extends ItemView {
 
   markConfigDirty(): void {
     this.configDirty = true;
-    this.debouncedSaveConfig();
+    void this.debouncedSaveConfig();
   }
 
   private debouncedSaveConfig = debounce(async () => {
@@ -899,7 +899,6 @@ export class WeChatNewsPicView extends ItemView {
     // ── Image upload phase ──
 
     const imageMediaIds: string[] = [];
-    const cachedMap = this.config.imageMediaIds?.[acct.appId] || {};
 
     let taskIdx = 0;
     for (let i = 0; i < this.config.images.length; i++) {
@@ -907,7 +906,7 @@ export class WeChatNewsPicView extends ItemView {
       const img: NewsPicImage = this.config.images[i];
       const cacheKey = img.vaultPath || img.url || '';
 
-      const displayName = cacheKey.split('/').pop() || img.url?.split('/').pop() || t('publish.task_image', { index: i + 1, total: this.config!.images.length });
+      const displayName = cacheKey.split('/').pop() || img.url?.split('/').pop() || t('publish.task_image', { index: i + 1, total: this.config.images.length });
       modal.setTaskRunning(taskIdx, displayName);
 
       // SVG items: convert to PNG first, check SVG registry for dedup
@@ -919,8 +918,8 @@ export class WeChatNewsPicView extends ItemView {
       if (!svgStr && img.vaultPath && /\.svg$/i.test(img.vaultPath)) {
         try {
           const svgFile = this.app.vault.getAbstractFileByPath(img.vaultPath);
-          if (svgFile) {
-            svgStr = await this.app.vault.read(svgFile as TFile);
+          if (svgFile instanceof TFile) {
+            svgStr = await this.app.vault.read(svgFile);
             img._svgHtml = svgStr;
           }
         } catch { /* file unreadable — fall through to regular upload */ }
@@ -969,8 +968,8 @@ export class WeChatNewsPicView extends ItemView {
           let needCache = false;
           if (svgPngPath && await this.plugin.app.vault.adapter.exists(svgPngPath)) {
             const cachedFile = this.app.vault.getAbstractFileByPath(svgPngPath);
-            if (cachedFile) {
-              arrayBuffer = await this.app.vault.readBinary(cachedFile as TFile);
+            if (cachedFile instanceof TFile) {
+              arrayBuffer = await this.app.vault.readBinary(cachedFile);
             } else {
               arrayBuffer = await (await import('../media/svg-to-png')).svgToPngBuffer(svgStr!, 2);
               needCache = true;
@@ -1025,12 +1024,12 @@ export class WeChatNewsPicView extends ItemView {
           fileName = `image.${fmt}`;
         } else {
           const file = this.app.vault.getAbstractFileByPath(img.vaultPath);
-          if (!file) {
+          if (!(file instanceof TFile)) {
             modal.setTaskError(taskIdx, t('publish.image_missing', { path: img.vaultPath }));
             modal.setFinished(false);
             return;
           }
-          arrayBuffer = await this.app.vault.readBinary(file as TFile);
+          arrayBuffer = await this.app.vault.readBinary(file);
           const ext = img.vaultPath.split('.').pop()?.toLowerCase() || 'png';
           mimeType = mm[ext] || 'image/png';
           fileName = img.vaultPath.split('/').pop() || 'image';
@@ -1228,10 +1227,6 @@ export class WeChatNewsPicView extends ItemView {
     if (images.length === 0) return images;
 
     const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB
-    const mimeMap: Record<string, string> = {
-      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-      gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp',
-    };
 
     const fixed: NewsPicImage[] = [];
     let idx = 0;
@@ -1541,7 +1536,7 @@ class NewsPicPublishModal {
       this.renderTaskRow(t);
     }
 
-    const runningRow = this.taskListEl.querySelector('.task-running') as HTMLElement | null;
+    const runningRow = this.taskListEl.querySelector('.task-running');
     if (runningRow) {
       runningRow.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }

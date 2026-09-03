@@ -163,12 +163,11 @@ import { FONT_FAMILIES, FONT_FAMILY_OPTIONS } from '../core/interfaces';
 import { createFontFamilySelect } from '../utils/font-select';
 import { CONTENT_TEMPLATE } from '../styles/style-template';
 import { CODE_THEME_CATALOG, getCodeThemeById, type CodeTokenKey } from '../core/code-theme-library';
-import matter from 'gray-matter';
+import { splitFrontmatter, stringifyFrontmatter } from '../utils/frontmatter';
 import { createLogger } from '../utils/logger';
 import { t, onLanguageChange } from '../i18n';
 import { waitForCalloutPlugins, processCalloutsAndAdmonitions } from '../utils/callout-processor';
 import { extractMermaidBlocks, renderMermaidToPng } from '../media/diagram-renderer';
-import { debounce } from '../utils/debounce';
 import { processCodeBlocksInPlace } from '../utils/code-block-utils';
 import { processMathToSvg } from '../utils/math-processor';
 
@@ -437,7 +436,7 @@ export class WeWriteThemeView extends ItemView {
 		if (state.filePath && state.filePath !== this.filePath) {
 			this.filePath = state.filePath;
 			this.refreshTitle();
-			if (this.app.workspace.activeLeaf !== this.leaf) {
+			if (this.app.workspace.getActiveViewOfType(WeWriteThemeView) !== this) {
 				this._pendingFilePath = state.filePath;
 				return;
 			}
@@ -475,7 +474,7 @@ export class WeWriteThemeView extends ItemView {
 		const newBtn = header.createEl('button', { cls: 'wewrite-btn-icon' });
 		newBtn.setAttribute('aria-label', t('theme.editor.new_theme'));
 		setIcon(newBtn, 'wewrite-new-theme');
-		newBtn.addEventListener('click', () => this.openWizard());
+		newBtn.addEventListener('click', () => { void this.openWizard(); });
 
 		this.nameInput = header.createEl('input', { type: 'text', placeholder: t('theme.editor.theme_name'), cls: 'wewrite-input' });
 		this.nameInput.value = this.themeName;
@@ -496,7 +495,7 @@ export class WeWriteThemeView extends ItemView {
 		const saveBtn = header.createEl('button', { cls: 'wewrite-btn-icon' });
 		saveBtn.setAttribute('aria-label', t('theme.editor.save'));
 		setIcon(saveBtn, 'wewrite-save');
-		saveBtn.addEventListener('click', () => this.flushSave());
+		saveBtn.addEventListener('click', () => { void this.flushSave(); });
 
 		const refreshBtn = header.createEl('button', { cls: 'wewrite-btn-icon' });
 		refreshBtn.setAttribute('aria-label', t('theme.editor.refresh_preview'));
@@ -640,13 +639,15 @@ export class WeWriteThemeView extends ItemView {
 	private async loadThemeFile(token: number): Promise<void> {
 		if (!this.filePath) return;
 		try {
-			const content = await this.app.vault.read(this.app.vault.getAbstractFileByPath(this.filePath) as TFile);
+			const file = this.app.vault.getAbstractFileByPath(this.filePath);
+			if (!(file instanceof TFile)) return;
+			const content = await this.app.vault.read(file);
 			// Stale load — the user switched theme files while we were reading.
 			if (token !== this._loadToken) return;
-			const parsed = matter(content);
+			const parsed = splitFrontmatter(content);
 			let fm = parsed.data as Record<string, unknown>;
 			this._rawFrontmatter = { ...fm };
-			this.noteBody = parsed.content || '';
+			this.noteBody = parsed.body || '';
 
 				this.modifierConfig = {};
 				this.customValues = [];
@@ -1384,7 +1385,6 @@ export class WeWriteThemeView extends ItemView {
 
 	/** inlineMath keeps its legacy color/scale controls (moved from 公式). */
 	private renderInlineMathControls(box: HTMLElement, type: InlineElementType): void {
-		const def = INLINE_TYPE_DEFS[type];
 		const tc = this.inlineTypeConfig(type) || {};
 
 		const colorRow = box.createDiv();
@@ -2000,7 +2000,7 @@ export class WeWriteThemeView extends ItemView {
 			const types = this.calloutConfig.decorationTypes;
 			if (trimmed === '' || trimmed === defaultValue) {
 				delete types?.[type]?.[field];
-				if (types?.[type] && Object.keys(types[type]!).length === 0) {
+				if (types?.[type] && Object.keys(types[type]).length === 0) {
 					delete types[type];
 				}
 				if (types && Object.keys(types).length === 0) {
@@ -2009,7 +2009,7 @@ export class WeWriteThemeView extends ItemView {
 			} else {
 				this.calloutConfig.decorationTypes = this.calloutConfig.decorationTypes || {};
 				this.calloutConfig.decorationTypes[type] = this.calloutConfig.decorationTypes[type] || {};
-				this.calloutConfig.decorationTypes[type]![field] = trimmed;
+				this.calloutConfig.decorationTypes[type][field] = trimmed;
 			}
 		});
 	}
@@ -3735,7 +3735,7 @@ export class WeWriteThemeView extends ItemView {
 			this._cachedNativeHtml = null;
 			this._cachedNoteBody = '';
 			this.renderer.updateStyle(this.buildCurrentPreset());
-			this.renderPreviewContent();
+			void this.renderPreviewContent();
 		}, 150);
 		// Auto-save after 2s of inactivity
 		if (this._autoSaveTimer) window.clearTimeout(this._autoSaveTimer);
@@ -3760,7 +3760,7 @@ export class WeWriteThemeView extends ItemView {
 			const tempDiv = this.previewContainer.createDiv();
 			await MarkdownRenderer.render(this.app, previewMd, tempDiv, '', this);
 			await waitForCalloutPlugins(tempDiv);
-			await processCalloutsAndAdmonitions(tempDiv);
+			processCalloutsAndAdmonitions(tempDiv);
 
 			const resolver = this.renderer.getThemeResolver();
 			processCodeBlocksInPlace(tempDiv, {
@@ -3987,7 +3987,7 @@ export class WeWriteThemeView extends ItemView {
 		this._cachedNativeHtml = null;
 		this._cachedNoteBody = '';
 		this.renderer = new WechatRenderer(this.buildCurrentPreset());
-		this.renderPreviewContent();
+		void this.renderPreviewContent();
 	}
 
 	// ── Undo/Redo ──
@@ -4104,11 +4104,11 @@ export class WeWriteThemeView extends ItemView {
 		if (!this.filePath) return;
 		try {
 			const fc = this.buildFileContent();
-			const file = this.app.vault.getAbstractFileByPath(this.filePath) as TFile;
-			if (file) {
+			const file = this.app.vault.getAbstractFileByPath(this.filePath);
+			if (file instanceof TFile) {
 				await this.app.vault.modify(file, fc);
 				this.dirty = false;
-				this.themeLoader.scanThemes();
+				void this.themeLoader.scanThemes();
 				if (!silent) new Notice(t('theme_editor.saved'));
 			}
 		} catch (err) {
@@ -4360,7 +4360,7 @@ export class WeWriteThemeView extends ItemView {
 			? this.noteBody
 			: `# ${this.themeName || t('theme_editor.untitled')}\n\n${CONTENT_TEMPLATE}`;
 
-		return matter.stringify(body, fm);
+		return stringifyFrontmatter(body, fm);
 	}
 
 	// ── Panel toggle ──
@@ -4459,7 +4459,7 @@ export class WeWriteThemeView extends ItemView {
 			if (file) {
 				await this.setFile(file.path);
 			}
-			this.themeLoader.scanThemes();
+			void this.themeLoader.scanThemes();
 			new Notice(t('theme_editor.created', { name: themeName }));
 		} catch (err) {
 			new Notice(`${t('theme_editor.create_failed', { error: String(err) })}`);

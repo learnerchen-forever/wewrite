@@ -4,7 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import matter from 'gray-matter';
+import { parseFrontmatter, splitFrontmatter, stringifyFrontmatter } from '../../../src/utils/frontmatter';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>');
@@ -34,7 +34,7 @@ const THEME_FILES = [
 describe('Built-in themes (blockquote decoration schema)', () => {
   it.each(THEME_FILES)('%s renders blockquotes without leftover placeholders', (file) => {
     const content = fs.readFileSync(path.join(THEMES_DIR, file), 'utf8');
-    const fm = matter(content).data as Record<string, unknown>;
+    const fm = (parseFrontmatter(content) as Record<string, unknown>);
     const { config, customDecorations } = parseBlockquoteFrontmatter(fm);
     const preset = { ...DEFAULT_PRESET, ...frontmatterToThemePreset(fm)! };
     preset.blockquoteConfig = config;
