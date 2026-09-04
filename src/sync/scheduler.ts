@@ -1,4 +1,4 @@
-﻿// SyncScheduler — manages periodic sync with backoff, startup delay, and UI feedback
+// SyncScheduler — manages periodic sync with backoff, startup delay, and UI feedback
 
 import { setIcon, type IconName } from 'obsidian';
 import { createLogger } from '../utils/logger';
@@ -163,13 +163,13 @@ export class SyncScheduler {
   /** Run one sync cycle with UI feedback and backoff. Returns the sync result. */
   async syncNow(trigger: SyncTrigger): Promise<{ ok: boolean; message: string; conflictCount: number; rateLimited?: boolean; partial?: boolean; deferredCount?: number }> {
     if (this.ribbonEl) {
-      setIcon(this.ribbonEl, 'loader-2' as IconName);
+      setIcon(this.ribbonEl, 'loader-2');
     }
 
     const result = await this.engine.sync(trigger);
 
     if (this.ribbonEl) {
-      setIcon(this.ribbonEl, 'wewrite-sync' as IconName);
+      setIcon(this.ribbonEl, 'wewrite-sync');
     }
 
     if (result.ok && !result.partial) {

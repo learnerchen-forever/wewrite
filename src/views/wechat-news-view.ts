@@ -475,7 +475,7 @@ export class WeChatNewsView extends ItemView {
     const digestLabel = row1.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
     digestLabel.setAttribute('title', t('misc.digest'));
     setIcon(digestLabel, 'wewrite-digest');
-    const spacer = row1.createDiv({ cls: 'wewrite-prop-spacer' });
+    row1.createDiv({ cls: 'wewrite-prop-spacer' });
     const aiBtn = row1.createEl('button', { cls: 'wewrite-btn-icon wewrite-ai-btn', attr: { 'aria-label': t('misc.generate_digest') } });
     setIcon(aiBtn, 'wewrite-ai-generate');
     aiBtn.addEventListener('click', () => { void this.generateDigest(); });
@@ -585,7 +585,7 @@ export class WeChatNewsView extends ItemView {
     coverLabel.setAttribute('title', t('misc.cover_image'));
     setIcon(coverLabel, 'wewrite-cover');
 
-    const spacer = this.coverRowEl.createDiv({ cls: 'wewrite-prop-spacer' });
+    this.coverRowEl.createDiv({ cls: 'wewrite-prop-spacer' });
 
     // ext-wide checkbox
     this.extWideLabelEl = this.coverRowEl.createEl('label', { cls: 'wewrite-cover-checkbox-label' });
@@ -1565,7 +1565,7 @@ export class WeChatNewsView extends ItemView {
             .setIcon('ruler')
             .onClick(() => { void this.openDimensionEditor(src); });
         });
-        menu.showAtMouseEvent(e as MouseEvent);
+        menu.showAtMouseEvent(e);
       });
     });
   }
@@ -2674,43 +2674,15 @@ export class WeChatNewsView extends ItemView {
       new Notice(t('notice.copy_success'));
       return;
     } catch {
-      // ClipboardItem may fail in older Electron; fall back to execCommand
+      // ClipboardItem may fail in older Electron; fall back to plain text below.
     }
 
-    // Fallback: DOM-based copy via execCommand('copy')
-    const el = document.createElement('div');
-    el.contentEditable = 'true';
-    el.innerHTML = compressed;
-    el.style.position = 'fixed';
-    el.style.left = '-9999px';
-    el.style.top = '0';
-    el.style.width = '600px';
-    el.style.height = '400px';
-    el.style.zIndex = '-1';
-    document.body.appendChild(el);
-
-    el.focus();
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-
-    const ok = document.execCommand('copy');
-
-    sel?.removeAllRanges();
-    document.body.removeChild(el);
-
-    if (ok) {
-      new Notice(t('notice.copy_success'));
-    } else {
-      // Last resort: plain text only
-      try {
-        await navigator.clipboard.writeText(plainText);
-        new Notice(t('notice.copy_plain_fallback'));
-      } catch {
-        new Notice(t('notice.copy_failed'));
-      }
+    // Last resort: plain text only.
+    try {
+      await navigator.clipboard.writeText(plainText);
+      new Notice(t('notice.copy_plain_fallback'));
+    } catch {
+      new Notice(t('notice.copy_failed'));
     }
   }
 
@@ -3130,7 +3102,7 @@ class PublishProgressModal {
                   this.renderAllTasks();
                   await this.createDraft();
                   t.status = 'done';
-                } catch (dlErr) {
+                } catch {
                   t.status = 'error';
                   t.error = i18nT('publish.cover_media_invalid_with_local');
                   hasError = true;
@@ -3370,7 +3342,7 @@ class PublishProgressModal {
     // Record publish result in the logger (replaces separate DumpService file)
     this.publishLogger.setPublishResult({
       success: isSuccess,
-      responseBody: (response.data || response.error || {}) as Record<string, unknown>,
+      responseBody: response.data || response.error || {},
       errorMessage: response.error?.errmsg,
     });
 

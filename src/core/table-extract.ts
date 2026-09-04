@@ -59,7 +59,7 @@ export function extractTableFromHtml(html: string, accentHex: string): Extracted
 	let root = doc.body.firstElementChild as HTMLElement | null;
 	if (!root) return null;
 	if (root.tagName !== 'TABLE') {
-		root = root.querySelector('table') as HTMLElement | null;
+		root = root.querySelector('table');
 		if (!root) return null;
 	}
 

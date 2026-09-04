@@ -1,7 +1,7 @@
 // heading-renderer.ts — New heading rendering pipeline (§5.3, §5.4)
 //
 // Steps per heading element:
-//   1. Resolve level config (scale chain → global → level) + decoration params.
+//   1. Resolve level config (scale chain → shared → level) + decoration params.
 //   2. Expand the decoration template: {#number}…{/number} conditionals,
 //      {number}, ${token}s, {{param}}s. The {text} placeholder is located in
 //      the parsed DOM and replaced with the heading's content.
@@ -59,7 +59,7 @@ const NUMBER_SUFFIX: Record<Exclude<NumberingStyle, 'none'>, string> = {
 export function hasHeadingConfig(r: ThemeResolver): boolean {
 	const hc = r.getPreset().headingConfig;
 	if (!hc) return false;
-	return Boolean(hc.global || hc.levels || hc.scale);
+	return Boolean(hc.shared || hc.levels || hc.scale);
 }
 
 /** Format a sequential counter for a numbering style (raw text, no suffix). */
@@ -401,7 +401,7 @@ export function renderHeadings(doc: Document, r: ThemeResolver): boolean {
 		for (const el of Array.from(doc.querySelectorAll(level))) {
 			if (numberingOn) {
 				counters[level]++;
-				const numberText = formatHeadingNumber(counters[level], cfg.numbering as Exclude<NumberingStyle, 'none'>, cfg.numberingPad);
+				const numberText = formatHeadingNumber(counters[level], cfg.numbering, cfg.numberingPad);
 				renderHeadingElement(el, level, cfg, decoration, params, doc, tokens, numberText, numberingOn, useFallbackNumber);
 			} else {
 				renderHeadingElement(el, level, cfg, decoration, params, doc, tokens, '', false, false);
@@ -434,10 +434,10 @@ export function renderDecorationPreview(
 	const previewPreset: ThemePreset = {
 		...preset,
 		headingConfig: {
-			global: {
-				// Carry the theme's global heading settings (numbering, color,
+			shared: {
+				// Carry the theme's shared heading settings (numbering, color,
 				// …) so conditional leaves like leafPair's {#number} render.
-				...preset.headingConfig?.global,
+				...preset.headingConfig?.shared,
 				decoration: '__preview__',
 				decorationParams: params,
 			},

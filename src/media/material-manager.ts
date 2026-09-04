@@ -254,7 +254,7 @@ export class MaterialManager {
       results['draft_newspic'] = [];
     }
 
-    return { results: results as Record<MaterialType, MaterialItem[]>, errors };
+    return { results, errors };
   }
 
   async syncDrafts(

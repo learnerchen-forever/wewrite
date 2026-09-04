@@ -64,7 +64,7 @@ describe('Built-in themes (new heading schema)', () => {
     const map = getHeadingDecorationMap();
     const customIds = new Set(customDecorations.map(d => d.id));
     for (const level of ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const) {
-      const decoId = config.levels?.[level]?.decoration ?? config.global?.decoration ?? 'none';
+      const decoId = config.levels?.[level]?.decoration ?? config.shared?.decoration ?? 'none';
       expect(map[decoId] !== undefined || customIds.has(decoId)).toBe(true);
     }
   });

@@ -8,10 +8,10 @@
 // 3. Built-in fallback templates (when both remotes are unreachable)
 
 import type { App, RequestUrlResponse } from 'obsidian';
-import { Notice, requestUrl, TFile, TFolder } from 'obsidian';
+import { Notice, requestUrl, TFile } from 'obsidian';
 import { t } from '../i18n';
 import { createLogger } from '../utils/logger';
-import yaml from 'js-yaml';
+import { parse as parseYaml } from 'yaml';
 import { extractFrontmatterBlock } from '../utils/frontmatter';
 
 const log = createLogger('Styles');
@@ -283,11 +283,11 @@ export class ThemeDownloader {
         continue;
       }
       if (!opts.repairMalformed) continue;
-      if (existing instanceof TFolder) continue;
+      if (!(existing instanceof TFile)) continue;
 
-      const current = await this.app.vault.read(existing as TFile);
+      const current = await this.app.vault.read(existing);
       if (this.isMalformedFrontmatter(current)) {
-        await this.app.vault.modify(existing as TFile, tpl.content);
+        await this.app.vault.modify(existing, tpl.content);
         repaired++;
       }
     }
@@ -300,7 +300,7 @@ export class ThemeDownloader {
     const block = extractFrontmatterBlock(content);
     if (block === null) return false;
     try {
-      yaml.load(block);
+      parseYaml(block);
       return false;
     } catch {
       return true;

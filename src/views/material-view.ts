@@ -273,7 +273,7 @@ export class MaterialView extends ItemView {
     let indicator: HTMLElement | null = null;
 
     const getScrollEl = (): HTMLElement | null =>
-      container.querySelector('.wewrite-material-scroll') as HTMLElement | null;
+      container.querySelector('.wewrite-material-scroll');
 
     const onTouchStart = (e: TouchEvent) => {
       const scroll = getScrollEl();

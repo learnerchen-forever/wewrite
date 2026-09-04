@@ -1111,7 +1111,7 @@ export class WeWriteThemeView extends ItemView {
 		pasteBtn.addEventListener('click', () => this.openPasteHtml());
 
 		// Delete the selected decoration when it is user-defined.
-		const currentDecoId = this.headingConfig.global?.decoration || 'none';
+		const currentDecoId = this.headingConfig.shared?.decoration || 'none';
 		if (this.headingDecorations.some(d => d.id === currentDecoId)) {
 			const deleteBtn = toolsRow.createEl('button', { text: t('deco_ui.delete_decoration') });
 			deleteBtn.style.fontSize = '12px';
@@ -1154,11 +1154,11 @@ export class WeWriteThemeView extends ItemView {
 	}
 
 	private openDecorationEditor(): void {
-		const currentId = this.headingConfig.global?.decoration || 'none';
+		const currentId = this.headingConfig.shared?.decoration || 'none';
 		const existing = [...getHeadingDecorationLibrary(), ...this.headingDecorations]
 			.find(d => d.id === currentId) || null;
 		const effectiveParams = existing
-			? resolveHeadingDecoration(existing.id, this.headingConfig.global?.decorationParams, this.headingDecorations).params
+			? resolveHeadingDecoration(existing.id, this.headingConfig.shared?.decorationParams, this.headingDecorations).params
 			: {};
 		const modal = new HeadingDecorationEditModal(this.app, {
 			decoration: existing,
@@ -1197,12 +1197,12 @@ export class WeWriteThemeView extends ItemView {
 		if (this.headingVarsSectionEl) this.renderHeadingVarsControls(this.headingVarsSectionEl);
 	}
 
-	/** Remove a custom decoration and clear any global/level references to it. */
+	/** Remove a custom decoration and clear any shared/level references to it. */
 	private deleteHeadingDecoration(id: string): void {
 		this.onConfigChanged(() => {
 			this.headingDecorations = this.headingDecorations.filter(d => d.id !== id);
-			if (this.headingConfig.global?.decoration === id) {
-				delete this.headingConfig.global.decoration;
+			if (this.headingConfig.shared?.decoration === id) {
+				delete this.headingConfig.shared.decoration;
 			}
 			for (const lvl of Object.values(this.headingConfig.levels || {})) {
 				if (lvl?.decoration === id) delete lvl.decoration;
@@ -2951,7 +2951,7 @@ export class WeWriteThemeView extends ItemView {
 	}
 
 	private headingConfigFor(path: string): { config: HeadingLevelConfig; level?: HeadingLevel } {
-		if (path === 'heading') return { config: this.headingConfig.global || {} };
+		if (path === 'heading') return { config: this.headingConfig.shared || {} };
 		const level = path.slice('heading.'.length) as HeadingLevel;
 		return { config: this.headingConfig.levels?.[level] || {}, level };
 	}
@@ -2959,13 +2959,13 @@ export class WeWriteThemeView extends ItemView {
 	private setHeadingField(path: string, key: string, value: unknown, isDefault: boolean): void {
 		this.onConfigChanged(() => {
 			if (path === 'heading') {
-				const g = (this.headingConfig.global = this.headingConfig.global || {});
+				const g = (this.headingConfig.shared = this.headingConfig.shared || {});
 				if (isDefault) {
 					delete (g as Record<string, unknown>)[key];
 				} else {
 					(g as Record<string, unknown>)[key] = value;
 				}
-				if (Object.keys(g).length === 0) delete this.headingConfig.global;
+				if (Object.keys(g).length === 0) delete this.headingConfig.shared;
 			} else {
 				const level = path.slice('heading.'.length) as HeadingLevel;
 				const levels = (this.headingConfig.levels = this.headingConfig.levels || {});
@@ -3016,10 +3016,10 @@ export class WeWriteThemeView extends ItemView {
 		if (!el) return;
 		el.empty();
 
-		const decoId = this.headingConfig.global?.decoration || 'none';
+		const decoId = this.headingConfig.shared?.decoration || 'none';
 		const { decoration, params } = resolveHeadingDecoration(
 			decoId,
-			this.headingConfig.global?.decorationParams,
+			this.headingConfig.shared?.decorationParams,
 			this.headingDecorations,
 		);
 		if (Object.keys(decoration.params).length === 0) return;
@@ -3034,7 +3034,7 @@ export class WeWriteThemeView extends ItemView {
 			label.style.minWidth = '70px';
 			this.renderHeadingParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
-					const g = (this.headingConfig.global = this.headingConfig.global || {});
+					const g = (this.headingConfig.shared = this.headingConfig.shared || {});
 					const trimmed = value.trim();
 					if (trimmed === '' || trimmed === param.default) {
 						delete g.decorationParams?.[key];
@@ -3066,7 +3066,7 @@ export class WeWriteThemeView extends ItemView {
 		if (path === 'heading') {
 			const padInput = row.createEl('input', { type: 'number', placeholder: t('deco_ui.digits') });
 			padInput.style.cssText = 'width:52px;font-size:11px;padding:1px 4px';
-			const pad = this.headingConfig.global?.numberingPad;
+			const pad = this.headingConfig.shared?.numberingPad;
 			if (pad !== undefined) padInput.value = String(pad);
 			padInput.title = t('deco_ui.decimal_pad_desc');
 			padInput.addEventListener('change', () => {
@@ -3404,41 +3404,45 @@ export class WeWriteThemeView extends ItemView {
 			const codeEditor = slot.codeEditor;
 			const codeBtn = row.createEl('button', { text: t('deco_ui.edit_code') });
 			codeBtn.style.cssText = 'font-size:11px;padding:2px 8px;flex-shrink:0';
-			codeBtn.addEventListener('click', async () => {
-				const currentCss = slot.values.find((v) => v.id === currentValue)?.css || '';
-				const result = await new ArticlePatternCssModal(this.app, {
-					example: codeEditor.example,
-					initialCss: currentCss,
-				}).open();
-				if (!result) return;
-				slot.values.push(result);
-				this.setSlotValue(elementPath, slotId, result.id);
-				this.customValues.push({
-					elementPath, slotId,
-					value: { id: result.id, name: result.name, css: result.css, description: result.description },
-				});
-				select.createEl('option', { text: result.name }).value = result.id;
-				select.value = result.id;
-				new Notice(t('deco_ui.added_notice', { name: result.name }));
+			codeBtn.addEventListener('click', () => {
+				void (async () => {
+					const currentCss = slot.values.find((v) => v.id === currentValue)?.css || '';
+					const result = await new ArticlePatternCssModal(this.app, {
+						example: codeEditor.example,
+						initialCss: currentCss,
+					}).open();
+					if (!result) return;
+					slot.values.push(result);
+					this.setSlotValue(elementPath, slotId, result.id);
+					this.customValues.push({
+						elementPath, slotId,
+						value: { id: result.id, name: result.name, css: result.css, description: result.description },
+					});
+					select.createEl('option', { text: result.name }).value = result.id;
+					select.value = result.id;
+					new Notice(t('deco_ui.added_notice', { name: result.name }));
+				})();
 			});
 		} else if (slot.allowCustom) {
 			const customBtn = row.createEl('button', { cls: 'wewrite-btn-icon' });
 			customBtn.setAttribute('aria-label', t('deco_ui.paste_html_create'));
 			setIcon(customBtn, 'wewrite-code');
-			customBtn.addEventListener('click', async () => {
-				const palette = generatePalette(this.paletteAccent);
-				const result = await new PasteHtmlModal(this.app, palette.accent, slotId, slot.name).open();
-				if (result && slot.allowCustom) {
-					slot.values.push(result.value);
-					this.setSlotValue(elementPath, slotId, result.value.id);
-					this.customValues.push({
-						elementPath, slotId,
-						value: { id: result.value.id, name: result.value.name, css: result.value.css, description: result.value.description },
-					});
-					select.createEl('option', { text: result.value.name }).value = result.value.id;
-					select.value = result.value.id;
-					new Notice(t('deco_ui.added_notice', { name: result.value.name }));
-				}
+			customBtn.addEventListener('click', () => {
+				void (async () => {
+					const palette = generatePalette(this.paletteAccent);
+					const result = await new PasteHtmlModal(this.app, palette.accent, slotId, slot.name).open();
+					if (result && slot.allowCustom) {
+						slot.values.push(result.value);
+						this.setSlotValue(elementPath, slotId, result.value.id);
+						this.customValues.push({
+							elementPath, slotId,
+							value: { id: result.value.id, name: result.value.name, css: result.value.css, description: result.value.description },
+						});
+						select.createEl('option', { text: result.value.name }).value = result.value.id;
+						select.value = result.value.id;
+						new Notice(t('deco_ui.added_notice', { name: result.value.name }));
+					}
+				})();
 			});
 		}
 	}

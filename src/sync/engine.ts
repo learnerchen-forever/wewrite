@@ -541,7 +541,7 @@ export class SyncEngine {
           // File didn't exist locally before — delete it
           const file = this.app.vault.getAbstractFileByPath(path);
           if (file) {
-            await this.app.fileManager.trashFile(file as import('obsidian').TFile);
+            await this.app.fileManager.trashFile(file);
           }
         }
 

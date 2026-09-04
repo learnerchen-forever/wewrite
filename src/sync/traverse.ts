@@ -3,7 +3,8 @@
 // vault index (vault.getFiles()) instead of manual vault.adapter.list() recursion.
 // vault.adapter.list() interprets "/" as filesystem root on Windows, escaping the vault.
 
-import type { Vault, TAbstractFile, TFile } from 'obsidian';
+import type { Vault, TAbstractFile } from 'obsidian';
+import { TFile } from 'obsidian';
 import type { FileStat, SyncEntry } from './types';
 import { sha256Hex, normalizeMtime } from './hash';
 import { createLogger } from '../utils/logger';
@@ -33,8 +34,8 @@ export async function walkLocal(
     // Skip root
     if (vPath === '' || vPath === '/') continue;
 
-    // Check if this is a folder (TFolder has children, TFile has stat)
-    const isFolder = !('stat' in item && typeof item.stat === 'object');
+    // Check if this is a folder (TFolder has no stat; TFile has stat)
+    const isFolder = !(item instanceof TFile);
 
     if (isFolder) {
       // Directory — no content, no hash
@@ -50,7 +51,7 @@ export async function walkLocal(
     }
 
     // File — compute hash as before
-    const file = item as TFile;
+    const file = item;
     const stat = file.stat;
     const mtime = normalizeMtime(stat.mtime > 0 ? stat.mtime : stat.ctime);
 

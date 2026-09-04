@@ -1,5 +1,11 @@
 [English](README_en.md)
 
+> **Language note**: WeChat Official Accounts (微信公众号) is an almost exclusively
+> Chinese-language publishing platform, and most WeWrite users write and read in
+> Chinese. This README is therefore primarily written in Chinese. If you read
+> English, the full English documentation is available in [README_en.md](README_en.md);
+> the short English summary right below also explains what the plugin does.
+
 # WeWrite — Obsidian 微信公众号写作插件
 
 **在 Obsidian 中写笔记，一键渲染为公众号排版，推送到微信草稿箱。全平台可用，手机也能完成从写作到发布的全流程。**
@@ -130,6 +136,7 @@ Dataview 查询（`dataview` / `dataviewjs` 代码块与行内 `$= ...`）经 Da
 
 全面重构：移动优先架构、Obsidian 原生渲染 + 零-CSS 内联样式管线、主题笔记系统 + 100+ 装饰项、AI 写作助手（校对/同义词/翻译/Mermaid/公式/文生图/摘要）、统一 FNV1a-64 素材指纹库、三区封面编辑器、图片消息支持、WebDAV 多端同步、API Key 加密存储、设置导入/导出、v1.x 自动迁移。
 
+- 2026.09.04 — 发布 2.0.16。
 - 2026.09.03 — 发布 2.0.15。
 - 2026.09.03 — 发布 2.0.14。
 - 2026.08.29 — 发布 2.0.13。

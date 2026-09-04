@@ -70,6 +70,7 @@ export class TFile {
   basename: string = '';
   extension: string = 'md';
   name: string = '';
+  stat: { mtime: number; ctime: number; size: number } = { mtime: 0, ctime: 0, size: 0 };
 }
 
 export class MarkdownRenderer {

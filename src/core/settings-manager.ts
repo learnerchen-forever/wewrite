@@ -293,7 +293,7 @@ export class SettingsManager {
     const result = WeWriteSettingsSchema.safeParse(settingsData);
 
     if (result.success) {
-      this.settings = result.data as WeWriteSettings;
+      this.settings = result.data;
     } else {
       const recovered = recoverPartialSettings(settingsData);
       this.settings = recovered.settings;

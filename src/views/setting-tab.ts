@@ -1345,24 +1345,26 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
     const refreshBtn = row.createEl('button', { cls: 'wewrite-btn' });
     refreshBtn.setText(t('settings.refresh'));
-    refreshBtn.addEventListener('click', async () => {
-      refreshBtn.setText(t('settings.loading'));
-      refreshBtn.disabled = true;
-      try {
-        const ip = await this.fetchExternalIp();
-        if (ip) {
-          this.plugin.settings.ipAddress = ip;
-          await this.plugin.saveSettings();
-          valueEl.setText(ip);
-          valueEl.classList.remove('is-empty');
-          new Notice(t('notice.ip_address', { ip }));
+    refreshBtn.addEventListener('click', () => {
+      void (async () => {
+        refreshBtn.setText(t('settings.loading'));
+        refreshBtn.disabled = true;
+        try {
+          const ip = await this.fetchExternalIp();
+          if (ip) {
+            this.plugin.settings.ipAddress = ip;
+            await this.plugin.saveSettings();
+            valueEl.setText(ip);
+            valueEl.classList.remove('is-empty');
+            new Notice(t('notice.ip_address', { ip }));
+          }
+        } catch {
+          new Notice(t('notice.ip_fetch_failed'));
+        } finally {
+          refreshBtn.setText(t('settings.refresh'));
+          refreshBtn.disabled = false;
         }
-      } catch {
-        new Notice(t('notice.ip_fetch_failed'));
-      } finally {
-        refreshBtn.setText(t('settings.refresh'));
-        refreshBtn.disabled = false;
-      }
+      })();
     });
   }
 
@@ -1787,9 +1789,9 @@ class FolderPickerModal extends SuggestModal<TFolder> {
 }
 
 class RiskAcknowledgmentModal extends Modal {
-  private onConfirm: () => void;
+  private onConfirm: () => void | Promise<void>;
 
-  constructor(app: App, onConfirm: () => void) {
+  constructor(app: App, onConfirm: () => void | Promise<void>) {
     super(app);
     this.onConfirm = onConfirm;
   }
@@ -1825,7 +1827,7 @@ class RiskAcknowledgmentModal extends Modal {
     const confirmBtn = btnRow.createEl('button', { cls: 'mod-cta' });
     confirmBtn.setText(confirmLabel);
     confirmBtn.addEventListener('click', () => {
-      this.onConfirm();
+      void this.onConfirm();
       this.close();
     });
   }
@@ -1885,9 +1887,9 @@ class SyncConflictModal extends Modal {
 }
 
 class SyncResetModal extends Modal {
-  private onConfirm: () => void;
+  private onConfirm: () => void | Promise<void>;
 
-  constructor(app: App, onConfirm: () => void) {
+  constructor(app: App, onConfirm: () => void | Promise<void>) {
     super(app);
     this.onConfirm = onConfirm;
   }
@@ -1929,7 +1931,7 @@ class SyncResetModal extends Modal {
     const confirmBtn = btnRow.createEl('button', { cls: 'mod-warning' });
     confirmBtn.setText(t('settings.sync_reset_button'));
     confirmBtn.addEventListener('click', () => {
-      this.onConfirm();
+      void this.onConfirm();
       this.close();
     });
   }

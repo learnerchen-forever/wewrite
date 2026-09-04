@@ -36,10 +36,13 @@ export function createLogger(module: string): Logger {
     },
 
     info(message, detail) {
+      // Route routine info through console.debug so it stays out of the
+      // default console (visible only with debug level on). Warn/error remain
+      // the visible channels for real problems.
       const parts = [prefix, message];
       const d = fmt(detail);
       if (d) parts.push(d);
-      console.log(parts.join(' '));
+      console.debug(parts.join(' '));
     },
 
     warn(action, detail, extra) {
@@ -81,7 +84,7 @@ export function redact(s: string, show = 4): string {
 export function summarizeBody(body: unknown): string {
   if (!body || typeof body !== 'object') return '';
   if (body instanceof ArrayBuffer) return `[binary ${body.byteLength}B]`;
-  const keys = Object.keys(body as Record<string, unknown>);
+  const keys = Object.keys(body);
   if (keys.length === 0) return '{}';
   if (keys.length <= 5) return `{${keys.join(', ')}}`;
   return `{${keys.slice(0, 5).join(', ')} +${keys.length - 5} more}`;

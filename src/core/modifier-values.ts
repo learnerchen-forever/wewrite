@@ -69,7 +69,7 @@ export function getHeadingDecorations(): Record<string, ModifierValue> {
 export function getCodeThemes(): Record<string, ModifierValue> {
   const values: Record<string, ModifierValue> = {};
   for (const theme of CODE_THEME_CATALOG) {
-    values[theme.id] = codeThemeToSlotValue(theme) as ModifierValue;
+    values[theme.id] = codeThemeToSlotValue(theme);
   }
   return values;
 }

@@ -23,7 +23,7 @@ import { parseInlineFrontmatter } from '../core/inline-config';
 import { BUILTIN_PRESETS } from './style-template';
 import { createLogger } from '../utils/logger';
 import { eventBus } from '../core/event-bus';
-import yaml from 'js-yaml';
+import { parse as parseYaml } from 'yaml';
 import { extractFrontmatterBlock } from '../utils/frontmatter';
 
 const log = createLogger('Themes');
@@ -224,7 +224,7 @@ export class ThemeLoader {
     const cache = this.metadataCache.getFileCache(file);
     const fm = cache?.frontmatter;
     if (!fm || typeof fm !== 'object') return null;
-    return fm as Record<string, unknown>;
+    return fm;
   }
 
   private isMarkdown(file: TFile): boolean {
@@ -457,7 +457,7 @@ export class ThemeLoader {
     const block = extractFrontmatterBlock(cleaned);
     if (block === null) return null;
     try {
-      const data = yaml.load(block) as unknown;
+      const data = parseYaml(block);
       if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
       return data as Record<string, unknown>;
     } catch (err) {

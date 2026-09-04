@@ -280,7 +280,7 @@ describe('WechatRenderer integration', () => {
 
 describe('renderDecorationPreview', () => {
   it('renders a sample heading with the given template and params', () => {
-    const preset = { ...DEFAULT_PRESET, headingConfig: { global: { color: 'accent' } } };
+    const preset = { ...DEFAULT_PRESET, headingConfig: { shared: { color: 'accent' } } };
     const html = renderDecorationPreview(
       preset,
       '<h2 style="background:${bgColor};color:${onColor};padding:{{pad}}">{{colorA}}{text}</h2>',
@@ -297,7 +297,7 @@ describe('renderDecorationPreview', () => {
   it('carries the theme numbering into the preview (leafPair shows both leaves)', () => {
     const preset = {
       ...DEFAULT_PRESET,
-      headingConfig: { global: { decoration: 'leafPair', numbering: 'decimalPad' } },
+      headingConfig: { shared: { decoration: 'leafPair', numbering: 'decimalPad' } },
     };
     const html = renderDecorationPreview(
       preset,
@@ -322,7 +322,7 @@ describe('built-in decoration CSS units', () => {
 
       const preset = {
         ...DEFAULT_PRESET,
-        headingConfig: { global: { decoration: decoration.id } },
+        headingConfig: { shared: { decoration: decoration.id } },
         customHeadingDecorations: [],
       };
       const r = new ThemeResolver(preset);
@@ -340,7 +340,7 @@ describe('built-in decoration CSS units', () => {
   it('leafPair renders rounded corners and padding with units', () => {
     const preset = {
       ...DEFAULT_PRESET,
-      headingConfig: { global: { decoration: 'leafPair', numbering: 'decimalPad' } },
+      headingConfig: { shared: { decoration: 'leafPair', numbering: 'decimalPad' } },
     };
     const r = new ThemeResolver(preset);
     const doc = new DOMParser().parseFromString('<body><h2>今日天气</h2></body>', 'text/html');

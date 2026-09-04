@@ -4,6 +4,7 @@ import { SyncEngine, filterOutWewriteDirs } from '../../../src/sync/engine';
 import type { SyncBackend, ConnectionResult, WalkResult } from '../../../src/sync/backend/interface';
 import type { FileStat, SyncEntry } from '../../../src/sync/types';
 import { sha256Hex, normalizeMtime } from '../../../src/sync/hash';
+import { TFile } from 'obsidian';
 
 /** Build a SyncEntry that matches the current state of local and remote content. */
 async function makeRecordEntry(
@@ -193,29 +194,41 @@ function createMockVault(initialFiles: VaultFile[] = []) {
     vault: {
       adapter: adapter as any,
       getRoot: () => ({ path: '/' }),
-      getAbstractFileByPath: (p: string) => vaultFiles.has(p) ? { path: p } : null,
+      getAbstractFileByPath: (p: string) => {
+        if (!vaultFiles.has(p)) return null;
+        const file = new TFile();
+        file.path = p;
+        file.name = p.split('/').pop() || p;
+        return file;
+      },
       getAllLoadedFiles: () => {
         const result: Array<{ path: string; stat: { mtime: number; size: number; ctime: number } }> = [];
         for (const [path, f] of vaultFiles) {
-          result.push({
-            path,
-            stat: { mtime: f.mtime, size: new TextEncoder().encode(f.content).byteLength, ctime: f.mtime },
-          });
+          const file = new TFile();
+          file.path = path;
+          file.name = path.split('/').pop() || path;
+          file.stat = { mtime: f.mtime, size: new TextEncoder().encode(f.content).byteLength, ctime: f.mtime };
+          result.push(file);
         }
         return result;
       },
       getFiles: () => {
         const result: Array<{ path: string; stat: { mtime: number; size: number; ctime: number } }> = [];
         for (const [path, f] of vaultFiles) {
-          result.push({
-            path,
-            stat: { mtime: f.mtime, size: new TextEncoder().encode(f.content).byteLength, ctime: f.mtime },
-          });
+          const file = new TFile();
+          file.path = path;
+          file.name = path.split('/').pop() || path;
+          file.stat = { mtime: f.mtime, size: new TextEncoder().encode(f.content).byteLength, ctime: f.mtime };
+          result.push(file);
         }
         return result;
       },
-      trash: async (file: any, system: boolean) => {
-        vaultFiles.delete(file.path);
+      app: {
+        fileManager: {
+          trashFile: async (file: TFile) => {
+            vaultFiles.delete(file.path);
+          },
+        },
       },
       createFolder: async () => {},
     },

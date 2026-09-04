@@ -132,12 +132,12 @@ export class CoverZone {
     this.setupDragDrop();
 
     // Left-click: edit if image, context menu if empty
-    this.zoneEl.addEventListener('click', () => {
+    this.zoneEl.addEventListener('click', (e) => {
       if (this.hasDragged) return;
       if (this.imagePath) {
         void this.openImageEditModal();
       } else {
-        this.showContextMenu(window.event as MouseEvent);
+        this.showContextMenu(e);
       }
     });
 

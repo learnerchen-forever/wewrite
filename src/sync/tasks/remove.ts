@@ -1,6 +1,6 @@
 // RemoveRemoteTask and RemoveLocalTask
 
-import type { TFile } from 'obsidian';
+import { TFile } from 'obsidian';
 import type { TaskResult } from '../types';
 import { removeRecordEntry } from '../record';
 import { BaseTask } from './base';
@@ -35,10 +35,10 @@ export class RemoveLocalTask extends BaseTask {
 
   async exec(): Promise<TaskResult> {
     try {
-      // Use Obsidian trash (recoverable).
+      // Respect the user's deletion preference via FileManager#trashFile.
       const file = this.vault.getAbstractFileByPath(this.localPath);
-      if (file) {
-        await this.vault.trash(file as TFile, true);
+      if (file instanceof TFile) {
+        await this.vault.app.fileManager.trashFile(file);
       }
       const record = this.getRecord();
       removeRecordEntry(record, this.localPath);

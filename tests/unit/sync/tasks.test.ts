@@ -7,6 +7,7 @@ import { RemoveRemoteTask, RemoveLocalTask, MkdirRemoteTask } from '../../../src
 import type { SyncBackend, WriteOptions, ConnectionResult, WalkResult } from '../../../src/sync/backend/interface';
 import type { FileStat, SyncRecordData } from '../../../src/sync/types';
 import { createEmptyRecord, upsertRecordEntry } from '../../../src/sync/record';
+import { TFile } from 'obsidian';
 
 // ── Mock Helpers ──
 
@@ -72,13 +73,13 @@ function makeVault(adapterOverrides: Partial<MockAdapter> = {}) {
       exists(path: string): Promise<boolean>;
     },
     getRoot: () => ({ path: '/' }),
-    getAbstractFileByPath: jest.fn().mockReturnValue({
-      path: 'test.md',
-      basename: 'test',
-      extension: 'md',
-      name: 'test.md',
-    }),
+    getAbstractFileByPath: jest.fn().mockReturnValue(new TFile()),
     trash: jest.fn().mockResolvedValue(undefined),
+    app: {
+      fileManager: {
+        trashFile: jest.fn().mockResolvedValue(undefined),
+      },
+    },
   };
 }
 
@@ -337,13 +338,13 @@ describe('Sync Tasks', () => {
       const result = await task.exec();
 
       expect(result.success).toBe(true);
-      expect(vault.trash).toHaveBeenCalled();
+      expect((vault.app.fileManager.trashFile as jest.Mock)).toHaveBeenCalled();
       expect(record.files['old.md']).toBeUndefined();
     });
 
     it('should handle already-deleted file gracefully', async () => {
       const vault = makeVault();
-      (vault.trash as jest.Mock).mockRejectedValue(new Error('file not found'));
+      (vault.app.fileManager.trashFile as jest.Mock).mockRejectedValue(new Error('file not found'));
 
       const record = makeRecord();
       upsertRecordEntry(record, 'gone.md', {

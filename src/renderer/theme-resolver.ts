@@ -1,7 +1,7 @@
 // Programmatic inline style generation from ThemePreset configuration (v3 slot-based)
 // Generates CSS property strings embedded directly in renderer output (zero-CSS strategy)
 
-import type { ThemePreset, ElementStyle, TableElementStyle, ImageElementStyle, ListElementStyle } from '../core/interfaces';
+import type { ThemePreset, ElementStyle } from '../core/interfaces';
 import { ACCENT_COLORS, FONT_FAMILIES } from '../core/interfaces';
 import { resolveAllSlots, getSlotValueName } from './slot-engine';
 import type { ResolvedSlot } from './slot-engine';
@@ -107,7 +107,7 @@ function resolveFontFamily(input: string): string {
 	// the built-in/custom default themes faithful to the platform's own font
 	// unless a theme explicitly opts into a specific font family.
 	if (!input || input === 'inherit') return 'inherit';
-	if (Object.keys(FONT_FAMILIES).includes(input)) return FONT_FAMILIES[input as keyof typeof FONT_FAMILIES];
+	if (Object.keys(FONT_FAMILIES).includes(input)) return FONT_FAMILIES[input];
 	return input; // Already a CSS stack or an explicit inherit
 }
 

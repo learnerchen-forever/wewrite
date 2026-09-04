@@ -100,21 +100,21 @@ function renderTableElement(
 	const headerCells = hasThead
 		? Array.from(el.querySelectorAll('thead th, thead td'))
 		: Array.from((el.querySelector('tr')?.querySelectorAll('th, td') || []));
-	headerCells.forEach((cell) => appendStyle(cell as HTMLElement, thCss));
+	headerCells.forEach((cell) => appendStyle(cell, thCss));
 
 	// Body rows: tbody rows when a thead exists, otherwise rows after the first.
 	const bodyRows = hasThead
 		? Array.from(el.querySelectorAll('tbody tr'))
 		: Array.from(el.querySelectorAll('tr')).slice(1);
 	bodyRows.forEach((row) => {
-		row.querySelectorAll('th, td').forEach((cell) => appendStyle(cell as HTMLElement, tdCss));
+		row.querySelectorAll('th, td').forEach((cell) => appendStyle(cell, tdCss));
 	});
 
 	// First column: body rows only (header cells keep their header styling).
 	if (firstColCss) {
 		bodyRows.forEach((row) => {
 			const first = row.querySelector('th, td');
-			if (first) appendStyle(first as HTMLElement, firstColCss);
+			if (first) appendStyle(first, firstColCss);
 		});
 	}
 
@@ -125,14 +125,14 @@ function renderTableElement(
 		bodyRows.forEach((row, idx) => {
 			const isZebra = zebraEven ? idx % 2 === 0 : idx % 2 === 1;
 			if (!isZebra) return;
-			row.querySelectorAll('th, td').forEach((cell) => appendStyle(cell as HTMLElement, zebraCss));
+			row.querySelectorAll('th, td').forEach((cell) => appendStyle(cell, zebraCss));
 		});
 	}
 
 	// Final pass: enforce the responsive wrap policy on every cell (header AND
 	// body, including firstCol/zebra cells). Appended LAST so it overrides any
 	// word-break / white-space a decoration or a custom theme may have set.
-	el.querySelectorAll('th, td').forEach((cell) => appendStyle(cell as HTMLElement, CELL_WRAP_CSS));
+	el.querySelectorAll('th, td').forEach((cell) => appendStyle(cell, CELL_WRAP_CSS));
 }
 
 /** Whether the preset carries a meaningful new table config. */

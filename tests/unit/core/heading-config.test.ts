@@ -29,7 +29,7 @@ describe('parseHeadingFrontmatter', () => {
       'heading.decoration': 'leafPair',
     });
 
-    expect(config.global).toMatchObject({
+    expect(config.shared).toMatchObject({
       font: 'serif',
       color: 'accent',
       bgColor: '#f6f8fa',
@@ -51,7 +51,7 @@ describe('parseHeadingFrontmatter', () => {
       'heading.size': 'auto',
       'heading.h2.weight': 'auto',
     });
-    expect(config.global?.size).toBe('auto');
+    expect(config.shared?.size).toBe('auto');
     expect(config.levels?.h2?.weight).toBe('auto');
   });
 
@@ -63,7 +63,7 @@ describe('parseHeadingFrontmatter', () => {
       'heading.h1.decorationParams.padX': '16',
     });
 
-    expect(config.global?.decorationParams).toEqual({
+    expect(config.shared?.decorationParams).toEqual({
       colorA: '#86a245',
       colorB: '#ce9c61',
       radius: '20',
@@ -108,7 +108,7 @@ describe('parseHeadingFrontmatter', () => {
       'heading.h2.border': 'leftBar',
       'heading.foo': 'bar',
     });
-    expect(config.global).toBeUndefined();
+    expect(config.shared).toBeUndefined();
     expect(config.levels).toBeUndefined();
   });
 
@@ -116,7 +116,7 @@ describe('parseHeadingFrontmatter', () => {
     const { config } = parseHeadingFrontmatter({
       heading: { color: 'accent', h2: { size: 20 } },
     });
-    expect(config.global?.color).toBe('accent');
+    expect(config.shared?.color).toBe('accent');
     expect(config.levels?.h2?.size).toBe(20);
   });
 
@@ -278,8 +278,8 @@ describe('heading config serialization', () => {
 
   it('omits default-valued fields for clean output', () => {
     expect(headingConfigToFrontmatter({})).toEqual({});
-    expect(headingConfigToFrontmatter({ global: { decoration: 'none', numbering: 'none', color: 'text' } })).toEqual({});
-    expect(headingConfigToFrontmatter({ global: { decoration: 'underline' }, levels: { h1: {} } }))
+    expect(headingConfigToFrontmatter({ shared: { decoration: 'none', numbering: 'none', color: 'text' } })).toEqual({});
+    expect(headingConfigToFrontmatter({ shared: { decoration: 'underline' }, levels: { h1: {} } }))
       .toEqual({ 'heading.decoration': 'underline' });
   });
 

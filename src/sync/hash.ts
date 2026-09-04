@@ -20,5 +20,5 @@ export async function sha256Hex(content: ArrayBuffer): Promise<string> {
 
 export async function sha256HexFromString(text: string): Promise<string> {
   const encoded = new TextEncoder().encode(text);
-  return sha256Hex(encoded.buffer as ArrayBuffer);
+  return sha256Hex(encoded.buffer);
 }
