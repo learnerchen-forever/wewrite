@@ -8,6 +8,10 @@ on:
 
 permissions:
   contents: write
+  # Needed to mint OIDC tokens and store build-provenance attestations for the
+  # release assets (main.js / styles.css).
+  id-token: write
+  attestations: write
 
 jobs:
   smart-release:
@@ -81,6 +85,22 @@ jobs:
           git tag "$VERSION"
           git push origin "$VERSION"
 
+      # Artifact attestations: cryptographically prove main.js/styles.css were
+      # built by this workflow from this repository (GitHub trusted build).
+      - name: Attest build provenance (main.js)
+        if: env.SKIP_RELEASE != 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: main.js
+          subject-name: main.js
+
+      - name: Attest build provenance (styles.css)
+        if: env.SKIP_RELEASE != 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: styles.css
+          subject-name: styles.css
+
       - name: Create GitHub Release
         id: create_release
         if: env.SKIP_RELEASE != 'true'
@@ -88,6 +108,9 @@ jobs:
         with:
           name: Release ${{ env.VERSION }}
           tag_name: ${{ env.VERSION }}
+          # Auto-generate release notes from commits/PRs since the last tag so
+          # users can see what changed in this version.
+          generate_release_notes: true
           files: |
             main.js
             manifest.json
