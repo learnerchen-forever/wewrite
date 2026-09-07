@@ -96,7 +96,7 @@ export async function processMathToSvg(container: HTMLElement, markdown: string)
 		if (!svgString) continue; // invalid LaTeX — leave original CHTML
 
 		// Parse the SVG string to a DOM element for sanitization
-		const tmp = document.createElement('div');
+		const tmp = createEl('div');
 		tmp.innerHTML = svgString;
 		const svgEl = tmp.firstElementChild;
 		if (!svgEl) continue;
@@ -106,7 +106,7 @@ export async function processMathToSvg(container: HTMLElement, markdown: string)
 
 		const sanitized = svgEl.outerHTML || new XMLSerializer().serializeToString(svgEl);
 
-		const wrapper = document.createElement(formula.display ? 'section' : 'span');
+		const wrapper = createEl(formula.display ? 'section' : 'span');
 		if (formula.display) {
 			wrapper.setAttribute('style', 'text-align:center;display:block;margin:16px 0');
 		} else {

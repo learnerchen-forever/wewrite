@@ -25,18 +25,20 @@ function fakeAdapter() {
   };
 }
 
+const CONFIG_DIR = '.obsidian';
+
 describe('NoteConfigStore', () => {
   describe('load', () => {
     it('returns null when no config file exists', async () => {
       const { adapter } = fakeAdapter();
-      const store = new NoteConfigStore(adapter as any);
+      const store = new NoteConfigStore(adapter as any, CONFIG_DIR);
       const result = await store.load('notes/hello.md', 'news');
       expect(result).toBeNull();
     });
 
     it('loads and parses an existing config file', async () => {
       const { adapter } = fakeAdapter();
-      const store = new NoteConfigStore(adapter as any);
+      const store = new NoteConfigStore(adapter as any, CONFIG_DIR);
       const config = { notePath: 'notes/hello.md', title: 'Test', needOpenComment: false };
       await store.save('notes/hello.md', 'news', config);
       const loaded = await store.load('notes/hello.md', 'news');
@@ -47,7 +49,7 @@ describe('NoteConfigStore', () => {
   describe('noteId stability', () => {
     it('produces same noteId for same path', () => {
       const { adapter } = fakeAdapter();
-      const store = new NoteConfigStore(adapter as any);
+      const store = new NoteConfigStore(adapter as any, CONFIG_DIR);
       const id1 = (store as any).noteId('notes/hello.md');
       const id2 = (store as any).noteId('notes/hello.md');
       expect(id1).toBe(id2);
@@ -55,7 +57,7 @@ describe('NoteConfigStore', () => {
 
     it('produces different noteId for different paths', () => {
       const { adapter } = fakeAdapter();
-      const store = new NoteConfigStore(adapter as any);
+      const store = new NoteConfigStore(adapter as any, CONFIG_DIR);
       const id1 = (store as any).noteId('notes/a.md');
       const id2 = (store as any).noteId('notes/b.md');
       expect(id1).not.toBe(id2);
@@ -65,7 +67,7 @@ describe('NoteConfigStore', () => {
   describe('delete', () => {
     it('removes the config directory for a note', async () => {
       const { adapter } = fakeAdapter();
-      const store = new NoteConfigStore(adapter as any);
+      const store = new NoteConfigStore(adapter as any, CONFIG_DIR);
       await store.save('notes/hello.md', 'news', { notePath: 'notes/hello.md' });
       await store.save('notes/hello.md', 'newspic', { notePath: 'notes/hello.md' });
       await store.delete('notes/hello.md');
@@ -79,7 +81,7 @@ describe('NoteConfigStore', () => {
   describe('renameNote', () => {
     it('moves config from old path to new path', async () => {
       const { adapter } = fakeAdapter();
-      const store = new NoteConfigStore(adapter as any);
+      const store = new NoteConfigStore(adapter as any, CONFIG_DIR);
       const config = { notePath: 'notes/old.md', title: 'Test' };
       await store.save('notes/old.md', 'news', config);
       await store.renameNote('notes/old.md', 'notes/new.md');

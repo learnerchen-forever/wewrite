@@ -101,7 +101,7 @@ export async function composeFromZones(
   // Render A1: draw visible source rect to a canvas at source resolution
   const a1W = Math.round(rectA.sw);
   const a1H = Math.round(rectA.sh);
-  const canvasA1 = document.createElement('canvas');
+  const canvasA1 = createEl('canvas');
   canvasA1.width = a1W;
   canvasA1.height = a1H;
   const ctxA1 = canvasA1.getContext('2d')!;
@@ -118,7 +118,7 @@ export async function composeFromZones(
 
     b1W = Math.round(rectB.sw);
     b1H = Math.round(rectB.sh);
-    canvasB1 = document.createElement('canvas');
+    canvasB1 = createEl('canvas');
     canvasB1.width = b1W;
     canvasB1.height = b1H;
     const ctxB1 = canvasB1.getContext('2d')!;
@@ -130,7 +130,7 @@ export async function composeFromZones(
 
   // Scale A1 → A2 (maintain 2.35:1 aspect ratio at height S)
   const a2W = Math.round(targetHeight * 2.35);
-  const canvasA2 = document.createElement('canvas');
+  const canvasA2 = createEl('canvas');
   canvasA2.width = a2W;
   canvasA2.height = targetHeight;
   const ctxA2 = canvasA2.getContext('2d')!;
@@ -143,7 +143,7 @@ export async function composeFromZones(
 
   // Build composite canvas
   const totalW = hasB ? a2W + b2W : a2W;
-  const composite = document.createElement('canvas');
+  const composite = createEl('canvas');
   composite.width = totalW;
   composite.height = targetHeight;
   const ctxC = composite.getContext('2d')!;
@@ -153,7 +153,7 @@ export async function composeFromZones(
 
   // Draw B2 on the right (or blank white fill)
   if (hasB) {
-    const canvasB2 = document.createElement('canvas');
+    const canvasB2 = createEl('canvas');
     canvasB2.width = b2W;
     canvasB2.height = targetHeight;
     const ctxB2 = canvasB2.getContext('2d')!;
@@ -244,7 +244,7 @@ export async function compressToTarget(
 
   const { w: clampW, h: clampH } = clampCanvasDimensions(img.naturalWidth, img.naturalHeight);
   for (const q of qualities) {
-    const canvas = document.createElement('canvas');
+    const canvas = createEl('canvas');
     canvas.width = clampW;
     canvas.height = clampH;
     const ctx = canvas.getContext('2d')!;
@@ -260,7 +260,7 @@ export async function compressToTarget(
   let curH = Math.round(clampH / 2);
   const floorDim = 480;
   for (let step = 0; step < 4; step++) {
-    const rc = document.createElement('canvas');
+    const rc = createEl('canvas');
     rc.width = curW;
     rc.height = curH;
     const rctx = rc.getContext('2d')!;
@@ -273,7 +273,7 @@ export async function compressToTarget(
     curW = nextW;
     curH = nextH;
   }
-  const lastCanvas = document.createElement('canvas');
+  const lastCanvas = createEl('canvas');
   lastCanvas.width = curW;
   lastCanvas.height = curH;
   const lastCtx = lastCanvas.getContext('2d')!;
@@ -286,7 +286,7 @@ export async function convertToSupported(
 ): Promise<ProcessResult> {
   const img = await blobToImage(sourceBlob);
 
-  const canvas = document.createElement('canvas');
+  const canvas = createEl('canvas');
   const { w, h } = clampCanvasDimensions(img.naturalWidth, img.naturalHeight);
   canvas.width = w;
   canvas.height = h;

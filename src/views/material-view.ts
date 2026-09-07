@@ -87,7 +87,7 @@ export class MaterialView extends ItemView {
         this.items['image'] = this.materialManager.getCachedItems(msg.accountId, 'image');
         this.items['draft_news'] = this.materialManager.getCachedItems(msg.accountId, 'draft_news');
         this.items['draft_newspic'] = this.materialManager.getCachedItems(msg.accountId, 'draft_newspic');
-        const selector = this.contentEl.querySelector('.wewrite-material-selector') as HTMLSelectElement | null;
+        const selector: HTMLSelectElement | null = this.contentEl.querySelector('.wewrite-material-selector');
         if (selector) selector.value = msg.accountId;
         this.refreshTabUI();
         this.renderTabContent();
@@ -469,7 +469,7 @@ export class MaterialView extends ItemView {
 
   /** Re-render just the item list for a tab without rebuilding the toolbar */
   private renderItemListForType(type: MaterialType): void {
-    const content = this.contentEl.querySelector('.wewrite-material-tab-content') as HTMLElement | null;
+    const content: HTMLElement | null = this.contentEl.querySelector('.wewrite-material-tab-content');
     if (!content) return;
     const existingScroll = content.querySelector('.wewrite-material-scroll');
     if (existingScroll) existingScroll.remove();
@@ -690,7 +690,7 @@ export class MaterialView extends ItemView {
   // ── Multi-select ──
 
   private updateMultiselectUI(type: MaterialType): void {
-    const msGroup = this.contentEl.querySelector('.wewrite-material-multiselect-group') as HTMLElement | null;
+    const msGroup: HTMLElement | null = this.contentEl.querySelector('.wewrite-material-multiselect-group');
     if (msGroup) {
       msGroup.style.display = this.multiSelectActive[type] ? 'flex' : 'none';
     }

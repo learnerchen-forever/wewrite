@@ -49,7 +49,7 @@ export async function resizeImage(
 
       // Extra safety clamp (e.g. caller passes a large max) — see convertToJpeg.
       const { w, h } = clampCanvasDimensions(width, height);
-      const canvas = document.createElement('canvas');
+      const canvas = createEl('canvas');
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext('2d')!;

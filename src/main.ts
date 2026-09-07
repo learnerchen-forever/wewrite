@@ -50,6 +50,19 @@ import { SyncScheduler } from './sync/scheduler';
 
 const log = createLogger('Main');
 
+/** Live view of the plugin's sync settings for the sync engine. */
+function createSyncSettings(getSettings: () => WeWriteSettings) {
+  return {
+    get enabled(): boolean { return getSettings().syncEnabled; },
+    get webdavUrl(): string { return getSettings().syncWebdavUrl; },
+    get username(): string { return getSettings().syncUsername; },
+    get password(): string { return getSettings().syncPassword; },
+    get remoteDir(): string { return getSettings().syncRemoteDir; },
+    get logDebug(): boolean { return getSettings().syncLogDebug; },
+    get maxFileSizeMb(): number { return getSettings().syncMaxFileSizeMb; },
+  };
+}
+
 export default class WeWritePlugin extends Plugin {
   settingsManager!: SettingsManager;
   settings!: WeWriteSettings;
@@ -185,7 +198,7 @@ export default class WeWritePlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on('rename', (file, oldPath) => {
         if (file.path && oldPath) {
-          this.configStore.renameNote(oldPath, file.path);
+          void this.configStore.renameNote(oldPath, file.path);
         }
       }),
     );
@@ -215,16 +228,7 @@ export default class WeWritePlugin extends Plugin {
     this.registerCommands();
 
     // Initialize sync engine
-    const plugin = this;
-    this.syncEngine = new SyncEngine(this.app, this.settings.wewriteFolder, {
-      get enabled() { return plugin.settings.syncEnabled; },
-      get webdavUrl() { return plugin.settings.syncWebdavUrl; },
-      get username() { return plugin.settings.syncUsername; },
-      get password() { return plugin.settings.syncPassword; },
-      get remoteDir() { return plugin.settings.syncRemoteDir; },
-      get logDebug() { return plugin.settings.syncLogDebug; },
-      get maxFileSizeMb() { return plugin.settings.syncMaxFileSizeMb; },
-    });
+    this.syncEngine = new SyncEngine(this.app, this.settings.wewriteFolder, createSyncSettings(() => this.settings));
     const syncRawData = await this.loadData();
     await this.syncEngine.loadState(syncRawData);
 
@@ -1002,7 +1006,7 @@ export default class WeWritePlugin extends Plugin {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_WECHAT_NEWS).find(
       (leaf) => (leaf.view as WeChatNewsView | null)?.filePath === filePath,
     );
-    if (existing) { this.app.workspace.revealLeaf(existing); return; }
+    if (existing) { this.app.workspace.setActiveLeaf(existing, { focus: true }); return; }
     const leaf = this.app.workspace.getLeaf('tab');
     await leaf.setViewState({ type: VIEW_TYPE_WECHAT_NEWS, active: true, state: { filePath } });
     const view = leaf.view as WeChatNewsView;
@@ -1013,7 +1017,7 @@ export default class WeWritePlugin extends Plugin {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_WECHAT_NEWSPIC).find(
       (leaf) => (leaf.view as WeChatNewsPicView | null)?.filePath === filePath,
     );
-    if (existing) { this.app.workspace.revealLeaf(existing); return; }
+    if (existing) { this.app.workspace.setActiveLeaf(existing, { focus: true }); return; }
     const leaf = this.app.workspace.getLeaf('tab');
     await leaf.setViewState({ type: VIEW_TYPE_WECHAT_NEWSPIC, active: true, state: { filePath } });
     const view = leaf.view as WeChatNewsPicView;
@@ -1024,7 +1028,7 @@ export default class WeWritePlugin extends Plugin {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_WEWRITE_THEME).find(
       (leaf) => (leaf.view as WeWriteThemeView | null)?.filePath === filePath,
     );
-    if (existing) { this.app.workspace.revealLeaf(existing); return; }
+    if (existing) { this.app.workspace.setActiveLeaf(existing, { focus: true }); return; }
     const leaf = this.app.workspace.getLeaf('tab');
     await leaf.setViewState({ type: VIEW_TYPE_WEWRITE_THEME, active: true, state: { filePath } });
     const view = leaf.view as WeWriteThemeView;
@@ -1341,7 +1345,7 @@ export default class WeWritePlugin extends Plugin {
     this.materialViewEnsured = true;
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_MATERIAL);
     if (existing.length > 0) {
-      this.app.workspace.revealLeaf(existing[0]);
+      this.app.workspace.setActiveLeaf(existing[0], { focus: true });
       return;
     }
 

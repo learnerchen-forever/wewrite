@@ -153,7 +153,7 @@ export class WeChatNewsPicView extends ItemView {
     // Hide Obsidian's built-in view header — the title is already shown on the tab
     this.hideViewHeader();
 
-    this.configStore = new NoteConfigStore(this.app.vault.adapter);
+    this.configStore = new NoteConfigStore(this.app.vault.adapter, this.app.vault.configDir);
 
     this._eventBusUnsubs.push(onLanguageChange(() => {
       this.refreshTitle();
@@ -225,13 +225,13 @@ export class WeChatNewsPicView extends ItemView {
     const settings = this.plugin.settingsManager.getSettings();
     while (this.accountSelectEl.options.length > 0) this.accountSelectEl.remove(0);
     if (settings.wechatAccounts.length === 0) {
-      const opt = document.createElement('option');
+      const opt = createEl('option');
       opt.value = ''; opt.text = t('misc.no_accounts'); opt.disabled = true;
       this.accountSelectEl.appendChild(opt);
       return;
     }
     for (const acc of settings.wechatAccounts) {
-      const opt = document.createElement('option');
+      const opt = createEl('option');
       opt.value = acc.id; opt.text = acc.name;
       if (acc.id === settings.activeWeChatAccountId) opt.selected = true;
       this.accountSelectEl.appendChild(opt);
@@ -253,7 +253,7 @@ export class WeChatNewsPicView extends ItemView {
 
     this.deviceSelectEl = row.createEl('select', { cls: 'dropdown wewrite-select wewrite-newspic-device-select' });
     for (const [key] of Object.entries(NEWSPIC_DEVICE_PRESETS) as [DeviceSizeKey, typeof NEWSPIC_DEVICE_PRESETS['small']][]) {
-      const opt = document.createElement('option');
+      const opt = createEl('option');
       opt.value = key; opt.text = devicePresetLabel(key);
       if (key === this.deviceSizeKey) opt.selected = true;
       this.deviceSelectEl.appendChild(opt);
@@ -545,7 +545,7 @@ export class WeChatNewsPicView extends ItemView {
 
         try {
           // Sanitize SVG before conversion
-          const tmp = document.createElement('div');
+          const tmp = createEl('div');
           tmp.innerHTML = svg.html;
           const svgEl = tmp.querySelector('svg');
           if (svgEl) sanitizeSvgElement(svgEl);
@@ -656,7 +656,7 @@ export class WeChatNewsPicView extends ItemView {
   private hideViewHeader(): void {
     const leafEl = this.containerEl.closest('.workspace-leaf');
     if (!leafEl) return;
-    const viewHeader = leafEl.querySelector(':scope > .view-header') as HTMLElement | null;
+    const viewHeader: HTMLElement | null = leafEl.querySelector(':scope > .view-header');
     if (viewHeader) viewHeader.style.display = 'none';
   }
 
@@ -1199,7 +1199,7 @@ export class WeChatNewsPicView extends ItemView {
       w = Math.round(w * ratio);
       h = Math.round(h * ratio);
     }
-    const canvas = document.createElement('canvas');
+    const canvas = createEl('canvas');
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d')!;
@@ -1394,7 +1394,7 @@ export class WeChatNewsPicView extends ItemView {
       const url = URL.createObjectURL(blob);
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
+        const canvas = createEl('canvas');
         const { w, h } = clampCanvasDimensions(img.naturalWidth, img.naturalHeight);
         canvas.width = w;
         canvas.height = h;
@@ -1449,7 +1449,7 @@ class NewsPicPublishModal {
     this.tasks.push({ name: t('publish.task_create_draft'), status: 'pending' });
     this.allTasks = [...this.preScanTasks, ...this.tasks];
 
-    this.modalEl = document.createElement('div');
+    this.modalEl = createEl('div');
     this.modalEl.addClass('wewrite-publish-modal');
     this.modalEl.innerHTML = `
       <div class="wewrite-publish-overlay"></div>

@@ -272,7 +272,7 @@ async function renderPageToPng(
 ): Promise<ArrayBuffer> {
   const page = await doc.getPage(pageNum);
   const { viewport, crop } = buildPdfRenderPlan(page, rect, scale);
-  const canvas = document.createElement('canvas');
+  const canvas = createEl('canvas');
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);
   const ctx = canvas.getContext('2d');
@@ -289,7 +289,7 @@ async function renderPageToPng(
 
   // Crop the rendered page to the requested region (drawImage, not viewport
   // offsets — see buildPdfRenderPlan for why).
-  const out = document.createElement('canvas');
+  const out = createEl('canvas');
   out.width = Math.max(1, Math.round(crop.w));
   out.height = Math.max(1, Math.round(crop.h));
   const octx = out.getContext('2d');

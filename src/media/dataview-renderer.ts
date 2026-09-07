@@ -131,11 +131,11 @@ async function renderSnippet(
 
   // Same hidden-container technique as diagram-renderer: opacity:0.01 keeps
   // the element in WebKit's render tree so async post-processors fire.
-  const wrapper = document.createElement('div');
+  const wrapper = createEl('div');
   wrapper.className = 'markdown-reading-view';
   wrapper.style.cssText = 'position:fixed;left:0;top:0;width:1024px;opacity:0.01;pointer-events:none;z-index:-1';
 
-  const renderEl = document.createElement('div');
+  const renderEl = createEl('div');
   renderEl.className = 'markdown-preview-section';
   wrapper.appendChild(renderEl);
   document.body.appendChild(wrapper);

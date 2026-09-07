@@ -104,7 +104,7 @@ function replaceTextPlaceholder(carrier: Element, contentNodes: Node[], doc: Doc
 		if (!data.includes(placeholder)) continue;
 
 		const parts = data.split(placeholder);
-		const fragment = doc.createDocumentFragment();
+		const fragment = createFragment();
 		parts.forEach((part, i) => {
 			if (part) fragment.appendChild(doc.createTextNode(part));
 			if (i < parts.length - 1) {
@@ -126,7 +126,7 @@ function renderPlainQuote(
 	const htmlEl = el as HTMLElement;
 	appendStyle(htmlEl, `margin:${lineHeightPx}px 0;color:${String(tokens.text)}`);
 	if (iconText) {
-		const iconSpan = doc.createElement('span');
+		const iconSpan = createEl('span');
 		iconSpan.setAttribute('style', 'margin-right:8px;font-size:1.1em');
 		iconSpan.textContent = iconText;
 		el.insertBefore(iconSpan, el.firstChild);
@@ -149,7 +149,7 @@ function renderBlockquoteElement(
 	}
 
 	const expanded = expandTemplate(decoration.template, params, tokens, iconText);
-	const container = doc.createElement('div');
+	const container = createEl('div');
 	container.innerHTML = expanded;
 	let root = container.firstElementChild;
 	if (!root) {
@@ -166,7 +166,7 @@ function renderBlockquoteElement(
 	if (carrier === container) carrier = root;
 
 	// Move the blockquote content into the text carrier.
-	const contentHost = doc.createElement('div');
+	const contentHost = createEl('div');
 	contentHost.innerHTML = (el as HTMLElement).innerHTML;
 	replaceTextPlaceholder(carrier, Array.from(contentHost.childNodes), doc, '{text}');
 
@@ -174,7 +174,7 @@ function renderBlockquoteElement(
 	if (iconText) {
 		const iconHost = findPlaceholderElement(container, ICON_SENTINEL);
 		if (iconHost) {
-			const iconSpan = doc.createElement('span');
+			const iconSpan = createEl('span');
 			iconSpan.setAttribute('style', 'margin-right:8px;font-size:1.1em');
 			iconSpan.textContent = iconText;
 			replaceTextPlaceholder(iconHost, [iconSpan], doc, ICON_SENTINEL);

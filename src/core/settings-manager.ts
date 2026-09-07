@@ -248,7 +248,7 @@ export class SettingsManager {
     if (format === 'wrapped') {
       settingsData = (data.settings as Record<string, unknown>) || {};
     } else if (format === 'legacy-v1') {
-      settingsData = migrateLegacyToV2(data as unknown as LegacySettings) as unknown as Record<string, unknown>;
+      settingsData = { ...migrateLegacyToV2(data as unknown as LegacySettings) };
     } else {
       settingsData = { ...data };
     }

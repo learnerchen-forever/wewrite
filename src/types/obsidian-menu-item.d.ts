@@ -5,7 +5,7 @@
 // it in the editor context menu. It renders Obsidian's standard chevron-right
 // submenu indicator on the parent item and positions/shows the submenu itself
 // (hover on desktop, tap on mobile).
-import type { Menu, MenuItem } from 'obsidian';
+import type { Menu } from 'obsidian';
 
 declare module 'obsidian' {
   interface MenuItem {

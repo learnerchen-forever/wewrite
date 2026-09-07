@@ -3,9 +3,7 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('NoteConfigStore');
 
 // Obsidian's configuration folder is not necessarily '.obsidian' (users can
-// customize it), so the path is derived from Vault#configDir (defaults to
-// '.obsidian').
-const DEFAULT_CONFIG_DIR = '.obsidian';
+// customize it), so callers pass Vault#configDir at construction.
 
 interface VaultAdapter {
   read(normalizedPath: string): Promise<string>;
@@ -21,7 +19,7 @@ export class NoteConfigStore {
   private adapter: VaultAdapter;
   private baseDir: string;
 
-  constructor(adapter: VaultAdapter, configDir = DEFAULT_CONFIG_DIR) {
+  constructor(adapter: VaultAdapter, configDir: string) {
     this.adapter = adapter;
     this.baseDir = `${configDir.replace(/\/$/, '')}/wewrite/notes/`;
   }

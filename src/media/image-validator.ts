@@ -179,7 +179,7 @@ async function convertToPng(data: ArrayBuffer, mimeType?: string): Promise<Array
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement('canvas');
+      const canvas = createEl('canvas');
       const { w, h } = clampCanvasDimensions(img.naturalWidth, img.naturalHeight);
       canvas.width = w;
       canvas.height = h;

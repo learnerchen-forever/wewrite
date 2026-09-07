@@ -107,15 +107,16 @@ export async function detectLegacySettings(): Promise<LegacySettings | null> {
     // This is a best-effort detection.
 
     // Legacy v1.x stored data in a PouchDB-compatible localforage instance.
-    // In Obsidian, we can check localStorage for localforage keys.
+    // These are legacy raw keys (not vault-scoped App#localStorage keys), so
+    // they can only be discovered through the window's underlying storage.
     const prefix = 'localforage/wewrite/';
-    const keys = Object.keys(localStorage).filter((k) => k.startsWith(prefix));
+    const keys = Object.keys(window.localStorage).filter((k) => k.startsWith(prefix));
 
     if (keys.length === 0) return null;
 
     for (const key of keys) {
       try {
-        const value = localStorage.getItem(key);
+        const value = window.localStorage.getItem(key);
         if (value) {
           const parsed = JSON.parse(value);
           if (parsed && (parsed.mpAccounts || parsed.chatAccounts || parsed.drawAccounts)) {
@@ -185,9 +186,9 @@ export function migrateLegacyToV2(legacy: LegacySettings): WeWriteSettings {
 export function cleanupLegacyData(): void {
   try {
     const prefix = 'localforage/wewrite/';
-    const keys = Object.keys(localStorage).filter((k) => k.startsWith(prefix));
+    const keys = Object.keys(window.localStorage).filter((k) => k.startsWith(prefix));
     for (const key of keys) {
-      localStorage.removeItem(key);
+      window.localStorage.removeItem(key);
     }
   } catch {
     // Silently ignore cleanup errors

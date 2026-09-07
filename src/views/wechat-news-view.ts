@@ -173,7 +173,7 @@ export class WeChatNewsView extends ItemView {
     // Hide Obsidian's built-in view header — the title is already shown on the tab
     this.hideViewHeader();
 
-    this.configStore = new NoteConfigStore(this.app.vault.adapter);
+    this.configStore = new NoteConfigStore(this.app.vault.adapter, this.app.vault.configDir);
 
     // Hide Obsidian status bar + sync button while this view is active
     this.hideBottomBars();
@@ -240,17 +240,17 @@ export class WeChatNewsView extends ItemView {
   private hideViewHeader(): void {
     const leafEl = this.containerEl.closest('.workspace-leaf');
     if (!leafEl) return;
-    const viewHeader = leafEl.querySelector(':scope > .view-header') as HTMLElement | null;
+    const viewHeader: HTMLElement | null = leafEl.querySelector(':scope > .view-header');
     if (viewHeader) viewHeader.style.display = 'none';
   }
 
   private hideBottomBars(): void {
-    const statusBar = this.app.workspace.containerEl.querySelector('.status-bar') as HTMLElement | null;
+    const statusBar: HTMLElement | null = this.app.workspace.containerEl.querySelector('.status-bar');
     if (statusBar && this._statusBarOrigDisplay === undefined) {
       this._statusBarOrigDisplay = statusBar.style.display;
       statusBar.style.display = 'none';
     }
-    const syncBtn = document.querySelector('.sync-status-icon') as HTMLElement | null;
+    const syncBtn: HTMLElement | null = document.querySelector('.sync-status-icon');
     if (syncBtn && this._syncStatusOrigDisplay === undefined) {
       this._syncStatusOrigDisplay = syncBtn.style.display;
       syncBtn.style.display = 'none';
@@ -259,12 +259,12 @@ export class WeChatNewsView extends ItemView {
 
   private restoreBottomBars(): void {
     if (this._statusBarOrigDisplay !== undefined) {
-      const statusBar = this.app.workspace.containerEl.querySelector('.status-bar') as HTMLElement | null;
+      const statusBar: HTMLElement | null = this.app.workspace.containerEl.querySelector('.status-bar');
       if (statusBar) statusBar.style.display = this._statusBarOrigDisplay;
       this._statusBarOrigDisplay = undefined;
     }
     if (this._syncStatusOrigDisplay !== undefined) {
-      const syncBtn = document.querySelector('.sync-status-icon') as HTMLElement | null;
+      const syncBtn: HTMLElement | null = document.querySelector('.sync-status-icon');
       if (syncBtn) syncBtn.style.display = this._syncStatusOrigDisplay;
       this._syncStatusOrigDisplay = undefined;
     }
@@ -367,13 +367,13 @@ export class WeChatNewsView extends ItemView {
     const settings = this.plugin.settingsManager.getSettings();
     while (this.accountSelectEl.options.length > 0) this.accountSelectEl.remove(0);
     if (settings.wechatAccounts.length === 0) {
-      const opt = document.createElement('option');
+      const opt = createEl('option');
       opt.value = ''; opt.text = t('misc.no_accounts'); opt.disabled = true;
       this.accountSelectEl.appendChild(opt);
       return;
     }
     for (const acc of settings.wechatAccounts) {
-      const opt = document.createElement('option');
+      const opt = createEl('option');
       opt.value = acc.id; opt.text = acc.name;
       if (acc.id === settings.activeWeChatAccountId) opt.selected = true;
       this.accountSelectEl.appendChild(opt);
@@ -423,12 +423,12 @@ export class WeChatNewsView extends ItemView {
     const styles = this.themeLoader.getThemes();
     while (this.styleSelectEl.options.length > 0) this.styleSelectEl.remove(0);
     for (const s of styles.filter((s) => s.source === 'builtin')) {
-      const opt = document.createElement('option');
+      const opt = createEl('option');
       opt.value = s.id; opt.text = `[${t('misc.style_builtin')}] ${s.nameKey ? t(s.nameKey) : s.name}`;
       this.styleSelectEl.appendChild(opt);
     }
     for (const s of styles.filter((s) => s.source === 'vault')) {
-      const opt = document.createElement('option');
+      const opt = createEl('option');
       opt.value = s.id; opt.text = `[${t('misc.style_custom')}] ${s.name}`;
       this.styleSelectEl.appendChild(opt);
     }
@@ -993,7 +993,7 @@ export class WeChatNewsView extends ItemView {
 
     // Notch only for phones
     if (isPhone) {
-      const notchEl = document.createElement('div');
+      const notchEl = createEl('div');
       notchEl.addClass('wewrite-phone-notch');
       this.previewFrameEl.appendChild(notchEl);
     }
@@ -1330,7 +1330,7 @@ export class WeChatNewsView extends ItemView {
       // Use opacity:0.01 instead of left:-9999px so iOS WebKit (15.x/16.x)
       // keeps the element in its render tree. Off-viewport elements are
       // deprioritized, causing async plugin post-processors to never fire.
-      const tempDiv = document.createElement('div');
+      const tempDiv = createEl('div');
       tempDiv.style.cssText = 'position:fixed;left:0;top:0;width:677px;opacity:0.01;pointer-events:none;z-index:-1';
       // Marker so the finally-block safety net can remove this container even
       // when an exception skips the removeChild below (leak prevention).
@@ -1576,7 +1576,7 @@ export class WeChatNewsView extends ItemView {
     const existing = captions.find(c => c.imageKey === imageKey);
 
     return new Promise((resolve) => {
-      const modalEl = document.createElement('div');
+      const modalEl = createEl('div');
       modalEl.addClass('wewrite-caption-modal');
       modalEl.innerHTML = `
         <div class="wewrite-caption-overlay"></div>
@@ -1627,7 +1627,7 @@ export class WeChatNewsView extends ItemView {
     const existing = dims.find(d => d.imageKey === imageKey);
 
     return new Promise((resolve) => {
-      const modalEl = document.createElement('div');
+      const modalEl = createEl('div');
       modalEl.addClass('wewrite-caption-modal');
       const w = existing?.width ?? '';
       const h = existing?.height ?? '';
@@ -1743,7 +1743,7 @@ export class WeChatNewsView extends ItemView {
         }
 
         // Parse and sanitize the SVG
-        const tmp = document.createElement('div');
+        const tmp = createEl('div');
         tmp.innerHTML = svgBody;
         const svgEl = tmp.firstElementChild;
         if (!svgEl || svgEl.tagName.toLowerCase() !== 'svg') continue;
@@ -1796,7 +1796,7 @@ export class WeChatNewsView extends ItemView {
           svgEl.setAttribute('height', '100%');
         }
 
-        const wrapper = document.createElement('span');
+        const wrapper = createEl('span');
         wrapper.setAttribute('style', `display:inline-block;${svgStyle}`);
 
         // Move the sanitized SVG into the wrapper, replacing the <img>
@@ -1956,7 +1956,7 @@ export class WeChatNewsView extends ItemView {
       h = Math.round(h * ratio);
     }
 
-    const canvas = document.createElement('canvas');
+    const canvas = createEl('canvas');
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d')!;
@@ -2057,7 +2057,7 @@ export class WeChatNewsView extends ItemView {
   private convertCapacitorImageUrls(html: string): string {
     if (!html.includes('_capacitor_file_')) return html;
 
-    const tempDiv = document.createElement('div');
+    const tempDiv = createEl('div');
     tempDiv.innerHTML = html;
     const imgs = tempDiv.querySelectorAll('img');
 
@@ -2241,7 +2241,7 @@ export class WeChatNewsView extends ItemView {
 
     // Scan preview HTML for images. Skip data: URIs, already-uploaded WeChat URLs,
     // SVG references (must be converted to PNG before upload), and empty src attrs.
-    const tempDiv = document.createElement('div');
+    const tempDiv = createEl('div');
     tempDiv.innerHTML = this.renderedHtml;
 
     const SVG_EXT = /\.svg(\?.*)?$/i;
@@ -2658,7 +2658,7 @@ export class WeChatNewsView extends ItemView {
     log.debug('📋 copy content', { len: compressed.length, preview: compressed.slice(0, 500) });
 
     // Extract plain text fallback from the HTML
-    const tempDiv = document.createElement('div');
+    const tempDiv = createEl('div');
     tempDiv.innerHTML = compressed;
     const plainText = tempDiv.textContent || '';
 
@@ -2910,7 +2910,7 @@ class PublishProgressModal {
     this.uploadTasks = uploadTasks;
     this.tasks = uploadTasks;
     this.allTasks = [...preScanTasks, ...uploadTasks];
-    this.modalEl = document.createElement('div');
+    this.modalEl = createEl('div');
     this.modalEl.addClass('wewrite-publish-modal');
     this.modalEl.innerHTML = `
       <div class="wewrite-publish-overlay"></div>
@@ -3389,7 +3389,7 @@ class ImageGenerateDialog {
     const promptVal = savedPrompt || defaultPrompt || t('modal.image_generate_placeholder');
     const sizeVal = savedSize || defaultSize;
 
-    this.modalEl = document.createElement('div');
+    this.modalEl = createEl('div');
     this.modalEl.addClass('wewrite-publish-modal');
     this.modalEl.innerHTML = `
       <div class="wewrite-publish-overlay" style="background:rgba(0,0,0,0.4)"></div>

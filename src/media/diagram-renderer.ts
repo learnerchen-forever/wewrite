@@ -90,7 +90,7 @@ export async function svgStringToPng(svgString: string, scale = 2): Promise<Arra
         (c) => c.tagName === 'rect' && c.getAttribute('width') === '100%' && c.getAttribute('height') === '100%',
       );
       if (!hasBgRect) {
-        const bg = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        const bg = createSvg('rect');
         bg.setAttribute('width', '100%');
         bg.setAttribute('height', '100%');
         bg.setAttribute('fill', '#ffffff');
@@ -108,7 +108,7 @@ export async function svgStringToPng(svgString: string, scale = 2): Promise<Arra
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement('canvas');
+      const canvas = createEl('canvas');
       const w = Math.min(img.naturalWidth * scale, 4096);
       const h = Math.min(img.naturalHeight * scale, 4096);
       canvas.width = w;
@@ -177,7 +177,7 @@ export async function renderMermaidToPng(
   style?: MermaidSvgStyle,
 ): Promise<ArrayBuffer | null> {
   const markdown = '```mermaid\n' + code + '\n```';
-  const el = document.createElement('div');
+  const el = createEl('div');
   // Use opacity:0.01 instead of left:-9999px so iOS WebKit (15.x/16.x)
   // keeps the element in its render tree. Off-viewport elements
   // are deprioritized and async plugin post-processors never fire.
@@ -303,11 +303,11 @@ async function renderExcalidrawViaObsidian(
   // rendering context and fires its post-processor.
   // Use opacity:0.01 instead of left:-9999px so iOS WebKit (15.x/16.x)
   // keeps the element in its render tree.
-  const wrapper = document.createElement('div');
+  const wrapper = createEl('div');
   wrapper.className = 'markdown-reading-view';
   wrapper.style.cssText = 'position:fixed;left:0;top:0;width:1024px;opacity:0.01;pointer-events:none;z-index:-1';
 
-  const renderEl = document.createElement('div');
+  const renderEl = createEl('div');
   renderEl.className = 'markdown-preview-section';
   wrapper.appendChild(renderEl);
   document.body.appendChild(wrapper);
@@ -355,7 +355,7 @@ async function waitForExcalidrawElement(
     const canvas = container.querySelector('canvas');
     if (canvas && canvas.width > 100 && canvas.height > 100) return canvas;
     // Some versions wrap SVG in a div
-    const wrapper = container.querySelector('.excalidraw-svg svg, [class*="excalidraw"] svg') as SVGSVGElement | null;
+    const wrapper: SVGSVGElement | null = container.querySelector('.excalidraw-svg svg, [class*="excalidraw"] svg');
     if (wrapper) return wrapper;
 
     await new Promise((r) => window.setTimeout(r, 200));
@@ -438,7 +438,7 @@ function prepareSvgForCanvas(svgString: string, bg: string | boolean = false): s
   // Inject opaque white background before all other children so the
   // rasterized PNG is never transparent.
   if (bg !== false && bg !== undefined) {
-    const bgRect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    const bgRect = createSvg('rect');
     bgRect.setAttribute('width', '100%');
     bgRect.setAttribute('height', '100%');
     bgRect.setAttribute('fill', bg === true ? '#ffffff' : bg);

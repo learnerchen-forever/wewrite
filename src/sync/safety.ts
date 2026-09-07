@@ -12,9 +12,8 @@ export const MAX_FILE_SIZE = 50 * 1024 * 1024;
 /** Maximum files per sync cycle. Beyond this, the sync is aborted. */
 export const MAX_FILES_PER_CYCLE = 5000;
 
-/** Paths always excluded from sync. */
+/** Paths always excluded from sync. The Obsidian config dir is handled via Vault#configDir. */
 export const ALWAYS_EXCLUDED = new Set([
-  '.obsidian',
   '.git',
   '.svn',
   '.hg',

@@ -33,6 +33,41 @@ interface WeWriteSavePickerWindow extends Window {
 type MobileExportResult = 'saved' | 'cancelled' | 'shared' | 'downloaded' | 'unavailable';
 
 /**
+ * Structural subset of Obsidian 1.13's SettingDefinition API. The installed
+ * obsidian typings (1.12.x) predate declarative settings, so the tab models
+ * the definitions locally; the shapes match the runtime API.
+ */
+interface WeWriteSettingDefBase {
+  name: string;
+  desc?: string | DocumentFragment;
+  aliases?: string[];
+  visible?: boolean | (() => boolean);
+}
+
+interface WeWriteRenderSettingDef extends WeWriteSettingDefBase {
+  render: (setting: Setting) => void | (() => void);
+}
+
+interface WeWriteActionSettingDef extends WeWriteSettingDefBase {
+  action: (el: HTMLElement) => void;
+}
+
+interface WeWriteEmptySettingDef extends WeWriteSettingDefBase {}
+
+interface WeWriteSettingGroupDef {
+  type: 'group';
+  heading?: string;
+  visible?: boolean | (() => boolean);
+  items: WeWriteSettingDef[];
+}
+
+type WeWriteSettingDef =
+  | WeWriteSettingGroupDef
+  | WeWriteRenderSettingDef
+  | WeWriteActionSettingDef
+  | WeWriteEmptySettingDef;
+
+/**
  * Obsidian's setButtonText() and setIcon() each clear the button's existing
  * content, so chaining both keeps only whichever runs last (that is why the
  * WeChat "add account" button previously rendered as a lone "+" icon).
@@ -97,6 +132,8 @@ export class WeWriteSettingTab extends PluginSettingTab {
   private _langUnsub?: () => void;
   /** Server info (quota/plan) display — rebuilt on display(), updated by testConnection & sync. */
   private _serverInfoEl?: HTMLElement;
+  /** Declarative server-info row renderer, kept so sync callbacks can refresh it. */
+  private _renderServerInfo?: (quota: ServerQuotaInfo | null | undefined) => void;
   /** Progress bar + status line — rebuilt on display(). */
   private _progressEl?: HTMLElement;
   private _progressBarEl?: HTMLElement;
@@ -160,7 +197,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         t.inputEl.addEventListener('blur', () => {
           void (async () => {
             await this.plugin.updateThemesDirectory();
-            void this.display();
+            this.rerender();
           })();
         });
       })
@@ -171,7 +208,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
               settings.wewriteFolder = path;
               this.save();
               await this.plugin.updateThemesDirectory();
-              void this.display();
+              this.rerender();
             })();
           }).open();
         }),
@@ -220,7 +257,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         btn.setButtonText(t('settings.clear_button')).setWarning().onClick(async () => {
           const count = this.plugin.mediaRegistry.clear();
           await this.plugin.saveSettings();
-          void this.display();
+          this.rerender();
           new Notice(t('notice.fingerprints_cleared', { count }));
         }),
       );
@@ -234,7 +271,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         btn.setButtonText(t('settings.clear_button')).setWarning().onClick(async () => {
           const count = await this.plugin.configStore.clearAll();
           await this.plugin.saveSettings();
-          void this.display();
+          this.rerender();
           new Notice(t('notice.note_configs_cleared', { count }));
         }),
       );
@@ -308,7 +345,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             });
           }
 
-          void this.display();
+          this.rerender();
           new Notice(t('notice.reset_complete', { fpCount, cfgCount, cacheCount: cacheDeleted, debugCount: debugDeleted }));
         }),
       );
@@ -341,14 +378,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
           this.save();
         }),
       );
-    const tokenDescFrag = document.createDocumentFragment();
+    const tokenDescFrag = createFragment();
     tokenDescFrag.appendChild(document.createTextNode(
       t('settings.use_central_token_server_desc') + ' ',
     ));
     tokenDescFrag.appendChild(document.createTextNode(
       t('settings.use_central_token_server_desc2') + ' ',
     ));
-    const tokenLink = document.createElement('a');
+    const tokenLink = createEl('a');
     tokenLink.href = 'https://developers.weixin.qq.com/platform';
     tokenLink.textContent = t('settings.mp_developer_console');
     tokenDescFrag.appendChild(tokenLink);
@@ -465,7 +502,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           buttonWithIcon(btn, 'check', t('settings.set_active')).onClick(() => {
             settings.activeWeChatAccountId = account.id;
             this.save();
-            void this.display();
+            this.rerender();
           }),
         );
       }
@@ -476,7 +513,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeWeChatAccountId = settings.wechatAccounts[0]?.id || '';
           }
           this.save();
-          void this.display();
+          this.rerender();
         }),
       );
     }
@@ -487,7 +524,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           id: generateId(), name: t('settings.new_account'), appId: '', appSecret: '',
         });
         this.save();
-        void this.display();
+        this.rerender();
       }),
     );
 
@@ -573,7 +610,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           buttonWithIcon(btn, 'check', t('settings.set_active')).onClick(() => {
             settings.activeAITextAccountId = account.id;
             this.save();
-            void this.display();
+            this.rerender();
           }),
         );
       }
@@ -584,7 +621,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeAITextAccountId = settings.aiTextAccounts[0]?.id || '';
           }
           this.save();
-          void this.display();
+          this.rerender();
         }),
       );
     }
@@ -596,7 +633,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o',
         });
         this.save();
-        void this.display();
+        this.rerender();
       }),
     );
 
@@ -640,7 +677,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             account.model = defs.model;
             account.defaultSize = defs.defaultSize;
             this.save();
-            void this.display();
+            this.rerender();
           });
       });
 
@@ -714,7 +751,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           buttonWithIcon(btn, 'check', t('settings.set_active')).onClick(() => {
             settings.activeAIImageGenAccountId = account.id;
             this.save();
-            void this.display();
+            this.rerender();
           }),
         );
       }
@@ -725,7 +762,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeAIImageGenAccountId = settings.aiImageGenAccounts[0]?.id || '';
           }
           this.save();
-          void this.display();
+          this.rerender();
         }),
       );
     }
@@ -739,7 +776,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           model: defs.model, defaultSize: defs.defaultSize,
         });
         this.save();
-        void this.display();
+        this.rerender();
       }),
     );
 
@@ -844,7 +881,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             if (conflicts.length > 0) {
               settings.syncEnabled = false;
               this.save();
-              void this.display();
+              this.rerender();
               new SyncConflictModal(this.app, conflicts).open();
               return;
             }
@@ -855,7 +892,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
               );
               settings.syncEnabled = true;
               this.save();
-              void this.display();
+              this.rerender();
               this.plugin.startSyncTimer();
             }).open();
             return;
@@ -865,7 +902,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           this.plugin.syncEngine?.cancel();
           settings.syncEnabled = false;
           this.save();
-          void this.display();
+          this.rerender();
         }),
       );
 
@@ -1297,6 +1334,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
         }),
       );
 
+    // Tag toggle rows so the mobile CSS can target them without :has().
+    containerEl.querySelectorAll<HTMLElement>('.setting-item').forEach((row) => {
+      if (row.querySelector('.setting-item-control .checkbox-container')) {
+        row.addClass('wewrite-toggle-row');
+      }
+    });
+
     // Restore collapse state so user-expanded sections stay expanded
     this.restoreCollapseState(savedStates);
 
@@ -1314,8 +1358,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // Unsubscribe previous listener to prevent compounding leaks on re-display
     this._langUnsub?.();
     this._langUnsub = onLanguageChange(() => {
-      this.containerEl.empty();
-      void this.display();
+      this.rerender();
     });
   }
 
@@ -1407,7 +1450,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const doc = this.containerEl.ownerDocument;
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = doc.createElement('a');
+    const a = createEl('a');
     a.href = url;
     a.download = fileName;
     a.style.display = 'none';
@@ -1516,7 +1559,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const doc = this.containerEl.ownerDocument;
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = doc.createElement('a');
+    const a = createEl('a');
     a.href = url;
     a.download = fileName;
     a.style.display = 'none';
@@ -1572,7 +1615,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // Remove any leftover hidden input from a previously cancelled dialog.
     doc.querySelectorAll<HTMLInputElement>('input.wewrite-settings-file-input')
       .forEach((el) => el.remove());
-    const input = doc.createElement('input');
+    const input = createEl('input');
     input.type = 'file';
     input.accept = '.json';
     input.className = 'wewrite-settings-file-input';
@@ -1600,7 +1643,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       const result = await this.plugin.settingsManager.load(data);
       this.plugin.settings = result.settings;
       await this.plugin.saveSettings();
-      void this.display();
+      this.rerender();
 
       const s = result.accountStats;
       new Notice(t('notice.settings_imported', { wechat: s.wechatAccountsImported, aiText: s.aiTextAccountsImported, aiImage: s.aiImageGenAccountsImported }));
@@ -1759,6 +1802,1243 @@ export class WeWriteSettingTab extends PluginSettingTab {
   private save(): void {
     this.plugin.settings = this.plugin.settingsManager.getSettings();
     void this.plugin.saveSettings();
+  }
+
+  /**
+   * Refresh the tab on whichever rendering path the host supports:
+   * declarative settings (Obsidian 1.13+) rebuild from getSettingDefinitions(),
+   * while older versions still re-run the imperative display().
+   */
+  private rerender(): void {
+    const tab = this as unknown as { update?: () => void };
+    if (typeof tab.update === 'function') {
+      tab.update();
+    } else {
+      void this.display();
+    }
+  }
+
+  /** Stop sync progress polling and detach the engine listener. */
+  private stopSyncStatusPolling(): void {
+    if (this._syncProgressTimer) {
+      window.clearInterval(this._syncProgressTimer);
+      this._syncProgressTimer = null;
+    }
+    this.plugin.syncEngine?.onProgress(null);
+  }
+
+  getSettingDefinitions(): WeWriteSettingDef[] {
+    // Keep the settings-tab CSS scope (and its mobile layout rules) on the
+    // declarative rendering path too.
+    this.containerEl.addClass('wewrite-auto-expand');
+    return [
+      { type: 'group', heading: t('settings.general'), items: this.getGeneralDefinitions() },
+      { type: 'group', heading: t('settings.wechat_accounts'), items: this.getWechatAccountDefinitions() },
+      { type: 'group', heading: t('settings.ai_text_models'), items: this.getAiTextAccountDefinitions() },
+      { type: 'group', heading: t('settings.ai_image_models'), items: this.getAiImageAccountDefinitions() },
+      { type: 'group', heading: t('settings.custom_styles'), items: this.getCustomStylesDefinitions() },
+      { type: 'group', heading: t('settings.debug'), items: this.getDebugDefinitions() },
+      { type: 'group', heading: t('settings.sync'), items: this.getSyncDefinitions() },
+      { type: 'group', heading: t('settings.import_export'), items: this.getImportExportDefinitions() },
+    ];
+  }
+
+  private getGeneralDefinitions(): WeWriteSettingDef[] {
+    const settings = this.plugin.settingsManager.getSettings();
+    return [
+      {
+        name: t('settings.wewrite_folder'),
+        desc: t('settings.wewrite_folder_desc'),
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-folder-row');
+          setting.addText((input) => {
+            input.setValue(settings.wewriteFolder).onChange(async (v) => {
+              settings.wewriteFolder = v.trim() || 'wewrite';
+              this.save();
+            });
+            input.inputEl.addEventListener('blur', () => {
+              void (async () => {
+                await this.plugin.updateThemesDirectory();
+                this.rerender();
+              })();
+            });
+          });
+          setting.addButton((btn) =>
+            btn.setButtonText(t('settings.browse')).onClick(() => {
+              new FolderPickerModal(this.app, (path) => {
+                void (async () => {
+                  settings.wewriteFolder = path;
+                  this.save();
+                  await this.plugin.updateThemesDirectory();
+                  this.rerender();
+                })();
+              }).open();
+            }),
+          );
+
+          // Derived subdirectory paths (full-width row below the folder input).
+          const derivedPaths = setting.settingEl.createDiv({ cls: 'wewrite-derived-paths' });
+          derivedPaths.style.cssText = [
+            'grid-column:1 / -1', 'margin-top:8px', 'padding:8px 12px',
+            'background:var(--background-secondary)', 'border-radius:6px',
+            'font-size:12px', 'color:var(--text-muted)',
+          ].join(';');
+          for (const [label, sub] of Object.entries(WEWRITE_SUBDIRS)) {
+            const path = getWeWriteSubPath(settings.wewriteFolder, sub);
+            const row = derivedPaths.createDiv();
+            row.style.cssText = 'padding:2px 0;';
+            row.createSpan({ text: `${label}: `, cls: '' });
+            row.createEl('code', { text: path });
+          }
+        },
+      },
+      {
+        name: t('settings.svg_threshold'),
+        desc: t('settings.svg_threshold_desc'),
+        render: (setting) => {
+          setting.addSlider((slider) => {
+            slider
+              .setLimits(10, 1000, 10)
+              .setValue(settings.svgFallbackThresholdKb)
+              .setDynamicTooltip()
+              .onChange(async (value) => {
+                settings.svgFallbackThresholdKb = value;
+                this.save();
+              });
+            slider.sliderEl.style.width = '100%';
+            return slider;
+          });
+          const isMobile = window.matchMedia('(max-width: 500px)').matches;
+          setting.infoEl.style.flex = isMobile ? '0 0 auto' : '0 0 180px';
+          setting.infoEl.style.maxWidth = isMobile ? 'none' : '40%';
+          setting.controlEl.style.flex = '1 1 0%';
+        },
+      },
+      {
+        name: t('settings.clear_fingerprint', { svgCount: 0, imageCount: 0 }),
+        desc: t('settings.clear_fingerprint_desc'),
+        render: (setting) => {
+          const counts = this.plugin.mediaRegistry.countByType();
+          setting.setName(t('settings.clear_fingerprint', { svgCount: counts.svg, imageCount: counts.image }));
+          setting.addButton((btn) =>
+            btn.setButtonText(t('settings.clear_button')).setWarning().onClick(async () => {
+              const count = this.plugin.mediaRegistry.clear();
+              await this.plugin.saveSettings();
+              this.rerender();
+              new Notice(t('notice.fingerprints_cleared', { count }));
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.clear_note_configs', { count: 0 }),
+        desc: t('settings.clear_note_configs_desc'),
+        render: (setting) => {
+          void this.plugin.configStore.count().then((count) => {
+            if (setting.settingEl.isConnected) {
+              setting.setName(t('settings.clear_note_configs', { count }));
+            }
+          });
+          setting.addButton((btn) =>
+            btn.setButtonText(t('settings.clear_button')).setWarning().onClick(async () => {
+              const count = await this.plugin.configStore.clearAll();
+              await this.plugin.saveSettings();
+              this.rerender();
+              new Notice(t('notice.note_configs_cleared', { count }));
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.reset_wewrite'),
+        desc: t('settings.reset_wewrite_desc'),
+        render: (setting) => {
+          setting.addButton((btn) =>
+            btn.setButtonText(t('settings.reset_button')).setWarning().onClick(async () => {
+              const s = this.plugin.settingsManager.getSettings();
+              const cacheDir = getWeWriteSubPath(s.wewriteFolder, WEWRITE_SUBDIRS.cache);
+              const debugDir = getWeWriteSubPath(s.wewriteFolder, WEWRITE_SUBDIRS.debug);
+              const fpCount = this.plugin.mediaRegistry.clear();
+              this.plugin.materialManager.clearCache();
+              const cfgCount = await this.plugin.configStore.clearAll();
+              let cacheDeleted = 0;
+              try {
+                if (await this.app.vault.adapter.exists(cacheDir)) {
+                  const listing = await this.app.vault.adapter.list(cacheDir);
+                  for (const file of listing.files) {
+                    try { await this.app.vault.adapter.remove(file); cacheDeleted++; } catch { /* skip */ }
+                  }
+                }
+              } catch { /* skip */ }
+              let debugDeleted = 0;
+              try {
+                if (await this.app.vault.adapter.exists(debugDir)) {
+                  const listing = await this.app.vault.adapter.list(debugDir);
+                  for (const file of listing.files) {
+                    try { await this.app.vault.adapter.remove(file); debugDeleted++; } catch { /* skip */ }
+                  }
+                }
+              } catch { /* skip */ }
+              const current = this.plugin.settingsManager.getSettings();
+              this.plugin.settingsManager.updateSettings({
+                ...DEFAULT_SETTINGS,
+                wechatAccounts: current.wechatAccounts,
+                aiTextAccounts: current.aiTextAccounts,
+                aiImageGenAccounts: current.aiImageGenAccounts,
+                activeWeChatAccountId: current.activeWeChatAccountId,
+                activeAITextAccountId: current.activeAITextAccountId,
+                activeAIImageGenAccountId: current.activeAIImageGenAccountId,
+              });
+              this.plugin.apiManager.useCenterToken = false;
+              await this.plugin.saveSettings();
+              await this.plugin.updateThemesDirectory();
+              for (const viewType of [
+                VIEW_TYPE_WECHAT_NEWS,
+                VIEW_TYPE_WECHAT_NEWSPIC,
+                VIEW_TYPE_WEWRITE_THEME,
+              ]) {
+                this.app.workspace.getLeavesOfType(viewType).forEach((leaf) => leaf.detach());
+              }
+              this.rerender();
+              new Notice(t('notice.reset_complete', { fpCount, cfgCount, cacheCount: cacheDeleted, debugCount: debugDeleted }));
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.article_watermark'),
+        desc: t('settings.article_watermark_desc'),
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-toggle-row');
+          setting.addToggle((toggle) =>
+            toggle.setValue(settings.articleWatermark).onChange(async (v) => {
+              settings.articleWatermark = v;
+              this.save();
+            }),
+          );
+        },
+      },
+    ];
+  }
+
+  private getCustomStylesDefinitions(): WeWriteSettingDef[] {
+    const settings = this.plugin.settingsManager.getSettings();
+    const stylesDirPath = getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.customizedThemes);
+    return [
+      {
+        name: t('settings.download_templates'),
+        desc: t('settings.download_templates_desc'),
+        render: (setting) => {
+          setting.addButton((btn) =>
+            buttonWithIcon(btn, 'download', t('settings.download_button')).onClick(async () => {
+              const { ThemeDownloader } = await import('../styles/theme-downloader');
+              const downloader = new ThemeDownloader(this.app);
+              await downloader.downloadThemes(stylesDirPath);
+            }),
+          );
+        },
+      },
+    ];
+  }
+
+  private getDebugDefinitions(): WeWriteSettingDef[] {
+    const settings = this.plugin.settingsManager.getSettings();
+    return [
+      {
+        name: t('settings.debug_log_publish'),
+        desc: t('settings.debug_log_publish_desc'),
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-toggle-row');
+          setting.addToggle((toggle) =>
+            toggle.setValue(settings.dumpPublishContent).onChange(async (v) => {
+              settings.dumpPublishContent = v;
+              this.save();
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.debug_log_render'),
+        desc: t('settings.debug_log_render_desc'),
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-toggle-row');
+          setting.addToggle((toggle) =>
+            toggle.setValue(settings.logRenderPipeline).onChange(async (v) => {
+              settings.logRenderPipeline = v;
+              this.save();
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.debug_show_copy'),
+        desc: t('settings.debug_show_copy_desc'),
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-toggle-row');
+          setting.addToggle((toggle) =>
+            toggle.setValue(settings.showCopyButton).onChange(async (v) => {
+              settings.showCopyButton = v;
+              this.save();
+              this.app.workspace.getLeavesOfType(VIEW_TYPE_WECHAT_NEWS).forEach((leaf) => {
+                if (leaf.view instanceof WeChatNewsView) {
+                  leaf.view.updateCopyButtonVisibility();
+                }
+              });
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.debug_log_ai'),
+        desc: t('settings.debug_log_ai_desc'),
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-toggle-row');
+          setting.addToggle((toggle) =>
+            toggle.setValue(settings.logAICalling).onChange(async (v) => {
+              settings.logAICalling = v;
+              this.save();
+            }),
+          );
+        },
+      },
+    ];
+  }
+
+  private getImportExportDefinitions(): WeWriteSettingDef[] {
+    return [
+      {
+        name: t('settings.export_settings'),
+        desc: t('settings.export_settings_desc'),
+        render: (setting) => {
+          setting.addButton((btn) =>
+            buttonWithIcon(btn, 'download', t('settings.export_button')).onClick(() => {
+              const exportData = this.plugin.settingsManager.exportToJSON();
+              const json = JSON.stringify(exportData, null, 2);
+              const dateStr = new Date().toISOString().slice(0, 10);
+              const fileName = `wewrite-settings-${dateStr}.json`;
+              const isMobile = Platform.isMobile;
+              if (!isMobile) {
+                this.downloadBlob(json, fileName);
+              }
+              const exportResultPromise = isMobile
+                ? this.saveSettingsFileMobile(json, fileName)
+                : Promise.resolve<MobileExportResult>('unavailable');
+
+              void (async () => {
+                const s = this.plugin.settingsManager.getSettings();
+                let vaultPath = `${s.wewriteFolder}/${fileName}`;
+                let counter = 1;
+                while (await this.app.vault.adapter.exists(vaultPath)) {
+                  vaultPath = `${s.wewriteFolder}/wewrite-settings-${dateStr}(${counter}).json`;
+                  counter++;
+                }
+                try {
+                  await this.app.vault.adapter.mkdir(s.wewriteFolder).catch(() => undefined);
+                  await this.app.vault.create(vaultPath, json);
+                  if (isMobile) {
+                    const result = await exportResultPromise;
+                    if (result === 'saved' || result === 'shared') {
+                      new Notice(t('notice.settings_exported'));
+                    } else if (result === 'cancelled') {
+                      new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
+                    } else if (result === 'downloaded') {
+                      new AndroidExportGuidanceModal(this.app, vaultPath).open();
+                    } else {
+                      new Notice(t('notice.settings_exported_vault', { path: vaultPath }));
+                    }
+                  }
+                } catch (err) {
+                  log.warn('settings export vault write failed', { err: String(err) });
+                  new Notice(t('notice.settings_export_failed', { error: String(err) }));
+                }
+              })();
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.import_settings'),
+        desc: t('settings.import_settings_desc'),
+        render: (setting) => {
+          setting.addButton((btn) =>
+            buttonWithIcon(btn, 'upload', t('settings.import_button')).onClick(() => {
+              this.openSettingsFilePicker((file) => {
+                if (!file) return;
+                void this.importSettingsFile(file);
+              });
+            }),
+          );
+        },
+      },
+    ];
+  }
+
+  private getWechatAccountDefinitions(): WeWriteSettingDef[] {
+    const settings = this.plugin.settingsManager.getSettings();
+    const defs: WeWriteSettingDef[] = [
+      {
+        name: t('settings.external_ip'),
+        render: (setting) => {
+          const storedIp = settings.ipAddress;
+          const valueEl = setting.controlEl.createSpan({
+            cls: `wewrite-ip-value${storedIp ? '' : ' is-empty'}`,
+            text: storedIp || t('settings.ip_not_detected'),
+          });
+          const refreshBtn = setting.controlEl.createEl('button', { cls: 'wewrite-btn', text: t('settings.refresh') });
+          refreshBtn.addEventListener('click', () => {
+            void (async () => {
+              refreshBtn.setText(t('settings.loading'));
+              refreshBtn.disabled = true;
+              try {
+                const ip = await this.fetchExternalIp();
+                if (ip) {
+                  this.plugin.settings.ipAddress = ip;
+                  await this.plugin.saveSettings();
+                  valueEl.setText(ip);
+                  valueEl.classList.remove('is-empty');
+                  new Notice(t('notice.ip_address', { ip }));
+                }
+              } catch {
+                new Notice(t('notice.ip_fetch_failed'));
+              } finally {
+                refreshBtn.setText(t('settings.refresh'));
+                refreshBtn.disabled = false;
+              }
+            })();
+          });
+        },
+      },
+      {
+        name: t('settings.use_central_token_server'),
+        desc: this.buildTokenServerDescription(),
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-toggle-row');
+          setting.addToggle((toggle) =>
+            toggle.setValue(settings.useCenterToken).onChange(async (v) => {
+              settings.useCenterToken = v;
+              this.plugin.settingsManager.getSettings().useCenterToken = v;
+              this.plugin.apiManager.useCenterToken = v;
+              const activeId = settings.activeWeChatAccountId;
+              if (activeId) this.plugin.apiManager.invalidateToken(activeId);
+              this.save();
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.wechat_api_help_label'),
+        render: (setting) => {
+          const header = setting.controlEl.createDiv({ cls: 'wewrite-help-toggle-header' });
+          header.setAttribute('role', 'button');
+          header.setAttribute('tabindex', '0');
+          header.style.cssText = 'cursor:pointer;display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;color:var(--text-muted);';
+          const helpIcon = header.createSpan({ cls: 'wewrite-help-toggle-icon' });
+          setIcon(helpIcon, 'chevron-right');
+          header.createSpan({ text: t('settings.wechat_api_help_label'), cls: 'wewrite-help-toggle-label' });
+
+          const body = setting.settingEl.createDiv({ cls: 'wewrite-help-toggle-body collapsed' });
+          body.style.cssText = 'grid-column:1 / -1;margin-top:8px;';
+          const helpBox = body.createDiv({ cls: 'wewrite-help-box' });
+          helpBox.style.cssText = [
+            'padding:16px', 'border:1px solid var(--background-modifier-border)',
+            'border-radius:10px', 'background:var(--background-secondary)',
+            'line-height:1.7', 'font-size:13px', 'color:var(--text-normal)',
+          ].join(';');
+          const descEl = helpBox.createDiv({ cls: 'wewrite-help-desc' });
+          descEl.setText(t('settings.wechat_api_help_desc'));
+          const imgEl = helpBox.createEl('img', { cls: 'wewrite-help-image' });
+          imgEl.src = 'data:image/png;base64,' + WECHAT_ACCOUNT_HELP_IMAGE;
+          imgEl.style.cssText = 'display:block;margin:12px auto 0;max-width:100%;border-radius:6px;';
+
+          let expanded = false;
+          const toggleHelp = () => {
+            expanded = !expanded;
+            body.classList.toggle('collapsed', !expanded);
+            setIcon(helpIcon, expanded ? 'chevron-down' : 'chevron-right');
+          };
+          header.addEventListener('click', toggleHelp);
+          header.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleHelp(); }
+          });
+        },
+      },
+    ];
+
+    for (const account of settings.wechatAccounts) {
+      const isActive = account.id === settings.activeWeChatAccountId;
+      defs.push({
+        name: t('settings.account_name'),
+        aliases: [account.name],
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(account.name).onChange((v) => { account.name = v; this.save(); }),
+          );
+        },
+      });
+      defs.push({
+        name: t('settings.appid'),
+        aliases: [account.name],
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(account.appId).onChange((v) => { account.appId = v; this.save(); }),
+          );
+        },
+      });
+      defs.push({
+        name: t('settings.appsecret'),
+        aliases: [account.name],
+        render: (setting) => {
+          setting.addText((text) => {
+            text.setPlaceholder(t('settings.appsecret_placeholder')).onChange((v) => {
+              if (v) { account.appSecret = v; this.save(); }
+            });
+            text.inputEl.type = 'password';
+          });
+        },
+      });
+      defs.push({
+        name: t('settings.test_connection'),
+        desc: t('settings.test_wechat_desc'),
+        aliases: [account.name],
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-test-row');
+          setting.addExtraButton((btn) => {
+            btn.setIcon('plug-zap')
+              .setTooltip(t('settings.test_wechat_tooltip'))
+              .onClick(async () => {
+                btn.setIcon('loader-2');
+                const name = account.name;
+                const result = await this.plugin.testWeChatAccount(account.appId, account.appSecret);
+                btn.setIcon('plug-zap');
+                if (result.success) {
+                  new Notice(t('notice.test_wechat_success', { name, message: result.message }));
+                } else {
+                  new Notice(t('notice.test_wechat_fail', { name, message: result.message }), 0);
+                }
+              });
+          });
+        },
+      });
+      if (!isActive) {
+        defs.push({
+          name: t('settings.set_active'),
+          aliases: [account.name],
+          action: () => {
+            settings.activeWeChatAccountId = account.id;
+            this.save();
+            this.rerender();
+          },
+        });
+      }
+      defs.push({
+        name: t('settings.delete'),
+        aliases: [account.name],
+        action: () => {
+          settings.wechatAccounts = settings.wechatAccounts.filter((a) => a.id !== account.id);
+          if (settings.activeWeChatAccountId === account.id) {
+            settings.activeWeChatAccountId = settings.wechatAccounts[0]?.id || '';
+          }
+          this.save();
+          this.rerender();
+        },
+      });
+    }
+
+    defs.push({
+      name: t('settings.add_wechat_account'),
+      action: () => {
+        settings.wechatAccounts.push({
+          id: generateId(), name: t('settings.new_account'), appId: '', appSecret: '',
+        });
+        this.save();
+        this.rerender();
+      },
+    });
+    return defs;
+  }
+
+  private buildTokenServerDescription(): DocumentFragment {
+    const frag = createFragment();
+    frag.appendText(`${t('settings.use_central_token_server_desc')} `);
+    frag.appendText(`${t('settings.use_central_token_server_desc2')} `);
+    const link = createEl('a');
+    link.href = 'https://developers.weixin.qq.com/platform';
+    link.textContent = t('settings.mp_developer_console');
+    frag.appendChild(link);
+    return frag;
+  }
+
+  private getAiTextAccountDefinitions(): WeWriteSettingDef[] {
+    const settings = this.plugin.settingsManager.getSettings();
+    const defs: WeWriteSettingDef[] = [];
+    for (const account of settings.aiTextAccounts) {
+      const isActive = account.id === settings.activeAITextAccountId;
+      const alias = [account.name];
+      defs.push({
+        name: t('settings.name'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(account.name).onChange((v) => { account.name = v; this.save(); }),
+          );
+        },
+      });
+      defs.push({
+        name: t('settings.provider'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addDropdown((dropdown) => {
+            dropdown.selectEl.addClass('dropdown', 'wewrite-select');
+            dropdown
+              .addOption('openai', 'OpenAI')
+              .addOption('openai-compatible', 'OpenAI Compatible')
+              .addOption('anthropic', 'Anthropic')
+              .addOption('gemini', 'Google Gemini')
+              .addOption('ollama', 'Ollama (Local)')
+              .addOption('openrouter', 'OpenRouter')
+              .setValue(account.provider)
+              .onChange((v) => { account.provider = v as AIProviderType; this.save(); });
+          });
+        },
+      });
+      defs.push({
+        name: t('settings.base_url'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(account.baseUrl).onChange((v) => { account.baseUrl = v; this.save(); }),
+          );
+        },
+      });
+      defs.push({
+        name: t('settings.api_key'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addText((text) => {
+            text.setPlaceholder(t('settings.appsecret_placeholder')).onChange((v) => {
+              if (v) { account.apiKey = v; this.save(); }
+            });
+            text.inputEl.type = 'password';
+          });
+        },
+      });
+      defs.push({
+        name: t('settings.model'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(account.model).onChange((v) => { account.model = v; this.save(); }),
+          );
+        },
+      });
+      defs.push({
+        name: t('settings.test_connection'),
+        desc: t('settings.test_ai_text_desc'),
+        aliases: alias,
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-test-row');
+          setting.addExtraButton((btn) => {
+            btn.setIcon('plug-zap')
+              .setTooltip(t('settings.test_ai_text_tooltip'))
+              .onClick(async () => {
+                btn.setIcon('loader-2');
+                const name = account.name;
+                const result = await this.plugin.testAITextAccount(account.baseUrl, account.apiKey);
+                btn.setIcon('plug-zap');
+                if (result.success) {
+                  new Notice(t('notice.test_ai_text_success', { name, message: result.message }));
+                } else {
+                  new Notice(t('notice.test_ai_text_fail', { name, message: result.message }), 0);
+                }
+              });
+          });
+        },
+      });
+      if (!isActive) {
+        defs.push({
+          name: t('settings.set_active'),
+          aliases: alias,
+          action: () => {
+            settings.activeAITextAccountId = account.id;
+            this.save();
+            this.rerender();
+          },
+        });
+      }
+      defs.push({
+        name: t('settings.delete'),
+        aliases: alias,
+        action: () => {
+          settings.aiTextAccounts = settings.aiTextAccounts.filter((a) => a.id !== account.id);
+          if (settings.activeAITextAccountId === account.id) {
+            settings.activeAITextAccountId = settings.aiTextAccounts[0]?.id || '';
+          }
+          this.save();
+          this.rerender();
+        },
+      });
+    }
+    defs.push({
+      name: t('settings.add_ai_text_provider'),
+      action: () => {
+        settings.aiTextAccounts.push({
+          id: generateId(), name: t('settings.new_provider'), provider: 'openai-compatible',
+          baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o',
+        });
+        this.save();
+        this.rerender();
+      },
+    });
+    return defs;
+  }
+
+  private getAiImageAccountDefinitions(): WeWriteSettingDef[] {
+    const settings = this.plugin.settingsManager.getSettings();
+    const defs: WeWriteSettingDef[] = [];
+    for (const account of settings.aiImageGenAccounts) {
+      const isActive = account.id === settings.activeAIImageGenAccountId;
+      const alias = [account.name];
+      defs.push({
+        name: t('settings.name'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(account.name).onChange((v) => { account.name = v; this.save(); }),
+          );
+        },
+      });
+      defs.push({
+        name: t('settings.provider'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addDropdown((dropdown) => {
+            dropdown.selectEl.addClass('dropdown', 'wewrite-select');
+            dropdown.addOption('dashscope', '\u963f\u91cc\u4e07\u8c61 Wan 2.6')
+              .addOption('qwen-image', '\u963f\u91cc\u5343\u95ee Qwen-Image 3.0')
+              .addOption('seedream', '\u5b57\u8282 Seedream 5.0')
+              .addOption('openai', 'OpenAI (DALL-E)')
+              .setValue(account.provider)
+              .onChange((v) => {
+                const provider = v as ImageGenProviderType;
+                account.provider = provider;
+                const def = IMAGE_PROVIDER_DEFAULTS[provider];
+                account.baseUrl = def.baseUrl;
+                account.model = def.model;
+                account.defaultSize = def.defaultSize;
+                this.save();
+                this.rerender();
+              });
+          });
+        },
+      });
+      defs.push({
+        name: t('settings.api_key'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addText((text) => {
+            text.setPlaceholder(t('settings.appsecret_placeholder')).onChange((v) => {
+              if (v) { account.apiKey = v; this.save(); }
+            });
+            text.inputEl.type = 'password';
+          });
+        },
+      });
+      defs.push({
+        name: t('settings.workspace_id'),
+        desc: t('settings.workspace_id_desc'),
+        aliases: alias,
+        visible: () => account.provider === 'dashscope' || account.provider === 'qwen-image',
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setPlaceholder(t('settings.workspace_id_placeholder'))
+              .setValue(account.workspaceId || '')
+              .onChange((v) => {
+                account.workspaceId = v.trim();
+                if (isAliMaasBaseUrl(account.baseUrl)) {
+                  account.baseUrl = v.trim()
+                    ? ALI_MAAS_BASE_URL_TEMPLATE.replace('{workspaceId}', v.trim())
+                    : ALI_MAAS_BASE_URL_TEMPLATE;
+                }
+                this.save();
+              }),
+          );
+        },
+      });
+      defs.push({
+        name: t('settings.model'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(account.model).onChange((v) => { account.model = v; this.save(); }),
+          );
+        },
+      });
+      defs.push({
+        name: t('settings.default_size'),
+        desc: t('settings.default_size_desc'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(account.defaultSize || '').onChange((v) => { account.defaultSize = v; this.save(); }),
+          );
+        },
+      });
+      defs.push({
+        name: t('settings.test_connection'),
+        desc: t('settings.test_ai_image_desc'),
+        aliases: alias,
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-test-row');
+          setting.addExtraButton((btn) => {
+            btn.setIcon('plug-zap')
+              .setTooltip(t('settings.test_ai_image_tooltip'))
+              .onClick(async () => {
+                btn.setIcon('loader-2');
+                const name = account.name;
+                const result = await this.plugin.testAIImageAccount(account);
+                btn.setIcon('plug-zap');
+                if (result.success) {
+                  new Notice(t('notice.test_ai_image_success', { name, message: result.message }));
+                } else {
+                  new Notice(t('notice.test_ai_image_fail', { name, message: result.message }), 0);
+                }
+              });
+          });
+        },
+      });
+      defs.push({
+        name: t('settings.base_url'),
+        aliases: alias,
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(account.baseUrl).onChange((v) => { account.baseUrl = v; this.save(); }),
+          );
+        },
+      });
+      if (!isActive) {
+        defs.push({
+          name: t('settings.set_active'),
+          aliases: alias,
+          action: () => {
+            settings.activeAIImageGenAccountId = account.id;
+            this.save();
+            this.rerender();
+          },
+        });
+      }
+      defs.push({
+        name: t('settings.delete'),
+        aliases: alias,
+        action: () => {
+          settings.aiImageGenAccounts = settings.aiImageGenAccounts.filter((a) => a.id !== account.id);
+          if (settings.activeAIImageGenAccountId === account.id) {
+            settings.activeAIImageGenAccountId = settings.aiImageGenAccounts[0]?.id || '';
+          }
+          this.save();
+          this.rerender();
+        },
+      });
+    }
+    defs.push({
+      name: t('settings.add_ai_image_provider'),
+      action: () => {
+        const def = IMAGE_PROVIDER_DEFAULTS.dashscope;
+        settings.aiImageGenAccounts.push({
+          id: generateId(), name: t('settings.new_provider'), provider: 'dashscope',
+          baseUrl: def.baseUrl, workspaceId: '', apiKey: '',
+          model: def.model, defaultSize: def.defaultSize,
+        });
+        this.save();
+        this.rerender();
+      },
+    });
+    return defs;
+  }
+
+  private getSyncDefinitions(): WeWriteSettingDef[] {
+    const settings = this.plugin.settingsManager.getSettings();
+    const isSyncRunning = () => this.plugin.syncEngine?.isRunning ?? false;
+    const frameVisible = () => settings.syncEnabled;
+
+    return [
+      {
+        name: t('settings.sync_warn_experimental'),
+        desc: this.buildSyncWarningDescription(),
+      },
+      {
+        name: t('settings.sync_enable'),
+        desc: t('settings.sync_enable_desc'),
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-toggle-row');
+          setting.addToggle((toggle) =>
+            toggle.setValue(settings.syncEnabled).onChange(async (v) => {
+              if (v) {
+                const conflicts = this.detectSyncConflicts();
+                if (conflicts.length > 0) {
+                  settings.syncEnabled = false;
+                  this.save();
+                  this.rerender();
+                  new SyncConflictModal(this.app, conflicts).open();
+                  return;
+                }
+                new RiskAcknowledgmentModal(this.app, async () => {
+                  settings.syncRiskAcknowledgedAt = await encryptValue(new Date().toISOString());
+                  settings.syncEnabled = true;
+                  this.save();
+                  this.rerender();
+                  this.plugin.startSyncTimer();
+                }).open();
+                return;
+              }
+              this.plugin.syncScheduler?.stop();
+              this.plugin.syncEngine?.cancel();
+              this.stopSyncStatusPolling();
+              settings.syncEnabled = false;
+              this.save();
+              this.rerender();
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.sync_webdav_url'),
+        desc: t('settings.sync_webdav_url_desc'),
+        visible: frameVisible,
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(settings.syncWebdavUrl).onChange(async (v) => {
+              settings.syncWebdavUrl = v.trim();
+              this.save();
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.sync_username'),
+        desc: t('settings.sync_username_desc'),
+        visible: frameVisible,
+        render: (setting) => {
+          setting.addText((text) =>
+            text.setValue(settings.syncUsername).onChange(async (v) => {
+              settings.syncUsername = v.trim();
+              this.save();
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.sync_password'),
+        desc: t('settings.sync_password_desc'),
+        visible: frameVisible,
+        render: (setting) => {
+          setting.addText((text) => {
+            text.setValue(settings.syncPassword).onChange(async (v) => {
+              settings.syncPassword = v;
+              this.save();
+            });
+            text.inputEl.type = 'password';
+          });
+        },
+      },
+      {
+        name: t('settings.sync_remote_dir'),
+        desc: t('settings.sync_remote_dir_desc'),
+        visible: frameVisible,
+        render: (setting) => {
+          const oldRemoteDir = settings.syncRemoteDir;
+          setting.addText((text) => {
+            text.setPlaceholder(this.app.vault.getName());
+            text.setValue(settings.syncRemoteDir).onChange(async (v) => {
+              const newVal = v.trim();
+              if (oldRemoteDir !== newVal && oldRemoteDir !== '') {
+                this.plugin.syncEngine?.resetState();
+                new Notice(t('notice.sync_remote_dir_changed'));
+              }
+              settings.syncRemoteDir = newVal;
+              this.save();
+            });
+          });
+        },
+      },
+      {
+        name: this.intervalLabel(settings.syncIntervalMinutes),
+        desc: t('settings.sync_interval_desc'),
+        visible: frameVisible,
+        render: (setting) => {
+          setting.addSlider((slider) => {
+            slider
+              .setLimits(1, 120, 1)
+              .setValue(settings.syncIntervalMinutes)
+              .setDynamicTooltip()
+              .onChange(async (value) => {
+                settings.syncIntervalMinutes = value;
+                this.save();
+                this.plugin.syncScheduler?.updateInterval(value);
+                setting.setName(this.intervalLabel(value));
+              });
+            slider.sliderEl.style.width = '100%';
+            return slider;
+          });
+          setting.controlEl.style.flex = '1 1 0%';
+        },
+      },
+      {
+        name: this.maxFileSizeLabel(settings.syncMaxFileSizeMb),
+        desc: t('settings.sync_max_file_size_desc'),
+        visible: frameVisible,
+        render: (setting) => {
+          setting.addSlider((slider) => {
+            slider
+              .setLimits(1, 500, 1)
+              .setValue(settings.syncMaxFileSizeMb)
+              .setDynamicTooltip()
+              .onChange(async (value) => {
+                settings.syncMaxFileSizeMb = value;
+                this.save();
+                setting.setName(this.maxFileSizeLabel(value));
+              });
+            slider.sliderEl.style.width = '100%';
+            return slider;
+          });
+          setting.controlEl.style.flex = '1 1 0%';
+        },
+      },
+      {
+        name: t('settings.sync_test_connection'),
+        desc: t('settings.sync_test_connection_desc'),
+        visible: frameVisible,
+        render: (setting) => {
+          setting.addButton((btn) =>
+            btn.setButtonText(t('settings.sync_test_button')).onClick(async () => {
+              btn.setButtonText(t('settings.loading'));
+              btn.setDisabled(true);
+              try {
+                await this.testSyncConnection(settings);
+              } finally {
+                btn.setButtonText(t('settings.sync_test_button'));
+                btn.setDisabled(false);
+              }
+            }),
+          );
+        },
+      },
+      {
+        name: '',
+        aliases: [t('settings.sync_server_info')],
+        visible: frameVisible,
+        render: (setting) => {
+          const serverInfoEl = setting.settingEl.createDiv({ cls: 'wewrite-sync-server-info' });
+          serverInfoEl.style.cssText = [
+            'grid-column:1 / -1', 'margin:8px 0 4px', 'padding:8px 10px',
+            'font-size:12px', 'line-height:1.7',
+            'border:1px solid var(--background-modifier-border)',
+            'border-radius:6px', 'display:none',
+          ].join(';');
+          this._serverInfoEl = serverInfoEl;
+          const renderServerInfo = (quota: ServerQuotaInfo | null | undefined) => {
+            if (!quota) {
+              serverInfoEl.style.display = 'none';
+              return;
+            }
+            serverInfoEl.empty();
+            serverInfoEl.style.display = '';
+            const provider = quota.provider === 'jianguoyun'
+              ? t('sync.provider_jianguoyun')
+              : t('sync.provider_generic');
+            const plan = quota.planHint === 'free'
+              ? t('sync.plan_free')
+              : quota.planHint === 'paid' ? t('sync.plan_paid') : t('sync.plan_unknown');
+            const line1 = serverInfoEl.createDiv();
+            line1.createSpan({ text: `${t('settings.sync_server_info')} ` });
+            line1.createSpan({ text: `${provider} \u00b7 ${plan}`, cls: 'wewrite-sync-server-info-value' });
+            if (quota.quotaSupported && quota.usedBytes !== undefined && quota.totalBytes !== undefined) {
+              const pct = storageUsedPercent(quota.usedBytes, quota.totalBytes);
+              const line2 = serverInfoEl.createDiv();
+              line2.setText(t('settings.sync_server_info_quota', {
+                used: formatBytes(quota.usedBytes),
+                total: formatBytes(quota.totalBytes),
+                pct: String(pct),
+              }));
+              if (quota.availableBytes !== undefined && quota.availableBytes < 100 * 1024 * 1024) {
+                const warn = serverInfoEl.createDiv();
+                warn.style.color = 'var(--text-error)';
+                warn.setText(t('settings.sync_server_info_low_space'));
+              }
+            }
+          };
+          renderServerInfo(this.plugin.syncEngine?.getLastQuotaInfo());
+          this._renderServerInfo = renderServerInfo;
+        },
+      },
+      {
+        name: t('settings.sync_status'),
+        desc: t('settings.sync_status_idle'),
+        visible: frameVisible,
+        render: (setting) => {
+          this.plugin.syncEngine?.onProgress(null);
+
+          const progressEl = setting.settingEl.createDiv({ cls: 'wewrite-sync-progress' });
+          progressEl.style.cssText = 'grid-column:1 / -1;margin:8px 0 4px;display:none;';
+          const barWrap = progressEl.createDiv();
+          barWrap.style.cssText = 'height:6px;background:var(--background-modifier-border);border-radius:3px;overflow:hidden;margin-bottom:6px;';
+          const progressBar = barWrap.createDiv();
+          progressBar.style.cssText = 'height:6px;background:var(--interactive-accent);width:0%;border-radius:3px;transition:width .2s;';
+          const progressText = progressEl.createDiv();
+          progressText.style.cssText = 'font-size:12px;color:var(--text-muted);line-height:1.6;';
+
+          const stopProgressPolling = () => {
+            if (this._syncProgressTimer) {
+              window.clearInterval(this._syncProgressTimer);
+              this._syncProgressTimer = null;
+            }
+            this.plugin.syncEngine?.onProgress(null);
+            progressEl.style.display = 'none';
+          };
+
+          const updateStatusUI = (s: Setting, actionBtn: ButtonComponent) => {
+            stopProgressPolling();
+            actionBtn.setButtonText(t('settings.sync_start'));
+            actionBtn.setDisabled(false);
+            actionBtn.buttonEl.classList.remove('mod-warning');
+            s.setDesc(t('settings.sync_status_idle'));
+          };
+
+          const TASK_KIND_LABELS: Record<string, string> = {
+            push: t('sync.task_push'),
+            pull: t('sync.task_pull'),
+            merge: t('sync.task_merge'),
+            remove_remote: t('sync.task_remove_remote'),
+            remove_local: t('sync.task_remove_local'),
+            mkdir_remote: t('sync.task_mkdir_remote'),
+            mkdir_local: t('sync.task_mkdir_local'),
+          };
+          const PHASE_LABELS: Record<string, string> = {
+            walk_local: t('sync.phase.walk_local'),
+            walk_remote: t('sync.phase.walk_remote'),
+            sync: t('sync.phase.sync'),
+            finalizing: t('sync.phase.finalizing'),
+            quota_wait: t('sync.phase.quota_wait'),
+            done: t('sync.phase.done'),
+            error: t('sync.phase.error'),
+          };
+
+          const startProgressPolling = (s: Setting, actionBtn: ButtonComponent) => {
+            stopProgressPolling();
+            this.plugin.syncEngine?.onProgress((p) => {
+              this._renderServerInfo?.(p.quota);
+              const phaseLabel = PHASE_LABELS[p.phase] || '';
+              if (p.phase === 'quota_wait' && p.rateLimit) {
+                progressEl.style.display = '';
+                progressBar.style.width = '100%';
+                progressBar.style.background = 'var(--text-warning)';
+                const deferredText = p.deferred ? ` \u00b7 ${t('sync.deferred_count', { count: String(p.deferred) })}` : '';
+                progressText.setText(`${phaseLabel} ${t('sync.status_waiting_quota', { min: String(p.rateLimit.remainingMin) })}${deferredText}`);
+              } else if (p.running) {
+                progressEl.style.display = '';
+                progressBar.style.background = 'var(--interactive-accent)';
+                const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
+                progressBar.style.width = `${pct}%`;
+                if (p.currentKind) {
+                  const kindLabel = TASK_KIND_LABELS[p.currentKind] || p.currentKind;
+                  progressText.setText(`${phaseLabel} ${p.completed}/${p.total} \u00b7 ${kindLabel} ${p.currentPath || ''}`);
+                } else if (p.total > 0) {
+                  progressText.setText(`${phaseLabel} ${p.completed}/${p.total}`);
+                } else {
+                  progressText.setText(`${phaseLabel}${p.currentPath ? ' ' + p.currentPath : ''}`);
+                }
+              } else {
+                progressEl.style.display = 'none';
+              }
+            });
+            this._syncProgressTimer = window.setInterval(() => {
+              if (!isSyncRunning()) {
+                updateStatusUI(s, actionBtn);
+                const cooldown = this.plugin.syncEngine?.getCooldownUntil() ?? 0;
+                if (cooldown > Date.now() && progressEl) {
+                  const min = Math.max(1, Math.ceil((cooldown - Date.now()) / 60000));
+                  progressEl.style.display = '';
+                  progressBar.style.width = '100%';
+                  progressBar.style.background = 'var(--text-warning)';
+                  progressText.setText(`${PHASE_LABELS.quota_wait} ${t('sync.status_waiting_quota', { min: String(min) })}`);
+                }
+              }
+            }, 500);
+          };
+
+          let syncActionBtn!: ButtonComponent;
+          setting.addButton((btn) => {
+            syncActionBtn = btn;
+            btn.setButtonText(t('settings.sync_start'));
+            btn.buttonEl.addClass('wewrite-sync-action-btn');
+            btn.onClick(() => {
+              if (isSyncRunning()) {
+                this.plugin.syncEngine?.cancel();
+                updateStatusUI(setting, syncActionBtn);
+              } else {
+                syncActionBtn.setButtonText(t('settings.sync_stop'));
+                syncActionBtn.buttonEl.classList.add('mod-warning');
+                setting.setDesc(t('sync.tasks_progress', { completed: '0', total: '0' }));
+                startProgressPolling(setting, syncActionBtn);
+                void this.plugin.syncScheduler?.syncNow('manual').finally(() => {
+                  updateStatusUI(setting, syncActionBtn);
+                });
+              }
+            });
+            return btn;
+          });
+
+          if (isSyncRunning()) {
+            syncActionBtn.setButtonText(t('settings.sync_stop'));
+            syncActionBtn.buttonEl.classList.add('mod-warning');
+            startProgressPolling(setting, syncActionBtn);
+          }
+        },
+      },
+      {
+        name: t('settings.sync_reset'),
+        desc: t('settings.sync_reset_desc'),
+        visible: frameVisible,
+        render: (setting) => {
+          setting.addButton((btn) =>
+            btn.setButtonText(t('settings.sync_reset_button')).setWarning().onClick(() => {
+              if (isSyncRunning()) {
+                new Notice(t('notice.sync_in_progress'));
+                return;
+              }
+              new SyncResetModal(this.app, () => {
+                void this.plugin.resetSync();
+                new Notice(t('notice.sync_reset_done'));
+              }).open();
+            }),
+          );
+        },
+      },
+      {
+        name: t('settings.sync_log_debug'),
+        desc: t('settings.sync_log_debug_desc'),
+        visible: frameVisible,
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-toggle-row');
+          setting.addToggle((toggle) =>
+            toggle.setValue(settings.syncLogDebug).onChange(async (v) => {
+              settings.syncLogDebug = v;
+              this.save();
+            }),
+          );
+        },
+      },
+    ];
+  }
+
+  private buildSyncWarningDescription(): DocumentFragment {
+    const frag = createFragment();
+    frag.appendText(`${t('settings.sync_warn_data_risk')}\n`);
+    frag.appendText(`${t('settings.sync_warn_webdav_only')}\n`);
+    frag.appendText(`${t('settings.sync_warn_jgy_free')}\n`);
+    frag.appendText(`${t('settings.sync_warn_auto_resume')}\n`);
+    frag.appendText(`${t('settings.sync_warn_plugin_conflict')}\n`);
+    frag.appendText(t('settings.sync_warn_multidevice'));
+    return frag;
   }
 }
 

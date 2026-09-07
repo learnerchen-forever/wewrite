@@ -80,7 +80,7 @@ export class ImageEditModal {
     this.dVisible = showFrames && !this.dRedundant;
     this.fVisible = showFrames;
 
-    this.modalEl = document.createElement('div');
+    this.modalEl = createEl('div');
     this.modalEl.className = 'wewrite-image-edit-modal';
     this.buildDom();
     document.body.appendChild(this.modalEl);
@@ -159,7 +159,7 @@ export class ImageEditModal {
   }
 
   private escapeHtml(s: string): string {
-    const div = document.createElement('div');
+    const div = createEl('div');
     div.textContent = s;
     return div.innerHTML;
   }
@@ -609,7 +609,7 @@ export class ImageEditModal {
     const outH = Math.round(srcH);
 
     // Render cropped region onto a canvas
-    const canvas = document.createElement('canvas');
+    const canvas = createEl('canvas');
     canvas.width = outW;
     canvas.height = outH;
     const ctx = canvas.getContext('2d');

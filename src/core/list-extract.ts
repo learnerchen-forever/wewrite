@@ -174,7 +174,7 @@ export function extractListFromHtml(html: string, accentHex: string): ExtractedL
 		const markerText = doc.createTextNode('{items}');
 		listClone.replaceWith(markerText);
 
-		const firstLi = list.querySelector(':scope > li') as HTMLElement | null;
+		const firstLi: HTMLElement | null = list.querySelector(':scope > li');
 		const style = list.getAttribute('style') || '';
 		const listStyleType = /list-style(?:-type)?\s*:\s*([^;]+)/i.exec(style)?.[1]?.trim() || '';
 		const itemTemplate = firstLi
@@ -201,7 +201,7 @@ export function extractListFromHtml(html: string, accentHex: string): ExtractedL
 	// Keep the placeholder generic so the decoration adapts to ul and ol.
 	template = template.replace(`<${tag}`, '<{tag}').replace(`</${tag}>`, '</{tag}>');
 
-	const firstLi = root.querySelector(':scope > li') as HTMLElement | null;
+	const firstLi: HTMLElement | null = root.querySelector(':scope > li');
 	const itemTemplate = firstLi
 		? buildItemTemplate(firstLi, listStyleType, tokenizeColorValue, shapeParam, params)
 		: '<li>{item}</li>';

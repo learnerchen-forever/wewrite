@@ -23,7 +23,7 @@ export class AIImageGenerateModal {
     private logAICalling: boolean,
     private onSuccess: (vaultPath: string) => void,
   ) {
-    this.modalEl = document.createElement('div');
+    this.modalEl = createEl('div');
     this.modalEl.addClass('wewrite-publish-modal');
     this.modalEl.innerHTML = `
       <div class="wewrite-publish-overlay" style="background:rgba(0,0,0,0.4)"></div>

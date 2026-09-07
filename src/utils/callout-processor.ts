@@ -98,7 +98,7 @@ export function processCalloutsAndAdmonitions(container: HTMLElement): void {
     // Build inline-styled replacement.
     // Preserve the callout type so the renderer can apply modifier CSS.
     const calloutType = block.getAttribute('data-callout') || '';
-    const wrapper = document.createElement('section');
+    const wrapper = createEl('section');
     wrapper.setAttribute('data-wewrite-callout', calloutType);
     wrapper.setAttribute(
       'style',
@@ -107,7 +107,7 @@ export function processCalloutsAndAdmonitions(container: HTMLElement): void {
     );
 
     // Title row
-    const titleSection = document.createElement('section');
+    const titleSection = createEl('section');
     titleSection.setAttribute('data-wewrite-callout-title', '');
     titleSection.setAttribute(
       'style',
@@ -135,7 +135,7 @@ export function processCalloutsAndAdmonitions(container: HTMLElement): void {
     wrapper.appendChild(titleSection);
 
     // Body content
-    const bodySection = document.createElement('section');
+    const bodySection = createEl('section');
     bodySection.setAttribute('data-wewrite-callout-body', '');
     if (contentEl) {
       bodySection.innerHTML = contentEl.innerHTML;

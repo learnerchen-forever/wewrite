@@ -19,7 +19,7 @@ const CATEGORY_ORDER: FontFamilyCategory[] = ['sans', 'serif', 'mono'];
  * preserved as an extra selected option so they round-trip without data loss.
  */
 export function createFontFamilySelect(current: string, onChange: (id: string) => void): HTMLSelectElement {
-  const select = document.createElement('select');
+  const select = createEl('select');
   select.style.cssText = 'flex:1;min-width:0;font-size:12px;padding:3px 6px';
   select.title = t('font_select.title');
 

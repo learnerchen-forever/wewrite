@@ -154,7 +154,7 @@ function replaceTextPlaceholder(carrier: Element, contentNodes: Node[], doc: Doc
 		if (!data.includes(placeholder)) continue;
 
 		const parts = data.split(placeholder);
-		const fragment = doc.createDocumentFragment();
+		const fragment = createFragment();
 		parts.forEach((part, i) => {
 			if (part) fragment.appendChild(doc.createTextNode(part));
 			if (i < parts.length - 1) {
@@ -235,7 +235,7 @@ function renderInlineElement(
 		// WeChat-safe retag: del/mark have no inline-style guarantee, so a
 		// 无饰 strikethrough/highlight still renders as a styled <span>.
 		if (el.tagName.toLowerCase() !== def.renderTag) {
-			const span = doc.createElement(def.renderTag);
+			const span = createEl(def.renderTag as keyof HTMLElementTagNameMap);
 			copyAttributes(el, span);
 			while (el.firstChild) span.appendChild(el.firstChild);
 			span.setAttribute(INLINE_MARK, def.id);
@@ -247,7 +247,7 @@ function renderInlineElement(
 
 	const templateSource = decoration.template.replace(/\{tag\}/g, def.renderTag);
 	const expanded = expandTemplate(templateSource, params, tokens);
-	const container = doc.createElement('div');
+	const container = createEl('div');
 	container.innerHTML = expanded;
 	const root = container.firstElementChild;
 	if (!root) {
@@ -265,7 +265,7 @@ function renderInlineElement(
 	if (carrier === container) carrier = root;
 
 	// Move the element content into the text carrier.
-	const contentHost = doc.createElement('div');
+	const contentHost = createEl('div');
 	contentHost.innerHTML = (el as HTMLElement).innerHTML;
 	replaceTextPlaceholder(carrier, Array.from(contentHost.childNodes), doc, '{text}');
 

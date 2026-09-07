@@ -21,7 +21,7 @@ export class ImageValidationModal {
   private resolveFn!: (action: ValidationAction) => void;
 
   constructor(private report: ValidationReport) {
-    this.modalEl = document.createElement('div');
+    this.modalEl = createEl('div');
     this.modalEl.addClass('wewrite-validate-modal');
     this.modalEl.innerHTML = this.buildHtml();
     document.body.appendChild(this.modalEl);
@@ -90,7 +90,7 @@ export class ImageValidationModal {
   }
 
   private escapeHtml(s: string): string {
-    const div = document.createElement('div');
+    const div = createEl('div');
     div.textContent = s;
     return div.innerHTML;
   }

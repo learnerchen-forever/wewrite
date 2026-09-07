@@ -214,14 +214,14 @@ export class WechatRenderer {
 
             // Prepend: insert before the heading
             if (domTransform.prepend) {
-              const prependSpan = doc.createElement('span');
+              const prependSpan = createEl('span');
               prependSpan.innerHTML = domTransform.prepend;
               parent.insertBefore(prependSpan, el);
             }
 
             // Wrap: enclose heading in a wrapper
             if (domTransform.wrap) {
-              const wrapper = doc.createElement(domTransform.wrap);
+              const wrapper = createEl(domTransform.wrap as keyof HTMLElementTagNameMap);
               if (domTransform.wrapStyle) {
                 wrapper.setAttribute('style', domTransform.wrapStyle);
               }
@@ -231,7 +231,7 @@ export class WechatRenderer {
 
             // Append: insert after the heading (or after wrapper)
             if (domTransform.append) {
-              const appendSpan = doc.createElement('span');
+              const appendSpan = createEl('span');
               appendSpan.innerHTML = domTransform.append;
               const refNode = domTransform.wrap
                 ? el.parentNode  // heading is now inside wrapper
@@ -255,7 +255,7 @@ export class WechatRenderer {
           doc.querySelectorAll(level).forEach((el) => {
             counters[level]++;
             const formatted = formatHeadingNumber(counters[level], numberingStyle);
-            const numSpan = doc.createElement('span');
+            const numSpan = createEl('span');
             numSpan.setAttribute('style', 'margin-right:0.5em;user-select:none;');
             numSpan.setAttribute('data-wewrite-numbering', 'true');
             numSpan.textContent = formatted;
@@ -297,7 +297,7 @@ export class WechatRenderer {
         el.setAttribute('style', 'background:transparent;padding:0;margin:0;overflow:visible;text-align:center');
         return;
       }
-      const section = document.createElement('section');
+      const section = createEl('section');
       section.setAttribute('style', r.getCodeBlockBoxStyle());
       el.parentNode?.insertBefore(section, el);
       // Neutralize the UA default <pre> margin; the pre carries the code
@@ -311,7 +311,7 @@ export class WechatRenderer {
       const language = codeEl ? getCodeLanguageFromClassList(Array.from(codeEl.classList)) : null;
       const titleBarHtml = r.buildCodeTitleBarHtml(language);
       if (titleBarHtml) {
-        const prependEl = doc.createElement('span');
+        const prependEl = createEl('span');
         prependEl.innerHTML = titleBarHtml;
         section.insertBefore(prependEl, el);
       }
@@ -418,7 +418,7 @@ export class WechatRenderer {
 
       if (captionSource) {
         // Only wrap in <figure> when there is an intentional caption
-        const figure = document.createElement('figure');
+        const figure = createEl('figure');
         if (imageDeco) {
           figure.setAttribute('style', buildFigureStyle(imageDeco.params, params.align));
         } else {
@@ -445,7 +445,7 @@ export class WechatRenderer {
         const showTriangle = r.getPreset().caption?.showTriangle;
         const useTriangle = imageDeco ? imageDeco.params.captionTriangle === 'triangle' : showTriangle;
         const displayText = useTriangle ? `▲ ${captionSource}` : captionSource;
-        const caption = document.createElement('figcaption');
+        const caption = createEl('figcaption');
         const captionStyle = imageDeco ? buildCaptionStyle(imageDeco.params) : '';
         caption.setAttribute('style', captionStyle || r.getStyle('figcaption'));
         caption.textContent = displayText;
@@ -468,7 +468,7 @@ export class WechatRenderer {
 
     // Tables — wrap in scrollable section for overflow when wider than article
     doc.querySelectorAll('table').forEach((table) => {
-      const wrapper = document.createElement('section');
+      const wrapper = createEl('section');
       wrapper.setAttribute('style', r.getStyle('table-wrapper'));
       table.parentNode?.insertBefore(wrapper, table);
       wrapper.appendChild(table);
@@ -576,7 +576,7 @@ export class WechatRenderer {
       }
       if (toWrap.length === 0) return;
 
-      const wrapper = doc.createElement('span');
+      const wrapper = createEl('span');
       wrapper.setAttribute('style', `margin:0;padding:0;line-height:${listLh}`);
       toWrap.forEach((n) => wrapper.appendChild(n));
       if (nestedList) {
@@ -629,7 +629,7 @@ export class WechatRenderer {
 
     // Replace <div> with <section> for WeChat compatibility
     doc.querySelectorAll('div').forEach((div) => {
-      const section = document.createElement('section');
+      const section = createEl('section');
       for (const attr of div.attributes) {
         section.setAttribute(attr.name, attr.value);
       }

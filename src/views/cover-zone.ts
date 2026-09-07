@@ -342,7 +342,7 @@ export class CoverZone {
   // ── Image source pickers ──
 
   private openFilePicker(): void {
-    const input = document.createElement('input');
+    const input = createEl('input');
     input.type = 'file';
     input.accept = 'image/*';
     input.style.display = 'none';
@@ -389,7 +389,7 @@ export class CoverZone {
         // Folder dropdown
         this.folderEl = contentEl.createEl('select', { cls: 'dropdown wewrite-vault-folder-select' });
         for (const folder of folderList) {
-          const opt = document.createElement('option');
+          const opt = createEl('option');
           opt.value = folder;
           opt.text = folder === '(all folders)' ? t('modal.select_image_all_folders') : folder;
           this.folderEl.appendChild(opt);
@@ -455,7 +455,7 @@ export class CoverZone {
         }
         this.shown += batch.length;
 
-        const moreEl = this.contentEl.querySelector('.wewrite-vault-image-more') as HTMLElement | null;
+        const moreEl: HTMLElement | null = this.contentEl.querySelector('.wewrite-vault-image-more');
         if (moreEl) {
           moreEl.style.display = this.shown >= this.visible.length ? 'none' : '';
         }

@@ -175,7 +175,7 @@ function appendStyle(el: Element, css: string): void {
 
 function retag(el: Element, tagName: string, doc: Document): Element {
 	if (el.tagName === tagName) return el;
-	const replacement = doc.createElement(tagName);
+	const replacement = createEl(tagName as keyof HTMLElementTagNameMap);
 	for (const attr of Array.from(el.attributes)) {
 		replacement.setAttribute(attr.name, attr.value);
 	}
@@ -211,7 +211,7 @@ function replaceTextPlaceholder(carrier: Element, contentNodes: Node[], doc: Doc
 		if (!data.includes(placeholder)) continue;
 
 		const parts = data.split(placeholder);
-		const fragment = doc.createDocumentFragment();
+		const fragment = createFragment();
 		parts.forEach((part, i) => {
 			if (part) fragment.appendChild(doc.createTextNode(part));
 			if (i < parts.length - 1) {
@@ -264,7 +264,7 @@ function normalizeRoot(root: Element, cfg: ResolvedHeadingLevel, doc: Document):
 	const shrinkToFit = /display:\s*inline(-block|-table)?\b/i.test(normalized) || /width:\s*fit-content/i.test(normalized);
 	if (!shrinkToFit || !root.parentNode) return root;
 
-	const wrapper = doc.createElement('section');
+	const wrapper = createEl('section');
 	wrapper.setAttribute('style', `text-align:${cfg.align}`);
 	root.parentNode.insertBefore(wrapper, root);
 	wrapper.appendChild(root);
@@ -273,7 +273,7 @@ function normalizeRoot(root: Element, cfg: ResolvedHeadingLevel, doc: Document):
 
 /** Fallback numbering: inline span with the default suffix (D10). */
 function insertNumberFallback(carrier: Element, raw: string, style: Exclude<NumberingStyle, 'none'>, doc: Document): void {
-	const span = doc.createElement('span');
+	const span = createEl('span');
 	span.setAttribute('style', 'margin-right:0.5em;user-select:none;');
 	span.setAttribute('data-wewrite-numbering', 'true');
 	span.textContent = raw + NUMBER_SUFFIX[style];
@@ -327,7 +327,7 @@ function renderHeadingElement(
 	// level-agnostic instead of hardcoding e.g. <h2>.
 	const templateSource = decoration.template.replace(/\{tag\}/g, level);
 	const expanded = expandTemplate(templateSource, cfg, tokens, params, numberingOn);
-	const container = doc.createElement('div');
+	const container = createEl('div');
 	container.innerHTML = expanded;
 	let root = container.firstElementChild;
 	if (!root) {
@@ -356,7 +356,7 @@ function renderHeadingElement(
 
 	// Move the heading content into the text carrier (in place, preserving
 	// any text that shares the node, e.g. "02｜" + {text}).
-	const contentHost = doc.createElement('div');
+	const contentHost = createEl('div');
 	contentHost.innerHTML = (el as HTMLElement).innerHTML;
 	replaceTextPlaceholder(carrier, Array.from(contentHost.childNodes), doc, '{text}');
 	if (numberEl) {

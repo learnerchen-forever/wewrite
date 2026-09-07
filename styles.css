@@ -183,12 +183,12 @@ button.wewrite-btn-danger:hover { background: var(--background-modifier-error); 
    classes (.wewrite-input / .wewrite-select / .wewrite-textarea). */
 
 /* ─── Desktop: reset capsule shapes on non-WeWrite form elements ─── */
-:is(.wewrite-view, .wewrite-auto-expand, .wewrite-material-view,
+body :is(.wewrite-view, .wewrite-auto-expand, .wewrite-material-view,
     .wewrite-newspic-view, .wewrite-style-view) :is(input[type="text"]:not(.wewrite-input),
 input[type="url"]:not(.wewrite-input), input[type="password"]:not(.wewrite-input),
 textarea:not(.wewrite-textarea), select:not(.wewrite-select)) {
-  box-shadow: none !important;
-  border-radius: var(--ww-ctrl-radius, 4px) !important;
+  box-shadow: none;
+  border-radius: var(--ww-ctrl-radius, 4px);
   height: auto;
 }
 
@@ -196,36 +196,36 @@ body.is-mobile :is(.wewrite-view, .wewrite-auto-expand, .wewrite-material-view,
     .wewrite-newspic-view, .wewrite-style-view) :is(input[type="text"]:not(.wewrite-input),
 input[type="url"]:not(.wewrite-input), input[type="password"]:not(.wewrite-input),
 textarea:not(.wewrite-textarea), select:not(.wewrite-select)) {
-  box-shadow: none !important;
-  border-radius: var(--ww-ctrl-radius, 4px) !important;
+  box-shadow: none;
+  border-radius: var(--ww-ctrl-radius, 4px);
   height: auto;
 }
 
 /* ─── Mobile: restore border + background + border-radius stripped by Obsidian ─── */
 body.is-mobile :is(.wewrite-input, .wewrite-select, .wewrite-textarea) {
-  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border)) !important;
-  border-radius: var(--ww-ctrl-radius, 4px) !important;
-  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field)) !important;
+  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border));
+  border-radius: var(--ww-ctrl-radius, 4px);
+  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field));
 }
 body.is-mobile :is(input.wewrite-input, select.wewrite-select) {
   height: var(--ww-ctrl-h, 30px);
 }
 body.is-mobile .wewrite-material-view :is(input[type="text"], input[type="url"], select) {
-  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border)) !important;
-  border-radius: var(--ww-ctrl-radius, 4px) !important;
-  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field)) !important;
-  box-shadow: none !important;
+  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border));
+  border-radius: var(--ww-ctrl-radius, 4px);
+  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field));
+  box-shadow: none;
   height: var(--ww-ctrl-h, 30px);
 }
 
 /* ─── Mobile: restore border + background + height on Settings form elements ─── */
 body.is-mobile .wewrite-auto-expand .setting-item-control :is(input[type="text"],
 input[type="password"], input[type="url"], textarea, select) {
-  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border)) !important;
-  border-radius: var(--ww-ctrl-radius, 4px) !important;
-  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field)) !important;
-  box-shadow: none !important;
-  height: var(--ww-ctrl-h, 30px) !important;
+  border: 1px solid var(--ww-ctrl-border-color, var(--background-modifier-border));
+  border-radius: var(--ww-ctrl-radius, 4px);
+  background-color: var(--ww-ctrl-bg, var(--background-modifier-form-field));
+  box-shadow: none;
+  height: var(--ww-ctrl-h, 30px);
 }
 
 /* ── Auto-expanding Setting Controls ──
@@ -274,53 +274,53 @@ input[type="password"], input[type="url"], textarea, select) {
 }
 
 /* ── Flat buttons: override Obsidian's default button chrome inside Settings ── */
-.wewrite-auto-expand .setting-item-control button,
-.wewrite-auto-expand button:not(.clickable-icon) {
+body .wewrite-auto-expand .setting-item-control button,
+body .wewrite-auto-expand button:not(.clickable-icon) {
   flex-shrink: 0;
   height: var(--ww-ctrl-h, 30px);
   padding: 4px 10px;
   font-size: var(--ww-ctrl-font, 13px);
   line-height: 1.4;
-  border: none !important;
+  border: none;
   border-radius: var(--ww-ctrl-radius, 4px);
-  background: transparent !important;
-  box-shadow: none !important;
+  background: transparent;
+  box-shadow: none;
   color: var(--text-muted);
   cursor: pointer;
   box-sizing: border-box;
 }
-.wewrite-auto-expand .setting-item-control button:hover,
-.wewrite-auto-expand button:not(.clickable-icon):hover {
+body .wewrite-auto-expand .setting-item-control button:hover,
+body .wewrite-auto-expand button:not(.clickable-icon):hover {
   color: var(--text-normal);
-  background: var(--background-modifier-hover) !important;
+  background: var(--background-modifier-hover);
 }
-.wewrite-auto-expand .setting-item-control button:focus-visible,
-.wewrite-auto-expand button:not(.clickable-icon):focus-visible {
+body .wewrite-auto-expand .setting-item-control button:focus-visible,
+body .wewrite-auto-expand button:not(.clickable-icon):focus-visible {
   color: var(--text-on-accent);
-  background: var(--interactive-accent) !important;
+  background: var(--interactive-accent);
 }
-.wewrite-auto-expand .setting-item-control button.mod-cta,
-.wewrite-auto-expand button.mod-cta {
+body .wewrite-auto-expand .setting-item-control button.mod-cta,
+body .wewrite-auto-expand button.mod-cta {
   color: var(--interactive-accent);
-  background: transparent !important;
+  background: transparent;
 }
-.wewrite-auto-expand .setting-item-control button.mod-cta:hover,
-.wewrite-auto-expand button.mod-cta:hover,
-.wewrite-auto-expand .setting-item-control button.mod-cta:focus-visible,
-.wewrite-auto-expand button.mod-cta:focus-visible {
-  background: var(--interactive-accent) !important;
+body .wewrite-auto-expand .setting-item-control button.mod-cta:hover,
+body .wewrite-auto-expand button.mod-cta:hover,
+body .wewrite-auto-expand .setting-item-control button.mod-cta:focus-visible,
+body .wewrite-auto-expand button.mod-cta:focus-visible {
+  background: var(--interactive-accent);
   color: var(--text-on-accent);
 }
-.wewrite-auto-expand .setting-item-control button.mod-warning,
-.wewrite-auto-expand button.mod-warning {
+body .wewrite-auto-expand .setting-item-control button.mod-warning,
+body .wewrite-auto-expand button.mod-warning {
   color: var(--text-error);
-  background: transparent !important;
+  background: transparent;
 }
-.wewrite-auto-expand .setting-item-control button.mod-warning:hover,
-.wewrite-auto-expand button.mod-warning:hover,
-.wewrite-auto-expand .setting-item-control button.mod-warning:focus-visible,
-.wewrite-auto-expand button.mod-warning:focus-visible {
-  background: var(--background-modifier-error) !important;
+body .wewrite-auto-expand .setting-item-control button.mod-warning:hover,
+body .wewrite-auto-expand button.mod-warning:hover,
+body .wewrite-auto-expand .setting-item-control button.mod-warning:focus-visible,
+body .wewrite-auto-expand button.mod-warning:focus-visible {
+  background: var(--background-modifier-error);
   color: #fff;
 }
 .wewrite-auto-expand .setting-item-control button:disabled,
@@ -379,14 +379,14 @@ input[type="password"], input[type="url"], textarea, select) {
   align-items: center;
   gap: 8px;
 }
-.wewrite-folder-row .setting-item-control input[type="text"] {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  width: auto !important;
+body .wewrite-folder-row .setting-item-control input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
 }
-.wewrite-folder-row .setting-item-control button {
-  flex: 0 0 auto !important;
-  width: auto !important;
+body .wewrite-folder-row .setting-item-control button {
+  flex: 0 0 auto;
+  width: auto;
   white-space: nowrap;
 }
 
@@ -399,25 +399,25 @@ input[type="password"], input[type="url"], textarea, select) {
 body.is-mobile .wewrite-account-actions.setting-item {
   /* Obsidian mobile turns .setting-item into a column layout; force the
      action buttons back onto one horizontal line. */
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
 }
 .wewrite-account-actions .setting-item-control,
 body.is-mobile .wewrite-account-actions .setting-item-control {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  width: auto !important;
+  width: auto;
 }
 .wewrite-account-actions .setting-item-control button,
 body.is-mobile .wewrite-account-actions .setting-item-control button {
-  flex: 0 0 auto !important;
-  width: auto !important;
-  max-width: none !important;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
   white-space: nowrap;
   margin: 0;
 }
@@ -430,20 +430,20 @@ body.is-mobile .wewrite-test-row.setting-item {
   /* Same as above: mobile Obsidian stacks .setting-item-info and
      .setting-item-control vertically (flex-direction: column), which is why
      flex-wrap: nowrap alone did not keep label + icon button on one line. */
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
-  align-items: center !important;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
 }
 .wewrite-test-row .setting-item-info,
 body.is-mobile .wewrite-test-row .setting-item-info {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  width: auto !important;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
 }
 .wewrite-test-row .setting-item-control,
 body.is-mobile .wewrite-test-row .setting-item-control {
-  flex: 0 0 auto !important;
-  width: auto !important;
+  flex: 0 0 auto;
+  width: auto;
 }
 
 /* Account cards on PC/Pad (≥501px): give every row the same label
@@ -483,11 +483,11 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   }
 
   /* ── Toggle items: keep toggle on the right ── */
-  .wewrite-auto-expand .setting-item:has(.checkbox-container) {
+  .wewrite-auto-expand .setting-item.wewrite-toggle-row {
     justify-content: space-between;
   }
 
-  .wewrite-auto-expand .setting-item:has(.checkbox-container) .setting-item-control {
+  .wewrite-auto-expand .setting-item.wewrite-toggle-row .setting-item-control {
     flex: 0 0 auto;
   }
 
@@ -497,9 +497,9 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   }
 
   /* ── Input + button combo: input flexes so both share one row ── */
-  .wewrite-auto-expand .setting-item-control:has(button) input[type="text"],
-  .wewrite-auto-expand .setting-item-control:has(button) input[type="password"],
-  .wewrite-auto-expand .setting-item-control:has(button) input[type="url"] {
+  .wewrite-auto-expand .wewrite-folder-row input[type="text"],
+  .wewrite-auto-expand .wewrite-folder-row input[type="password"],
+  .wewrite-auto-expand .wewrite-folder-row input[type="url"] {
     width: auto;
     flex: 1 1 auto;
     min-width: 0;
@@ -990,7 +990,7 @@ body.is-mobile .wewrite-test-row .setting-item-control {
 
 .wewrite-title-input {
   width: 100%;
-  padding-right: 42px !important;
+  padding-right: 42px;
 }
 
 /* Floating counter inside title input */
@@ -1013,8 +1013,8 @@ body.is-mobile .wewrite-test-row .setting-item-control {
 /* Digest textarea with floating counter */
 .wewrite-digest-textarea {
   width: 100%;
-  padding-right: 48px !important;
-  padding-bottom: 18px !important;
+  padding-right: 48px;
+  padding-bottom: 18px;
 }
 
 .wewrite-digest-counter {
@@ -1328,7 +1328,6 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   border-radius: 14px;
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: none;
   position: relative;
   z-index: 1;
   padding: 0.5rem;
@@ -1363,8 +1362,8 @@ body.is-mobile .wewrite-test-row .setting-item-control {
 /* Zoom select inside the device/screen selector rows — keep it compact
    instead of the full-width .wewrite-select control. */
 .wewrite-zoom-select {
-  flex: 0 0 auto !important;
-  width: auto !important;
+  flex: 0 0 auto;
+  width: auto;
   min-width: 84px;
 }
 
@@ -1386,7 +1385,7 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   }
 
   .wewrite-phone-frame {
-    background: #ffffff !important;
+    background: #ffffff;
   }
 
   .wewrite-phone-bezel {
@@ -2030,7 +2029,6 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   align-items: center;
   padding: 20px 12px;
   background: transparent;
-  scrollbar-width: thin;
 }
 .wewrite-newspic-preview-wrap::-webkit-scrollbar { width: 4px; }
 .wewrite-newspic-preview-wrap::-webkit-scrollbar-thumb {
@@ -2197,7 +2195,6 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   position: relative;
   z-index: 1;
   padding: 0.5rem;
-  scrollbar-width: none;
   box-shadow:
     inset 0 0 0 1px rgba(0,0,0,0.3),
     inset 0 0 0 2px rgba(0,0,0,0.1);
@@ -2967,19 +2964,19 @@ body.is-mobile .modal.wewrite-proofread-modal {
 
 /* Temporary range highlight painted by the AI proofread review (see
    src/utils/editor-highlight.ts). Warm amber works on light and dark themes.
-   The specific selector + !important keeps the mark visible even when the
-   editor is unfocused (modal open) and under themes that restyle <mark>. */
-.cm-editor .cm-content .wewrite-editor-highlight {
-  background: rgba(250, 180, 0, 0.38) !important;
-  box-shadow: 0 0 0 1px rgba(250, 180, 0, 0.3) !important;
+   The high-specificity selector keeps the mark visible even when the editor
+   is unfocused (modal open) and under themes that restyle <mark>. */
+body .cm-editor .cm-content .wewrite-editor-highlight {
+  background: rgba(250, 180, 0, 0.38);
+  box-shadow: 0 0 0 1px rgba(250, 180, 0, 0.3);
   border-radius: 2px;
 }
 
 /* The correction currently under review gets a stronger outline so it stands
    out from the other (light amber) correction marks. */
-.cm-editor .cm-content .wewrite-editor-highlight-current {
-  background: rgba(255, 160, 0, 0.5) !important;
-  box-shadow: 0 0 0 2px rgba(250, 160, 0, 0.55) !important;
+body .cm-editor .cm-content .wewrite-editor-highlight-current {
+  background: rgba(255, 160, 0, 0.5);
+  box-shadow: 0 0 0 2px rgba(250, 160, 0, 0.55);
 }
 
 .wewrite-synonyms-list {
@@ -3066,14 +3063,14 @@ body.is-mobile .modal.wewrite-proofread-modal {
 }
 
 @media (max-width: 760px) {
-  .wewrite-proofread-modal button,
-  .wewrite-synonyms-modal button,
-  .wewrite-translate-modal button,
-  .wewrite-translate-modal select,
-  .wewrite-ai-generate-modal button,
-  .wewrite-ai-generate-modal textarea {
+  body .wewrite-proofread-modal button,
+  body .wewrite-synonyms-modal button,
+  body .wewrite-translate-modal button,
+  body .wewrite-translate-modal select,
+  body .wewrite-ai-generate-modal button,
+  body .wewrite-ai-generate-modal textarea {
     min-height: 44px;
-    font-size: 14px !important;
+    font-size: 14px;
     box-sizing: border-box;
   }
 }
@@ -3147,13 +3144,13 @@ body.is-mobile .modal.wewrite-proofread-modal {
 }
 .wewrite-cp-modebtn:hover { background: var(--background-modifier-hover); }
 .wewrite-cp-modebtn-active {
-  background: var(--interactive-accent) !important;
-  color: var(--text-on-accent) !important;
-  border-color: var(--interactive-accent) !important;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
 }
 .wewrite-cp-field { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
 .wewrite-cp-field label { width: 44px; flex-shrink: 0; }
-.wewrite-cp-field input { flex: 1; min-width: 0; height: 32px !important; padding: 0 8px !important; }
+body .wewrite-cp-field input { flex: 1; min-width: 0; height: 32px; padding: 0 8px; }
 .wewrite-cp-footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 10px; }
 @media (max-width: 760px) {
   .wewrite-cp-modal { width: calc(100vw - 40px); }
@@ -3166,7 +3163,7 @@ body.is-mobile .modal.wewrite-proofread-modal {
   .wewrite-cp-svwrap { width: 150px; height: 150px; }
   .wewrite-cp-huewrap { height: 150px; }
   .wewrite-cp-modebtn { height: 36px; }
-  .wewrite-cp-field input { height: 36px !important; }
+  body .wewrite-cp-field input { height: 36px; }
 }
 
 

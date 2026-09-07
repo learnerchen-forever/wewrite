@@ -1,6 +1,6 @@
 // SyncScheduler — manages periodic sync with backoff, startup delay, and UI feedback
 
-import { setIcon, type IconName } from 'obsidian';
+import { setIcon } from 'obsidian';
 import { createLogger } from '../utils/logger';
 import { t } from '../i18n';
 import type { SyncEngine } from './engine';

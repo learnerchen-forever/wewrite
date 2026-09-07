@@ -45,7 +45,7 @@ describe('Sync Safety', () => {
     it('should reject .obsidian paths', () => {
       const r = validatePath('.obsidian/workspace.json');
       expect(r.allowed).toBe(false);
-      expect(r.reason).toContain('excluded');
+      expect(r.reason).toContain('hidden');
     });
 
     it('should reject .git paths', () => {

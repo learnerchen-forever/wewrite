@@ -126,7 +126,7 @@ function inlineUseReferences(root: Element): void {
     }
 
     const refEl = idMap.get(href)!;
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    const g = createSvg('g');
 
     // Copy referenced element's attributes (except id)
     for (const attr of Array.from(refEl.attributes)) {

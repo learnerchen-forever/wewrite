@@ -85,7 +85,7 @@ export function isIosVersionBelow17(): boolean {
   // Use the Obsidian Platform API for OS detection; the user agent is only
   // parsed for the version number, which Platform does not expose.
   if (!Platform.isIosApp) return false;
-  const ua = navigator.userAgent;
+  const { userAgent: ua } = navigator;
   const match = ua.match(/iPhone OS (\d+)[._](\d+)/);
   if (!match) return false;
   const major = parseInt(match[1], 10);

@@ -3964,7 +3964,7 @@ export class WeWriteThemeView extends ItemView {
 		if (!this.previewContainer) return;
 		const selector = ELEMENT_SELECTOR_MAP[elementPath];
 		if (!selector) return;
-		const el = this.previewContainer.querySelector(selector) as HTMLElement | null;
+		const el: HTMLElement | null = this.previewContainer.querySelector(selector);
 		if (!el) return;
 
 		// Flash highlight
