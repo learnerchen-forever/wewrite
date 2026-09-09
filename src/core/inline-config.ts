@@ -357,7 +357,8 @@ export const INLINE_TYPE_DEFS: Record<InlineElementType, InlineTypeDef> = {
 		label: t('inline_type.inline-math'),
 		hint: '$公式$',
 		renderTag: 'span',
-		baseStyle: 'display:inline-block;vertical-align:middle',
+		// inline (not inline-block): WeChat re-wraps inline-block inside <li>
+		baseStyle: 'display:inline;vertical-align:middle',
 		defaultDecoration: 'none',
 		hasColorScale: true,
 	},
