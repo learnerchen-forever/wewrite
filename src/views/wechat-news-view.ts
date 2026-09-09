@@ -3198,10 +3198,14 @@ class PublishProgressModal {
     // must be resolved as a vault path, not fetched via requestUrl.
     const isLocalHostUrl = localPath.startsWith('http://127.0.0.1') || localPath.startsWith('http://localhost')
       || localPath.startsWith('capacitor://localhost');
-    if (isLocalHostUrl) {
-      localPath = resolveLocalImagePath(this.plugin.app, localPath) || localPath;
-    }
     const isRemote = !isLocalHostUrl && (localPath.startsWith('http://') || localPath.startsWith('https://'));
+    // Always normalize local / app:// / absolute FS paths to vault-relative.
+    // Synology Drive / desktop app:// often yield "Users/..." without a leading
+    // slash — resolveLocalImagePath restores "/" and maps into the vault.
+    if (!isRemote) {
+      const resolved = resolveLocalImagePath(this.plugin.app, localPath);
+      if (resolved) localPath = resolved;
+    }
 
     // Log entry with full context for debugging upload failures
     log.debug(`  uploadMedia: ${isRemote ? 'remote' : 'local'} — ${localPath.slice(0, 100)}`);
@@ -3237,11 +3241,12 @@ class PublishProgressModal {
       // Fall back to adapter-based read which can access files outside the vault index.
       if (!file || !(file instanceof TFile)) {
         log.debug('    file not in vault index — trying adapter fallback...');
-        const resolved = await readLocalImage(this.plugin.app, localPath);
-        if (resolved) {
-          buf = resolved.buf;
-          fileName = resolved.fileName;
+        const resolvedImg = await readLocalImage(this.plugin.app, localPath);
+        if (resolvedImg) {
+          buf = resolvedImg.buf;
+          fileName = resolvedImg.fileName;
           mimeType = guessMimeType(fileName);
+          localPath = resolvedImg.vaultPath;
           log.debug(`    read via adapter: ${fileName} (${buf.byteLength} bytes)`);
         } else {
           log.error('uploadMedia: vault file not found', { localPath,
