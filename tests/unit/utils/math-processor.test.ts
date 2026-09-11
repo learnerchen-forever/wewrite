@@ -42,4 +42,28 @@ describe('extractMathFormulas', () => {
     const formulas = extractMathFormulas(md);
     expect(formulas.map((f) => [f.tex, f.display])).toEqual([['y=2', false]]);
   });
+
+  it('extracts multiple inline formulas in a list item without swallowing $$', () => {
+    const md = [
+      '- 设 $a=1$，则 $b=2$',
+      '1. 证明 $f(x)=x^2$ 连续',
+      '$$\\int_0^1 x\\,dx$$',
+    ].join('\n');
+    const formulas = extractMathFormulas(md);
+    expect(formulas.map((f) => [f.tex, f.display])).toEqual([
+      ['a=1', false],
+      ['b=2', false],
+      ['f(x)=x^2', false],
+      ['\\int_0^1 x\\,dx', true],
+    ]);
+  });
+
+  it('does not treat $$block$$ as two inline formulas', () => {
+    const md = '前文 $$a+b$$ 后文 $c$';
+    const formulas = extractMathFormulas(md);
+    expect(formulas.map((f) => [f.tex, f.display])).toEqual([
+      ['a+b', true],
+      ['c', false],
+    ]);
+  });
 });

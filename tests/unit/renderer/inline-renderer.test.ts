@@ -134,7 +134,7 @@ describe('code / links / tags / math', () => {
 
   it('inline math applies the moved color/scale base settings', () => {
     const doc = renderHtml(
-      '<p>公式 <span style="display:inline-block;vertical-align:middle"><svg class="wewrite-math"></svg></span></p>',
+      '<p>公式 <span style="display:inline;vertical-align:middle"><svg class="wewrite-math"></svg></span></p>',
       {
         'inline.inlineMath.color': 'accent',
         'inline.inlineMath.scale': 'small',

@@ -48,25 +48,27 @@ export function extractMathFormulas(markdown: string): MathFormula[] {
 	return items.map(({ tex, display }) => ({ tex, display }));
 }
 
-/** Two-pass scan of a code-free segment: $$...$$ blocks, then $...$ inline. */
+/** Two-pass scan of a code-free segment: $$...$$ blocks, then $...$ inline.
+ *  Block matches are masked before the inline pass so `$$...$$` cannot be
+ *  misread as two inline formulas (critical for list items with mixed math). */
 function collectMathFormulas(
 	items: Array<{ tex: string; display: boolean; pos: number }>,
 	text: string,
 	basePos: number,
 ): void {
-	// Pass 1: $$...$$ block math — replace with placeholder, record position
-	const blockRx = /\$\$([^$]+)\$\$/g;
-	text.replace(blockRx, (_full, tex, offset) => {
+	// Pass 1: $$...$$ block math — mask with placeholders so pass 2 cannot match inside.
+	const blockRx = /\$\$([\s\S]+?)\$\$/g;
+	const masked = text.replace(blockRx, (full, tex, offset) => {
 		items.push({ tex: (tex as string).trim(), display: true, pos: basePos + (offset as number) });
-		return '';
+		return ' '.repeat(full.length);
 	});
 
-	// Pass 2: $...$ inline math (not $$) — record position
+	// Pass 2: $...$ inline math (not $$) — record position on the masked string
 	// Use (^|[^$]) instead of negative lookbehind (?<!\$) for iOS 15.7 compatibility
 	const inlineRx = /(^|[^$])\$([^$\s](?:[^$]|\$[^\s])*?)\$(?!\$)/g;
 	inlineRx.lastIndex = 0;
 	let mm: RegExpExecArray | null;
-	while ((mm = inlineRx.exec(text)) !== null) {
+	while ((mm = inlineRx.exec(masked)) !== null) {
 		// mm[2] is the tex content, mm.index + mm[1].length points to the opening $
 		items.push({ tex: mm[2].trim(), display: false, pos: basePos + mm.index + mm[1].length });
 	}
@@ -106,16 +108,33 @@ export async function processMathToSvg(container: HTMLElement, markdown: string)
 
 		const sanitized = svgEl.outerHTML || new XMLSerializer().serializeToString(svgEl);
 
-		const wrapper = createEl(formula.display ? 'section' : 'span');
-		if (formula.display) {
+		// Prefer MathJax's own display flag when present (list/paragraph parity).
+		const isDisplay = formula.display || mjx.hasAttribute('display');
+		const wrapper = createEl(isDisplay ? 'section' : 'span');
+		if (isDisplay) {
 			wrapper.setAttribute('style', 'text-align:center;display:block;margin:16px 0');
 		} else {
-			wrapper.setAttribute('style', 'display:inline-block;vertical-align:middle');
+			// Use display:inline (not inline-block): WeChat's editor treats
+			// inline-block inside <li> as a block trigger and re-wraps it,
+			// which splits "text + formula" onto separate lines after paste.
+			wrapper.setAttribute('style', 'display:inline;vertical-align:middle');
+			wrapper.classList.add('wewrite-math-inline');
 		}
 		wrapper.innerHTML = sanitized;
 		// Mark math SVGs so content prescan doesn't deduplicate/convert them
 		const mathSvg = wrapper.querySelector('svg');
-		if (mathSvg) mathSvg.classList.add('wewrite-math');
+		if (mathSvg) {
+			mathSvg.classList.add('wewrite-math');
+			if (!isDisplay) {
+				const svgStyle = mathSvg.getAttribute('style') || '';
+				mathSvg.setAttribute(
+					'style',
+					svgStyle
+						? `${svgStyle};display:inline;vertical-align:middle`
+						: 'display:inline;vertical-align:middle',
+				);
+			}
+		}
 		mjx.parentNode.replaceChild(wrapper, mjx);
 		converted++;
 	}

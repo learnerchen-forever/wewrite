@@ -134,6 +134,46 @@ function formatHeadingNumber(n: number, style: string): string {
   }
 }
 
+/** Keep list-item inline content from being re-wrapped by WeChat.
+ *  Includes inline math wrappers — `display:inline-block` inside <li> is a
+ *  common cause of "text + formula" splitting onto separate lines after paste. */
+function forceInlineInsideLists(doc: Document): void {
+  doc.querySelectorAll('li strong, li b, li code, li em, li i').forEach((el) => {
+    const cur = (el as HTMLElement).getAttribute('style') || '';
+    (el as HTMLElement).setAttribute('style',
+      cur + ';display:inline !important;width:auto !important;float:none !important');
+  });
+
+  doc.querySelectorAll('li svg.wewrite-math').forEach((svg) => {
+    // Block math lives in a <section> parent — skip those.
+    const parent = svg.parentElement;
+    if (!parent || parent.tagName === 'SECTION') return;
+
+    const cur = parent.getAttribute('style') || '';
+    // Drop any prior display:inline-block so WeChat cannot treat it as a block.
+    const cleaned = cur
+      .split(';')
+      .map((s) => s.trim())
+      .filter((s) => s && !/^display\s*:/i.test(s))
+      .join(';');
+    parent.setAttribute(
+      'style',
+      (cleaned ? cleaned + ';' : '') + 'display:inline !important;vertical-align:middle;width:auto !important;float:none !important',
+    );
+
+    const svgStyle = svg.getAttribute('style') || '';
+    const svgCleaned = svgStyle
+      .split(';')
+      .map((s) => s.trim())
+      .filter((s) => s && !/^display\s*:/i.test(s))
+      .join(';');
+    svg.setAttribute(
+      'style',
+      (svgCleaned ? svgCleaned + ';' : '') + 'display:inline;vertical-align:middle',
+    );
+  });
+}
+
 export class WechatRenderer {
   private themeResolver: ThemeResolver;
   private warnings: RenderWarning[] = [];
@@ -588,11 +628,7 @@ export class WechatRenderer {
 
     // Force inline display on formatting elements inside <li> — WeChat treats
     // block-display elements as triggers for extra <section> wrapping.
-    doc.querySelectorAll('li strong, li b, li code, li em, li i').forEach((el) => {
-      const cur = (el as HTMLElement).getAttribute('style') || '';
-      (el as HTMLElement).setAttribute('style',
-        cur + ';display:inline !important;width:auto !important;float:none !important');
-    });
+    forceInlineInsideLists(doc);
 
     // Ordered / unordered lists — two independent template pipelines. Nested
     // structure is kept; each level gains margin-left in the renderers.
@@ -615,6 +651,10 @@ export class WechatRenderer {
         (el as HTMLElement).setAttribute('style', r.getStyle('li'));
       });
     }
+
+    // List decoration templates re-parse {item} via innerHTML — re-assert
+    // inline math so text+formula in list items survive WeChat paste.
+    forceInlineInsideLists(doc);
 
     // Horizontal rules — new template pipeline when dividerConfig is present,
     // otherwise fall back to the v3 slot / legacy divider style path.

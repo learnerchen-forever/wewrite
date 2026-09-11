@@ -83,6 +83,32 @@ function isAbsolutePath(p: string): boolean {
 	return /^[A-Za-z]:[/\\]/.test(p) || p.startsWith('/');
 }
 
+/**
+ * Obsidian desktop app:// URLs often encode absolute macOS paths without a
+ * leading slash after the host, e.g. app://local/Users/foo/vault/a.png →
+ * "Users/foo/vault/a.png". Treat those as absolute by restoring "/".
+ * Same for localhost handlers that strip the leading slash.
+ */
+function restoreAbsolutePath(p: string): string {
+	if (!p || isAbsolutePath(p)) return p;
+	// Common absolute roots that lost their leading "/"
+	if (/^(Users|Volumes|home|private|var|tmp|opt|Library)\//.test(p)) {
+		return '/' + p;
+	}
+	return p;
+}
+
+/** Absolute filesystem path → vault-relative, with basePath then vault-name fallbacks. */
+function toVaultRelative(app: App, absPath: string): string | null {
+	const restored = restoreAbsolutePath(absPath);
+	const basePath = getBasePath(app);
+	if (basePath) {
+		const byBase = absoluteToVaultRelative(restored, basePath);
+		if (byBase) return byBase;
+	}
+	return absoluteToVaultRelativeByName(app, restored);
+}
+
 // ── Path resolution (sync) ──
 
 /**
@@ -97,21 +123,26 @@ export function resolveLocalImagePath(app: App, src: string): string | null {
 		try {
 			const urlObj = new URL(src);
 			let path = decodeURIComponent(urlObj.pathname);
+			// Keep a copy with leading "/" for absolute-path detection before strip.
+			const withSlash = path.startsWith('/') ? path : '/' + path;
 			if (path.startsWith('/')) path = path.substring(1);
 
 			// Android Capacitor: /_capacitor_file_/ABSOLUTE/PATH
 			if (path.startsWith('_capacitor_file_/')) {
 				const absPath = path.slice('_capacitor_file_'.length);
-				const basePath = getBasePath(app);
-				if (basePath) {
-					const result = absoluteToVaultRelative(absPath, basePath);
-					if (result) return result;
-				}
-				// Fallback: extract vault-relative path using vault folder name
-				const byName = absoluteToVaultRelativeByName(app, absPath);
-				if (byName) return byName;
+				const result = toVaultRelative(app, absPath.startsWith('/') ? absPath : '/' + absPath);
+				if (result) return result;
 				log.warn('capacitor URL could not be resolved', { src: src.slice(0, 120) });
 				return null;
+			}
+
+			// Desktop/Electron sometimes serves absolute FS paths via localhost.
+			// If pathname looks absolute (e.g. /Users/... or Users/... after strip),
+			// convert to vault-relative instead of treating it as a vault path.
+			const maybeAbs = restoreAbsolutePath(path);
+			if (isAbsolutePath(maybeAbs) || isAbsolutePath(withSlash)) {
+				const result = toVaultRelative(app, isAbsolutePath(maybeAbs) ? maybeAbs : withSlash);
+				if (result) return cleanVaultPath(result);
 			}
 
 			// iOS / standard localhost: pathname is vault-relative
@@ -125,12 +156,16 @@ export function resolveLocalImagePath(app: App, src: string): string | null {
 	if (src.startsWith('app://')) {
 		let path = src.replace(/^app:\/\/[^/]+\//, '');
 		path = cleanVaultPath(path);
+		path = restoreAbsolutePath(path);
 		// Absolute filesystem path → vault-relative
 		if (isAbsolutePath(path)) {
-			const basePath = getBasePath(app);
-			if (basePath) {
-				return absoluteToVaultRelative(path, basePath);
-			}
+			const result = toVaultRelative(app, path);
+			if (result) return result;
+			log.warn('app:// absolute path could not be mapped into vault', {
+				path: path.slice(0, 120),
+				basePath: getBasePath(app).slice(0, 120),
+			});
+			return null;
 		}
 		return path || null;
 	}
@@ -139,14 +174,8 @@ export function resolveLocalImagePath(app: App, src: string): string | null {
 	if (src.startsWith('capacitor://localhost/_capacitor_file_/')) {
 		const afterPrefix = src.slice('capacitor://localhost/_capacitor_file_'.length);
 		const absPath = decodeURIComponent(afterPrefix.startsWith('/') ? afterPrefix : '/' + afterPrefix);
-		const basePath = getBasePath(app);
-		if (basePath) {
-			const result = absoluteToVaultRelative(absPath, basePath);
-			if (result) return result;
-		}
-		// Fallback: extract vault-relative path using vault folder name
-		const byName = absoluteToVaultRelativeByName(app, absPath);
-		if (byName) return byName;
+		const result = toVaultRelative(app, absPath);
+		if (result) return result;
 		log.warn('capacitor URL could not be resolved', { src: src.slice(0, 120) });
 		return null;
 	}
@@ -157,12 +186,15 @@ export function resolveLocalImagePath(app: App, src: string): string | null {
 	}
 
 	// ── Plain vault path or absolute filesystem path ──
-	let cleaned = cleanVaultPath(src);
+	let cleaned = restoreAbsolutePath(cleanVaultPath(src));
 	if (isAbsolutePath(cleaned)) {
-		const basePath = getBasePath(app);
-		if (basePath) {
-			return absoluteToVaultRelative(cleaned, basePath);
-		}
+		const result = toVaultRelative(app, cleaned);
+		if (result) return result;
+		log.warn('absolute path could not be mapped into vault', {
+			path: cleaned.slice(0, 120),
+			basePath: getBasePath(app).slice(0, 120),
+		});
+		return null;
 	}
 	return cleaned || null;
 }

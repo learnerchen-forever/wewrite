@@ -35,6 +35,7 @@ import type { MediaRegistry } from '../media/media-registry';
 import { eventBus } from '../core/event-bus';
 import { ImageValidator, type ValidationTarget, type ConversionResult, type ValidationReport, MIN_COVER_WIDTH, MIN_COVER_HEIGHT } from '../media/image-validator';
 import { resolveLocalImagePath, readLocalImage } from '../media/local-image-resolver';
+import { prepareHtmlForWechatClipboard } from '../media/copy-upload';
 import { ImageValidationModal } from './image-validation-modal';
 import { NoteConfigStore } from '../data/note-config-store';
 import { globalSpinner } from '../utils/global-spinner';
@@ -356,7 +357,7 @@ export class WeChatNewsView extends ItemView {
     // Copy HTML button (visibility controlled by settings)
     this.copyBtnEl = this.toolbarEl.createEl('button', {
       cls: 'wewrite-btn-icon wewrite-toolbar-btn',
-      attr: { 'aria-label': t('misc.copy_html') },
+      attr: { 'aria-label': t('misc.copy_to_wechat') },
     });
     setIcon(this.copyBtnEl, 'wewrite-copy');
     this.copyBtnEl.addEventListener('click', () => { void this.copyHtmlToClipboard(); });
@@ -2651,9 +2652,46 @@ export class WeChatNewsView extends ItemView {
       }
     }
 
+    let copyHtml = html;
+    const settings = this.plugin.settingsManager.getSettings();
+    const acct = settings.wechatAccounts.find((a) => a.id === settings.activeWeChatAccountId);
+
+    // Upload local images → WeChat CDN before clipboard write, so paste into
+    // the Official Account editor keeps attachments (mdnice-like workflow).
+    if (acct?.appId && acct.appSecret) {
+      globalSpinner.show(t('notice.copy_uploading'));
+      try {
+        const prepared = await prepareHtmlForWechatClipboard(html, {
+          app: this.plugin.app,
+          account: { appId: acct.appId, appSecret: acct.appSecret, name: acct.name },
+          apiManager: this.plugin.apiManager,
+          mediaRegistry: this.plugin.mediaRegistry,
+        });
+        copyHtml = prepared.html;
+        if (prepared.warnings.length > 0) {
+          log.warn('clipboard prepare warnings', { warnings: prepared.warnings.slice(0, 5) });
+        }
+        if (prepared.uploaded > 0 || prepared.reused > 0) {
+          log.info('clipboard images prepared', {
+            uploaded: prepared.uploaded,
+            reused: prepared.reused,
+            skipped: prepared.skipped,
+          });
+        }
+      } catch (err) {
+        log.error('clipboard image upload failed', { err: String(err) });
+        new Notice(t('notice.copy_upload_failed', { error: String(err) }));
+        // Still copy rendered HTML — formulas/styles remain usable.
+      } finally {
+        globalSpinner.hide();
+      }
+    } else if (/app:\/\/|http:\/\/127\.0\.0\.1|http:\/\/localhost|_capacitor_file_/.test(html)) {
+      new Notice(t('notice.copy_no_account_local_images'));
+    }
+
     // Compress whitespace between block tags — WeChat treats newlines as visible
     // blank lines and the legacy renderer outputs single-line HTML.
-    const compressed = compactBlockWhitespace(html);
+    const compressed = compactBlockWhitespace(copyHtml);
 
     log.debug('📋 copy content', { len: compressed.length, preview: compressed.slice(0, 500) });
 
@@ -3160,10 +3198,14 @@ class PublishProgressModal {
     // must be resolved as a vault path, not fetched via requestUrl.
     const isLocalHostUrl = localPath.startsWith('http://127.0.0.1') || localPath.startsWith('http://localhost')
       || localPath.startsWith('capacitor://localhost');
-    if (isLocalHostUrl) {
-      localPath = resolveLocalImagePath(this.plugin.app, localPath) || localPath;
-    }
     const isRemote = !isLocalHostUrl && (localPath.startsWith('http://') || localPath.startsWith('https://'));
+    // Always normalize local / app:// / absolute FS paths to vault-relative.
+    // Synology Drive / desktop app:// often yield "Users/..." without a leading
+    // slash — resolveLocalImagePath restores "/" and maps into the vault.
+    if (!isRemote) {
+      const resolved = resolveLocalImagePath(this.plugin.app, localPath);
+      if (resolved) localPath = resolved;
+    }
 
     // Log entry with full context for debugging upload failures
     log.debug(`  uploadMedia: ${isRemote ? 'remote' : 'local'} — ${localPath.slice(0, 100)}`);
@@ -3199,11 +3241,12 @@ class PublishProgressModal {
       // Fall back to adapter-based read which can access files outside the vault index.
       if (!file || !(file instanceof TFile)) {
         log.debug('    file not in vault index — trying adapter fallback...');
-        const resolved = await readLocalImage(this.plugin.app, localPath);
-        if (resolved) {
-          buf = resolved.buf;
-          fileName = resolved.fileName;
+        const resolvedImg = await readLocalImage(this.plugin.app, localPath);
+        if (resolvedImg) {
+          buf = resolvedImg.buf;
+          fileName = resolvedImg.fileName;
           mimeType = guessMimeType(fileName);
+          localPath = resolvedImg.vaultPath;
           log.debug(`    read via adapter: ${fileName} (${buf.byteLength} bytes)`);
         } else {
           log.error('uploadMedia: vault file not found', { localPath,
