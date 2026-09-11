@@ -79,10 +79,10 @@ export class ListDecorationEditModal extends WeWriteModal {
 
 		// Templates
 		const hint = contentEl.createEl('p', { text: t('deco_edit.list_placeholder_hint'), cls: 'setting-item-description' });
-		hint.style.cssText = 'font-size:11px;line-height:1.5';
+		hint.style.cssText = 'font-size:var(--ww-deco-param-font,11px);line-height:1.5';
 
 		const rootLabel = contentEl.createEl('div', { text: t('deco_edit.root_template'), cls: 'setting-item-description' });
-		rootLabel.style.cssText = 'font-size:11px;margin-top:8px;color:var(--text-faint)';
+		rootLabel.style.cssText = 'font-size:var(--ww-deco-param-font,11px);margin-top:8px;color:var(--text-faint)';
 		const textarea = contentEl.createEl('textarea', { attr: { rows: '4', spellcheck: 'false' } });
 		textarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:12px;box-sizing:border-box';
 		textarea.value = this.templateValue;
@@ -95,7 +95,7 @@ export class ListDecorationEditModal extends WeWriteModal {
 		});
 
 		const itemLabel = contentEl.createEl('div', { text: t('deco_edit.item_template'), cls: 'setting-item-description' });
-		itemLabel.style.cssText = 'font-size:11px;margin-top:8px;color:var(--text-faint)';
+		itemLabel.style.cssText = 'font-size:var(--ww-deco-param-font,11px);margin-top:8px;color:var(--text-faint)';
 		const itemTextarea = contentEl.createEl('textarea', { attr: { rows: '4', spellcheck: 'false' } });
 		itemTextarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:12px;box-sizing:border-box';
 		itemTextarea.value = this.itemTemplateValue;
@@ -153,7 +153,7 @@ export class ListDecorationEditModal extends WeWriteModal {
 			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
 
 			const keyInput = row.createEl('input', { type: 'text', value: key });
-			keyInput.style.cssText = 'width:84px;font-family:var(--font-monospace);font-size:11px;padding:1px 4px';
+			keyInput.style.cssText = 'width:84px;font-family:var(--font-monospace);font-size:var(--ww-deco-param-font,11px);padding:1px 4px';
 			keyInput.disabled = isBuiltin;
 			keyInput.addEventListener('change', () => {
 				const newKey = keyInput.value.trim() || key;
@@ -167,7 +167,7 @@ export class ListDecorationEditModal extends WeWriteModal {
 			});
 
 			const typeSelect = row.createEl('select');
-			typeSelect.style.cssText = 'width:76px;font-size:11px';
+			typeSelect.style.cssText = 'width:76px;font-size:var(--ww-deco-param-font,11px)';
 			for (const t of PARAM_TYPES) {
 				const opt = typeSelect.createEl('option', { text: t });
 				opt.value = t;
@@ -179,14 +179,14 @@ export class ListDecorationEditModal extends WeWriteModal {
 			});
 
 			const labelInput = row.createEl('input', { type: 'text', value: param.label, placeholder: t('deco_edit.param_label_ph') });
-			labelInput.style.cssText = 'flex:1;min-width:60px;font-size:11px;padding:1px 4px';
+			labelInput.style.cssText = 'flex:1;min-width:60px;font-size:var(--ww-deco-param-font,11px);padding:1px 4px';
 			labelInput.disabled = isBuiltin;
 			labelInput.addEventListener('input', () => {
 				this.params[key] = { ...this.params[key], label: labelInput.value || key };
 			});
 
 			const defaultInput = row.createEl('input', { type: 'text', value: param.default, placeholder: t('deco_edit.param_default_ph') });
-			defaultInput.style.cssText = 'width:110px;font-family:var(--font-monospace);font-size:11px;padding:1px 4px';
+			defaultInput.style.cssText = 'width:110px;font-family:var(--font-monospace);font-size:var(--ww-deco-param-font,11px);padding:1px 4px';
 			defaultInput.disabled = isBuiltin;
 			defaultInput.addEventListener('input', () => {
 				this.params[key] = { ...this.params[key], default: defaultInput.value };
@@ -194,7 +194,7 @@ export class ListDecorationEditModal extends WeWriteModal {
 
 			if (!isBuiltin) {
 				const delBtn = row.createEl('button', { text: '✕' });
-				delBtn.style.fontSize = '11px';
+				delBtn.style.fontSize = 'var(--ww-deco-param-font,11px)';
 				delBtn.addEventListener('click', () => {
 					delete this.params[key];
 					this.renderParamsList();

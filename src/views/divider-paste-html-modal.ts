@@ -140,10 +140,10 @@ export class DividerPasteHtmlModal extends WeWriteModal {
 			return;
 		}
 		el.style.display = 'flex';
-		el.createSpan({ text: t('paste.params_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:11px;align-self:center';
+		el.createSpan({ text: t('paste.params_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:var(--ww-deco-param-font,11px);align-self:center';
 		for (const key of keys) {
 			const label = el.createEl('label');
-			label.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;font-size:11px;padding:2px 8px;border:1px solid var(--background-modifier-border);border-radius:10px;cursor:pointer';
+			label.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;font-size:var(--ww-deco-param-font,11px);padding:var(--ww-deco-param-pad,2px 8px);border:1px solid var(--background-modifier-border);border-radius:10px;cursor:pointer';
 			const cb = label.createEl('input', { type: 'checkbox' });
 			cb.checked = this.active[key];
 			const text = label.createEl('span', { text: `${key} (${this.params[key].default})` });

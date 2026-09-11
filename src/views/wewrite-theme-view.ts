@@ -307,6 +307,9 @@ const ELEMENT_GROUPS: { key: string; paths: string[] }[] = [
 	{ key: 'inline', paths: ['inline.link', 'inline.strong', 'inline.code'] },
 ];
 
+/** Observers that hide rows added to a collapsed section after creation. */
+const sectionCollapseObservers = new WeakMap<HTMLElement, MutationObserver>();
+
 export class WeWriteThemeView extends ItemView {
 	private plugin: WeWritePlugin;
 	private themeLoader: ThemeLoader;
@@ -511,11 +514,11 @@ export class WeWriteThemeView extends ItemView {
 		// Each side scrolls independently; the splitter adjusts their widths on
 		// desktop and is hidden on small screens (panels wrap instead).
 		const split = c.createDiv({ cls: 'wewrite-theme-split' });
-		split.style.cssText = 'display:flex;flex:1;overflow:hidden;min-height:0';
+		split.style.cssText = 'display:flex;flex:var(--ww-theme-split-flex,1);overflow:var(--ww-theme-split-overflow,hidden);min-height:0;flex-wrap:var(--ww-theme-split-wrap,nowrap)';
 
 		// Left: scrollable editor (collapsible)
 		this.editorPanel = split.createDiv({ cls: 'wewrite-theme-editor-panel' });
-		this.editorPanel.style.cssText = 'flex:1;overflow-y:auto;padding:12px;min-width:280px;min-height:0';
+		this.editorPanel.style.cssText = 'flex:var(--ww-theme-panel-flex,1);overflow-y:auto;padding:var(--ww-theme-editor-pad,12px);min-width:var(--ww-theme-panel-minw,280px);min-height:0';
 
 		const splitter = split.createDiv({ cls: 'wewrite-theme-splitter' });
 		splitter.style.cssText = 'width:5px;cursor:col-resize;flex-shrink:0;background:var(--background-modifier-border);touch-action:none';
@@ -523,7 +526,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Right: preview
 		const previewPanel = split.createDiv({ cls: 'wewrite-theme-preview-panel' });
-		previewPanel.style.cssText = 'flex:1;display:flex;flex-direction:column;min-width:300px;min-height:0;border-left:1px solid var(--background-modifier-border)';
+		previewPanel.style.cssText = 'flex:var(--ww-theme-panel-flex,1);display:flex;flex-direction:column;min-width:var(--ww-theme-panel-minw,300px);min-height:0;border-left:var(--ww-theme-preview-border-left,1px solid var(--background-modifier-border))';
 
 		// Preview toolbar: zoom-out select. Zooming out re-lays the article at
 		// a wider width and scales it down, so on a narrow (mobile) panel you
@@ -919,7 +922,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Accent color picker: preset swatches + selected-color pill
 		const row = section.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap';
+		row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
 
 		for (const hex of ACCENT_PRESETS) {
 			const dot = row.createDiv();
@@ -1024,7 +1027,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Font family picker: grouped select, options preview their own font
 		const famRow = section.createDiv();
-		famRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
+		famRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px)';
 		const famLabel = famRow.createSpan({ text: t('deco_ui.font_label') });
 		famLabel.style.minWidth = '50px';
 		famLabel.style.fontSize = '12px';
@@ -1102,7 +1105,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: edit the selected one or extract from pasted HTML (§8)
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap';
+		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
 		editBtn.style.fontSize = '12px';
 		editBtn.addEventListener('click', () => this.openDecorationEditor());
@@ -1131,7 +1134,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Global heading variables
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		globalBox.createEl('div', { text: t('deco_ui.global_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		this.renderHeadingDecorationRow(globalBox, 'heading');
@@ -1146,7 +1149,7 @@ export class WeWriteThemeView extends ItemView {
 		for (let i = 1; i <= 6; i++) {
 			const level = `h${i}` as HeadingLevel;
 			const box = section.createDiv();
-			box.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+			box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 			box.createEl('div', { text: level.toUpperCase(), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 			this.renderHeadingLevelRow(box, `heading.${level}`);
@@ -1233,7 +1236,7 @@ export class WeWriteThemeView extends ItemView {
 		// Decoration tools: edit the library decoration selected below, or
 		// delete it when it is user-defined.
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap';
+		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
 		editBtn.style.fontSize = '12px';
 		editBtn.addEventListener('click', () => this.openInlineDecorationEditor());
@@ -1257,10 +1260,10 @@ export class WeWriteThemeView extends ItemView {
 
 		// 装饰器库 selector — which decoration the edit/delete buttons target.
 		const libBox = section.createDiv();
-		libBox.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		libBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		libBox.createEl('div', { text: t('deco_ui.decoration_library'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 		const libRow = libBox.createDiv();
-		libRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		libRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const libSelect = libRow.createEl('select');
 		libSelect.style.flex = '1';
 		const library = [...getInlineDecorationLibrary(), ...this.inlineDecorations];
@@ -1278,10 +1281,10 @@ export class WeWriteThemeView extends ItemView {
 		for (const type of INLINE_ELEMENT_TYPES) {
 			const def = INLINE_TYPE_DEFS[type];
 			const box = section.createDiv();
-			box.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+			box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 
 			const header = box.createDiv();
-			header.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;flex-wrap:wrap';
+			header.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0;flex-wrap:wrap';
 			const typeLabel = header.createSpan({ text: def.label });
 			typeLabel.style.cssText = 'min-width:64px;font-weight:600';
 			const hint = header.createSpan({ text: def.hint, cls: 'setting-item-description' });
@@ -1359,7 +1362,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '64px';
 			const effectiveDefault = def.defaultParams?.[key] ?? param.default;
@@ -1388,7 +1391,7 @@ export class WeWriteThemeView extends ItemView {
 		const tc = this.inlineTypeConfig(type) || {};
 
 		const colorRow = box.createDiv();
-		colorRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		colorRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const colorLabel = colorRow.createSpan({ text: t('deco_ui.formula_color') });
 		colorLabel.style.minWidth = '64px';
 		const colorSelect = colorRow.createEl('select');
@@ -1404,7 +1407,7 @@ export class WeWriteThemeView extends ItemView {
 		});
 
 		const scaleRow = box.createDiv();
-		scaleRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		scaleRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const scaleLabel = scaleRow.createSpan({ text: t('deco_ui.formula_scale') });
 		scaleLabel.style.minWidth = '64px';
 		const scaleSelect = scaleRow.createEl('select');
@@ -1475,7 +1478,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: edit the selected one or extract from pasted HTML.
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap';
+		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
 		editBtn.style.fontSize = '12px';
 		editBtn.addEventListener('click', () => this.openBlockquoteDecorationEditor());
@@ -1504,7 +1507,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Global blockquote decoration
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		globalBox.createEl('div', { text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		this.renderBlockquoteDecorationRow(globalBox);
@@ -1571,7 +1574,7 @@ export class WeWriteThemeView extends ItemView {
 
 	private renderBlockquoteDecorationRow(box: HTMLElement): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
 		label.style.minWidth = '70px';
 		const select = this.createBlockquoteDecorationSelect(row);
@@ -1612,7 +1615,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '70px';
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
@@ -1645,7 +1648,7 @@ export class WeWriteThemeView extends ItemView {
 		const wrap = row.createDiv();
 		wrap.style.cssText = 'position:relative;width:var(--input-height,30px);height:var(--input-height,30px);flex-shrink:0';
 		const swatch = wrap.createEl('button', { cls: 'wewrite-swatch-btn' });
-		swatch.style.cssText = 'width:100%;height:100%;padding:0;border:1px solid var(--background-modifier-border);border-radius:3px;cursor:pointer;background:transparent;box-sizing:border-box;display:block';
+		swatch.style.cssText = 'width:100%;height:var(--ww-theme-swatch-h,100%);padding:0;border:1px solid var(--background-modifier-border);border-radius:3px;cursor:pointer;background:transparent;box-sizing:border-box;display:block';
 		if (opts.title) swatch.title = opts.title;
 		const block = swatch.createDiv();
 		block.style.cssText = 'width:100%;height:100%;border-radius:2px;box-sizing:border-box';
@@ -1685,12 +1688,12 @@ export class WeWriteThemeView extends ItemView {
 
 		if (param.type === 'color') {
 			const text = row.createEl('input', { type: 'text', value: current });
-			text.style.cssText = 'flex:1;font-family:var(--font-monospace);font-size:11px;padding:1px 4px';
+			text.style.cssText = 'flex:1;font-family:var(--font-monospace);font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
 
 			const swatchWrap = row.createDiv();
 			swatchWrap.style.cssText = 'position:relative;width:var(--input-height, 30px);height:var(--input-height, 30px);flex-shrink:0';
 			const swatch = swatchWrap.createEl('button', { cls: 'wewrite-swatch-btn' });
-			swatch.style.cssText = 'width:100%;height:100%;padding:0;border:1px solid var(--background-modifier-border);border-radius:4px;cursor:pointer;background:transparent;box-sizing:border-box;display:block';
+			swatch.style.cssText = 'width:100%;height:var(--ww-theme-swatch-h,100%);padding:0;border:1px solid var(--background-modifier-border);border-radius:4px;cursor:pointer;background:transparent;box-sizing:border-box;display:block';
 			const swatchBlock = swatch.createDiv();
 			swatchBlock.style.cssText = 'width:100%;height:100%;border-radius:3px;box-sizing:border-box';
 
@@ -1761,7 +1764,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: extract from pasted HTML / delete the selected one.
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap';
+		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
 		const pasteBtn = toolsRow.createEl('button', { text: t('deco_ui.extract_from_html') });
 		pasteBtn.style.fontSize = '12px';
 		pasteBtn.addEventListener('click', () => this.openCalloutPasteHtml());
@@ -1786,7 +1789,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration dropdown + shared params
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		globalBox.createEl('div', { text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 		this.renderCalloutDecorationRow(globalBox);
 		this.calloutParamsContainer = globalBox.createDiv();
@@ -1794,7 +1797,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Per-type style table (13 types)
 		const typesBox = section.createDiv();
-		typesBox.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		typesBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		typesBox.createEl('div', { text: t('deco_ui.callout_type_styles_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 		this.calloutTypesContainer = typesBox.createDiv();
 		this.renderCalloutTypesRows();
@@ -1841,7 +1844,7 @@ export class WeWriteThemeView extends ItemView {
 
 	private renderCalloutDecorationRow(box: HTMLElement): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
 		label.style.minWidth = '70px';
 		const select = this.createCalloutDecorationSelect(row);
@@ -1884,7 +1887,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '70px';
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
@@ -1921,7 +1924,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const type of CALLOUT_TYPES) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:11px;padding:2px 0;flex-wrap:wrap';
+			row.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:11px;padding:var(--ww-theme-row-pad,2px) 0;flex-wrap:wrap';
 			const name = row.createSpan({ text: type });
 			name.style.cssText = 'min-width:62px;font-weight:600';
 
@@ -1952,7 +1955,7 @@ export class WeWriteThemeView extends ItemView {
 		wrap.style.cssText = 'display:flex;align-items:center;gap:2px';
 		wrap.title = title;
 		const text = wrap.createEl('input', { type: 'text', value, placeholder: '—' });
-		text.style.cssText = `width:${width}px;font-family:var(--font-monospace);font-size:10px;padding:1px 3px`;
+		text.style.cssText = `width:${width}px;font-family:var(--font-monospace);font-size:var(--ww-theme-input-font,10px);padding:1px 3px`;
 		const swatch = wrap.createEl('button', { cls: 'wewrite-swatch-btn-sm' });
 		swatch.style.cssText = 'width:20px;height:20px;padding:0;border:1px solid var(--background-modifier-border);border-radius:3px;cursor:pointer;background:transparent;flex-shrink:0';
 		swatch.title = `${title}（${t('color_picker.title')}）`;
@@ -1983,7 +1986,7 @@ export class WeWriteThemeView extends ItemView {
 	private renderCalloutTextCell(row: HTMLElement, title: string, value: string, apply: (v: string) => void, width = 150): void {
 		const input = row.createEl('input', { type: 'text', value, placeholder: '—' });
 		input.title = title;
-		input.style.cssText = `width:${width}px;font-family:var(--font-monospace);font-size:10px;padding:1px 3px`;
+		input.style.cssText = `width:${width}px;font-family:var(--font-monospace);font-size:var(--ww-theme-input-font,10px);padding:1px 3px`;
 		input.addEventListener('change', () => apply(input.value));
 		input.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter') {
@@ -2028,11 +2031,11 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const box = section.createDiv();
-		box.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		box.createEl('div', { text: t('deco_ui.mermaid_deco_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
 		label.style.minWidth = '70px';
 		const select = row.createEl('select');
@@ -2072,7 +2075,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '70px';
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
@@ -2116,11 +2119,11 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const box = section.createDiv();
-		box.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		box.createEl('div', { text: t('deco_ui.legacy_path_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
 		label.style.minWidth = '70px';
 		const select = row.createEl('select');
@@ -2159,7 +2162,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '70px';
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
@@ -2203,11 +2206,11 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const box = section.createDiv();
-		box.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		box.createEl('div', { text: t('deco_ui.math_deco_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
 		label.style.minWidth = '70px';
 		const select = row.createEl('select');
@@ -2246,7 +2249,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '70px';
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
@@ -2290,11 +2293,11 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const box = section.createDiv();
-		box.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		box.createEl('div', { text: t('deco_ui.keep_obsidian_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
 		label.style.minWidth = '70px';
 		const select = row.createEl('select');
@@ -2333,7 +2336,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '70px';
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
@@ -2378,7 +2381,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: edit the selected one or fork it into a copy.
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap';
+		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
 		editBtn.style.fontSize = '12px';
 		editBtn.addEventListener('click', () => this.openTableDecorationEditor());
@@ -2407,7 +2410,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Global table decoration
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		globalBox.createEl('div', { text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		this.renderTableDecorationRow(globalBox);
@@ -2474,7 +2477,7 @@ export class WeWriteThemeView extends ItemView {
 
 	private renderTableDecorationRow(box: HTMLElement): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
 		label.style.minWidth = '70px';
 		const select = this.createTableDecorationSelect(row);
@@ -2515,7 +2518,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '70px';
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
@@ -2550,7 +2553,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: edit the selected one or extract from pasted HTML.
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap';
+		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
 		editBtn.style.fontSize = '12px';
 		editBtn.addEventListener('click', () => this.openDividerDecorationEditor());
@@ -2579,7 +2582,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Global divider decoration
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		globalBox.createEl('div', { text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		this.renderDividerDecorationRow(globalBox);
@@ -2646,7 +2649,7 @@ export class WeWriteThemeView extends ItemView {
 
 	private renderDividerDecorationRow(box: HTMLElement): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
 		label.style.minWidth = '70px';
 		const select = this.createDividerDecorationSelect(row);
@@ -2687,7 +2690,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '70px';
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
@@ -2787,7 +2790,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: edit the selected one (+ t('deco_ui.extract_from_html') for ol/ul).
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap';
+		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
 		editBtn.style.fontSize = '12px';
 		editBtn.addEventListener('click', () => this.openListKindEditor(kind));
@@ -2816,7 +2819,7 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 		globalBox.createEl('div', { text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		this.renderListKindDecorationRow(globalBox, kind);
@@ -2893,7 +2896,7 @@ export class WeWriteThemeView extends ItemView {
 
 	private renderListKindDecorationRow(box: HTMLElement, kind: ListKind): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
 		label.style.minWidth = '70px';
 		const select = this.createListKindDecorationSelect(row, kind);
@@ -2930,7 +2933,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '70px';
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
@@ -2983,7 +2986,7 @@ export class WeWriteThemeView extends ItemView {
 
 	private headingFieldRow(container: HTMLElement, label: string): HTMLElement {
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const span = row.createSpan({ text: label });
 		span.style.minWidth = '70px';
 		return row;
@@ -3029,7 +3032,7 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 			const label = row.createSpan({ text: param.label });
 			label.style.minWidth = '70px';
 			this.renderHeadingParamInput(row, key, param, params[key], (value, noUndo) => {
@@ -3065,7 +3068,7 @@ export class WeWriteThemeView extends ItemView {
 
 		if (path === 'heading') {
 			const padInput = row.createEl('input', { type: 'number', placeholder: t('deco_ui.digits') });
-			padInput.style.cssText = 'width:52px;font-size:11px;padding:1px 4px';
+			padInput.style.cssText = 'width:52px;font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
 			const pad = this.headingConfig.shared?.numberingPad;
 			if (pad !== undefined) padInput.value = String(pad);
 			padInput.title = t('deco_ui.decimal_pad_desc');
@@ -3129,7 +3132,7 @@ export class WeWriteThemeView extends ItemView {
 		// Background color
 		const bgRow = this.headingFieldRow(box, t('deco_ui.background_label'));
 		const bgInput = bgRow.createEl('input', { type: 'text', value: cfg.bgColor || '', placeholder: 'transparent' });
-		bgInput.style.cssText = 'flex:1;font-family:var(--font-monospace);font-size:11px;padding:1px 4px';
+		bgInput.style.cssText = 'flex:1;font-family:var(--font-monospace);font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
 		bgInput.addEventListener('change', () => {
 			const value = bgInput.value.trim();
 			if (value === '' || value === 'transparent') {
@@ -3195,7 +3198,7 @@ export class WeWriteThemeView extends ItemView {
 		const cfg = this.headingConfigFor(path).config;
 		const current = cfg[key];
 		const input = container.createEl('input', { type: 'number', placeholder: t('deco_ui.auto') });
-		input.style.cssText = 'flex:1;min-width:52px;font-size:11px;padding:1px 4px';
+		input.style.cssText = 'flex:1;min-width:52px;font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
 		if (typeof current === 'number') input.value = String(current);
 		input.addEventListener('change', () => {
 			const value = input.value.trim();
@@ -3213,7 +3216,7 @@ export class WeWriteThemeView extends ItemView {
 		const cfg = this.headingConfigFor(path).config as Record<string, unknown>;
 		const current = cfg[key];
 		const input = container.createEl('input', { type: 'number', placeholder });
-		input.style.cssText = 'flex:1;min-width:52px;font-size:11px;padding:1px 4px';
+		input.style.cssText = 'flex:1;min-width:52px;font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
 		if (typeof current === 'number') input.value = String(current);
 		input.addEventListener('change', () => {
 			const value = input.value.trim();
@@ -3230,7 +3233,7 @@ export class WeWriteThemeView extends ItemView {
 	/** One compact override row per level: decoration + numbering + color + align + size + weight. */
 	private renderHeadingLevelRow(box: HTMLElement, path: string): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12px;padding:2px 0;flex-wrap:wrap';
+		row.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0;flex-wrap:wrap';
 
 		const deco = this.createHeadingDecorationSelect(row, path);
 		deco.style.cssText = 'flex:1.4;min-width:110px';
@@ -3254,15 +3257,15 @@ export class WeWriteThemeView extends ItemView {
 		});
 
 		const size = this.createHeadingAutoNumberInput(row, path, 'size');
-		size.style.cssText = 'width:48px;font-size:11px;padding:1px 4px';
+		size.style.cssText = 'width:48px;font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
 		const weight = this.createHeadingAutoNumberInput(row, path, 'weight');
-		weight.style.cssText = 'width:48px;font-size:11px;padding:1px 4px';
+		weight.style.cssText = 'width:48px;font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
 	}
 
 	/** Column header for the per-level override rows (H1–H6). */
 	private renderHeadingLevelHeader(container: HTMLElement): void {
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-faint);padding:2px 0;flex-wrap:wrap';
+		row.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-faint);padding:var(--ww-theme-row-pad,2px) 0;flex-wrap:wrap';
 		const col = (text: string, style: string): void => {
 			const el = row.createSpan({ text, cls: 'setting-item-description' });
 			el.style.cssText = style;
@@ -3298,7 +3301,7 @@ export class WeWriteThemeView extends ItemView {
 
 			// Render each slot
 			const slotContainer = section.createDiv();
-			slotContainer.style.cssText = 'margin-bottom:8px;padding:4px;border:1px solid var(--background-modifier-border);border-radius:4px';
+			slotContainer.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
 
 			// Element path label (only show sub-paths like h1, h2)
 			const parts = path.split('.');
@@ -3336,7 +3339,7 @@ export class WeWriteThemeView extends ItemView {
 		const currentValue = this.modifierConfig[elementPath]?.[slotId] || slot.defaultValue;
 
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 
 		const label = row.createSpan({ text: slot.name });
 		label.style.minWidth = '50px';
@@ -3452,7 +3455,7 @@ export class WeWriteThemeView extends ItemView {
 		const currentValue = this.modifierConfig[elementPath]?.[slot.id] || slot.defaultValue;
 
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const label = row.createSpan({ text: slot.name });
 		label.style.minWidth = '50px';
 
@@ -3478,7 +3481,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Custom background color (auto-contrast foreground + neutral tokens)
 		const customRow = container.createDiv();
-		customRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 0';
+		customRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:11px;padding:var(--ww-theme-row-pad,2px) 0';
 		customRow.createSpan({ text: t('modifier.code.custom_color') });
 		const currentHex = currentValue.startsWith('hex-') ? currentValue.slice(4) : '';
 		this.renderColorSwatch(customRow, currentHex || '#000000', {
@@ -3578,7 +3581,7 @@ export class WeWriteThemeView extends ItemView {
 		const current = this.articleSliderNumber(slotId, currentValue, fallback);
 
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;margin:8px 0 12px';
+		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0;margin:8px 0 12px';
 		const label = row.createSpan({ text: slot.name });
 		label.style.minWidth = '50px';
 		const readout = row.createSpan({ text: `${current}${opts.unit}` });
@@ -3625,7 +3628,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Width slider row
 		const wRow = container.createDiv();
-		wRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;margin:8px 0 12px';
+		wRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0;margin:8px 0 12px';
 		const wLabel = wRow.createSpan({ text: slot.name });
 		wLabel.style.minWidth = '50px';
 		const wReadout = wRow.createSpan({ text: `${width}px` });
@@ -3645,7 +3648,7 @@ export class WeWriteThemeView extends ItemView {
 		// Color row (unified color editor: wheel + hex input)
 		let currentHex = hex;
 		const cRow = container.createDiv();
-		cRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+		cRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		cRow.createSpan({ text: t('deco_ui.border_color') }).style.minWidth = '50px';
 		const hexInput = cRow.createEl('input', { type: 'text', placeholder: '#RRGGBB' });
 		hexInput.style.cssText = 'width:78px;font-size:11px;font-family:var(--font-monospace);padding:1px 4px';
@@ -4415,6 +4418,26 @@ export class WeWriteThemeView extends ItemView {
 		// Sections start collapsed; an explicit user expansion wins.
 		const collapsed = !this.expandedByUser.has(key);
 		section.classList.toggle('wewrite-theme-section-collapsed', collapsed);
+		const syncHiddenRows = () => {
+			for (const child of Array.from(section.children)) {
+				if (child.classList.contains('wewrite-theme-section-header')) continue;
+				(child as HTMLElement).style.display = collapsed ? 'none' : '';
+			}
+		};
+		syncHiddenRows();
+		const existing = sectionCollapseObservers.get(section);
+		if (collapsed) {
+			if (!existing) {
+				const observer = new MutationObserver(syncHiddenRows);
+				observer.observe(section, { childList: true });
+				sectionCollapseObservers.set(section, observer);
+			}
+		} else {
+			if (existing) {
+				existing.disconnect();
+				sectionCollapseObservers.delete(section);
+			}
+		}
 		const header = section.querySelector<HTMLElement>('.wewrite-theme-section-header');
 		if (header) header.setAttribute('aria-expanded', String(!collapsed));
 		// chevron-right when collapsed, chevron-down when open (data-state
@@ -4476,9 +4499,9 @@ export class WeWriteThemeView extends ItemView {
 		const sectionKey = title;
 		const section = container.createDiv({ cls: 'wewrite-theme-section' });
 		section.setAttribute('data-section-key', sectionKey);
-		section.style.cssText = 'margin-bottom:10px;padding:8px 10px;border:1px solid var(--background-modifier-border);border-radius:8px';
+		section.style.cssText = 'margin-bottom:var(--ww-theme-section-mb,10px);padding:var(--ww-theme-section-pad,8px 10px);border:var(--ww-theme-section-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-section-radius,8px)';
 		const header = section.createDiv({ cls: 'wewrite-theme-section-header' });
-		header.style.cssText = 'display:flex;align-items:center;gap:6px;margin:-8px -10px 8px;padding:8px 10px;font-size:13px;font-weight:600;cursor:pointer;user-select:none;border-bottom:1px solid var(--background-modifier-border)';
+		header.style.cssText = 'display:flex;align-items:center;gap:6px;margin:var(--ww-theme-section-header-margin,-8px -10px 8px);padding:var(--ww-theme-section-header-pad,8px 10px);min-height:var(--ww-theme-section-header-minh,0);font-size:13px;font-weight:600;cursor:pointer;user-select:none;border-bottom:1px solid var(--background-modifier-border)';
 		const titleEl = header.createSpan({ text: title });
 		titleEl.style.cssText = 'flex:1;min-width:0';
 		// Collapse chevron sits at the right edge (chevron_right / chevron_down),

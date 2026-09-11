@@ -113,9 +113,9 @@ export class TableDecorationEditModal extends WeWriteModal {
 			partsWrap.createEl('h4', { text: t('deco_edit.parts_optional') }).style.cssText = 'margin:0 0 6px;font-size:13px';
 			for (const part of PART_DEFS) {
 				const label = partsWrap.createEl('div', { text: `${partLabel(part.key)} — ${partHint(part.key)}`, cls: 'setting-item-description' });
-				label.style.cssText = 'font-size:11px;line-height:1.5';
+				label.style.cssText = 'font-size:var(--ww-deco-param-font,11px);line-height:1.5';
 				const textarea = partsWrap.createEl('textarea', { attr: { rows: '2', spellcheck: 'false' } });
-				textarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:11px;box-sizing:border-box;margin-bottom:4px';
+				textarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:var(--ww-deco-param-font,11px);box-sizing:border-box;margin-bottom:4px';
 				textarea.value = this.parts[part.key] || '';
 				textarea.addEventListener('input', () => {
 					this.parts = { ...this.parts, [part.key]: textarea.value };
@@ -154,7 +154,7 @@ export class TableDecorationEditModal extends WeWriteModal {
 			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
 
 			const keyInput = row.createEl('input', { type: 'text', value: key });
-			keyInput.style.cssText = 'width:84px;font-family:var(--font-monospace);font-size:11px;padding:1px 4px';
+			keyInput.style.cssText = 'width:84px;font-family:var(--font-monospace);font-size:var(--ww-deco-param-font,11px);padding:1px 4px';
 			keyInput.disabled = isBuiltin;
 			keyInput.addEventListener('change', () => {
 				const newKey = keyInput.value.trim() || key;
@@ -168,7 +168,7 @@ export class TableDecorationEditModal extends WeWriteModal {
 			});
 
 			const typeSelect = row.createEl('select');
-			typeSelect.style.cssText = 'width:76px;font-size:11px';
+			typeSelect.style.cssText = 'width:76px;font-size:var(--ww-deco-param-font,11px)';
 			for (const t of PARAM_TYPES) {
 				const opt = typeSelect.createEl('option', { text: t });
 				opt.value = t;
@@ -180,14 +180,14 @@ export class TableDecorationEditModal extends WeWriteModal {
 			});
 
 			const labelInput = row.createEl('input', { type: 'text', value: param.label, placeholder: t('deco_edit.param_label_ph') });
-			labelInput.style.cssText = 'flex:1;min-width:60px;font-size:11px;padding:1px 4px';
+			labelInput.style.cssText = 'flex:1;min-width:60px;font-size:var(--ww-deco-param-font,11px);padding:1px 4px';
 			labelInput.disabled = isBuiltin;
 			labelInput.addEventListener('input', () => {
 				this.params[key] = { ...this.params[key], label: labelInput.value || key };
 			});
 
 			const defaultInput = row.createEl('input', { type: 'text', value: param.default, placeholder: t('deco_edit.param_default_ph') });
-			defaultInput.style.cssText = 'width:110px;font-family:var(--font-monospace);font-size:11px;padding:1px 4px';
+			defaultInput.style.cssText = 'width:110px;font-family:var(--font-monospace);font-size:var(--ww-deco-param-font,11px);padding:1px 4px';
 			defaultInput.disabled = isBuiltin;
 			defaultInput.addEventListener('input', () => {
 				this.params[key] = { ...this.params[key], default: defaultInput.value };
@@ -196,7 +196,7 @@ export class TableDecorationEditModal extends WeWriteModal {
 
 			if (!isBuiltin) {
 				const delBtn = row.createEl('button', { text: '✕' });
-				delBtn.style.fontSize = '11px';
+				delBtn.style.fontSize = 'var(--ww-deco-param-font,11px)';
 				delBtn.addEventListener('click', () => {
 					delete this.params[key];
 					this.renderParamsList();

@@ -52,7 +52,7 @@ interface WeWriteActionSettingDef extends WeWriteSettingDefBase {
   action: (el: HTMLElement) => void;
 }
 
-interface WeWriteEmptySettingDef extends WeWriteSettingDefBase {}
+type WeWriteEmptySettingDef = WeWriteSettingDefBase;
 
 interface WeWriteSettingGroupDef {
   type: 'group';
@@ -437,12 +437,8 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
     for (const account of settings.wechatAccounts) {
       const isActive = account.id === settings.activeWeChatAccountId;
-      const card = wechatBody.createDiv({ cls: 'wewrite-account-row' });
-      Object.assign(card.style, {
-        marginBottom: '16px', padding: '12px',
-        border: isActive ? '2px solid var(--interactive-accent)' : '1px solid var(--background-modifier-border)',
-        borderRadius: '6px',
-        position: 'relative',
+      const card = wechatBody.createDiv({
+        cls: `wewrite-account-row${isActive ? ' wewrite-account-active' : ''}`,
       });
 
       // Active badge
@@ -532,12 +528,8 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const aiTextBody = this.addCollapsibleSection(containerEl, t('settings.ai_text_models'), 'brain');
     for (const account of settings.aiTextAccounts) {
       const isActive = account.id === settings.activeAITextAccountId;
-      const card = aiTextBody.createDiv({ cls: 'wewrite-account-row' });
-      Object.assign(card.style, {
-        marginBottom: '16px', padding: '12px',
-        border: isActive ? '2px solid var(--interactive-accent)' : '1px solid var(--background-modifier-border)',
-        borderRadius: '6px',
-        position: 'relative',
+      const card = aiTextBody.createDiv({
+        cls: `wewrite-account-row${isActive ? ' wewrite-account-active' : ''}`,
       });
 
       if (isActive) {
@@ -641,12 +633,8 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const aiImageBody = this.addCollapsibleSection(containerEl, t('settings.ai_image_models'), 'image');
     for (const account of settings.aiImageGenAccounts) {
       const isActive = account.id === settings.activeAIImageGenAccountId;
-      const card = aiImageBody.createDiv({ cls: 'wewrite-account-row' });
-      Object.assign(card.style, {
-        marginBottom: '16px', padding: '12px',
-        border: isActive ? '2px solid var(--interactive-accent)' : '1px solid var(--background-modifier-border)',
-        borderRadius: '6px',
-        position: 'relative',
+      const card = aiImageBody.createDiv({
+        cls: `wewrite-account-row${isActive ? ' wewrite-account-active' : ''}`,
       });
 
       if (isActive) {

@@ -8,7 +8,6 @@ import { ALI_MAAS_BASE_URL_TEMPLATE, LEGACY_WANX_2_1_MODEL, WAN_2_6_MODEL } from
 import { encryptSettingsKeys, decryptSettingsKeys } from '../utils/encryption';
 import { compareVersions } from '../utils/version-utils';
 import { migrateLegacyToV2 } from '../utils/migration';
-import type { LegacySettings } from '../utils/migration';
 
 // ── Zod Schemas ──
 
@@ -248,7 +247,7 @@ export class SettingsManager {
     if (format === 'wrapped') {
       settingsData = (data.settings as Record<string, unknown>) || {};
     } else if (format === 'legacy-v1') {
-      settingsData = { ...migrateLegacyToV2(data as unknown as LegacySettings) };
+      settingsData = { ...migrateLegacyToV2(data) };
     } else {
       settingsData = { ...data };
     }
