@@ -1,0 +1,36 @@
+﻿# dependencies
+node_modules/
+
+# build output
+main.js
+main-*.js
+mathjax-chunk.js
+chunks/
+dist/
+*.map
+
+# Obsidian plugin local data
+data.json
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+*.log.*
+_logs/
+*.wewrite-backup.*
+
+# tests / coverage
+coverage/
+test-results/
+playwright-report/
+
+# editors / OS
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
