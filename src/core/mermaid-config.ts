@@ -52,7 +52,6 @@ const mermaidFamily = createDecorationFamily<MermaidDecoration, 'null'>({
 	notFound: 'null',
 	stampCustom: (raw) => ({ theme: parseTheme(raw.theme), colors: parseColors(raw.colors) }),
 	serializeCustomExtra: (d) => ({ theme: d.theme, colors: { ...d.colors } }),
-	customExtraFirst: true,
 	varKeyStyle: 'decoration',
 });
 

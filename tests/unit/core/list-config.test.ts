@@ -111,10 +111,10 @@ describe('serialization', () => {
     expect(Object.keys(customTaskDecorationsToFrontmatter([deco]) || {})).toContain('task.decoration');
     expect(customOrderedDecorationsToFrontmatter([])).toBeNull();
 
-    // Entry key order is this family's historical one: the extra templates right
-    // after the payload, then the shared params map.
+    // Canonical entry key order: payload, then the shared params map, then the
+    // family extra (the `itemTemplate` used to sit right after `template`).
     const entries = customOrderedDecorationsToFrontmatter([deco])?.['ol.decoration'] as Array<Record<string, unknown>>;
-    expect(Object.keys(entries[0])).toEqual(['id', 'name', 'template', 'itemTemplate', 'params']);
+    expect(Object.keys(entries[0])).toEqual(['id', 'name', 'template', 'params', 'itemTemplate']);
   });
 
   it('is*VarKey recognizes only its own keys', () => {

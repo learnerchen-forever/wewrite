@@ -74,7 +74,6 @@ function createListFamily(def: KindDef) {
 		isValidCustom: (raw) => typeof raw.itemTemplate === 'string',
 		stampCustom: (raw) => ({ itemTemplate: raw.itemTemplate }),
 		serializeCustomExtra: (d) => ({ itemTemplate: d.itemTemplate }),
-		customExtraFirst: true,
 		family: 'plain',
 		varKeyStyle: 'flat',
 	});

@@ -31,17 +31,27 @@
 //
 // Everything a family does not override is written once, here.
 //
-// One deliberate, unobservable difference: a parsed decoration object is
-// assembled in one fixed field order (id, name, description, builtin, payload,
-// params, family, family extras), where the originals each happened to order
-// those fields differently (table wrote `parts` after `params`; mermaid wrote
-// its palette before them; the list family put `itemTemplate` right after
-// `template`). Nothing reads that order: decorations are never persisted as
-// JSON (frontmatter is written field by field, and both the config and the
-// custom-decoration serialisers keep each family's original key order) and the
-// theme editor's undo snapshots are only pushed and popped. The serialisation
-// order is pinned by tests/unit/core/decoration-config.test.ts, and each
-// family's own config test pins the keys it writes.
+// Two deliberate, unobservable differences from the eleven modules:
+//
+//   * A parsed decoration object is assembled in one fixed field order (id,
+//     name, description, builtin, payload, params, family, family extras),
+//     where the originals each happened to order those fields differently
+//     (table wrote `parts` after `params`; mermaid wrote its palette before
+//     them; the list family put `itemTemplate` right after `template`).
+//   * A serialised custom decoration uses one canonical key order for every
+//     family — id, name, description?, payload, params, extras — where the
+//     originals wrote their extras wherever they happened to land (list wrote
+//     `itemTemplate`, mermaid its palette, straight after the payload; callout
+//     wrote `types` last). This only reorders the keys of an existing theme
+//     file the next time it is saved; it is the one intended change of output in
+//     this consolidation, and it landed as its own commit.
+//
+// Neither order is read anywhere: decorations are never persisted as JSON
+// (frontmatter is written field by field) and the theme editor's undo snapshots
+// are only pushed and popped. The serialised order is pinned by
+// tests/unit/core/decoration-config.test.ts plus the key-order assertions in
+// the list, mermaid, callout, table and heading config tests; the parsed field
+// order stays unobservable, so nothing pins it.
 
 import type { DecorationParam } from './heading-decoration-types';
 
@@ -109,16 +119,11 @@ export interface CustomDecorationSpec<D extends DecorationLike> {
 	 */
 	stampCustom?: (raw: Record<string, unknown>) => Record<string, unknown>;
 	/**
-	 * Additional fields written for each user-defined entry.
-	 *
-	 * Where they land matters only for key order, which is preserved from the
-	 * family each spec replaces: mermaid and list wrote their extra fields
-	 * (palette, item template) straight after the payload, callout wrote `types`
-	 * last.
+	 * Additional fields written for each user-defined entry, after the shared
+	 * `params` map — the canonical order is id, name, description?, payload,
+	 * params, extras.
 	 */
 	serializeCustomExtra?: (decoration: D) => Record<string, unknown> | null;
-	/** Write the extra fields before the shared `params` map (see above). */
-	customExtraFirst?: boolean;
 }
 
 type ResolveResult<D, P extends NotFoundPolicy> = P extends 'null'
@@ -261,10 +266,9 @@ export function writeCustomDecorations<D extends DecorationLike>(
 			};
 			const extra = spec.serializeCustomExtra?.(d) ?? {};
 			const withParams = Object.keys(params).length > 0 ? { params } : {};
-			// Key order is preserved from the family each spec replaces.
-			return spec.customExtraFirst
-				? { ...head, ...extra, ...withParams }
-				: { ...head, ...withParams, ...extra };
+			// One canonical key order for every family: id, name, description?,
+			// payload, params, extras.
+			return { ...head, ...withParams, ...extra };
 		}),
 	};
 }

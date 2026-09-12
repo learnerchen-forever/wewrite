@@ -114,10 +114,10 @@ describe('serialization', () => {
 			family: 'composite',
 		};
 		const fm = customMermaidDecorationsToFrontmatter([d])!;
-		// Entry key order is this family's historical one: the palette right after
-		// the head, then the shared params map.
+		// Canonical key order: head, params, then the palette (the palette used
+		// to come before the params — see decoration-config).
 		const entries = fm['media.mermaid.decoration'] as Array<Record<string, unknown>>;
-		expect(Object.keys(entries[0])).toEqual(['id', 'name', 'theme', 'colors', 'params']);
+		expect(Object.keys(entries[0])).toEqual(['id', 'name', 'params', 'theme', 'colors']);
 		const { customDecorations } = parseMermaidFrontmatter({ custom_values: fm });
 		expect(customDecorations[0]).toEqual(d);
 	});
