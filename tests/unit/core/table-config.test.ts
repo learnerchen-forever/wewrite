@@ -7,6 +7,7 @@ import {
 	isTableVarKey,
 	resolveTableDecoration,
 } from '../../../src/core/table-config';
+import type { TableDecoration } from '../../../src/core/table-decoration-types';
 
 describe('parseTableFrontmatter', () => {
 	it('parses flat decoration + params keys', () => {
@@ -65,15 +66,19 @@ describe('resolveTableDecoration', () => {
 	});
 
 	it('falls back to the none decoration for unknown ids', () => {
-		const { decoration } = resolveTableDecoration('does-not-exist');
+		const { decoration } = resolveTableDecoration('does-not-exist', undefined);
 		expect(decoration.id).toBe('none');
 	});
 
 	it('resolves custom decorations by id', () => {
-		const custom = {
+		const custom: TableDecoration = {
 			id: 'customTeal',
 			name: '自定义青',
+			description: '',
+			builtin: false,
+			params: {},
 			parts: { th: 'background:#123456' },
+			family: 'card',
 		};
 		const { decoration } = resolveTableDecoration('customTeal', undefined, [custom]);
 		expect(decoration.name).toBe('自定义青');
@@ -109,7 +114,12 @@ describe('serialization', () => {
 			},
 		]);
 		expect(out?.['table.decoration']).toHaveLength(1);
-		expect(out?.['table.decoration'][0].parts.th).toBe('background:#fff');
+		// `tableConfigToFrontmatter` returns a loosely typed record, so narrow
+		// the entry we just wrote rather than reaching into `unknown`.
+		const entries = out?.['table.decoration'] as Array<{ parts: { th?: string } }>;
+		expect(entries[0].parts.th).toBe('background:#fff');
+		// Canonical key order: head, payload, params (see decoration-config).
+		expect(Object.keys(entries[0])).toEqual(['id', 'name', 'parts', 'params']);
 	});
 
 	it('classifies table var keys', () => {

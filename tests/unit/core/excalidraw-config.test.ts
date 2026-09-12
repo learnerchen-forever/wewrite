@@ -26,3 +26,42 @@ describe('resolveExcalidrawDecoration', () => {
 		expect(params.align).toBe('center');
 	});
 });
+
+describe('serialization', () => {
+	it('round-trips a config through flat frontmatter', () => {
+		const { config } = parseExcalidrawFrontmatter({
+			'media.excalidraw.decoration': 'softFrame',
+			'media.excalidraw.decorationParams': { radius: '12' },
+		});
+		const flat = excalidrawConfigToFrontmatter(config);
+		expect(flat['media.excalidraw.decoration']).toBe('softFrame');
+		expect(flat['media.excalidraw.decorationParams']).toEqual({ radius: '12' });
+		expect(parseExcalidrawFrontmatter(flat).config).toEqual(config);
+	});
+
+	it('omits the decoration key for the default and for a missing config', () => {
+		expect(excalidrawConfigToFrontmatter({ decoration: 'none' })).toEqual({});
+		expect(excalidrawConfigToFrontmatter(undefined)).toEqual({});
+	});
+
+	it('serializes custom decorations and skips empty input', () => {
+		const custom: ExcalidrawDecoration = {
+			id: 'myCanvas',
+			name: '我的画布',
+			description: '',
+			builtin: false,
+			params: { radius: { type: 'px', label: '圆角', default: '8' } },
+			family: 'frame',
+		};
+		const out = customExcalidrawDecorationsToFrontmatter([custom]);
+		expect(out?.['media.excalidraw.decoration']).toHaveLength(1);
+		expect(customExcalidrawDecorationsToFrontmatter([])).toBeNull();
+		expect(customExcalidrawDecorationsToFrontmatter(undefined)).toBeNull();
+	});
+
+	it('classifies excalidraw var keys', () => {
+		expect(isExcalidrawVarKey('media.excalidraw.decoration')).toBe(true);
+		expect(isExcalidrawVarKey('media.excalidraw.decorationParams.radius')).toBe(true);
+		expect(isExcalidrawVarKey('media.math.decoration')).toBe(false);
+	});
+});

@@ -189,6 +189,10 @@ describe('serialization', () => {
 			family: 'composite',
 		};
 		const fm = customCalloutDecorationsToFrontmatter([d])!;
+		// Canonical key order: head, params, then the family extra (`types` was
+		// already last for this family — see decoration-config).
+		const entries = fm['callout.decoration'] as Array<Record<string, unknown>>;
+		expect(Object.keys(entries[0])).toEqual(['id', 'name', 'description', 'params', 'types']);
 		const { customDecorations } = parseCalloutFrontmatter({ custom_values: fm });
 		expect(customDecorations[0]).toEqual(d);
 	});

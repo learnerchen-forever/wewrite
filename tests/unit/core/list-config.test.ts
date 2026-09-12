@@ -52,6 +52,21 @@ describe('three independent list kinds', () => {
     expect(parseUnorderedFrontmatter(fm).customDecorations.map(d => d.id)).toEqual(['myUl']);
     expect(parseTaskFrontmatter(fm).customDecorations).toHaveLength(0);
   });
+
+  it('requires both templates, without judging their content', () => {
+    const fm = {
+      custom_values: {
+        'ol.decoration': [
+          { id: 'noItemTemplate', name: 'x', template: '<ol>{items}</ol>' },
+          { id: 'emptyTemplates', name: 'x', template: '', itemTemplate: '' },
+          { id: 'ok', name: 'x', template: '<ol>{items}</ol>', itemTemplate: '<li>{item}</li>' },
+        ],
+      },
+    };
+    // An item template is required; emptiness is not the parser's business (the
+    // other template families do reject an empty one — see decoration-config).
+    expect(parseOrderedFrontmatter(fm).customDecorations.map(d => d.id)).toEqual(['emptyTemplates', 'ok']);
+  });
 });
 
 describe('resolve*Decoration', () => {
@@ -90,11 +105,16 @@ describe('serialization', () => {
   });
 
   it('custom decorations serialize to their own key', () => {
-    const deco = { id: 'x', name: 'x', description: '', builtin: false, template: '<ul>{items}</ul>', itemTemplate: '<li>{item}</li>', params: {}, family: 'plain' as const };
+    const deco = { id: 'x', name: 'x', description: '', builtin: false, template: '<ul>{items}</ul>', itemTemplate: '<li>{item}</li>', params: { gap: { type: 'px' as const, label: '间距', default: '8' } }, family: 'plain' as const };
     expect(Object.keys(customOrderedDecorationsToFrontmatter([deco]) || {})).toContain('ol.decoration');
     expect(Object.keys(customUnorderedDecorationsToFrontmatter([deco]) || {})).toContain('ul.decoration');
     expect(Object.keys(customTaskDecorationsToFrontmatter([deco]) || {})).toContain('task.decoration');
     expect(customOrderedDecorationsToFrontmatter([])).toBeNull();
+
+    // Entry key order is this family's historical one: the extra templates right
+    // after the payload, then the shared params map.
+    const entries = customOrderedDecorationsToFrontmatter([deco])?.['ol.decoration'] as Array<Record<string, unknown>>;
+    expect(Object.keys(entries[0])).toEqual(['id', 'name', 'template', 'itemTemplate', 'params']);
   });
 
   it('is*VarKey recognizes only its own keys', () => {

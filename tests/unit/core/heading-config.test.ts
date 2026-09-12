@@ -9,7 +9,8 @@ import {
   customDecorationsToFrontmatter,
   isHeadingVarKey,
 } from '../../../src/core/heading-config';
-import { parseFrontmatter, splitFrontmatter, stringifyFrontmatter } from '../../../src/utils/frontmatter';
+import { parseFrontmatter, stringifyFrontmatter } from '../../../src/utils/frontmatter';
+import type { HeadingDecoration } from '../../../src/core/heading-decoration-types';
 
 describe('parseHeadingFrontmatter', () => {
   it('parses flat global keys', () => {
@@ -235,14 +236,14 @@ describe('computeHeadingScale / resolveHeadingDecoration', () => {
   });
 
   it('resolves custom decorations and falls back to none for unknown ids', () => {
-    const custom = [{
+    const custom: HeadingDecoration[] = [{
       id: 'myLeaf',
       name: '我的',
       description: '',
       builtin: false,
       template: '<h2>{text}</h2>',
       params: { colorA: { type: 'color', label: 'A', default: '#86a245' } },
-      family: 'composite' as const,
+      family: 'composite',
     }];
     const customResolved = resolveHeadingDecoration('myLeaf', { colorA: '#000' }, custom);
     expect(customResolved.decoration.id).toBe('myLeaf');
@@ -305,6 +306,10 @@ describe('heading config serialization', () => {
     });
     const out = customDecorationsToFrontmatter(customDecorations)!;
     expect(out['heading.decoration']).toHaveLength(1);
+    // Canonical key order: head, payload, params (the read-only `suggestedLevels`
+    // is stamped onto the decoration but never written — see decoration-config).
+    const entries = out['heading.decoration'] as Array<Record<string, unknown>>;
+    expect(Object.keys(entries[0])).toEqual(['id', 'name', 'template', 'params']);
 
     const parsed = parseFrontmatter(stringifyFrontmatter('# t', { custom_values: out })) as Record<string, unknown>;
     const round = parseHeadingFrontmatter(parsed);

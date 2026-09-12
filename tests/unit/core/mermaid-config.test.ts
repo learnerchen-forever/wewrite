@@ -114,6 +114,10 @@ describe('serialization', () => {
 			family: 'composite',
 		};
 		const fm = customMermaidDecorationsToFrontmatter([d])!;
+		// Entry key order is this family's historical one: the palette right after
+		// the head, then the shared params map.
+		const entries = fm['media.mermaid.decoration'] as Array<Record<string, unknown>>;
+		expect(Object.keys(entries[0])).toEqual(['id', 'name', 'theme', 'colors', 'params']);
 		const { customDecorations } = parseMermaidFrontmatter({ custom_values: fm });
 		expect(customDecorations[0]).toEqual(d);
 	});
@@ -122,6 +126,8 @@ describe('serialization', () => {
 		expect(isMermaidVarKey('media.mermaid.decoration')).toBe(true);
 		expect(isMermaidVarKey('media.mermaid.decorationParams')).toBe(true);
 		expect(isMermaidVarKey('media.mermaid.decorationParams.radius')).toBe(true);
+		// The prefix is enough: this family never required the dot (kept as is).
+		expect(isMermaidVarKey('media.mermaid.decorationParamsX')).toBe(true);
 		expect(isMermaidVarKey('media.mermaid.theme')).toBe(false);
 		expect(isMermaidVarKey('media.math.color')).toBe(false);
 	});

@@ -53,7 +53,9 @@ describe('parseInlineFrontmatter', () => {
 
     expect(config.types?.inlineMath?.color).toBe('accent');
     expect(config.types?.inlineMath?.scale).toBe('small');
-    expect(config.types?.notAType).toBeUndefined();
+    // `notAType` is deliberately not a known inline type; read it through a
+    // loose view to assert the parser dropped it.
+    expect((config.types as Record<string, unknown> | undefined)?.notAType).toBeUndefined();
   });
 
   it('parses custom decorations from custom_values.inline.decoration', () => {

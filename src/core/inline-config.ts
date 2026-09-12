@@ -13,15 +13,26 @@
 //
 // Cascade priority per type: library defaults → type default params →
 // inline.<type>.decorationParams overrides.
+//
+// The custom-decoration list is read and written by decoration-config.ts like
+// every other family's; the per-type config and its resolve stay here, because
+// the keys are two levels deep (`inline.<type>.*`) rather than a flat prefix.
 
 import { getInlineDecorationMap } from './inline-decoration-library';
-import type { DecorationParam } from './heading-decoration-types';
 import type {
 	InlineDecoration,
 	InlineElementType,
 	InlineTypeDef,
 } from './inline-decoration-types';
 import { INLINE_ELEMENT_TYPES } from './inline-decoration-types';
+import {
+	asStringMap,
+	isObj,
+	mergeDecorationMap,
+	readCustomDecorations,
+	writeCustomDecorations,
+	type CustomDecorationSpec,
+} from './decoration-config';
 import { t } from '../i18n';
 
 /** Per-type config; a type with no entry uses its built-in defaults. */
@@ -42,19 +53,12 @@ export interface InlineConfig {
 const MATH_COLOR_DEFAULT = 'followText';
 const MATH_SCALE_DEFAULT = 'normal';
 
-function isObj(v: unknown): v is Record<string, unknown> {
-	return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
-
-function asStringMap(v: unknown): Record<string, string> {
-	const out: Record<string, string> = {};
-	if (isObj(v)) {
-		for (const [k, val] of Object.entries(v)) {
-			if (typeof val === 'string') out[k] = val;
-		}
-	}
-	return out;
-}
+/** Inline decorations are a single shared list (not per type), like the others. */
+const INLINE_CUSTOM_SPEC: CustomDecorationSpec<InlineDecoration> = {
+	customKey: 'inline.decoration',
+	payload: 'template',
+	family: 'composite',
+};
 
 function isKnownType(id: string): id is InlineElementType {
 	return (INLINE_ELEMENT_TYPES as string[]).includes(id);
@@ -98,41 +102,7 @@ function applyTypeKey(
 }
 
 function parseCustomDecorations(customValues: unknown): InlineDecoration[] {
-	if (!isObj(customValues)) return [];
-	const list = customValues['inline.decoration'];
-	if (!Array.isArray(list)) return [];
-
-	const out: InlineDecoration[] = [];
-	for (const item of list) {
-		const d = item as Record<string, unknown> | null;
-		if (!d || typeof d.id !== 'string' || !d.id) continue;
-		if (typeof d.name !== 'string' || !d.name) continue;
-		if (typeof d.template !== 'string' || !d.template) continue;
-
-		const params: Record<string, DecorationParam> = {};
-		if (isObj(d.params)) {
-			for (const [pk, pv] of Object.entries(d.params)) {
-				const def = pv as Record<string, unknown> | null;
-				if (!def || typeof def.type !== 'string' || typeof def.default !== 'string') continue;
-				params[pk] = {
-					type: def.type as DecorationParam['type'],
-					label: typeof def.label === 'string' ? def.label : pk,
-					default: def.default,
-				};
-			}
-		}
-
-		out.push({
-			id: d.id,
-			name: d.name,
-			description: typeof d.description === 'string' ? d.description : '',
-			builtin: false,
-			template: d.template,
-			params,
-			family: 'composite',
-		});
-	}
-	return out;
+	return readCustomDecorations<InlineDecoration>(customValues, INLINE_CUSTOM_SPEC);
 }
 
 /** Parse the inline decoration config (and custom decorations) from theme frontmatter. */
@@ -191,10 +161,7 @@ export function resolveInlineDecoration(
 	typeConfig: InlineTypeConfig | undefined,
 	customDecorations: InlineDecoration[] = [],
 ): { decoration: InlineDecoration; params: Record<string, string> } {
-	const map = { ...getInlineDecorationMap() };
-	for (const c of customDecorations) {
-		if (!map[c.id]) map[c.id] = c;
-	}
+	const map = mergeDecorationMap(getInlineDecorationMap(), customDecorations);
 
 	const decorationId = typeConfig?.decoration || def.defaultDecoration;
 	const decoration = map[decorationId] || map['none'];
@@ -246,22 +213,7 @@ export function inlineConfigToFrontmatter(config: InlineConfig | undefined): Rec
 export function customInlineDecorationsToFrontmatter(
 	decorations: InlineDecoration[] | undefined,
 ): Record<string, unknown> | null {
-	if (!decorations || decorations.length === 0) return null;
-	return {
-		'inline.decoration': decorations.map(d => {
-			const params: Record<string, unknown> = {};
-			for (const [k, v] of Object.entries(d.params)) {
-				params[k] = { type: v.type, label: v.label, default: v.default };
-			}
-			return {
-				id: d.id,
-				name: d.name,
-				...(d.description ? { description: d.description } : {}),
-				template: d.template,
-				...(Object.keys(params).length > 0 ? { params } : {}),
-			};
-		}),
-	};
+	return writeCustomDecorations<InlineDecoration>(decorations, INLINE_CUSTOM_SPEC);
 }
 
 /** Per-type definitions: labels, safe render tags, base styles and defaults. */

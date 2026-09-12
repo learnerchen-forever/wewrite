@@ -10,6 +10,11 @@
 // callout.decorationTypes sparse overrides. A type without an explicit
 // `background` derives one from its titleColor + bgAlpha/bgMode/gradientAngle
 // params; a type without either falls back to Obsidian's computed style.
+//
+// The mechanics live in decoration-config.ts; what is left here is the shape of
+// this family. It keeps three functions of its own because it carries a second
+// nested map (`types`, keyed by callout type) through parse, resolve and
+// serialise, which the shared signatures do not describe.
 
 import { getCalloutDecorationMap } from './callout-decoration-library';
 import {
@@ -18,30 +23,17 @@ import {
 	type CalloutType,
 	type CalloutTypeStyle,
 } from './callout-decoration-types';
-import type { DecorationParam } from './heading-decoration-types';
+import { createDecorationFamily, isObj, asStringMap, type DecorationConfigBase } from './decoration-config';
 import { t } from '../i18n';
 
-export interface CalloutConfig {
-	decoration?: string;
-	/** Sparse shared-param overrides merged over the decoration's defaults. */
-	decorationParams?: Record<string, string>;
+export interface CalloutConfig extends DecorationConfigBase {
 	/** Sparse per-type field overrides: type → field → value. */
 	decorationTypes?: Record<string, Record<string, string>>;
 }
 
-function isObj(v: unknown): v is Record<string, unknown> {
-	return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
+const TYPE_FIELDS = ['titleColor', 'background', 'icon', 'borderColor', 'textColor'] as const;
 
-function asStringMap(v: unknown): Record<string, string> {
-	const out: Record<string, string> = {};
-	if (isObj(v)) {
-		for (const [k, val] of Object.entries(v)) {
-			if (typeof val === 'string') out[k] = val;
-		}
-	}
-	return out;
-}
+type CalloutTypes = Partial<Record<CalloutType, CalloutTypeStyle>>;
 
 function asTypeOverrideMap(v: unknown): Record<string, Record<string, string>> {
 	const out: Record<string, Record<string, string>> = {};
@@ -54,58 +46,86 @@ function asTypeOverrideMap(v: unknown): Record<string, Record<string, string>> {
 	return out;
 }
 
-const TYPE_FIELDS = ['titleColor', 'background', 'icon', 'borderColor', 'textColor'] as const;
-
-function parseCustomDecorations(customValues: unknown): CalloutDecoration[] {
-	if (!isObj(customValues)) return [];
-	const list = customValues['callout.decoration'];
-	if (!Array.isArray(list)) return [];
-
-	const out: CalloutDecoration[] = [];
-	for (const item of list) {
-		const d = item as Record<string, unknown> | null;
-		if (!d || typeof d.id !== 'string' || !d.id) continue;
-		if (typeof d.name !== 'string' || !d.name) continue;
-
-		const params: Record<string, DecorationParam> = {};
-		if (isObj(d.params)) {
-			for (const [pk, pv] of Object.entries(d.params)) {
-				const def = pv as Record<string, unknown> | null;
-				if (!def || typeof def.type !== 'string' || typeof def.default !== 'string') continue;
-				params[pk] = {
-					type: def.type as DecorationParam['type'],
-					label: typeof def.label === 'string' ? def.label : pk,
-					default: def.default,
-				};
+/** Keep only the known fields of the known callout types. */
+function parseTypes(raw: unknown): CalloutTypes {
+	const types: CalloutTypes = {};
+	if (!isObj(raw)) return types;
+	for (const type of CALLOUT_TYPES) {
+		const styleRaw = raw[type];
+		if (!isObj(styleRaw)) continue;
+		const style: CalloutTypeStyle = {};
+		for (const field of TYPE_FIELDS) {
+			if (typeof styleRaw[field] === 'string' && styleRaw[field]) {
+				style[field] = styleRaw[field];
 			}
 		}
+		if (Object.keys(style).length > 0) types[type] = style;
+	}
+	return types;
+}
 
-		const types: Partial<Record<CalloutType, CalloutTypeStyle>> = {};
-		if (isObj(d.types)) {
-			for (const type of CALLOUT_TYPES) {
-				const raw = d.types[type];
-				if (!isObj(raw)) continue;
-				const style: CalloutTypeStyle = {};
-				for (const field of TYPE_FIELDS) {
-					if (typeof raw[field] === 'string' && raw[field]) {
-						style[field] = raw[field];
-					}
-				}
-				if (Object.keys(style).length > 0) types[type] = style;
-			}
+/** Drop empty field maps so a saved theme stays readable. */
+function serializeCustomTypes(types: CalloutTypes): Record<string, Record<string, string>> {
+	const out: Record<string, Record<string, string>> = {};
+	for (const [type, style] of Object.entries(types)) {
+		if (!style) continue;
+		const fields: Record<string, string> = {};
+		for (const field of TYPE_FIELDS) {
+			if (style[field]) fields[field] = style[field];
 		}
-
-		out.push({
-			id: d.id,
-			name: d.name,
-			description: typeof d.description === 'string' ? d.description : '',
-			builtin: false,
-			params,
-			types,
-			family: 'composite',
-		});
+		if (Object.keys(fields).length > 0) out[type] = fields;
 	}
 	return out;
+}
+
+/** Derive a background from a type color when the decoration does not set one. */
+function deriveBackground(titleColor: string, params: Record<string, string>): string | undefined {
+	const hex = titleColor.trim().replace(/^#/, '');
+	let rgb = '';
+	if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+		rgb = `${parseInt(hex[0] + hex[0], 16)},${parseInt(hex[1] + hex[1], 16)},${parseInt(hex[2] + hex[2], 16)}`;
+	} else if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+		rgb = `${parseInt(hex.slice(0, 2), 16)},${parseInt(hex.slice(2, 4), 16)},${parseInt(hex.slice(4, 6), 16)}`;
+	} else {
+		return undefined;
+	}
+	const alpha = params['bgAlpha'] || '0.1';
+	if (params['bgMode'] === 'solid') {
+		return `rgba(${rgb},${alpha})`;
+	}
+	const angle = params['gradientAngle'] || '120deg';
+	return `linear-gradient(${angle}, rgba(${rgb},${alpha}) 0%, transparent 100%)`;
+}
+
+/** True when a flat frontmatter key belongs to the new callout variable system. */
+export function isCalloutVarKey(key: string): boolean {
+	if (key === 'callout') return true;
+	if (!key.startsWith('callout.')) return false;
+	const rest = key.slice('callout.'.length);
+	if (rest === 'decoration' || rest === 'decorationParams' || rest === 'decorationTypes') return true;
+	return rest.startsWith('decorationParams.') || rest.startsWith('decorationTypes.');
+}
+
+const calloutFamily = createDecorationFamily<CalloutDecoration>({
+	flat: 'callout',
+	customKey: 'callout.decoration',
+	getMap: getCalloutDecorationMap,
+	payload: 'params',
+	family: 'composite',
+	stampCustom: (raw) => ({ types: parseTypes(raw.types) }),
+	serializeCustomExtra: (d) => {
+		const types = serializeCustomTypes(d.types);
+		return Object.keys(types).length > 0 ? { types } : null;
+	},
+	varKey: isCalloutVarKey,
+});
+
+/** True when every callout type has a background (explicit or derivable). */
+export function isCalloutDecorationComplete(d: CalloutDecoration): boolean {
+	return CALLOUT_TYPES.every((t) => {
+		const style = d.types[t];
+		return Boolean(style?.background || style?.titleColor);
+	});
 }
 
 /** Parse the callout decoration config (and custom decorations) from theme frontmatter. */
@@ -113,7 +133,7 @@ export function parseCalloutFrontmatter(
 	frontmatter: Record<string, unknown>,
 ): { config: CalloutConfig; customDecorations: CalloutDecoration[] } {
 	const config: CalloutConfig = {};
-	const customDecorations = parseCustomDecorations(frontmatter['custom_values']);
+	const customDecorations = calloutFamily.parseCustomDecorations(frontmatter['custom_values']);
 
 	for (const [key, value] of Object.entries(frontmatter)) {
 		if (key === 'callout' && isObj(value)) {
@@ -163,25 +183,6 @@ export function parseCalloutFrontmatter(
 	return { config, customDecorations };
 }
 
-/** Derive a background from a type color when the decoration does not set one. */
-function deriveBackground(titleColor: string, params: Record<string, string>): string | undefined {
-	const hex = titleColor.trim().replace(/^#/, '');
-	let rgb = '';
-	if (/^[0-9a-fA-F]{3}$/.test(hex)) {
-		rgb = `${parseInt(hex[0] + hex[0], 16)},${parseInt(hex[1] + hex[1], 16)},${parseInt(hex[2] + hex[2], 16)}`;
-	} else if (/^[0-9a-fA-F]{6}$/.test(hex)) {
-		rgb = `${parseInt(hex.slice(0, 2), 16)},${parseInt(hex.slice(2, 4), 16)},${parseInt(hex.slice(4, 6), 16)}`;
-	} else {
-		return undefined;
-	}
-	const alpha = params['bgAlpha'] || '0.1';
-	if (params['bgMode'] === 'solid') {
-		return `rgba(${rgb},${alpha})`;
-	}
-	const angle = params['gradientAngle'] || '120deg';
-	return `linear-gradient(${angle}, rgba(${rgb},${alpha}) 0%, transparent 100%)`;
-}
-
 /** Resolve a decoration id (builtin or custom) with sparse param + type overrides. */
 export function resolveCalloutDecoration(
 	decorationId: string,
@@ -189,11 +190,7 @@ export function resolveCalloutDecoration(
 	typesOverride: Record<string, Record<string, string>> | undefined,
 	customDecorations: CalloutDecoration[] = [],
 ): { decoration: CalloutDecoration; params: Record<string, string>; types: Record<CalloutType, CalloutTypeStyle> } {
-	const map = { ...getCalloutDecorationMap() };
-	for (const c of customDecorations) {
-		if (!map[c.id]) map[c.id] = c;
-	}
-
+	const map = calloutFamily.buildMap(customDecorations);
 	const decoration = map[decorationId] || map['none'] || {
 		id: decorationId || 'none',
 		name: t('deco_lib.callout.none'),
@@ -203,15 +200,7 @@ export function resolveCalloutDecoration(
 		types: {},
 		family: 'none' as const,
 	};
-	const params: Record<string, string> = {};
-	for (const [k, v] of Object.entries(decoration.params)) {
-		params[k] = v.default;
-	}
-	if (paramsOverride) {
-		for (const [k, v] of Object.entries(paramsOverride)) {
-			params[k] = v;
-		}
-	}
+	const params = calloutFamily.paramsFor(decoration, paramsOverride);
 
 	const types = {} as Record<CalloutType, CalloutTypeStyle>;
 	for (const type of CALLOUT_TYPES) {
@@ -226,26 +215,6 @@ export function resolveCalloutDecoration(
 	return { decoration, params, types };
 }
 
-/** True when every callout type has a background (explicit or derivable). */
-export function isCalloutDecorationComplete(d: CalloutDecoration): boolean {
-	return CALLOUT_TYPES.every((t) => {
-		const style = d.types[t];
-		return Boolean(style?.background || style?.titleColor);
-	});
-}
-
-// ── Serialization (theme editor save) ──
-
-/** True when a flat frontmatter key belongs to the new callout variable system. */
-export function isCalloutVarKey(key: string): boolean {
-	if (key === 'callout') return true;
-	if (!key.startsWith('callout.')) return false;
-	const rest = key.slice('callout.'.length);
-	if (rest === 'decoration' || rest === 'decorationParams' || rest === 'decorationTypes') return true;
-	if (rest.startsWith('decorationParams.') || rest.startsWith('decorationTypes.')) return true;
-	return false;
-}
-
 /** Serialize a callout config back to flat frontmatter keys (callout.*). */
 export function calloutConfigToFrontmatter(config: CalloutConfig | undefined): Record<string, unknown> {
 	const out: Record<string, unknown> = {};
@@ -256,7 +225,7 @@ export function calloutConfigToFrontmatter(config: CalloutConfig | undefined): R
 	if (config.decorationParams && Object.keys(config.decorationParams).length > 0) {
 		out['callout.decorationParams'] = { ...config.decorationParams };
 	}
-	if (config.decorationTypes && Object.keys(config.decorationTypes).length > 0) {
+	if (config.decorationTypes) {
 		const types: Record<string, Record<string, string>> = {};
 		for (const [type, fields] of Object.entries(config.decorationTypes)) {
 			if (Object.keys(fields).length > 0) types[type] = { ...fields };
@@ -266,33 +235,8 @@ export function calloutConfigToFrontmatter(config: CalloutConfig | undefined): R
 	return out;
 }
 
-/** Serialize user-defined callout decorations for custom_values.callout.decoration. */
-export function customCalloutDecorationsToFrontmatter(
-	decorations: CalloutDecoration[] | undefined,
-): Record<string, unknown> | null {
-	if (!decorations || decorations.length === 0) return null;
-	return {
-		'callout.decoration': decorations.map((d) => {
-			const params: Record<string, unknown> = {};
-			for (const [k, v] of Object.entries(d.params)) {
-				params[k] = { type: v.type, label: v.label, default: v.default };
-			}
-			const types: Record<string, Record<string, string>> = {};
-			for (const [type, style] of Object.entries(d.types)) {
-				if (!style) continue;
-				const fields: Record<string, string> = {};
-				for (const field of TYPE_FIELDS) {
-					if (style[field]) fields[field] = style[field];
-				}
-				if (Object.keys(fields).length > 0) types[type] = fields;
-			}
-			return {
-				id: d.id,
-				name: d.name,
-				...(d.description ? { description: d.description } : {}),
-				...(Object.keys(params).length > 0 ? { params } : {}),
-				...(Object.keys(types).length > 0 ? { types } : {}),
-			};
-		}),
-	};
-}
+/**
+ * Serialize user-defined callout decorations for custom_values.callout.decoration.
+ * The decoration list itself comes from the family's spec (id / name / params).
+ */
+export const customCalloutDecorationsToFrontmatter = calloutFamily.customDecorationsToFrontmatter;
