@@ -95,7 +95,6 @@ function applyTypeIcon(
 	titleRow: Element,
 	iconPaths: string | undefined,
 	iconSize: string | undefined,
-	doc: Document,
 ): void {
 	const size = iconSize || '18px';
 	let svg: Element | null = titleRow.querySelector('svg');
@@ -135,7 +134,6 @@ function renderCalloutElement(
 	decoration: CalloutDecoration,
 	params: Record<string, string>,
 	types: Record<CalloutType, CalloutTypeStyle>,
-	doc: Document,
 	tokens: TokenVars,
 ): void {
 	const type = resolveCalloutType(section.getAttribute('data-wewrite-callout') || 'note');
@@ -177,7 +175,7 @@ function renderCalloutElement(
 		if (P.titleFontWeight) titleCss.push(`font-weight:${P.titleFontWeight}`);
 		if (P.titleAlign) titleCss.push(`text-align:${P.titleAlign}`);
 		if (titleCss.length > 0) appendStyle(titleRow, titleCss.join(';'));
-		applyTypeIcon(titleRow, style.icon, P.iconSize, doc);
+		applyTypeIcon(titleRow, style.icon, P.iconSize);
 	}
 
 	// Body
@@ -222,7 +220,7 @@ export function renderCallouts(doc: Document, r: ThemeResolver): boolean {
 		customDecorations,
 	);
 	const tokens = r.getTokens();
-	sections.forEach((section) => renderCalloutElement(section, decoration, params, types, doc, tokens));
+	sections.forEach((section) => renderCalloutElement(section, decoration, params, types, tokens));
 	return true;
 }
 

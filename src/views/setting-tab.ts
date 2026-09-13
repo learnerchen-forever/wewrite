@@ -134,10 +134,6 @@ export class WeWriteSettingTab extends PluginSettingTab {
   private _serverInfoEl?: HTMLElement;
   /** Declarative server-info row renderer, kept so sync callbacks can refresh it. */
   private _renderServerInfo?: (quota: ServerQuotaInfo | null | undefined) => void;
-  /** Progress bar + status line — rebuilt on display(). */
-  private _progressEl?: HTMLElement;
-  private _progressBarEl?: HTMLElement;
-  private _progressTextEl?: HTMLElement;
 
   constructor(plugin: WeWritePlugin) {
     super(plugin.app, plugin);
@@ -947,7 +943,6 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
     // ── Remote Directory (change → reset sync state) ──
     const oldRemoteDir = settings.syncRemoteDir;
-    const localT = t; // capture i18n function before it's shadowed by TextComponent
     new Setting(frame)
       .setName(t('settings.sync_remote_dir'))
       .setDesc(t('settings.sync_remote_dir_desc'))
@@ -958,7 +953,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           if (oldRemoteDir !== newVal && oldRemoteDir !== '') {
             // Remote dir changed — reset sync state to avoid stale data
             this.plugin.syncEngine?.resetState();
-            new Notice(localT('notice.sync_remote_dir_changed'));
+            new Notice(t('notice.sync_remote_dir_changed'));
           }
           settings.syncRemoteDir = newVal;
           this.save();
@@ -1064,15 +1059,12 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // ── Progress bar + status line (visible while a cycle runs) ──
     const progressEl = frame.createDiv({ cls: 'wewrite-sync-progress' });
     progressEl.style.cssText = 'margin:8px 0 4px;display:none;';
-    this._progressEl = progressEl;
     const barWrap = progressEl.createDiv();
     barWrap.style.cssText = 'height:6px;background:var(--background-modifier-border);border-radius:3px;overflow:hidden;margin-bottom:6px;';
     const progressBar = barWrap.createDiv();
     progressBar.style.cssText = 'height:6px;background:var(--interactive-accent);width:0%;border-radius:3px;transition:width .2s;';
-    this._progressBarEl = progressBar;
     const progressText = progressEl.createDiv();
     progressText.style.cssText = 'font-size:12px;color:var(--text-muted);line-height:1.6;';
-    this._progressTextEl = progressText;
 
     // ── Sync Status + Start/Stop button ──
     let syncActionBtn!: ButtonComponent;

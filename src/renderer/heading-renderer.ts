@@ -173,7 +173,7 @@ function appendStyle(el: Element, css: string): void {
 	el.setAttribute('style', current ? current + ';' + css : css);
 }
 
-function retag(el: Element, tagName: string, doc: Document): Element {
+function retag(el: Element, tagName: string): Element {
 	if (el.tagName === tagName) return el;
 	const replacement = createEl(tagName as keyof HTMLElementTagNameMap);
 	for (const attr of Array.from(el.attributes)) {
@@ -256,7 +256,7 @@ function injectRootMargins(root: Element, cfg: ResolvedHeadingLevel): void {
 }
 
 /** C8: display:table → inline-table; wrap shrink-to-fit roots in a text-align section. */
-function normalizeRoot(root: Element, cfg: ResolvedHeadingLevel, doc: Document): Element {
+function normalizeRoot(root: Element, cfg: ResolvedHeadingLevel): Element {
 	const style = root.getAttribute('style') || '';
 	const normalized = style.replace(/display:\s*table(?![-a-z])/i, 'display:inline-table');
 	if (normalized !== style) root.setAttribute('style', normalized);
@@ -272,7 +272,7 @@ function normalizeRoot(root: Element, cfg: ResolvedHeadingLevel, doc: Document):
 }
 
 /** Fallback numbering: inline span with the default suffix (D10). */
-function insertNumberFallback(carrier: Element, raw: string, style: Exclude<NumberingStyle, 'none'>, doc: Document): void {
+function insertNumberFallback(carrier: Element, raw: string, style: Exclude<NumberingStyle, 'none'>): void {
 	const span = createEl('span');
 	span.setAttribute('style', 'margin-right:0.5em;user-select:none;');
 	span.setAttribute('data-wewrite-numbering', 'true');
@@ -318,7 +318,7 @@ function renderHeadingElement(
 	if (!decoration.template) {
 		el.setAttribute('style', plainHeadingStyle(cfg, tokens));
 		if (useFallbackNumber && numberingOn) {
-			insertNumberFallback(el, numberText, cfg.numbering as Exclude<NumberingStyle, 'none'>, doc);
+			insertNumberFallback(el, numberText, cfg.numbering as Exclude<NumberingStyle, 'none'>);
 		}
 		return;
 	}
@@ -345,13 +345,13 @@ function renderHeadingElement(
 
 	const oldRoot = root;
 	if (HEADING_TAG_RE.test(root.tagName)) {
-		root = retag(root, levelTag, doc);
+		root = retag(root, levelTag);
 	}
 	if (carrier === oldRoot) {
 		// Root and carrier are the same element — already retagged above.
 		carrier = root;
 	} else if (HEADING_TAG_RE.test(carrier.tagName)) {
-		carrier = retag(carrier, levelTag, doc);
+		carrier = retag(carrier, levelTag);
 	}
 
 	// Move the heading content into the text carrier (in place, preserving
@@ -367,11 +367,11 @@ function renderHeadingElement(
 	injectRootMargins(root, cfg);
 
 	if (useFallbackNumber && numberingOn) {
-		insertNumberFallback(carrier, numberText, cfg.numbering as Exclude<NumberingStyle, 'none'>, doc);
+		insertNumberFallback(carrier, numberText, cfg.numbering as Exclude<NumberingStyle, 'none'>);
 	}
 
 	root.setAttribute('data-wewrite-decoration', decoration.id);
-	const rendered = normalizeRoot(root, cfg, doc);
+	const rendered = normalizeRoot(root, cfg);
 	if (el.parentNode) {
 		el.parentNode.replaceChild(rendered, el);
 	}

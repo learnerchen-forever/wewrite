@@ -120,7 +120,6 @@ function renderPlainQuote(
 	el: Element,
 	iconText: string | null,
 	lineHeightPx: number,
-	doc: Document,
 	tokens: TokenVars,
 ): void {
 	const htmlEl = el as HTMLElement;
@@ -144,7 +143,7 @@ function renderBlockquoteElement(
 ): void {
 	// No decoration — style the quote directly.
 	if (!decoration.template) {
-		renderPlainQuote(el, iconText, lineHeightPx, doc, tokens);
+		renderPlainQuote(el, iconText, lineHeightPx, tokens);
 		return;
 	}
 
@@ -153,14 +152,14 @@ function renderBlockquoteElement(
 	container.innerHTML = expanded;
 	let root = container.firstElementChild;
 	if (!root) {
-		renderPlainQuote(el, iconText, lineHeightPx, doc, tokens);
+		renderPlainQuote(el, iconText, lineHeightPx, tokens);
 		return;
 	}
 
 	let carrier = findPlaceholderElement(container, '{text}');
 	if (!carrier) {
 		// Invalid template (no {text}) — degrade to a plain quote.
-		renderPlainQuote(el, iconText, lineHeightPx, doc, tokens);
+		renderPlainQuote(el, iconText, lineHeightPx, tokens);
 		return;
 	}
 	if (carrier === container) carrier = root;

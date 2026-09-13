@@ -41,7 +41,6 @@ export class ImageEditModal {
   private dragStartMouse = { x: 0, y: 0 };
   private dragStartPan = { x: 0, y: 0 };
   private dragStartOffset = 0;
-  private hasDragged = false;
 
   // Pinch zoom
   private pinchStartDistance = 0;
@@ -59,8 +58,6 @@ export class ImageEditModal {
   private boundWheel: ((e: WheelEvent) => void) | null = null;
   private boundMouseMove: ((e: MouseEvent) => void) | null = null;
   private boundMouseUp: (() => void) | null = null;
-  private boundTouchMove: ((e: TouchEvent) => void) | null = null;
-  private boundTouchEnd: (() => void) | null = null;
   private boundKeyDown: ((e: KeyboardEvent) => void) | null = null;
   // areaB listeners are automatically GC'd when the element is removed,
   // but we store refs for removeInteraction() completeness
@@ -321,7 +318,6 @@ export class ImageEditModal {
     // Mouse down — dispatch to image drag or frame drag
     this.boundAreaMouseDown = (e: MouseEvent) => {
       if (!this.imageReady) return;
-      this.hasDragged = false;
 
       const target = e.target as HTMLElement;
 
@@ -363,7 +359,6 @@ export class ImageEditModal {
     // Mouse move (window-level so drags continue outside the element)
     this.boundMouseMove = (e: MouseEvent) => {
       if (!this.isDragging || !this.dragTarget) return;
-      this.hasDragged = true;
       const dx = e.clientX - this.dragStartMouse.x;
       const dy = e.clientY - this.dragStartMouse.y;
 
@@ -399,7 +394,6 @@ export class ImageEditModal {
       this.dragTarget = null;
       this.areaB.style.cursor = (!this.dVisible && !this.fVisible && this.zoom > this.getMinZoom())
         ? 'grab' : '';
-      window.setTimeout(() => { this.hasDragged = false; }, 0);
     };
     window.addEventListener('mouseup', this.boundMouseUp);
 
@@ -435,7 +429,6 @@ export class ImageEditModal {
         // Single-finger pan
         this.dragTarget = 'image';
         this.isDragging = true;
-        this.hasDragged = false;
         this.dragStartMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         this.dragStartPan = { x: this.panX, y: this.panY };
       } else if (e.touches.length === 2) {
@@ -472,7 +465,6 @@ export class ImageEditModal {
         }
       } else if (e.touches.length === 1 && this.isDragging && this.dragTarget === 'image') {
         // Single-finger pan
-        this.hasDragged = true;
         const dx = e.touches[0].clientX - this.dragStartMouse.x;
         const dy = e.touches[0].clientY - this.dragStartMouse.y;
         this.panX = this.dragStartPan.x + dx;
@@ -504,7 +496,6 @@ export class ImageEditModal {
       if (this.isDragging) {
         this.isDragging = false;
         this.dragTarget = null;
-        window.setTimeout(() => { this.hasDragged = false; }, 0);
       }
       this.pinchStartDistance = 0;
     };

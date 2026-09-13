@@ -45,7 +45,6 @@ function renderDividerElement(
 	el: Element,
 	decoration: DividerDecoration,
 	params: Record<string, string>,
-	doc: Document,
 	tokens: TokenVars,
 	preset: ThemePreset,
 ): void {
@@ -92,7 +91,7 @@ export function renderDividers(doc: Document, r: ThemeResolver): boolean {
 	const tokens = r.getTokens();
 
 	for (const el of Array.from(doc.querySelectorAll('hr'))) {
-		renderDividerElement(el, decoration, params, doc, tokens, preset);
+		renderDividerElement(el, decoration, params, tokens, preset);
 	}
 	return true;
 }

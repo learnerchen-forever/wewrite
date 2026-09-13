@@ -52,7 +52,6 @@ export class NewsPicPreview {
   private pageIndicatorEl!: HTMLElement;
   private cropOverlayEl!: HTMLElement;
   private cropTabsEl!: HTMLElement;
-  private titleEl!: HTMLElement;
   private descEl!: HTMLElement;
   private statusEl!: HTMLElement;
 
@@ -68,8 +67,6 @@ export class NewsPicPreview {
   private _statusTimer: number | null = null;
   private onWindowResize = (): void => { this.applyZoom(); };
 
-  private static readonly CROP_COORD_PRECISION = 1e6;
-  private static readonly CROP_MIN_SIZE = 0.05;
   private static readonly STATUS_READY_TIMEOUT_MS = 1500;
 
   constructor(container: HTMLElement, vault: Vault) {

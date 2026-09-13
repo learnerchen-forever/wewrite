@@ -4,16 +4,6 @@ import type { App, TFile } from 'obsidian';
 import { normalizePath, Platform } from 'obsidian';
 
 /**
- * Get the attachment folder path for a given note.
- * Returns the configured attachment folder or the same folder as the note.
- */
-export function getAttachmentFolder(app: App, notePath: string): string {
-  // Default: same folder as the note
-  const noteDir = notePath.substring(0, notePath.lastIndexOf('/') + 1) || '';
-  return normalizePath(noteDir);
-}
-
-/**
  * Resolve a relative or absolute vault path to an absolute vault path.
  */
 export function resolveVaultPath(basePath: string, relativePath: string): string {

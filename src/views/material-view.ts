@@ -723,7 +723,7 @@ export class MaterialView extends ItemView {
 
   private selectNone(type: MaterialType): void {
     this.selectedItems[type].clear();
-    this.refreshCheckOverlays(type, false);
+    this.refreshCheckOverlays(false);
     this.updateDeleteButtonState(type);
   }
 
@@ -732,7 +732,7 @@ export class MaterialView extends ItemView {
       ? this.materialManager.getPageItems(this.activeAccountId, type, this.currentPage[type], this.PAGE_SIZE)
       : this.items[type];
     this.selectedItems[type] = new Set(pageItems.map(i => i.mediaId));
-    this.refreshCheckOverlays(type, true);
+    this.refreshCheckOverlays(true);
     this.updateDeleteButtonState(type);
   }
 
@@ -781,7 +781,7 @@ export class MaterialView extends ItemView {
     });
   }
 
-  private refreshCheckOverlays(type: MaterialType, checked: boolean): void {
+  private refreshCheckOverlays(checked: boolean): void {
     const checks = this.contentEl.querySelectorAll('.wewrite-material-select-check');
     checks.forEach((c) => {
       if (checked) {

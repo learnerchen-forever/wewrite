@@ -87,7 +87,6 @@ function renderListElement(
 	list: Element,
 	decoration: ListDecoration,
 	params: Record<string, string>,
-	doc: Document,
 	tokens: TokenVars,
 ): void {
 	const tag = list.tagName.toLowerCase();
@@ -169,7 +168,7 @@ function renderKindLists(
 		if (!decoration.template || !decoration.itemTemplate) {
 			renderPlainList(list);
 		} else {
-			renderListElement(list, decoration, params, doc, tokens);
+			renderListElement(list, decoration, params, tokens);
 		}
 	}
 	return true;
@@ -207,7 +206,6 @@ const TASK_SVG_PATHS: Record<string, string> = {
 };
 
 function makeTaskIconSpan(
-	doc: Document,
 	emoji: string,
 	size: number,
 	gap: number,
@@ -277,7 +275,6 @@ export function renderTaskLists(doc: Document, r: ThemeResolver): boolean {
 		const li = el.closest('li') as HTMLElement | null;
 
 		const cb = makeTaskIconSpan(
-			doc,
 			checked ? checkedEmoji : uncheckedEmoji,
 			taskIconSize,
 			taskIconGap,

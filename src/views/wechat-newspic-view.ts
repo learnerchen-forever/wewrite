@@ -769,7 +769,7 @@ export class WeChatNewsPicView extends ItemView {
     }
 
     const modal = new NewsPicPublishModal(
-      this.plugin, acct, preScanTasks,
+      acct, preScanTasks,
       this.config.images.length, publishLogger,
     );
     modal.open();
@@ -1434,8 +1434,7 @@ class NewsPicPublishModal {
   private publishLogger: PublishLogBuilder;
 
   constructor(
-    private plugin: WeWritePlugin,
-    private account: { name: string },
+    account: { name: string },
     preScanTasks: Array<{ name: string; status: string }>,
     imageCount: number,
     publishLogger: PublishLogBuilder,

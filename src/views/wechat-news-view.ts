@@ -84,7 +84,6 @@ export class WeChatNewsView extends ItemView {
   /** Set when renderContent is called mid-render — one more pass runs after. */
   private renderPending = false;
   private isPublishing = false;
-  private deviceRowEl!: HTMLElement;
   private coverComposer!: CoverComposer;
   private mediaRegistry!: MediaRegistry;
   private coverComposerContainerEl!: HTMLElement;
@@ -799,7 +798,6 @@ export class WeChatNewsView extends ItemView {
   private buildPreview(container: HTMLElement): void {
     // Row 1: Style selector (always visible) + refresh + chevron toggle
     const styleRow = container.createDiv({ cls: 'wewrite-device-selector-row' });
-    this.deviceRowEl = styleRow;
 
     const themeLabel = styleRow.createSpan({ cls: 'wewrite-prop-label-news wewrite-label-icon' });
     themeLabel.setAttribute('title', t('misc.theme_label'));
@@ -2927,7 +2925,6 @@ class PublishProgressModal {
   private tasks: PublishTask[];
   private preScanTasks: PublishTask[];
   private uploadTasks: PublishTask[];
-  private allTasks: PublishTask[];
   private uploadedMediaIds: Map<string, string> = new Map();
   private publishLogger: PublishLogBuilder;
   private _uploadDoneResolve!: () => void;
@@ -2947,7 +2944,6 @@ class PublishProgressModal {
     this.preScanTasks = preScanTasks;
     this.uploadTasks = uploadTasks;
     this.tasks = uploadTasks;
-    this.allTasks = [...preScanTasks, ...uploadTasks];
     this.modalEl = createEl('div');
     this.modalEl.addClass('wewrite-publish-modal');
     this.modalEl.innerHTML = `
@@ -2983,7 +2979,6 @@ class PublishProgressModal {
     this.html = currentHtml;
     this.uploadTasks = tasks;
     this.tasks = tasks;
-    this.allTasks = [...this.preScanTasks, ...tasks];
     this.renderAllTasks();
     void this.runUploadTasks();
   }

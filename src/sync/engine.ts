@@ -66,7 +66,6 @@ function tasksFromDecision(
   backend: SyncBackend,
   vault: Vault,
   getRecord: () => SyncRecordData,
-  remoteDir: string,
   localStats: Map<string, FileStat>,
   remoteStats: Map<string, FileStat>,
 ): BaseTask[] {
@@ -648,7 +647,6 @@ export class SyncEngine {
 
     try {
       const backend = this.getBackend();
-      const remoteDir = this.syncSettings.remoteDir;
 
       // Probe server quota (RFC 4331) — best-effort, never fails the cycle.
       // Lets the UI show plan/storage info and warn before storage exhaustion.
@@ -846,7 +844,7 @@ export class SyncEngine {
       // Pass the FILTERED stat maps — the raw walks may include oversized or
       // unsafe paths that the decision excluded; task stats must match decisions.
       const tasks = tasksFromDecision(
-        decision, backend, this.app.vault, () => this.record, remoteDir,
+        decision, backend, this.app.vault, () => this.record,
         localFiltered.filtered, remoteFiltered.filtered,
       );
       log.info(`sync plan: ${tasks.length} tasks, ${decision.pendingConflicts.length} conflicts`);

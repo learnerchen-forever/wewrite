@@ -339,19 +339,15 @@ export class WeWriteThemeView extends ItemView {
 	private mermaidConfig: MermaidConfig = {};
 	private mermaidDecorations: MermaidDecoration[] = [];
 	private mermaidParamsContainer: HTMLElement | null = null;
-	private mermaidVarsSectionEl: HTMLElement | null = null;
 	private imageConfig: ImageConfig = {};
 	private imageDecorations: ImageDecoration[] = [];
 	private imageParamsContainer: HTMLElement | null = null;
-	private imageVarsSectionEl: HTMLElement | null = null;
 	private mathConfig: MathConfig = {};
 	private mathDecorations: MathDecoration[] = [];
 	private mathParamsContainer: HTMLElement | null = null;
-	private mathVarsSectionEl: HTMLElement | null = null;
 	private excalidrawConfig: ExcalidrawConfig = {};
 	private excalidrawDecorations: ExcalidrawDecoration[] = [];
 	private excalidrawParamsContainer: HTMLElement | null = null;
-	private excalidrawVarsSectionEl: HTMLElement | null = null;
 	private tableConfig: TableConfig = {};
 	private tableDecorations: TableDecoration[] = [];
 	private blockquoteParamsContainer: HTMLElement | null = null;
@@ -388,8 +384,6 @@ export class WeWriteThemeView extends ItemView {
 	private nameInput!: HTMLInputElement;
 	private previewContainer!: HTMLElement;
 	private editorPanel!: HTMLElement;
-	private paletteSectionEl: HTMLElement | null = null;
-	private previewCollapsed = false;
 	private editorCollapsed = false;
 	/** Preview zoom (1 = 100%). Default 80%. Zooming out re-lays the article
 	 *  out at panelWidth / zoom px and scales it down, so a narrow panel can
@@ -905,7 +899,6 @@ export class WeWriteThemeView extends ItemView {
 
 	private buildPaletteSection(container: HTMLElement): void {
 		const section = this.createSection(container, t('theme.section.palette'));
-		this.paletteSectionEl = section;
 		this.renderPaletteSection(section);
 	}
 
@@ -2021,7 +2014,6 @@ export class WeWriteThemeView extends ItemView {
 
 	private buildMermaidVarsSection(container: HTMLElement): void {
 		const section = this.createSection(container, t('theme.section.mermaid'));
-		this.mermaidVarsSectionEl = section;
 		this.renderMermaidVarsControls(section);
 	}
 
@@ -2109,7 +2101,6 @@ export class WeWriteThemeView extends ItemView {
 
 	private buildImageVarsSection(container: HTMLElement): void {
 		const section = this.createSection(container, t('theme.section.image'));
-		this.imageVarsSectionEl = section;
 		this.renderImageVarsControls(section);
 	}
 
@@ -2196,7 +2187,6 @@ export class WeWriteThemeView extends ItemView {
 
 	private buildMathVarsSection(container: HTMLElement): void {
 		const section = this.createSection(container, t('theme.section.math'));
-		this.mathVarsSectionEl = section;
 		this.renderMathVarsControls(section);
 	}
 
@@ -2283,7 +2273,6 @@ export class WeWriteThemeView extends ItemView {
 
 	private buildExcalidrawVarsSection(container: HTMLElement): void {
 		const section = this.createSection(container, t('theme.section.excalidraw'));
-		this.excalidrawVarsSectionEl = section;
 		this.renderExcalidrawVarsControls(section);
 	}
 
