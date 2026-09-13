@@ -1,6 +1,7 @@
 // Unit tests for legacy v1.x migration
 
 import { migrateLegacyToV2 } from '../../../src/utils/migration';
+import { DEFAULT_SETTINGS } from '../../../src/core/interfaces';
 
 describe('migrateLegacyToV2', () => {
   it('should handle empty legacy settings', () => {
@@ -151,6 +152,16 @@ describe('migrateLegacyToV2', () => {
       expect(result.aiTextAccounts).toHaveLength(4);
       expect(result.aiImageGenAccounts).toHaveLength(1);
       expect(result.version).toBe('1.0.0');
+    });
+
+    it('should match DEFAULT_SETTINGS for flags that are not legacy-specific', () => {
+      // articleWatermark used to be forced to `false` for migrated users only,
+      // so the same setting behaved differently depending on install history.
+      const result = migrateLegacyToV2({ ...realV1Export, useCenterToken: undefined });
+      expect(result.articleWatermark).toBe(DEFAULT_SETTINGS.articleWatermark);
+      expect(result.useCenterToken).toBe(DEFAULT_SETTINGS.useCenterToken);
+      expect(result.svgFallbackThresholdKb).toBe(DEFAULT_SETTINGS.svgFallbackThresholdKb);
+      expect(result.syncMaxFileSizeMb).toBe(DEFAULT_SETTINGS.syncMaxFileSizeMb);
     });
 
     it('should map v1 WeChat account name correctly', () => {

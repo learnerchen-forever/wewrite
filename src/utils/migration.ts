@@ -2,6 +2,7 @@
 // On first load, detects old localforage stores and imports them into the new format
 
 import type { WeWriteSettings, WeChatAccount, AITextAccount, AIImageGenAccount } from '../core/interfaces';
+import { DEFAULT_SETTINGS } from '../core/interfaces';
 import {
   ALI_MAAS_BASE_URL_TEMPLATE,
   LEGACY_DASHSCOPE_ASYNC_URL,
@@ -9,7 +10,10 @@ import {
   WAN_2_6_MODEL,
 } from '../core/image-gen-defaults';
 
-// Legacy v1.x settings structure (from wewrite_lagacy)
+// Legacy v1.x settings structure (from wewrite_lagacy). Every field is
+// optional: the input is a localforage dump written by an older version, so
+// anything may be absent or unexpected. The shapes below mirror what real v1
+// export files contain (see tests/unit/utils/migration.test.ts).
 interface LegacyAccount {
   _id?: string;
   accountName?: string;
@@ -20,11 +24,17 @@ interface LegacyAccount {
   appId?: string;
   appSecret?: string;
   doc_id?: string;
+  /** WeChat access token cached by v1.x. */
+  access_token?: string;
+  /** Token lifetime, using v1.x's units (milliseconds, not seconds). */
+  expires_in?: number;
+  lastRefreshTime?: number;
 }
 
 export interface LegacySettings {
   _id?: string;
-  _rev?: number;
+  /** CouchDB revision id, e.g. "1099-fb2eb1ed…" — a string, not a number. */
+  _rev?: string;
   mpAccounts?: LegacyAccount[];
   chatAccounts?: LegacyAccount[];
   drawAccounts?: LegacyAccount[];
@@ -34,10 +44,17 @@ export interface LegacySettings {
   ipAddress?: string;
   useCenterToken?: boolean;
   css_styles_folder?: string;
+  /** v1.x settings that have no v2 equivalent; kept so the shape is accurate. */
+  codeLineNumber?: boolean;
+  accountDataPath?: string;
+  realTimeRender?: boolean;
+  custom_theme?: string;
   chatSetting?: {
     temperature?: number;
     top_p?: number;
     max_tokens?: number;
+    frequency_penalty?: number;
+    presence_penalty?: number;
   };
 }
 
@@ -147,36 +164,28 @@ export function migrateLegacyToV2(legacy: LegacySettings): WeWriteSettings {
   const selectedChat = aiTextAccounts.find((a) => a.name === legacy.selectedChatAccount);
   const selectedDraw = aiImageGenAccounts.find((a) => a.name === legacy.selectedDrawAccount);
 
+  // Anything not spelled out below comes from DEFAULT_SETTINGS. The three
+  // copies of these defaults (interfaces / schema / here) had already drifted,
+  // so only genuinely legacy-specific values are listed.
   return {
+    ...DEFAULT_SETTINGS,
+    // Stays at 1.0.0: the migration pipeline in SettingsManager keys off it.
     version: '1.0.0',
     ipAddress: legacy.ipAddress || '',
-    useCenterToken: legacy.useCenterToken ?? true,
+    // Defaults to `false`, matching DEFAULT_SETTINGS: the central token server
+    // must not be enabled silently (see the warning next to useCenterToken in
+    // settings-manager.ts). An explicit v1.x choice is still honoured.
+    useCenterToken: legacy.useCenterToken ?? DEFAULT_SETTINGS.useCenterToken,
     wechatAccounts,
     aiTextAccounts,
     aiImageGenAccounts,
     activeWeChatAccountId: selectedMP?.id || (wechatAccounts.length > 0 ? wechatAccounts[0].id : ''),
     activeAITextAccountId: selectedChat?.id || (aiTextAccounts.length > 0 ? aiTextAccounts[0].id : ''),
     activeAIImageGenAccountId: selectedDraw?.id || (aiImageGenAccounts.length > 0 ? aiImageGenAccounts[0].id : ''),
-    wewriteFolder: 'wewrite',
     stylesDirectory: legacy.css_styles_folder || '',
-    coverStorageMode: 'note',
-    coverStoragePath: 'wewrite-covers',
-    dumpPublishContent: false,
-    logRenderPipeline: false,
-    svgFallbackThresholdKb: 100,
-    showCopyButton: false,
-    logAICalling: false,
-    articleWatermark: false,
-    // ── Sync ──
-    syncEnabled: false,
-    syncWebdavUrl: '',
-    syncUsername: '',
-    syncPassword: '',
-    syncRemoteDir: '',
-    syncIntervalMinutes: 10,
-    syncLogDebug: false,
-    syncMaxFileSizeMb: 50,
-    syncRiskAcknowledgedAt: '',
+    // articleWatermark is deliberately NOT overridden: it follows
+    // DEFAULT_SETTINGS (`true`). The old literal forced `false` for migrated
+    // users only, so the same setting behaved differently per install history.
   };
 }
 
