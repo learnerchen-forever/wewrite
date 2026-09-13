@@ -146,8 +146,12 @@ describe('normalizeImageSize', () => {
         normalizeImageSize('bogus', 'dashscope', DASH_URL);
       } catch (err) {
         const e = err as AIImageSizeError;
+        // The message comes from i18n now, so assert the interpolated parts
+        // rather than a hardcoded language: the offending value and the list
+        // of legal sizes.
+        expect(e.message).toContain('bogus');
         expect(e.message).toContain('1024*1024');
-        expect(e.message).toContain('无法识别尺寸');
+        expect(e.message).toContain('1280*720');
       }
     });
 

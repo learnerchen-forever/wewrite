@@ -25,6 +25,7 @@ import type { ImageGenProviderType } from '../core/interfaces';
 import type { APICallEntry } from '../utils/ai-logger';
 import { createLogger } from '../utils/logger';
 import { DASHSCOPE_TEXT2IMAGE_URL, DASHSCOPE_MULTIMODAL_GENERATION_URL } from '../core/image-gen-defaults';
+import { t } from '../i18n';
 
 const log = createLogger('AIImageClient');
 
@@ -67,9 +68,7 @@ export function resolveBaseUrl(account: AIImageAccountLike): string {
   const base = (account.baseUrl || '').trim().replace(/\/+$/, '');
   if (/\{workspace[-_]?id\}/i.test(base)) {
     if (!account.workspaceId) {
-      throw new Error(
-        '缺少 Workspace ID：请在文生图账号设置中填写阿里百炼的业务空间 ID（万相 2.6 / 千问 3.0 必填）。',
-      );
+      throw new Error(t('error.image.workspace_id_required'));
     }
     return base.replace(/\{workspace[-_]?id\}/gi, account.workspaceId);
   }
@@ -252,7 +251,7 @@ export function normalizeImageSize(
       return { size, note: `${px.w}x${px.h} → ${size}（Seedream 要求总像素 ≥2560×1440 且宽高为 64 的倍数，已自动调整）` };
     }
     throw new AIImageSizeError(
-      `无法识别尺寸 "${raw}"。Seedream 支持 1K/1.5K/2K/3K/4K 或 WxH（自动调整到总像素 ≥2560×1440 且宽高为 64 的倍数）。`,
+      t('error.image.size_unknown_seedream', { value: raw }),
     );
   }
 
@@ -267,7 +266,7 @@ export function normalizeImageSize(
       return { size: snapped.size, note: snapped.note };
     }
     throw new AIImageSizeError(
-      `无法识别尺寸 "${raw}"。万相支持：${DASH_SCOPE_SIZES.join('、')}，或输入 WxH 自动匹配最近尺寸。`,
+      t('error.image.size_unknown_wan', { value: raw, sizes: DASH_SCOPE_SIZES.join('、') }),
     );
   }
 
@@ -276,7 +275,7 @@ export function normalizeImageSize(
       const k = parseInt(input, 10);
       if (k === 1) return { size: '1024*1024' };
       if (k === 2) return { size: '2048*2048' };
-      throw new AIImageSizeError(`千问 3 文生图最大支持 2K（2048*2048）。`);
+      throw new AIImageSizeError(t('error.image.size_qwen_max'));
     }
     const px = parsePixelSize(input);
     if (px) {
@@ -286,7 +285,7 @@ export function normalizeImageSize(
       return { size, note: `${px.w}x${px.h} → ${size}（已按 API 标准尺寸档位调整）` };
     }
     throw new AIImageSizeError(
-      `无法识别尺寸 "${raw}"。千问 3 支持 WxH（如 1024*1024、1280*720、720*1280、2048*2048）。`,
+      t('error.image.size_unknown_qwen', { value: raw }),
     );
   }
 
@@ -298,7 +297,7 @@ export function normalizeImageSize(
     const snapped = snapToDalle(px.w, px.h);
     return { size: snapped.size, note: snapped.note };
   }
-  throw new AIImageSizeError(`无法识别尺寸 "${raw}"。DALL-E 支持：1024x1024、1792x1024、1024x1792。`);
+  throw new AIImageSizeError(t('error.image.size_unknown_dalle', { value: raw }));
 }
 
 // ── Provider API calls ──
@@ -563,7 +562,7 @@ async function generateViaSeedream(
   const parsed = data as { data?: Array<{ url?: string }>; error?: { message?: string } };
   const resultUrl = parsed.data?.[0]?.url;
   if (!resultUrl) {
-    throw new Error(parsed.error?.message || 'Generation returned no image URL');
+    throw new Error(parsed.error?.message || t('error.image.no_image_url'));
   }
   return resultUrl;
 }
@@ -591,7 +590,7 @@ async function generateViaOpenAI(
   const parsed = data as { data?: Array<{ url?: string }>; error?: { message?: string } };
   const resultUrl = parsed.data?.[0]?.url;
   if (!resultUrl) {
-    throw new Error(parsed.error?.message || 'Generation returned no image URL');
+    throw new Error(parsed.error?.message || t('error.image.no_image_url'));
   }
   return resultUrl;
 }
@@ -617,7 +616,7 @@ async function generateWanSync(
     ?? parsed.data?.[0]?.url
     ?? extractQwenImageUrl(data);
   if (!resultUrl) {
-    throw new ApiRequestError(parsed.error?.message || parsed.message || 'Generation returned no image URL', 400);
+    throw new ApiRequestError(parsed.error?.message || parsed.message || t('error.image.no_image_url'), 400);
   }
   return resultUrl;
 }
@@ -780,7 +779,7 @@ async function generateViaQwenImage(
     const { data } = await postJson(nativeUrl, account.apiKey, nativeBody, 'Generate (Qwen-Image 3.0 native)', logger);
     const resultUrl = extractQwenImageUrl(data);
     if (resultUrl) return resultUrl;
-    throw new ApiRequestError('Generation returned no image URL', 400);
+    throw new ApiRequestError(t('error.image.no_image_url'), 400);
   } catch (err) {
     if (!(err instanceof ApiRequestError) || !isWanRetryableStatus(err.status)) {
       throw err instanceof Error ? err : new Error(String(err));
@@ -812,7 +811,7 @@ async function generateViaQwenChat(
   const resultUrl = extractQwenImageUrl(data);
   if (!resultUrl) {
     const parsed = data as { error?: { message?: string }; message?: string };
-    throw new Error(parsed.error?.message || parsed.message || 'Generation returned no image URL');
+    throw new Error(parsed.error?.message || parsed.message || t('error.image.no_image_url'));
   }
   return resultUrl;
 }
@@ -843,6 +842,6 @@ export async function generateImage(
   } else {
     url = await generateViaWan(account, prompt, size, logger ?? null);
   }
-  if (!url) throw new Error('Generation returned no image URL');
+  if (!url) throw new Error(t('error.image.no_image_url'));
   return { url, size };
 }
