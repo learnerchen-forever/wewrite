@@ -32,10 +32,24 @@ jobs:
           echo "Versions match: $PKG_VER"
 
       - name: Type check
-        run: npx tsc --noEmit --skipLibCheck
+        run: npm run typecheck
+
+      # tsconfig.json only covers src/, and ts-jest runs transpile-only, so
+      # nothing else ever type-checked the test suite. That is how 22 type
+      # errors (wrong arities, incomplete fixtures, assertions Jest ignores)
+      # accumulated unnoticed.
+      - name: Type check tests
+        run: npm run typecheck:tests
 
       - name: Run unit tests
         run: npm test
 
       - name: Build
         run: npm run build
+
+      # The plugin must still load on iOS 15.x. A regex lookbehind or a class
+      # static block throws a SyntaxError while the bundle is parsed, which
+      # takes the whole plugin down — esbuild's ES2020 target does not
+      # transpile either away.
+      - name: Check iOS 15 compatibility
+        run: npm run check:bundle

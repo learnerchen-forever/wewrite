@@ -8,8 +8,10 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "test": "jest --config jest.config.js",
-    "test:e2e": "node scripts/e2e-status.mjs",
-    "pub": "node scripts/pub-wewrite.js"
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
+    "pub": "node scripts/pub-wewrite.js",
+    "check:bundle": "node tools/check-bundle.mjs main.js src"
   },
   "dependencies": {
     "@codemirror/state": "^6.5.0",

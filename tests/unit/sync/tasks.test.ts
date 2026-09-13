@@ -4,7 +4,7 @@ import { PushTask } from '../../../src/sync/tasks/push';
 import { PullTask } from '../../../src/sync/tasks/pull';
 import { MergeTask } from '../../../src/sync/tasks/merge';
 import { RemoveRemoteTask, RemoveLocalTask, MkdirRemoteTask } from '../../../src/sync/tasks/remove';
-import type { SyncBackend, WriteOptions, ConnectionResult, WalkResult } from '../../../src/sync/backend/interface';
+import type { SyncBackend, ConnectionResult, WalkResult } from '../../../src/sync/backend/interface';
 import type { FileStat, SyncRecordData } from '../../../src/sync/types';
 import { createEmptyRecord, upsertRecordEntry } from '../../../src/sync/record';
 import { TFile } from 'obsidian';

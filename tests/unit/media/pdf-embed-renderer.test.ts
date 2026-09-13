@@ -271,13 +271,19 @@ describe('cachePdfRegionPng', () => {
     return { app: app as never, files };
   }
 
+  /** `cachePdfRegionPng` returns null when it only probed; narrow it here. */
+  function expectCachedPath(path: string | null): string {
+    if (path === null) throw new Error('expected a cached path, got null');
+    return path;
+  }
+
   test('probe misses then writes then hits', async () => {
     const { app, files } = fakeApp();
     const key = 'abc123';
     expect(await cachePdfRegionPng(app, 'WeWrite/cache', key, null)).toBeNull();
 
     const buf = new TextEncoder().encode('png-bytes').buffer as ArrayBuffer;
-    const path = await cachePdfRegionPng(app, 'WeWrite/cache', key, buf);
+    const path = expectCachedPath(await cachePdfRegionPng(app, 'WeWrite/cache', key, buf));
     expect(path).toBe(`WeWrite/cache/${PDF_REGION_PREFIX}-${key}.png`);
     expect(files.has(path)).toBe(true);
 

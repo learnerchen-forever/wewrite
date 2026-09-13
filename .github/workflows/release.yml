@@ -31,25 +31,48 @@ jobs:
         run: npm ci
 
       - name: Read version from manifest.json
-        id: read_version
         run: |
           VERSION=$(jq -r .version manifest.json)
+          MIN_APP=$(jq -r .minAppVersion manifest.json)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+          echo "MIN_APP=$MIN_APP" >> $GITHUB_ENV
 
       - name: Check if tag already exists
-        id: check_tag
         run: |
-          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+          git fetch --tags --force
+          if git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
             echo "Tag $VERSION already exists. Skipping release."
             echo "SKIP_RELEASE=true" >> $GITHUB_ENV
           else
             echo "SKIP_RELEASE=false" >> $GITHUB_ENV
           fi
 
+      - name: Check version consistency
+        if: env.SKIP_RELEASE != 'true'
+        run: |
+          PKG_VER=$(node -p "require('./package.json').version")
+          if [ "$PKG_VER" != "$VERSION" ]; then
+            echo "::error::Version mismatch: package.json=$PKG_VER, manifest.json=$VERSION"
+            exit 1
+          fi
+
+      # Release notes come first: the notes are bundled into main.js, so they
+      # must exist before the build. This step also refuses to publish a
+      # release whose changes nobody described.
+      - name: Generate release notes
+        if: env.SKIP_RELEASE != 'true'
+        run: node tools/changelog.js release "$VERSION"
+
+      - name: Update versions.json
+        if: env.SKIP_RELEASE != 'true'
+        run: |
+          # Obsidian reads versions.json as { "<plugin version>": "<minAppVersion>" }.
+          jq --arg v "$VERSION" --arg m "$MIN_APP" '. + {($v): $m}' versions.json > versions.tmp.json
+          mv versions.tmp.json versions.json
+
       - name: Type check
         if: env.SKIP_RELEASE != 'true'
-        run: npx tsc --noEmit --skipLibCheck
+        run: npm run typecheck
 
       - name: Run unit tests
         if: env.SKIP_RELEASE != 'true'
@@ -59,23 +82,36 @@ jobs:
         if: env.SKIP_RELEASE != 'true'
         run: npm run build
 
-      - name: Update versions.json
+      # Runs before the commit and tag, so an iOS-incompatible bundle is never
+      # released. Same gate as ci.yml, repeated here because a release must not
+      # depend on another workflow having passed.
+      - name: Check iOS 15 compatibility
+        if: env.SKIP_RELEASE != 'true'
+        run: npm run check:bundle
+
+      - name: Verify bundled release notes
         if: env.SKIP_RELEASE != 'true'
         run: |
-          jq --arg v "$VERSION" --argjson m "$(cat manifest.json)" \
-            '. + {($v): $m}' versions.json > versions.tmp.json
-          mv versions.tmp.json versions.json
+          node -e '
+            const data = require("./src/core/changelog-data.json");
+            const entry = data.entries.find((e) => e.version === process.env.VERSION);
+            if (!entry) {
+              console.error(`::error::${process.env.VERSION} has no release notes to bundle.`);
+              process.exit(1);
+            }
+            console.log(`Bundled ${entry.sections.reduce((n, s) => n + s.items.length, 0)} note(s) for ${entry.version}.`);
+          '
 
-      - name: Commit updated versions.json
+      - name: Commit generated changelog
         if: env.SKIP_RELEASE != 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add versions.json
+          git add CHANGELOG.md src/core/changelog-data.json versions.json changelog.d
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update versions.json for $VERSION"
+            git commit -m "chore(release): $VERSION changelog and versions.json"
             git push
           fi
 

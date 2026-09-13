@@ -2,33 +2,9 @@
 
 import { SyncEngine, filterOutWewriteDirs } from '../../../src/sync/engine';
 import type { SyncBackend, ConnectionResult, WalkResult } from '../../../src/sync/backend/interface';
-import type { FileStat, SyncEntry } from '../../../src/sync/types';
+import type { FileStat } from '../../../src/sync/types';
 import { sha256Hex, normalizeMtime } from '../../../src/sync/hash';
 import { TFile } from 'obsidian';
-
-/** Build a SyncEntry that matches the current state of local and remote content. */
-async function makeRecordEntry(
-  localContent: string,
-  remoteContent: string | null,
-  localMtime: number,
-  remoteMtime: number | null,
-): Promise<SyncEntry> {
-  const localHash = await sha256Hex(new TextEncoder().encode(localContent).buffer as ArrayBuffer);
-  const nLocalMtime = normalizeMtime(localMtime);
-  const nRemoteMtime = remoteMtime ? normalizeMtime(remoteMtime) : 0;
-  const remoteHash = remoteContent
-    ? await sha256Hex(new TextEncoder().encode(remoteContent).buffer as ArrayBuffer)
-    : '';
-  return {
-    localMtime: nLocalMtime,
-    localSize: localContent.length,
-    localHash,
-    remoteMtime: nRemoteMtime,
-    remoteSize: remoteContent ? remoteContent.length : 0,
-    remoteHash,
-    baseText: '',
-  };
-}
 
 // ── In-memory mock backend ──
 
@@ -250,6 +226,7 @@ describe('SyncEngine Integration', () => {
       password: overrides.password ?? 'pass',
       remoteDir: 'test-vault',
       logDebug: false,
+      maxFileSizeMb: 50,
     }, backend);
   }
 
@@ -394,7 +371,7 @@ describe('SyncEngine Integration', () => {
         },
       });
 
-      const result = await engine.sync('manual');
+      await engine.sync('manual');
 
       // data.json is non-markdown → conflict
       const conflicts = engine.getPendingConflicts();

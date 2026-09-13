@@ -12,7 +12,6 @@ import { WechatRenderer } from '../../../src/renderer/wechat-renderer';
 import { parseBlockquoteFrontmatter } from '../../../src/core/blockquote-config';
 import { parseFlatFrontmatter } from '../../../src/core/frontmatter-parser';
 import { getBlockquoteDecorationLibrary } from '../../../src/core/blockquote-decoration-library';
-import type { ThemePreset } from '../../../src/core/interfaces';
 
 const QUOTE_HTML = '<blockquote><p>第一段引用文字。</p><p>第二段继续。</p></blockquote>';
 

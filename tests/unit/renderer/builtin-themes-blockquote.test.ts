@@ -4,7 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseFrontmatter, splitFrontmatter, stringifyFrontmatter } from '../../../src/utils/frontmatter';
+import { parseFrontmatter } from '../../../src/utils/frontmatter';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>');

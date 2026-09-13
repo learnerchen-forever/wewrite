@@ -4,7 +4,6 @@ import {
   getTaskDecorationLibrary,
   getOrderedDecorationMap,
   getUnorderedDecorationMap,
-  getTaskDecorationMap,
   LIST_ICON_OPTIONS,
 } from '../../../src/core/list-decoration-library';
 

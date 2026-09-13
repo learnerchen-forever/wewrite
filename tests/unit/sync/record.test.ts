@@ -5,7 +5,7 @@ import {
   getRecordFiles, setRecordFiles, upsertRecordEntry, removeRecordEntry,
   recordFailure, shouldSkipDueToFailures, garbageCollectRecord,
 } from '../../../src/sync/record';
-import type { SyncEntry, SyncRecordData } from '../../../src/sync/types';
+import type { SyncEntry } from '../../../src/sync/types';
 
 function makeEntry(overrides: Partial<SyncEntry> = {}): SyncEntry {
   return {

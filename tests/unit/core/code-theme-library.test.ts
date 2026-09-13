@@ -41,7 +41,10 @@ describe('code-theme-library', () => {
 			expect(theme.gutterBorder).toMatch(/^#/);
 			expect(theme.shadow).toBeTruthy();
 			for (const key of REQUIRED_KEYS) {
-				expect(theme.tokens[key]).toMatch(/^#/, `${theme.id} missing ${key}`);
+				// Jest's `toMatch` takes one argument, so the diagnostic has to
+				// live in the received value — the old second argument was
+				// silently ignored, hiding which token failed.
+				expect(`${theme.id}.${key} = ${theme.tokens[key]}`).toMatch(/= #[0-9a-f]{3,8}$/i);
 			}
 		}
 	});

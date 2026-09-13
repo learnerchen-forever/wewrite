@@ -297,7 +297,7 @@ describe('renderDecorationPreview', () => {
   it('carries the theme numbering into the preview (leafPair shows both leaves)', () => {
     const preset = {
       ...DEFAULT_PRESET,
-      headingConfig: { shared: { decoration: 'leafPair', numbering: 'decimalPad' } },
+      headingConfig: { shared: { decoration: 'leafPair', numbering: 'decimalPad' as const } },
     };
     const html = renderDecorationPreview(
       preset,
@@ -340,7 +340,7 @@ describe('built-in decoration CSS units', () => {
   it('leafPair renders rounded corners and padding with units', () => {
     const preset = {
       ...DEFAULT_PRESET,
-      headingConfig: { shared: { decoration: 'leafPair', numbering: 'decimalPad' } },
+      headingConfig: { shared: { decoration: 'leafPair', numbering: 'decimalPad' as const } },
     };
     const r = new ThemeResolver(preset);
     const doc = new DOMParser().parseFromString('<body><h2>今日天气</h2></body>', 'text/html');

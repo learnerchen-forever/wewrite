@@ -99,9 +99,57 @@ export class ItemView {
 
 export class Modal {
   app: App = new App();
+  containerEl: HTMLElement = document.createElement('div');
+  modalEl: HTMLElement = document.createElement('div');
+  titleEl: HTMLElement = document.createElement('div');
   contentEl: HTMLElement = document.createElement('div');
+  scope: { register: (modifiers: unknown[], key: string, handler: (evt: unknown) => void) => void } = {
+    register: () => {},
+  };
   open(): void {}
   close(): void {}
+}
+
+/**
+ * Minimal SuggestModal: enough for the settings pane's folder picker, which
+ * extends it and calls setPlaceholder() in its constructor.
+ */
+export class SuggestModal<T> extends Modal {
+  inputEl: HTMLInputElement = document.createElement('input');
+  resultContainerEl: HTMLElement = document.createElement('div');
+  setPlaceholder(_text: string): void {}
+  setInstructions(_instructions: { command: string; purpose: string }[]): void {}
+  getSuggestions(_query: string): T[] | Promise<T[]> {
+    return [];
+  }
+  renderSuggestion(_item: T, _el: HTMLElement): void {}
+  onChooseSuggestion(_item: T, _evt: MouseEvent | KeyboardEvent): void {}
+}
+
+/**
+ * Minimal Component: enough for code that owns a MarkdownRenderer render.
+ */
+export class Component {
+  private loaded = false;
+  load(): void {
+    if (this.loaded) return;
+    this.loaded = true;
+    this.onload();
+  }
+  unload(): void {
+    if (!this.loaded) return;
+    this.loaded = false;
+    this.onunload();
+  }
+  onload(): void {}
+  onunload(): void {}
+  addChild<T extends Component>(child: T): T {
+    child.load();
+    return child;
+  }
+  register(_cb: () => void): void {}
+  registerEvent(_event: unknown): void {}
+  registerDomEvent(_el: unknown, _type: string, _cb: unknown): void {}
 }
 
 export class PluginSettingTab {

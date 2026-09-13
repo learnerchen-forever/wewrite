@@ -2,7 +2,7 @@
 // matter.stringify → reload parseFlatFrontmatter, to verify slot keys
 // (e.g. heading.font) persist and come back unchanged.
 
-import { parseFrontmatter, splitFrontmatter, stringifyFrontmatter } from '../../../src/utils/frontmatter';
+import { parseFrontmatter, stringifyFrontmatter } from '../../../src/utils/frontmatter';
 import { parseFlatFrontmatter, registerCustomValues } from '../../../src/core/frontmatter-parser';
 import { getSlotRegistry } from '../../../src/core/slot-registry';
 import { ThemeResolver, DEFAULT_PRESET } from '../../../src/renderer/theme-resolver';

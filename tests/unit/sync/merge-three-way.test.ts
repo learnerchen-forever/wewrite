@@ -1,7 +1,6 @@
 // Unit tests for three-way merge algorithm
 
 import { mergeThreeWay, mergeMarkdown } from '../../../src/sync/merge-three-way';
-import type { MergeResult } from '../../../src/sync/merge-three-way';
 
 describe('Three-Way Merge', () => {
   describe('two-way merge (empty base)', () => {

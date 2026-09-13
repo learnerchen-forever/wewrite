@@ -1,0 +1,22 @@
+{
+  // Type-checks the test suite as well as src/.
+  //
+  // The production `tsconfig.json` only includes `src/**/*.ts`, and ts-jest
+  // runs transpile-only because the base config sets `isolatedModules`, so
+  // nothing has ever type-checked `tests/`. That is how 21 test files came to
+  // import `jsdom` without any types installed and still pass CI.
+  //
+  //   npx tsc -p tsconfig.test.json --noEmit
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "isolatedModules": false,
+    "noEmit": true,
+    "rootDir": ".",
+    // Unused imports/locals in a test are always a mistake, so that check
+    // stays on. Unused *parameters* are not: `tests/__mocks__/obsidian.ts`
+    // must mirror the real Obsidian signatures, where most arguments are
+    // irrelevant to the mock. The production config keeps both flags on.
+    "noUnusedParameters": false
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "tests/**/*.d.ts"]
+}
