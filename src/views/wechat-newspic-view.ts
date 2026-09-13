@@ -16,6 +16,7 @@ import { removeFrontMatter, isIosVersionBelow17 } from '../utils/vault-helpers';
 import type { DraftNewsPicArticle } from '../publisher/draft-service';
 import { NewsPicPreview, NEWSPIC_DEVICE_PRESETS, devicePresetLabel, type DeviceSizeKey } from './newspic-preview';
 import { extractMermaidBlocks, extractExcalidrawEmbeds, renderMermaidToPng, renderExcalidrawToPng, cacheDiagramPng, canvasToBlobSafe, clampCanvasDimensions } from '../media/diagram-renderer';
+import { compressImageBuffer } from '../media/image-compress';
 import { preprocessDataviewInMarkdown } from '../media/dataview-renderer';
 import { sanitizeSvgElement, canInlineSvg } from '../renderer/wechat-svg-sanitizer';
 import { extractSvgs } from '../media/svg-fallback';
@@ -954,7 +955,14 @@ export class WeChatNewsPicView extends ItemView {
 
       try {
         let arrayBuffer: ArrayBuffer; let fileName: string; let mimeType: string;
-        let svgPngPath: string | null = null;
+        let svgCachedPath: string | null = null;
+        // The SVG→PNG conversion yields PNG, but the >10MB fallback below
+        // re-encodes to JPEG. Everything that names or declares these bytes —
+        // the cache file, the upload filename, the multipart Content-Type and
+        // the media fingerprint — must follow this, or the upload declares a
+        // format the bytes are not.
+        let diagramExtension: 'png' | 'jpg' = 'png';
+        let diagramMime = 'image/png';
         const mm: Record<string, string> = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp' };
 
         // Check for pre-converted data
@@ -962,14 +970,21 @@ export class WeChatNewsPicView extends ItemView {
         const convertedBuf = pendingConversions?.convertedData.get(convKey);
         const convMime = pendingConversions?.outputMimeTypes.get(convKey);
         if (isSvgItem) {
-          // Check unified registry for cached PNG before re-converting
+          // Check unified registry for a cached conversion before re-converting
           const cachedSvgRecord = this.plugin.mediaRegistry.lookup(svgFp);
-          svgPngPath = cachedSvgRecord?.convertedPath || null;
+          svgCachedPath = cachedSvgRecord?.convertedPath || null;
           let needCache = false;
-          if (svgPngPath && await this.plugin.app.vault.adapter.exists(svgPngPath)) {
-            const cachedFile = this.app.vault.getAbstractFileByPath(svgPngPath);
+          if (svgCachedPath && await this.plugin.app.vault.adapter.exists(svgCachedPath)) {
+            const cachedFile = this.app.vault.getAbstractFileByPath(svgCachedPath);
             if (cachedFile instanceof TFile) {
               arrayBuffer = await this.app.vault.readBinary(cachedFile);
+              // The cached bytes are re-used as-is, and a previous run may
+              // have cached the >10MB JPEG fallback. Take the format from the
+              // cached path, or the upload would declare PNG for JPEG data.
+              if (/\.jpe?g$/i.test(svgCachedPath)) {
+                diagramExtension = 'jpg';
+                diagramMime = 'image/jpeg';
+              }
             } else {
               arrayBuffer = await (await import('../media/svg-to-png')).svgToPngBuffer(svgStr!, 2);
               needCache = true;
@@ -979,27 +994,35 @@ export class WeChatNewsPicView extends ItemView {
             needCache = true;
           }
 
-          // Compress if > 10MB (WeChat material limit)
+          // Compress if > 10MB (WeChat material limit). JPEG is the encoding
+          // that reliably gets a huge diagram under the limit; declare it as
+          // JPEG everywhere below rather than passing it off as PNG.
           if (arrayBuffer.byteLength > 10 * 1024 * 1024) {
-            arrayBuffer = await this.compressPngBuffer(arrayBuffer);
+            const compressed = await compressImageBuffer(arrayBuffer, {
+              format: 'image/jpeg',
+              quality: 0.85,
+            });
+            arrayBuffer = compressed.buffer;
+            diagramExtension = compressed.extension;
+            diagramMime = compressed.format;
           }
 
-          // Cache the PNG for future reuse
+          // Cache the converted diagram for future reuse
           if (needCache) {
             const cacheDir = getWeWriteSubPath(this.plugin.settingsManager.getSettings().wewriteFolder, WEWRITE_SUBDIRS.cache);
             await this.ensureCacheDir(cacheDir);
             // Use only the hash portion of the fingerprint for the filename
             // (the full fingerprint contains mime/type:size:hash which has / and : chars)
             const fpHash = svgFp.split(':').pop() || svgFp.replace(/[^a-f0-9]/gi, '').slice(0, 16);
-            svgPngPath = `${cacheDir}/wewrite_svg_${fpHash}.png`;
-            if (!(await this.plugin.app.vault.adapter.exists(svgPngPath))) {
-              await this.plugin.app.vault.createBinary(svgPngPath, arrayBuffer);
+            svgCachedPath = `${cacheDir}/wewrite_svg_${fpHash}.${diagramExtension}`;
+            if (!(await this.plugin.app.vault.adapter.exists(svgCachedPath))) {
+              await this.plugin.app.vault.createBinary(svgCachedPath, arrayBuffer);
             }
-            this.plugin.mediaRegistry.setConvertedPath(svgFp, svgPngPath);
+            this.plugin.mediaRegistry.setConvertedPath(svgFp, svgCachedPath);
           }
 
-          fileName = `diagram_${Date.now()}.png`;
-          mimeType = 'image/png';
+          fileName = `diagram_${Date.now()}.${diagramExtension}`;
+          mimeType = diagramMime;
         } else if (convertedBuf) {
           arrayBuffer = convertedBuf;
           fileName = img.vaultPath.split('/').pop()?.replace(/\.[^.]+$/, convMime === 'image/png' ? '.png' : '.jpg') || 'image.jpg';
@@ -1092,7 +1115,7 @@ export class WeChatNewsPicView extends ItemView {
             fingerprint: svgFp,
             mimeType: 'image/svg+xml',
             fileSize: new TextEncoder().encode(svgStr).length,
-            convertedPath: svgPngPath || undefined,
+            convertedPath: svgCachedPath || undefined,
             accountMediaIds: { [acct.appId]: response.data.media_id },
             accountUrls: response.data.url ? { [acct.appId]: response.data.url } : {},
           });
@@ -1180,32 +1203,6 @@ export class WeChatNewsPicView extends ItemView {
       modal.setTaskError(taskIdx, String(err));
       modal.setFinished(false);
     }
-  }
-
-  /** Compress a PNG buffer to under 10MB using canvas scaling. */
-  private async compressPngBuffer(buf: ArrayBuffer): Promise<ArrayBuffer> {
-    const blob = new Blob([buf], { type: 'image/png' });
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image();
-      i.onload = () => resolve(i);
-      i.onerror = reject;
-      i.src = URL.createObjectURL(blob);
-    });
-    const maxDim = 4096;
-    let w = img.naturalWidth;
-    let h = img.naturalHeight;
-    if (w > maxDim || h > maxDim) {
-      const ratio = Math.min(maxDim / w, maxDim / h);
-      w = Math.round(w * ratio);
-      h = Math.round(h * ratio);
-    }
-    const canvas = createEl('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(img, 0, 0, w, h);
-    URL.revokeObjectURL(img.src);
-    return canvasToBlobSafe(canvas, 'image/jpeg', 0.85).then((b) => b.arrayBuffer());
   }
 
   private async ensureCacheDir(dir: string): Promise<void> {

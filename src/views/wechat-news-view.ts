@@ -24,7 +24,8 @@ import { sanitizeSvgElement } from '../renderer/wechat-svg-sanitizer';
 import { applySvgFallback, MAX_CONTENT_BYTES, type FallbackResult } from '../media/svg-fallback';
 import { prescanSvgs, prescanImages } from '../media/content-prescan';
 import { RenderLogger, type SvgProcessResult, type MermaidProcessResult, type ExcalidrawProcessResult, type PdfProcessResult, type SvgInlineResult, type DataviewProcessResult } from '../utils/render-logger';
-import { extractMermaidBlocks, renderMermaidToPng, cacheDiagramPng, extractExcalidrawEmbeds, renderExcalidrawToPng, canvasToBlobSafe } from '../media/diagram-renderer';
+import { extractMermaidBlocks, renderMermaidToPng, cacheDiagramPng, extractExcalidrawEmbeds, renderExcalidrawToPng } from '../media/diagram-renderer';
+import { compressImageBuffer } from '../media/image-compress';
 import { extractPdfEmbeds, PdfRenderSession, pdfRegionCacheKey, cachePdfRegionPng, PDF_RENDER_SCALE } from '../media/pdf-embed-renderer';
 import { preprocessDataviewInMarkdown } from '../media/dataview-renderer';
 import { processMathToSvg } from '../utils/math-processor';
@@ -1938,31 +1939,9 @@ export class WeChatNewsView extends ItemView {
 
   /** Compress a PNG buffer to under 10MB using canvas scaling. */
   private async compressPngBuffer(buf: ArrayBuffer): Promise<ArrayBuffer> {
-    const blob = new Blob([buf], { type: 'image/png' });
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image();
-      i.onload = () => resolve(i);
-      i.onerror = reject;
-      i.src = URL.createObjectURL(blob);
-    });
-
-    const maxDim = 4096;
-    let w = img.naturalWidth;
-    let h = img.naturalHeight;
-    if (w > maxDim || h > maxDim) {
-      const ratio = Math.min(maxDim / w, maxDim / h);
-      w = Math.round(w * ratio);
-      h = Math.round(h * ratio);
-    }
-
-    const canvas = createEl('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(img, 0, 0, w, h);
-    URL.revokeObjectURL(img.src);
-
-    return canvasToBlobSafe(canvas, 'image/png', 0.8).then((b) => b.arrayBuffer());
+    // Stays PNG: the buffer is cached as `.png` and uploaded as `image/png`.
+    const compressed = await compressImageBuffer(buf, { format: 'image/png' });
+    return compressed.buffer;
   }
 
   /** Ensure a vault directory exists, creating it if needed. */
