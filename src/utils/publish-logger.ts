@@ -27,6 +27,7 @@ export class PublishLogBuilder {
   private apiParams: Record<string, unknown> | null = null;
   private contentByteLength: number = 0;
   private imageUrls: string[] = [];
+  /** Inline SVG snippets, reported in the SVG section of the debug log. */
   private svgContent: string[] = [];
   private finalContentHtml: string = '';
   private publishResult: { success: boolean; httpStatus?: number; responseBody: Record<string, unknown>; errorMessage?: string } | null = null;
@@ -123,6 +124,18 @@ export class PublishLogBuilder {
         lines.push('(0 items)');
       }
       lines.push('');
+
+      // SVG Snippets — collected by setSvgContent() for diagnosing inline SVG
+      // handling. They were previously collected and then dropped: the field
+      // was written but never reported.
+      if (this.svgContent.length > 0) {
+        lines.push('# SVG 片段 (SVG Snippets)');
+        lines.push('');
+        for (const snippet of this.svgContent) {
+          lines.push(`- ${snippet}`);
+        }
+        lines.push('');
+      }
 
       // Section: File Uploading
       lines.push('# 文件上传 (File Uploading)');
