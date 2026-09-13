@@ -10,14 +10,12 @@
     "test": "jest --config jest.config.js",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
-    "pub": "node scripts/pub-wewrite.js",
     "check:bundle": "node tools/check-bundle.mjs main.js src"
   },
   "dependencies": {
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.38.6",
     "mathjax-full": "^3.2.1",
-    "p-limit": "^6.1.0",
     "webdav": "^5.10.0",
     "yaml": "^2.9.0",
     "zod": "^3.23.0"
@@ -26,18 +24,12 @@
     "@xmldom/xmldom": "^0.9.10"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.30.0",
-    "@google/genai": "^1.0.0",
-    "@playwright/test": "^1.44.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.0.0",
-    "cheerio": "^1.2.0",
     "esbuild": "^0.28.2",
     "jest": "^29.7.0",
     "jsdom": "^24.1.3",
     "obsidian": "latest",
-    "openai": "^4.50.0",
-    "playwright": "^1.44.0",
     "ts-jest": "^29.2.0",
     "typescript": "^5.0.0"
   }
