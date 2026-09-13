@@ -32,7 +32,34 @@ export interface WeChatAccount {
 }
 
 // ── AI Text Account ──
-export type AIProviderType = 'openai' | 'openai-compatible' | 'anthropic' | 'gemini' | 'ollama' | 'openrouter';
+
+/**
+ * The AI text providers offered in the UI, in display order.
+ *
+ * This list used to be written out four times — an explicit union here, the
+ * Zod enum in settings-manager.ts, and the dropdown in each of the two
+ * settings paths — so adding a provider compiled cleanly while a settings
+ * panel silently omitted it, and every label was hardcoded English.
+ * `AIProviderType` now derives from this list.
+ */
+export const AI_PROVIDER_OPTIONS = [
+  { value: 'openai', labelKey: 'settings.provider_openai' },
+  { value: 'openai-compatible', labelKey: 'settings.provider_openai_compatible' },
+  { value: 'anthropic', labelKey: 'settings.provider_anthropic' },
+  { value: 'gemini', labelKey: 'settings.provider_gemini' },
+  { value: 'ollama', labelKey: 'settings.provider_ollama' },
+  { value: 'openrouter', labelKey: 'settings.provider_openrouter' },
+] as const;
+
+export type AIProviderType = (typeof AI_PROVIDER_OPTIONS)[number]['value'];
+
+/**
+ * The same values as a non-empty tuple, which is what `z.enum` requires. The
+ * cast is the documented way to satisfy that signature from a derived array.
+ */
+export const AI_PROVIDER_VALUES = AI_PROVIDER_OPTIONS.map(
+  (option) => option.value,
+) as [AIProviderType, ...AIProviderType[]];
 
 export interface AITextAccount {
   id: string;
@@ -50,7 +77,25 @@ export interface AITextAccount {
 // qwen-image: 阿里千问 3.0（chat.completions API，需要 workspaceId）
 // seedream: 字节 Seedream 5.0（火山方舟）
 // openai: 兼容 OpenAI images API（如 DALL-E，保留兼容）
-export type ImageGenProviderType = 'dashscope' | 'qwen-image' | 'openai' | 'seedream';
+/**
+ * The image providers offered in the UI, in display order.
+ *
+ * Same treatment as AI_PROVIDER_OPTIONS: the set used to be written out four
+ * times (type, Zod enum, and both settings paths), and one of the dropdowns
+ * hardcoded Chinese labels that English users saw verbatim.
+ */
+export const IMAGE_PROVIDER_OPTIONS = [
+  { value: 'dashscope', labelKey: 'settings.image_provider_dashscope' },
+  { value: 'qwen-image', labelKey: 'settings.image_provider_qwen_image' },
+  { value: 'seedream', labelKey: 'settings.image_provider_seedream' },
+  { value: 'openai', labelKey: 'settings.image_provider_openai' },
+] as const;
+
+export type ImageGenProviderType = (typeof IMAGE_PROVIDER_OPTIONS)[number]['value'];
+
+export const IMAGE_PROVIDER_VALUES = IMAGE_PROVIDER_OPTIONS.map(
+  (option) => option.value,
+) as [ImageGenProviderType, ...ImageGenProviderType[]];
 
 export interface AIImageGenAccount {
   id: string;

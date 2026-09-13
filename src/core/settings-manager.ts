@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import type { WeWriteSettings, WeChatAccount, AITextAccount, AIImageGenAccount, ImportResult, ImportFormat, ExportData } from './interfaces';
-import { DEFAULT_SETTINGS } from './interfaces';
+import { DEFAULT_SETTINGS, AI_PROVIDER_VALUES, IMAGE_PROVIDER_VALUES } from './interfaces';
 import { ALI_MAAS_BASE_URL_TEMPLATE, LEGACY_WANX_2_1_MODEL, WAN_2_6_MODEL } from './image-gen-defaults';
 import { encryptSettingsKeys, decryptSettingsKeys } from '../utils/encryption';
 import { compareVersions } from '../utils/version-utils';
@@ -21,7 +21,7 @@ const WeChatAccountSchema = z.object({
 const AITextAccountSchema = z.object({
   id: z.string(),
   name: z.string().min(1).max(50),
-  provider: z.enum(['openai', 'openai-compatible', 'anthropic', 'gemini', 'ollama', 'openrouter']),
+  provider: z.enum(AI_PROVIDER_VALUES),
   baseUrl: z.string(),
   apiKey: z.string().min(1),
   model: z.string().min(1),
@@ -50,7 +50,7 @@ function migrateLegacyImageAccount(account: AIImageGenAccount): AIImageGenAccoun
 const AIImageGenAccountSchema = z.object({
   id: z.string(),
   name: z.string().min(1).max(50),
-  provider: z.enum(['dashscope', 'qwen-image', 'openai', 'seedream']),
+  provider: z.enum(IMAGE_PROVIDER_VALUES),
   baseUrl: z.string(),
   apiKey: z.string().min(1),
   model: z.string().min(1),

@@ -3,6 +3,7 @@
 import { App, PluginSettingTab, Setting, Notice, Modal, setIcon, requestUrl, SuggestModal, ButtonComponent, Platform, type TFolder } from 'obsidian';
 import type WeWritePlugin from '../main';
 import type { AIProviderType, ImageGenProviderType, WeWriteSettings } from '../core/interfaces';
+import { AI_PROVIDER_OPTIONS, IMAGE_PROVIDER_OPTIONS } from '../core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS, DEFAULT_SETTINGS } from '../core/interfaces';
 import {
   ALI_MAAS_BASE_URL_TEMPLATE,
@@ -544,14 +545,8 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
       new Setting(card).setName(t('settings.provider')).addDropdown((d) => {
         d.selectEl.addClass('dropdown', 'wewrite-select');
-        d
-          .addOption('openai', 'OpenAI')
-          .addOption('openai-compatible', 'OpenAI Compatible')
-          .addOption('anthropic', 'Anthropic')
-          .addOption('gemini', 'Google Gemini')
-          .addOption('ollama', 'Ollama (Local)')
-          .addOption('openrouter', 'OpenRouter')
-          .setValue(account.provider)
+        for (const option of AI_PROVIDER_OPTIONS) d.addOption(option.value, t(option.labelKey));
+        d.setValue(account.provider)
           .onChange((v) => { account.provider = v as AIProviderType; this.save(); });
       });
 
@@ -649,20 +644,17 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
       new Setting(card).setName(t('settings.provider')).addDropdown((d) => {
         d.selectEl.addClass('dropdown', 'wewrite-select');
-        d.addOption('dashscope', '阿里万相 Wan 2.6')
-          .addOption('qwen-image', '阿里千问 Qwen-Image 3.0')
-          .addOption('seedream', '字节 Seedream 5.0')
-          .addOption('openai', 'OpenAI (DALL-E)')
-          .setValue(account.provider).onChange((v) => {
-            const provider = v as ImageGenProviderType;
-            account.provider = provider;
-            const defs = IMAGE_PROVIDER_DEFAULTS[provider];
-            account.baseUrl = defs.baseUrl;
-            account.model = defs.model;
-            account.defaultSize = defs.defaultSize;
-            this.save();
-            this.rerender();
-          });
+        for (const option of IMAGE_PROVIDER_OPTIONS) d.addOption(option.value, t(option.labelKey));
+        d.setValue(account.provider).onChange((v) => {
+          const provider = v as ImageGenProviderType;
+          account.provider = provider;
+          const defs = IMAGE_PROVIDER_DEFAULTS[provider];
+          account.baseUrl = defs.baseUrl;
+          account.model = defs.model;
+          account.defaultSize = defs.defaultSize;
+          this.save();
+          this.rerender();
+        });
       });
 
       new Setting(card).setName(t('settings.api_key')).addText((tc) => {
@@ -2369,13 +2361,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
         render: (setting) => {
           setting.addDropdown((dropdown) => {
             dropdown.selectEl.addClass('dropdown', 'wewrite-select');
+            for (const option of AI_PROVIDER_OPTIONS) {
+              dropdown.addOption(option.value, t(option.labelKey));
+            }
             dropdown
-              .addOption('openai', 'OpenAI')
-              .addOption('openai-compatible', 'OpenAI Compatible')
-              .addOption('anthropic', 'Anthropic')
-              .addOption('gemini', 'Google Gemini')
-              .addOption('ollama', 'Ollama (Local)')
-              .addOption('openrouter', 'OpenRouter')
               .setValue(account.provider)
               .onChange((v) => { account.provider = v as AIProviderType; this.save(); });
           });
@@ -2493,10 +2482,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
         render: (setting) => {
           setting.addDropdown((dropdown) => {
             dropdown.selectEl.addClass('dropdown', 'wewrite-select');
-            dropdown.addOption('dashscope', '\u963f\u91cc\u4e07\u8c61 Wan 2.6')
-              .addOption('qwen-image', '\u963f\u91cc\u5343\u95ee Qwen-Image 3.0')
-              .addOption('seedream', '\u5b57\u8282 Seedream 5.0')
-              .addOption('openai', 'OpenAI (DALL-E)')
+            for (const option of IMAGE_PROVIDER_OPTIONS) {
+              dropdown.addOption(option.value, t(option.labelKey));
+            }
+            dropdown
               .setValue(account.provider)
               .onChange((v) => {
                 const provider = v as ImageGenProviderType;
