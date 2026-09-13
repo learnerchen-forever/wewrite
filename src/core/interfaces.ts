@@ -144,6 +144,15 @@ export interface WeWriteSettings {
   syncLogDebug: boolean;
   syncMaxFileSizeMb: number;
   syncRiskAcknowledgedAt: string;
+  // ── Release notes ──
+  /**
+   * Plugin version whose release notes the user has already been shown.
+   * Empty on a fresh install — that is how "just installed" is told apart
+   * from "just updated", and why the dialog never greets a new user.
+   */
+  whatsNewLastSeenVersion: string;
+  /** Open the "What's New" dialog automatically after an update. */
+  showWhatsNewOnUpdate: boolean;
 }
 
 // ── Import / Export Types ──
@@ -286,6 +295,9 @@ export const DEFAULT_SETTINGS: WeWriteSettings = {
   syncLogDebug: false,
   syncMaxFileSizeMb: 50,
   syncRiskAcknowledgedAt: '',
+  // ── Release notes ──
+  whatsNewLastSeenVersion: '',
+  showWhatsNewOnUpdate: true,
 };
 
 // ── WeWrite Directory Layout ──

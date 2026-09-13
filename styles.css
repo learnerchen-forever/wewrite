@@ -2800,6 +2800,68 @@ body .cm-editor .cm-content .wewrite-editor-highlight-current {
   padding: 8px 0;
 }
 
+/* ── What's New (release notes) ── */
+
+.wewrite-whats-new {
+  max-width: 560px;
+}
+
+.wewrite-whats-new-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: -4px 0 12px;
+}
+
+.wewrite-whats-new-body {
+  max-height: 55vh;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  scrollbar-gutter: stable;
+}
+
+.wewrite-whats-new-body h3 {
+  margin: 0 0 6px;
+  font-size: 1.05em;
+}
+
+.wewrite-whats-new-body h4 {
+  margin: 14px 0 4px;
+  font-size: 0.95em;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.wewrite-whats-new-body ul {
+  margin: 0 0 4px;
+  padding-inline-start: 1.4em;
+}
+
+.wewrite-whats-new-body li {
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+.wewrite-whats-new-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.wewrite-whats-new-link {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.wewrite-whats-new-footer button {
+  min-height: 32px;
+  /* Touch target: comfortable to tap on a phone, unobtrusive on desktop. */
+  padding: 6px 16px;
+}
+
 .wewrite-translate-label,
 .wewrite-generate-label {
   font-size: 12px;

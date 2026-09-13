@@ -47,8 +47,16 @@ import { editorHighlightExtension } from './utils/editor-highlight';
 import { initI18n, disposeI18n, t } from './i18n';
 import { SyncEngine } from './sync/engine';
 import { SyncScheduler } from './sync/scheduler';
+import { WhatsNewModal } from './views/whats-new-modal';
+import { buildWhatsNewView, shouldAutoShow } from './core/changelog';
 
 const log = createLogger('Main');
+
+/**
+ * Delay before the post-update dialog opens. Loading a vault is busy work for
+ * a second or two; showing release notes on top of that reads as noise.
+ */
+const WHATS_NEW_DELAY_MS = 1200;
 
 /** Live view of the plugin's sync settings for the sync engine. */
 function createSyncSettings(getSettings: () => WeWriteSettings) {
@@ -74,6 +82,9 @@ export default class WeWritePlugin extends Plugin {
   private materialCacheLoaded = false;
   private materialViewEnsured = false;
   private saveTimer: number | null = null;
+  private whatsNewTimer: number | null = null;
+  /** The release-notes dialog is a once-per-session event. */
+  private whatsNewHandled = false;
   syncEngine!: SyncEngine;
   syncScheduler!: SyncScheduler;
   private syncRibbonEl?: HTMLElement;
@@ -162,6 +173,12 @@ export default class WeWritePlugin extends Plugin {
     // in the mobile navigation bar alongside Files, Bookmarks, etc.
     this.app.workspace.onLayoutReady(() => {
       void this.ensureMaterialViewExists();
+      // Release notes for the version the user just updated to. Deferred so
+      // the dialog does not race the rest of the startup sequence.
+      this.whatsNewTimer = window.setTimeout(() => {
+        this.whatsNewTimer = null;
+        this.maybeShowWhatsNew();
+      }, WHATS_NEW_DELAY_MS);
     });
 
     // Hook vault file deletion to clean up registry
@@ -256,6 +273,7 @@ export default class WeWritePlugin extends Plugin {
 
     // Clear all pending timers
     if (this.saveTimer !== null) { window.clearTimeout(this.saveTimer); this.saveTimer = null; }
+    if (this.whatsNewTimer !== null) { window.clearTimeout(this.whatsNewTimer); this.whatsNewTimer = null; }
     if (this.fileChangeDebounceTimer) { window.clearTimeout(this.fileChangeDebounceTimer); this.fileChangeDebounceTimer = null; }
     if (this.visibilityTimer) { window.clearTimeout(this.visibilityTimer); this.visibilityTimer = null; }
 
@@ -445,6 +463,13 @@ export default class WeWritePlugin extends Plugin {
       id: 'new-theme-wizard',
       name: t('command.new_wechat_theme'),
       callback: () => this.openThemeWizard(),
+    });
+
+    // Release notes for the running version
+    this.addCommand({
+      id: 'open-whats-new',
+      name: t('command.whats_new'),
+      callback: () => this.openWhatsNew(),
     });
 
     // Generate Image by AI — insert at cursor in editor
@@ -960,6 +985,52 @@ export default class WeWritePlugin extends Plugin {
     const fm = cache?.frontmatter;
     if (!fm) return false;
     return fm.wewrite_theme === true || fm.wewrite_style === true;
+  }
+
+  // ── Release notes ──
+
+  /**
+   * Show the release notes for the running version, together with every
+   * release the user skipped. Also marks them as seen, so the next start is
+   * quiet. Safe to call from a command at any time.
+   */
+  openWhatsNew(): void {
+    const current = this.manifest.version;
+    const view = buildWhatsNewView(current, this.settings.whatsNewLastSeenVersion);
+    this.whatsNewHandled = true;
+
+    if (!view) {
+      new Notice(t('notice.whats_new_unavailable'));
+      return;
+    }
+
+    this.markWhatsNewSeen(current);
+    new WhatsNewModal(this.app, view).open();
+  }
+
+  /** Open the dialog once, after an update, without ever greeting a new user. */
+  private maybeShowWhatsNew(): void {
+    if (this.whatsNewHandled) return;
+    const current = this.manifest.version;
+    const lastSeen = this.settings.whatsNewLastSeenVersion;
+
+    if (shouldAutoShow(current, lastSeen, this.settings.showWhatsNewOnUpdate)) {
+      const view = buildWhatsNewView(current, lastSeen);
+      if (view) {
+        log.debug('showing release notes', { from: lastSeen, to: current });
+        new WhatsNewModal(this.app, view).open();
+      }
+    }
+
+    // Record the version either way: a fresh install is marked silently, and
+    // someone who turned the dialog off is not ambushed later by re-enabling it.
+    this.markWhatsNewSeen(current);
+  }
+
+  private markWhatsNewSeen(version: string): void {
+    if (this.settings.whatsNewLastSeenVersion === version) return;
+    this.settingsManager.updateSettings({ whatsNewLastSeenVersion: version });
+    void this.saveSettings();
   }
 
   private async openThemeWizard(): Promise<void> {

@@ -120,6 +120,9 @@ Or install manually:
 
 ## Changelog
 
+> What actually changed in each version lives in [CHANGELOG.md](CHANGELOG.md). After an update
+> WeWrite shows a **What's New** dialog, and the *What's new in WeWrite* command reopens it at any time.
+
 ### v2.0 (2026.8)
 
 Complete rewrite: mobile-first architecture, Obsidian native rendering + zero-CSS inline styling pipeline, theme-note system with 100+ decorations, AI writing assistant (proofread / synonyms / translate / Mermaid / formulas / image / summary), unified FNV1a-64 asset fingerprint database, three-zone cover editor, image post support, WebDAV multi-device sync, encrypted API key storage, settings import/export, automatic v1.x migration.

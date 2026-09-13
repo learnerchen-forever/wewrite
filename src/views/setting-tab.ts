@@ -358,6 +358,25 @@ export class WeWriteSettingTab extends PluginSettingTab {
         }),
       );
 
+    // Release notes — opt out of the post-update "What's New" dialog
+    // Obsidian 1.13+ renders getGeneralDefinitions() instead of renderTab();
+    // both paths must carry this setting. See getGeneralDefinitions().
+    new Setting(generalBody)
+      .setName(t('settings.whats_new'))
+      .setDesc(t('settings.whats_new_desc'))
+      .addToggle((toggle) =>
+        toggle.setValue(settings.showWhatsNewOnUpdate).onChange(async (v) => {
+          this.plugin.settingsManager.updateSettings({ showWhatsNewOnUpdate: v });
+          await this.plugin.saveSettings();
+        }),
+      )
+      .addExtraButton((btn) =>
+        btn
+          .setIcon('megaphone')
+          .setTooltip(t('settings.whats_new_view'))
+          .onClick(() => this.plugin.openWhatsNew()),
+      );
+
     // ── WeChat Accounts ──
     const wechatBody = this.addCollapsibleSection(containerEl, t('settings.wechat_accounts'), 'message-square');
 
@@ -1988,6 +2007,28 @@ export class WeWriteSettingTab extends PluginSettingTab {
               this.save();
             }),
           );
+        },
+      },
+      // Obsidian 1.13+ renders this list instead of renderTab(); a setting
+      // added to only one of the two paths is invisible to half the users.
+      {
+        name: t('settings.whats_new'),
+        desc: t('settings.whats_new_desc'),
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-toggle-row');
+          setting
+            .addToggle((toggle) =>
+              toggle.setValue(settings.showWhatsNewOnUpdate).onChange(async (v) => {
+                this.plugin.settingsManager.updateSettings({ showWhatsNewOnUpdate: v });
+                await this.plugin.saveSettings();
+              }),
+            )
+            .addExtraButton((btn) =>
+              btn
+                .setIcon('megaphone')
+                .setTooltip(t('settings.whats_new_view'))
+                .onClick(() => this.plugin.openWhatsNew()),
+            );
         },
       },
     ];
