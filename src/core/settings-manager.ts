@@ -92,6 +92,13 @@ export const WeWriteSettingsSchema = z.object({
   syncLogDebug: z.boolean().catch(false),
   syncMaxFileSizeMb: z.number().int().min(1).max(500).catch(50),
   syncRiskAcknowledgedAt: z.string().catch(''),
+  // ── Last-used selections ──
+  // No default: absent until the user picks a theme or a device size.
+  // Both fields existed on the interface and were written at runtime, but were
+  // missing here — so zod stripped them during every load and the "remember my
+  // last theme/device" behaviour silently reset on each restart.
+  lastStyleId: z.string().optional().catch(undefined),
+  lastDeviceSize: z.string().optional().catch(undefined),
 });
 
 // ── Migration Pipeline ──

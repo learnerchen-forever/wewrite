@@ -1,6 +1,7 @@
 // Unit tests for SettingsManager — import/export, format detection, partial recovery
 
 import { SettingsManager } from '../../../src/core/settings-manager';
+import { DEFAULT_SETTINGS } from '../../../src/core/interfaces';
 
 const PLUGIN_VERSION = '2.0.0';
 
@@ -53,6 +54,38 @@ describe('SettingsManager', () => {
       const result = await manager.load(data);
       expect(result.settings.wechatAccounts).toHaveLength(1);
       expect(result.settings.wechatAccounts[0].name).toBe('Test');
+    });
+  });
+
+  // ─── Schema drift guard ───
+
+  describe('schema completeness', () => {
+    it('preserves every settings field across a load', async () => {
+      // `lastStyleId` and `lastDeviceSize` lived on the interface and were
+      // written at runtime, but were absent from the Zod schema — so zod
+      // stripped them on every load and the "remember my last theme/device"
+      // behaviour silently reset. Any field added to the interface without a
+      // matching schema entry fails here.
+      const payload: Record<string, unknown> = {
+        ...DEFAULT_SETTINGS,
+        lastStyleId: 'builtin:github',
+        lastDeviceSize: 'iphone',
+      };
+      const result = await manager.load(payload);
+      const loaded = result.settings as unknown as Record<string, unknown>;
+
+      for (const key of Object.keys(payload)) {
+        expect(loaded).toHaveProperty(key);
+      }
+      expect(loaded.lastStyleId).toBe('builtin:github');
+      expect(loaded.lastDeviceSize).toBe('iphone');
+    });
+
+    it('keeps the last-used selections out of the defaults', () => {
+      // They must stay absent until the user actually picks something, so an
+      // unset value is distinguishable from a deliberate choice.
+      expect(DEFAULT_SETTINGS).not.toHaveProperty('lastStyleId');
+      expect(DEFAULT_SETTINGS).not.toHaveProperty('lastDeviceSize');
     });
   });
 
