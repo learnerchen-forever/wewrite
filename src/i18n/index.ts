@@ -69,6 +69,17 @@ export function t(key: string, params?: Record<string, string | number>): string
   return key;
 }
 
+/**
+ * Whether `key` resolves to a real translation.
+ *
+ * Required because `t()` returns the key itself when a translation is missing,
+ * which is a non-empty string and therefore truthy: `t(key) || fallback` never
+ * falls back. Use this to test for a message before trusting it.
+ */
+export function hasTranslation(key: string): boolean {
+  return translations[key] !== undefined || enData[key] !== undefined;
+}
+
 /** Register a language-change callback. Returns unsubscribe function. */
 export function onLanguageChange(cb: () => void): () => void {
   changeListeners.push(cb);
