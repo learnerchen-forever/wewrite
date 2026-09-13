@@ -45,7 +45,7 @@ type ElementPreset = {
 	nameKey: string;
 	descKey: string;
 	slots?: Record<string, string>;
-	/** New image decoration system: preset id + sparse param overrides. */
+	/** New decoration system (blockquote/image): preset id + sparse param overrides. */
 	decoration?: string;
 	decorationParams?: Record<string, string>;
 };
@@ -57,10 +57,13 @@ const ELEMENT_PRESETS: Record<string, ElementPreset[]> = {
 		{ id: 'card', nameKey: 'wizard.elem_heading_card', descKey: 'wizard.elem_heading_card_desc', slots: { border: 'none', background: 'filled', prefix: 'none', color: 'accent' } },
 		{ id: 'numbered', nameKey: 'wizard.elem_heading_numbered', descKey: 'wizard.elem_heading_numbered_desc', slots: { border: 'leftBorder', background: 'none', prefix: 'cjk', color: 'accentDeep' } },
 	],
-	'blocks.blockquote': [
-		{ id: 'light', nameKey: 'wizard.elem_quote_light', descKey: 'wizard.elem_quote_light_desc', slots: { background: 'lightGray', border: 'accentBar', icon: 'none' } },
-		{ id: 'warmCard', nameKey: 'wizard.elem_quote_warmcard', descKey: 'wizard.elem_quote_warmcard_desc', slots: { background: 'warmGray', border: 'none', icon: 'bulb' } },
-		{ id: 'cleanLine', nameKey: 'wizard.elem_quote_cleanline', descKey: 'wizard.elem_quote_cleanline_desc', slots: { background: 'none', border: 'accentBar', icon: 'none' } },
+	// Path keys are the frontmatter prefixes of the 3.0 schema: `blockquote` /
+	// `media.image` drive the new decoration system, `heading` / `blocks.code` /
+	// `blocks.table` still drive slots.
+	'blockquote': [
+		{ id: 'light', nameKey: 'wizard.elem_quote_light', descKey: 'wizard.elem_quote_light_desc', decoration: 'classicBar', decorationParams: { bgColor: '${accentBg}', barColor: '${accent}' } },
+		{ id: 'warmCard', nameKey: 'wizard.elem_quote_warmcard', descKey: 'wizard.elem_quote_warmcard_desc', decoration: 'classicBar', decorationParams: { bgColor: '${accentBg}', barColor: '${accent}', barWidth: '0', radius: '8' } },
+		{ id: 'cleanLine', nameKey: 'wizard.elem_quote_cleanline', descKey: 'wizard.elem_quote_cleanline_desc', decoration: 'classicBar', decorationParams: { bgColor: 'transparent', barColor: '${accent}' } },
 	],
 	'blocks.code': [
 		{ id: 'dark', nameKey: 'wizard.elem_code_dark', descKey: 'wizard.elem_code_dark_desc', slots: { theme: 'oneDark', titleBar: 'darkDots' } },
@@ -311,7 +314,7 @@ export class ThemeWizardModal extends WeWriteModal {
 
 		// Element preset pickers
 		const elementLabelKeys: Record<string, string> = {
-			'heading': 'wizard.section_heading', 'blocks.blockquote': 'wizard.section_blockquote',
+			'heading': 'wizard.section_heading', 'blockquote': 'wizard.section_blockquote',
 			'blocks.code': 'wizard.section_code', 'blocks.table': 'wizard.section_table',
 			'media.image': 'wizard.section_image',
 		};
@@ -411,7 +414,7 @@ export class ThemeWizardModal extends WeWriteModal {
 			if (!presets) continue;
 			const pick = presets.find(p => p.id === pickId);
 			if (!pick) continue;
-			// Image picks use the new decoration system instead of slots.
+			// Decoration picks (blockquote / image) use the new system instead of slots.
 			if (pick.decoration) {
 				if (pick.decoration !== 'none') {
 					lines.push(`${elemPath}.decoration: "${pick.decoration}"`);

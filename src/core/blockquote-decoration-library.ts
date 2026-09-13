@@ -49,6 +49,16 @@ export const BLOCKQUOTE_PATTERN_CSS: Record<string, string> = {
 	stripes: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.035) 0 2px, transparent 2px 8px)',
 };
 
+/**
+ * Default inner left padding (px) of a quote that carries no decoration
+ * template — the v3 fallback path and the "none" decoration.
+ *
+ * A bare `<blockquote>` gets its left rule from the host: WeChat paints its own
+ * quote rule with no inner padding, so without this the first character sits on
+ * the rule. 8px = 0.5rem, the same gap a decorated quote's `padX` provides.
+ */
+export const BLOCKQUOTE_PLAIN_PADDING_LEFT_PX = 8;
+
 export function getBlockquoteDecorationLibrary(): BlockquoteDecoration[] {
 	return [
 		{

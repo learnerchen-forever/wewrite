@@ -16,6 +16,8 @@ interface PresetDef {
 	callout?: { decoration?: string; decorationParams?: Record<string, string> };
 	/** New image + caption decoration config (replaces legacy media.image.* slots). */
 	image?: { decoration?: string; decorationParams?: Record<string, string> };
+	/** New blockquote decoration config (replaces legacy blocks.blockquote.* slots). */
+	blockquote?: { decoration?: string; decorationParams?: Record<string, string> };
 }
 
 function buildPreset(def: PresetDef): ThemePreset {
@@ -71,10 +73,23 @@ function buildPreset(def: PresetDef): ThemePreset {
 		modifierConfig: slots,
 		...(def.callout ? { calloutConfig: def.callout } : {}),
 		...(def.image ? { imageConfig: def.image } : {}),
+		...(def.blockquote ? { blockquoteConfig: def.blockquote } : {}),
 	};
 }
 
 // ── 10 built-in presets ──
+
+/**
+ * Shared params for a preset's quote card. The decoration library's `classicBar`
+ * defaults to a fixed beige/brown card, so presets pass their own palette
+ * through theme tokens — the same convention their image configs use
+ * (`borderColor: '${accentBorder}'`). Presets that want no rule spread this and
+ * override `barWidth: '0'` (the card keeps its tint, padding and corners).
+ */
+const BLOCKQUOTE_CARD_PARAMS: Record<string, string> = {
+	bgColor: '${accentBg}',
+	barColor: '${accent}',
+};
 
 export const BUILTIN_PRESETS: Record<string, ThemePreset> = {};
 
@@ -85,9 +100,9 @@ const PRESET_DEFS: PresetDef[] = [
 		typography: { baseSize: 16, lineHeight: 1.82 },
 		slots: {
 			'blocks.code': { theme: 'githubLight', titleBar: 'lightDots' },
-			'blocks.blockquote': { background: 'lightGray', border: 'accentBar' },
 			'inline.code': { style: 'lightGray' },
 		},
+		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
 	},
 	{
 		id: 'wechat', nameKey: 'preset.wechat',
@@ -96,9 +111,9 @@ const PRESET_DEFS: PresetDef[] = [
 		slots: {
 			'heading': { border: 'none', color: 'text' },
 			'blocks.code': { theme: 'oneDark', titleBar: 'darkDots' },
-			'blocks.blockquote': { background: 'lightGray', border: 'accentBar' },
 			'blocks.table': { headerStyle: 'gray' },
 		},
+		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
 	},
 	{
 		id: 'serif', nameKey: 'preset.serif',
@@ -108,8 +123,12 @@ const PRESET_DEFS: PresetDef[] = [
 			'heading': { border: 'leftBar', color: 'accentDeep' },
 			'heading.h1': { border: 'none', background: 'none' },
 			'blocks.code': { theme: 'warmPaper', titleBar: 'none' },
-			'blocks.blockquote': { background: 'warmGray', border: 'none', fontStyle: 'italic' },
 			'inline.strong': { style: 'accentColor' },
+		},
+		// Tinted card with no rule, italic — the quote is set in the body serif.
+		blockquote: {
+			decoration: 'classicBar',
+			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, barWidth: '0', fontStyle: 'italic' },
 		},
 		image: { decoration: 'lightShadow' },
 	},
@@ -123,10 +142,13 @@ const PRESET_DEFS: PresetDef[] = [
 			'heading.h1': { border: 'none' },
 			'heading.h2': { border: 'leftBar' },
 			'blocks.code': { theme: 'warmPaper', titleBar: 'none' },
-			'blocks.blockquote': { background: 'warmGray', border: 'accentBar', icon: 'bookmark' },
 			'blocks.table': { headerStyle: 'gray', borderStyle: 'horizontal' },
 			'inline.link': { style: 'subtle' },
 			'inline.strong': { style: 'boldOnly' },
+		},
+		blockquote: {
+			decoration: 'classicBar',
+			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, radius: '4' },
 		},
 		callout: { decorationParams: { radius: '4px' } },
 		image: { decoration: 'lightShadow', decorationParams: { radius: '4px' } },
@@ -139,9 +161,9 @@ const PRESET_DEFS: PresetDef[] = [
 			'article': { background: 'grid' },
 			'heading': { border: 'bottomLine', color: 'accentDeep' },
 			'blocks.code': { theme: 'githubLight', titleBar: 'lightDots' },
-			'blocks.blockquote': { background: 'lightGray', border: 'accentBar' },
 			'blocks.table': { headerStyle: 'accent', borderStyle: 'all' },
 		},
+		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
 		image: { decoration: 'lightShadow', decorationParams: { shadow: '0 4px 10px rgba(0,0,0,0.05)' } },
 	},
 	{
@@ -151,10 +173,14 @@ const PRESET_DEFS: PresetDef[] = [
 		slots: {
 			'heading': { border: 'none', color: 'text', prefix: 'decimal' },
 			'blocks.code': { theme: 'slateDark', titleBar: 'darkDots' },
-			'blocks.blockquote': { background: 'lightGray', border: 'thickBar', fontStyle: 'serif' },
 			'blocks.table': { headerStyle: 'gray', borderStyle: 'minimal' },
 			'blocks.list': { bullet: 'dash' },
 			'inline.link': { style: 'underlined' },
+		},
+		// Thick rule, square corners: the quote reads as an editorial sidebar.
+		blockquote: {
+			decoration: 'classicBar',
+			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, barWidth: '6', radius: '0' },
 		},
 	},
 	{
@@ -164,10 +190,10 @@ const PRESET_DEFS: PresetDef[] = [
 		slots: {
 			'heading': { border: 'bottomLine', color: 'accentDeep' },
 			'blocks.code': { theme: 'slateDark', titleBar: 'darkDots', corner: 'small' },
-			'blocks.blockquote': { background: 'lightGray', border: 'accentBar' },
 			'blocks.table': { headerStyle: 'accent', striped: 'striped' },
 			'inline.strong': { style: 'accentBg' },
 		},
+		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
 		image: { decoration: 'lightShadow', decorationParams: { radius: '8px', shadow: '0 4px 10px rgba(0,0,0,0.05)' } },
 	},
 	{
@@ -178,9 +204,20 @@ const PRESET_DEFS: PresetDef[] = [
 			'heading': { border: 'bottomLine', background: 'accentFill', color: 'accent' },
 			'heading.h1': { background: 'gradient' },
 			'blocks.code': { theme: 'oneDark', titleBar: 'darkDots', corner: 'medium' },
-			'blocks.blockquote': { background: 'gradient', border: 'accentBar', corner: 'medium' },
 			'inline.strong': { style: 'accentBg' },
 			'inline.code': { style: 'accentColor' },
+		},
+		blockquote: {
+			decoration: 'gradientEdge',
+			decorationParams: {
+				bgFrom: '${accentBg}',
+				bgTo: 'transparent',
+				barFrom: '${accent}',
+				// `${accentDeep}` is not used: every built-in preset pins
+				// `accentColorDeep` to the shared deep blue, so it is not this
+				// preset's own shade. Fade the rule to its own translucent accent.
+				barTo: '${accentBorder}',
+			},
 		},
 		image: { decoration: 'lightShadow', decorationParams: { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8', radius: '8px' } },
 		callout: {
@@ -197,9 +234,13 @@ const PRESET_DEFS: PresetDef[] = [
 			'heading': { border: 'none', color: 'text' },
 			'heading.h2': { border: 'bottomLine' },
 			'blocks.code': { theme: 'warmPaper', titleBar: 'none' },
-			'blocks.blockquote': { background: 'warmGray', border: 'none', corner: 'soft', icon: 'pin' },
 			'blocks.table': { headerStyle: 'gray' },
 			'inline.strong': { style: 'accentColor' },
+		},
+		// Soft tinted card with no rule.
+		blockquote: {
+			decoration: 'classicBar',
+			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, barWidth: '0' },
 		},
 		image: { decoration: 'lightShadow', decorationParams: { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8', radius: '4px' } },
 	},
@@ -213,11 +254,13 @@ const PRESET_DEFS: PresetDef[] = [
 			'heading.h1': { border: 'bottomLine' },
 			'heading.h2': { border: 'leftBar' },
 			'blocks.code': { theme: 'slateDark', titleBar: 'darkDots' },
-			'blocks.blockquote': { background: 'darkFill', border: 'accentBar', corner: 'medium', icon: 'warning' },
 			'blocks.table': { headerStyle: 'accent' },
 			'inline.link': { style: 'colored' },
 			'inline.strong': { style: 'accentColor' },
 		},
+		// `accentBg` is translucent, so the card is a tint over the dark page and
+		// `${text}` resolves to the light body color.
+		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
 		image: { decoration: 'lightShadow', decorationParams: { radius: '4px' } },
 		callout: {
 			decoration: 'accentGlow',

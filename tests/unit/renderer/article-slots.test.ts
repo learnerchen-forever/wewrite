@@ -88,10 +88,13 @@ describe('Article slots (v3)', () => {
     expect(css).toContain('background:#f0f0f0');
   });
 
-  it('blockquote defaults to no left indent and a one-line-height vertical margin', () => {
+  it('blockquote defaults to no left indent, a one-line-height vertical margin and a left padding', () => {
     const resolver = new ThemeResolver({ ...DEFAULT_PRESET });
     const quoteStyle = resolver.getStyle('blockquote');
     // One body line-height = round(16 * 1.8) = 29px vertical margin.
     expect(quoteStyle).toContain('margin:29px 0');
+    // 0.5rem — the host paints the quote's left rule with no inner padding, so
+    // without this the text touches the rule.
+    expect(quoteStyle).toContain('padding-left:8px');
   });
 });

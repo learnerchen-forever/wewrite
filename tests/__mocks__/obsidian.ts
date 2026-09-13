@@ -13,7 +13,15 @@ export class Plugin {
     return Promise.resolve();
   }
 
-  addCommand(command: { id: string; name: string; callback: () => void }): void {}
+  addCommand(_command: {
+    id: string;
+    name: string;
+    icon?: string;
+    callback?: () => void;
+    checkCallback?: (checking: boolean) => boolean | void;
+    editorCallback?: (editor: unknown, ctx: unknown) => unknown;
+    editorCheckCallback?: (checking: boolean, editor: unknown, ctx: unknown) => boolean | void;
+  }): void {}
   addRibbonIcon(icon: string, title: string, callback: () => void): HTMLElement { return document.createElement('div'); }
   addSettingTab(tab: unknown): void {}
   registerView(type: string, viewCreator: (leaf: WorkspaceLeaf) => unknown): void {}
@@ -229,6 +237,10 @@ export function sanitizeHTMLToDom(html: string): DocumentFragment {
 }
 
 export function setIcon(el: HTMLElement, icon: string): void {}
+
+export function addIcon(iconId: string, svgContent: string): void {}
+
+export function getLanguage(): string { return 'en'; }
 
 export function loadPdfJs(): Promise<unknown> {
   throw new Error('loadPdfJs is not implemented in tests — mock it explicitly');

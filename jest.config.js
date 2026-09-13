@@ -6,6 +6,9 @@ module.exports = {
   roots: ['<rootDir>/tests'],
   moduleNameMapper: {
     '^obsidian$': '<rootDir>/tests/__mocks__/obsidian.ts',
+    // esbuild bundles src/resources/icons/*.svg as text; unit tests only need
+    // the import to resolve (see tests/__mocks__/svg.ts).
+    '\\.svg$': '<rootDir>/tests/__mocks__/svg.ts',
   },
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {

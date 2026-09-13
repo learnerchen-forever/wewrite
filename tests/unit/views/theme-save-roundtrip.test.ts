@@ -6,6 +6,12 @@ import { parseFrontmatter, stringifyFrontmatter } from '../../../src/utils/front
 import { parseFlatFrontmatter, registerCustomValues } from '../../../src/core/frontmatter-parser';
 import { getSlotRegistry } from '../../../src/core/slot-registry';
 import { ThemeResolver, DEFAULT_PRESET } from '../../../src/renderer/theme-resolver';
+import {
+  blockquoteConfigToFrontmatter,
+  parseBlockquoteFrontmatter,
+  resolveBlockquoteDecoration,
+} from '../../../src/core/blockquote-config';
+import { BUILTIN_PRESETS } from '../../../src/styles/style-template';
 
 describe('Theme editor save round-trip', () => {
   it('persists heading font slots through YAML serialize + parse', () => {
@@ -93,5 +99,25 @@ describe('Theme editor save round-trip', () => {
       if (v.id === 'none') continue;
       expect(v.css.length).toBeGreaterThan(0);
     }
+  });
+
+  it('persists a built-in preset blockquote decoration through save + reload', () => {
+    const config = BUILTIN_PRESETS['github'].blockquoteConfig;
+    expect(config?.decoration).toBe('classicBar');
+
+    const parsed = parseFrontmatter(
+      stringifyFrontmatter('# t', { wewrite_theme: true, ...blockquoteConfigToFrontmatter(config) }),
+    ) as Record<string, unknown>;
+
+    expect(parsed['blockquote.decoration']).toBe('classicBar');
+
+    const { config: reloaded } = parseBlockquoteFrontmatter(parsed);
+    expect(reloaded.decoration).toBe('classicBar');
+    expect(reloaded.decorationParams).toEqual(config?.decorationParams);
+
+    // Palette tokens stay tokens — they are expanded at render, not at save.
+    const { params } = resolveBlockquoteDecoration(reloaded.decoration, reloaded.decorationParams, []);
+    expect(params['bgColor']).toBe('${accentBg}');
+    expect(params['barColor']).toBe('${accent}');
   });
 });

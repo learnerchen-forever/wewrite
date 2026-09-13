@@ -39,7 +39,7 @@ Dataview queries (`dataview` / `dataviewjs` code blocks and inline `$= ...`) are
 
 ### AI Writing Assistant
 
-Entry points: **Command palette** + editor right-click **"WeWrite AI" submenu** (shared with image generation) — both offer the same features.
+Entry points: **Command palette** + editor right-click **"WeWrite AI" submenu** (shared with image generation) + the **mobile editor toolbar** — all offer the same features.
 
 | Feature | Description |
 |---------|-------------|
@@ -127,6 +127,7 @@ Or install manually:
 
 Complete rewrite: mobile-first architecture, Obsidian native rendering + zero-CSS inline styling pipeline, theme-note system with 100+ decorations, AI writing assistant (proofread / synonyms / translate / Mermaid / formulas / image / summary), unified FNV1a-64 asset fingerprint database, three-zone cover editor, image post support, WebDAV multi-device sync, encrypted API key storage, settings import/export, automatic v1.x migration.
 
+- 2026.09.13 — Release 2.0.19: every command now carries an icon, so WeWrite actions work from the mobile editor toolbar; quote styling follows each theme's own accent colour again, with nested and undecorated quotes fixed; the theme wizard's quote presets now use the current decoration schema; merged external PR [#28](https://github.com/learnerchen-forever/wewrite/pull/28) (Synology `app://` image paths, inline math inside lists, images uploaded before copying to WeChat); added the **What's New** dialog; release notes are now generated from `CHANGELOG.md`.
 - 2026.09.07 — Release 2.0.18.
 - 2026.09.04 — Release 2.0.17.
 - 2026.09.04 — Release 2.0.16.

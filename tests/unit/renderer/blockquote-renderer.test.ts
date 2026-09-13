@@ -47,12 +47,14 @@ describe('hasBlockquoteConfig / renderBlockquotes', () => {
 });
 
 describe('plain quote rendering', () => {
-  it('injects a one-line-height vertical margin and body text color', () => {
+  it('injects a one-line-height vertical margin, body text color and the default left padding', () => {
     const doc = renderHtml('<blockquote><p>hi</p></blockquote>', { 'blockquote.decoration': 'none' });
     const q = doc.querySelector('blockquote')!;
     const style = q.getAttribute('style')!;
     // 16px × 1.8 line-height → 29px.
     expect(style).toContain('margin:29px 0');
+    // 0.5rem between the quote's left rule and the text.
+    expect(style).toContain('padding-left:8px');
     expect(q.querySelector('p')!.textContent).toBe('hi');
   });
 });

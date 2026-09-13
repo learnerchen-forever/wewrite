@@ -9,6 +9,7 @@ import { buildTokens, onAccentColor } from '../core/token-engine';
 import { getSlotRegistry } from '../core/slot-registry';
 import type { TokenVars } from '../core/slot-types';
 import { resolveMermaidDecoration } from '../core/mermaid-config';
+import { BLOCKQUOTE_PLAIN_PADDING_LEFT_PX } from '../core/blockquote-decoration-library';
 import type { MermaidColors } from '../core/mermaid-decoration-types';
 import { generatePalette } from '../core/palette-engine';
 import {
@@ -479,8 +480,13 @@ export class ThemeResolver {
 				// Remove the browser default blockquote margin (large left
 				// indent) but keep at least one body line-height of vertical
 				// spacing so quotes never stick to surrounding paragraphs.
+				//
+				// The left rule is painted by the host (WeChat's own quote rule
+				// on a bare <blockquote>) and comes with no inner padding, so the
+				// text would touch it. Restore the same 0.5rem gap a decorated
+				// quote gets from its `padX` param.
 				const quoteMargin = Math.round(p.fontSize * p.lineHeight);
-				return `margin:${quoteMargin}px 0;`;
+				return `margin:${quoteMargin}px 0;padding-left:${BLOCKQUOTE_PLAIN_PADDING_LEFT_PX}px;`;
 			}
 
 			case 'pre': {

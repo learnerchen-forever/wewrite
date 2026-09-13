@@ -10,10 +10,11 @@ if (typeof (window as unknown as { Buffer?: unknown }).Buffer === 'undefined') {
   };
 }
 
-import { Plugin, MarkdownView, Notice, requestUrl, Platform, TFile, Menu, MenuItem, type Editor } from 'obsidian';
+import { Plugin, MarkdownView, Notice, requestUrl, Platform, TFile, Menu, MenuItem, type Editor, type MarkdownFileInfo } from 'obsidian';
 import { SettingsManager } from './core/settings-manager';
 import { eventBus } from './core/event-bus';
 import { registerWewriteIcons } from './core/icon-registry';
+import { AI_EDITOR_MENU_COMMANDS, commandLabelKey, getCommandEntry, type AIEditorCommandId } from './core/command-catalog';
 import { detectLegacySettings, migrateLegacyToV2, cleanupLegacyData } from './utils/migration';
 import { ThemeLoader } from './styles/theme-loader';
 import { ThemeDownloader } from './styles/theme-downloader';
@@ -58,6 +59,17 @@ const log = createLogger('Main');
  */
 const WHATS_NEW_DELAY_MS = 1200;
 
+/**
+ * Whether an AI editor command opens the second group of the "WeWrite AI"
+ * submenu (the generators) rather than continuing the text-tool group.
+ *
+ * A separate function on purpose: an inline `entry.id === '…'` comparison makes
+ * TypeScript narrow `entry` through the loop, which collapses its type.
+ */
+function startsAIGeneratorGroup(id: AIEditorCommandId): boolean {
+  return id === 'generate-image-by-ai';
+}
+
 /** Live view of the plugin's sync settings for the sync engine. */
 function createSyncSettings(getSettings: () => WeWriteSettings) {
   return {
@@ -88,6 +100,24 @@ export default class WeWritePlugin extends Plugin {
   syncEngine!: SyncEngine;
   syncScheduler!: SyncScheduler;
   private syncRibbonEl?: HTMLElement;
+
+  /**
+   * Executors for {@link AI_EDITOR_MENU_COMMANDS}, keyed by command id.
+   *
+   * One table feeds three surfaces: the `editorCallback` registration (command
+   * palette + mobile toolbar) and the editor menu's "WeWrite AI" submenu. The
+   * `Record` keyed by the catalog's id union makes a missing or misspelled
+   * entry a compile error, so an action cannot reach one surface but not the
+   * other.
+   */
+  private readonly aiEditorRunners: Record<AIEditorCommandId, (editor: Editor) => void> = {
+    'wewrite-ai-proofread': (editor) => this.runProofread(editor),
+    'wewrite-ai-synonyms': (editor) => this.runSynonyms(editor),
+    'wewrite-ai-translate': (editor) => this.runTranslate(editor),
+    'generate-image-by-ai': (editor) => this.generateImageByAI(editor),
+    'wewrite-ai-generate-mermaid': (editor) => this.runGenerateMermaid(editor),
+    'wewrite-ai-generate-math': (editor) => this.runGenerateMath(editor),
+  };
 
   async onload(): Promise<void> {
     // Register WeWrite custom SVG icons (src/resources/icons/) before any
@@ -436,248 +466,99 @@ export default class WeWritePlugin extends Plugin {
     }
   }
 
+  /**
+   * Register every WeWrite command.
+   *
+   * An `icon` is mandatory on each one: Obsidian's mobile editor toolbar
+   * renders `Command.icon` and falls back to a "?" placeholder for a command
+   * that has none — which is exactly why the WeWrite commands could not be
+   * used from the mobile toolbar. All metadata comes from
+   * src/core/command-catalog.ts, so the palette, both context menus and the
+   * mobile toolbar can no longer disagree about a command.
+   */
   private registerCommands(): void {
-    // Open WeChat News View command
+    // ── Note-scoped commands ──
+    // `checkCallback` hides them from the command palette while no applicable
+    // note is open. The mobile toolbar's "manage toolbar options" list is
+    // built from the registrations themselves, so it stays complete.
+
+    // Open the active note as a WeChat article draft.
     this.addCommand({
-      id: 'open-wechat-news-view',
-      name: t('command.open_wechat_news_view'),
-      callback: () => this.openWeChatNewsView(),
+      ...this.commandMeta('open-wechat-news-view'),
+      checkCallback: (checking) => {
+        const file = this.getActiveMarkdownFile();
+        if (!file || this.hasThemeFrontmatter(file)) return false;
+        if (!checking) void this.openWeChatNewsViewForFile(file.path);
+        return true;
+      },
     });
 
-    // Open WeChat NewsPic View command
+    // Open the active note as a WeChat image-message draft.
     this.addCommand({
-      id: 'open-wechat-newspic-view',
-      name: t('command.open_wechat_newspic_view'),
-      callback: () => this.openWeChatNewsPicView(),
+      ...this.commandMeta('open-wechat-newspic-view'),
+      checkCallback: (checking) => {
+        const file = this.getActiveMarkdownFile();
+        if (!file || this.hasThemeFrontmatter(file)) return false;
+        if (!checking) void this.openWeChatNewsPicViewForFile(file.path);
+        return true;
+      },
     });
 
-    // US6: Material Management command
+    // Edit the WeWrite theme a note declares in its frontmatter.
     this.addCommand({
-      id: 'open-material-view',
-      name: t('command.open_wechat_materials'),
-      callback: () => this.openMaterialView(),
+      ...this.commandMeta('wewrite-edit-theme'),
+      checkCallback: (checking) => {
+        const file = this.getActiveMarkdownFile();
+        if (!file || !this.hasThemeFrontmatter(file)) return false;
+        if (!checking) void this.openWeWriteThemeViewForFile(file.path);
+        return true;
+      },
     });
 
-    // New theme wizard
+    // ── View / plugin commands ──
     this.addCommand({
-      id: 'new-theme-wizard',
-      name: t('command.new_wechat_theme'),
-      callback: () => this.openThemeWizard(),
+      ...this.commandMeta('open-material-view'),
+      callback: () => { void this.openMaterialView(); },
     });
-
-    // Release notes for the running version
     this.addCommand({
-      id: 'open-whats-new',
-      name: t('command.whats_new'),
+      ...this.commandMeta('new-theme-wizard'),
+      callback: () => { void this.openThemeWizard(); },
+    });
+    this.addCommand({
+      ...this.commandMeta('open-whats-new'),
       callback: () => this.openWhatsNew(),
     });
 
-    // Generate Image by AI — insert at cursor in editor
+    // ── AI writing tools ──
+    // Registered as `editorCallback` — the shape Obsidian's own editing
+    // commands use — so the palette and the mobile toolbar offer them exactly
+    // while a markdown editor is focused. The editor menu runs the same
+    // `aiEditorRunners` entry, so all three surfaces behave identically.
+    for (const entry of AI_EDITOR_MENU_COMMANDS) {
+      this.addCommand({
+        ...this.commandMeta(entry.id),
+        editorCallback: (editor: Editor) => this.aiEditorRunners[entry.id](editor),
+      });
+    }
+
+    // ── Sync commands ──
     this.addCommand({
-      id: 'generate-image-by-ai',
-      name: t('command.generate_image_by_ai'),
-      callback: () => this.generateImageByAI(),
-    });
-
-    // ── AI Writing Tools ──
-    this.addCommand({
-      id: 'wewrite-ai-proofread',
-      name: t('command.ai_proofread'),
-      callback: () => this.runProofread(),
-    });
-    this.addCommand({
-      id: 'wewrite-ai-synonyms',
-      name: t('command.ai_synonyms'),
-      callback: () => this.runSynonyms(),
-    });
-    this.addCommand({
-      id: 'wewrite-ai-translate',
-      name: t('command.ai_translate'),
-      callback: () => this.runTranslate(),
-    });
-    this.addCommand({
-      id: 'wewrite-ai-generate-mermaid',
-      name: t('command.ai_generate_mermaid'),
-      callback: () => this.runGenerateMermaid(),
-    });
-    this.addCommand({
-      id: 'wewrite-ai-generate-math',
-      name: t('command.ai_generate_math'),
-      callback: () => this.runGenerateMath(),
-    });
-
-    // File explorer context menu (event not in Obsidian's public typings)
-    this.registerEvent(
-      this.app.workspace.on('file-menu', (...data: unknown[]) => {
-        const menu = data[0] as Menu;
-        const file = data[1];
-        if (!(file instanceof TFile)) return;
-        if (file.extension === 'md') {
-          if (this.hasThemeFrontmatter(file)) {
-            menu.addItem((item: MenuItem) => {
-              item.setTitle(t('contextMenu.edit_theme'));
-              item.setIcon('wewrite-theme');
-              item.onClick(() => this.openWeWriteThemeViewForFile(file.path));
-            });
-          } else {
-            menu.addItem((item: MenuItem) => {
-              item.setTitle(t('contextMenu.as_wechat_news'));
-              item.setIcon('wewrite-news');
-              item.onClick(() => this.openWeChatNewsViewForFile(file.path));
-            });
-            menu.addItem((item: MenuItem) => {
-              item.setTitle(t('contextMenu.as_wechat_news_pic'));
-              item.setIcon('wewrite-newspic');
-              item.onClick(() => this.openWeChatNewsPicViewForFile(file.path));
-            });
-          }
-        }
-      }),
-    );
-
-    // Editor menu (event not in Obsidian's public typings)
-    this.registerEvent(
-      this.app.workspace.on('editor-menu', (...data: unknown[]) => {
-        const menu = data[0] as Menu;
-        const editor = data[1] as Editor;
-        const file = this.getActiveMarkdownFile();
-        if (file) {
-          if (this.hasThemeFrontmatter(file)) {
-            menu.addItem((item: MenuItem) => {
-              item.setTitle(t('contextMenu.edit_theme'));
-              item.setIcon('wewrite-theme');
-              item.onClick(() => this.openWeWriteThemeViewForFile(file.path));
-            });
-          } else {
-            menu.addItem((item: MenuItem) => {
-              item.setTitle(t('contextMenu.as_wechat_news'));
-              item.setIcon('wewrite-news');
-              item.onClick(() => this.openWeChatNewsViewForFile(file.path));
-            });
-            menu.addItem((item: MenuItem) => {
-              item.setTitle(t('contextMenu.as_wechat_news_pic'));
-              item.setIcon('wewrite-newspic');
-              item.onClick(() => this.openWeChatNewsPicViewForFile(file.path));
-            });
-          }
-
-          // WeWrite AI submenu — proofread / synonyms / translate / image /
-          // mermaid / math, all behind one "WeWrite" entry. Uses Obsidian's
-          // native setSubmenu() (runtime API, typed in src/types) so the item
-          // gets the standard chevron-right indicator and Obsidian's own
-          // hover / tap positioning. Falls back to a manual popup only on
-          // builds without setSubmenu().
-          menu.addItem((item: MenuItem) => {
-            item.setTitle(t('contextMenu.wewrite_ai'));
-            item.setIcon('wewrite-ai-generate');
-
-            const buildSubmenu = (submenu: Menu): void => {
-              submenu.addItem((i: MenuItem) => {
-                i.setTitle(t('contextMenu.ai_proofread'));
-                i.setIcon('wewrite-proofread');
-                i.onClick(() => this.runProofread(editor));
-              });
-              submenu.addItem((i: MenuItem) => {
-                i.setTitle(t('contextMenu.ai_synonyms'));
-                i.setIcon('wewrite-synonyms');
-                i.onClick(() => this.runSynonyms(editor));
-              });
-              submenu.addItem((i: MenuItem) => {
-                i.setTitle(t('contextMenu.ai_translate'));
-                i.setIcon('wewrite-translate');
-                i.onClick(() => this.runTranslate(editor));
-              });
-              submenu.addSeparator();
-              submenu.addItem((i: MenuItem) => {
-                i.setTitle(t('contextMenu.ai_generate_image'));
-                i.setIcon('wewrite-ai-generate');
-                i.onClick(() => this.generateImageByAI());
-              });
-              submenu.addItem((i: MenuItem) => {
-                i.setTitle(t('contextMenu.ai_generate_mermaid'));
-                i.setIcon('git-branch');
-                i.onClick(() => this.runGenerateMermaid(editor));
-              });
-              submenu.addItem((i: MenuItem) => {
-                i.setTitle(t('contextMenu.ai_generate_math'));
-                i.setIcon('wewrite-math');
-                i.onClick(() => this.runGenerateMath(editor));
-              });
-            };
-
-            // Native submenu path: Obsidian renders the unified chevron-right
-            // indicator and positions the popup itself. The created menu is
-            // either returned by setSubmenu() or exposed as `item.submenu`,
-            // depending on the Obsidian build.
-            const submenuItem = item as MenuItem & { submenu?: Menu };
-            if (typeof submenuItem.setSubmenu === 'function') {
-              const created = submenuItem.setSubmenu();
-              const nativeSubmenu = created && 'addItem' in created ? created : submenuItem.submenu;
-              if (nativeSubmenu) {
-                buildSubmenu(nativeSubmenu);
-                return;
-              }
-            }
-
-            // Fallback (Obsidian builds without setSubmenu): build the menu
-            // manually and pop it out on click and hover.
-            const submenu = new Menu();
-            buildSubmenu(submenu);
-
-            // Click fallback (mobile / keyboard): open at the pointer position.
-            item.onClick((evt) => {
-              let x = Math.round(window.innerWidth / 2);
-              let y = Math.round(window.innerHeight / 2);
-              if ('clientX' in evt && typeof evt.clientX === 'number' && typeof evt.clientY === 'number') {
-                x = evt.clientX;
-                y = evt.clientY;
-              }
-              submenu.showAtPosition({ x, y });
-            });
-
-            // Hover: pop the submenu out to the right of the item, flipping
-            // to the left near the right screen edge. MenuItem.dom is not in
-            // the public typings but exists at runtime (`.menu-item` element).
-            const itemDom = (item as unknown as { dom?: HTMLElement }).dom;
-            if (itemDom) {
-              itemDom.addClass('wewrite-ai-submenu');
-              itemDom.addEventListener('mouseenter', () => {
-                if (!Platform.isDesktop) return;
-                const rect = itemDom.getBoundingClientRect();
-                if (window.innerWidth - rect.right > 260) {
-                  submenu.showAtPosition({ x: rect.right + 2, y: rect.top });
-                } else {
-                  submenu.showAtPosition({ x: rect.left - 2, y: rect.top, left: true });
-                }
-              });
-            }
-          });
-        }
-      }),
-    );
-
-    // ── Sync Commands ──
-    this.addCommand({
-      id: 'wewrite-sync-now',
-      name: t('command.sync_now'),
+      ...this.commandMeta('wewrite-sync-now'),
       callback: () => { void this.syncNow('manual'); },
     });
     this.addCommand({
-      id: 'wewrite-sync-test-connection',
-      name: t('command.sync_test_connection'),
+      ...this.commandMeta('wewrite-sync-test-connection'),
       callback: async () => {
         const result = await this.syncEngine.testConnection();
         new Notice(result.ok ? t('notice.sync_connection_ok') : result.message);
       },
     });
     this.addCommand({
-      id: 'wewrite-sync-resolve-conflicts',
-      name: t('command.sync_resolve_conflicts'),
+      ...this.commandMeta('wewrite-sync-resolve-conflicts'),
       callback: () => { void this.resolveSyncConflicts(); },
     });
     this.addCommand({
-      id: 'wewrite-sync-journal',
-      name: t('command.sync_journal'),
+      ...this.commandMeta('wewrite-sync-journal'),
       callback: () => {
         import('./sync/journal-viewer').then(({ JournalViewer }) => {
           new JournalViewer(
@@ -691,6 +572,171 @@ export default class WeWritePlugin extends Plugin {
           );
         }).catch(() => {});
       },
+    });
+
+    this.registerContextMenus();
+  }
+
+  /**
+   * `id` / `name` / `icon` for a catalogued command, plus the mobile-toolbar
+   * opt-in.
+   *
+   * `showOnMobileToolbar` is only consulted for non-editor commands, and every
+   * WeWrite command should be pinnable to the mobile editing toolbar — so it is
+   * set once here rather than repeated (and forgotten) at each call site.
+   */
+  private commandMeta(id: string): { id: string; name: string; icon: string; showOnMobileToolbar: boolean } {
+    const entry = getCommandEntry(id);
+    return {
+      id: entry.id,
+      name: t(entry.nameKey),
+      icon: entry.icon,
+      showOnMobileToolbar: true,
+    };
+  }
+
+  /**
+   * Add one catalogued command to a menu.
+   *
+   * Label and icon are read from the same catalog entry the palette and the
+   * mobile toolbar use, so a menu entry always matches its command.
+   */
+  private addCommandMenuItem(menu: Menu, id: string, onClick: () => void): void {
+    const entry = getCommandEntry(id);
+    menu.addItem((item: MenuItem) => {
+      item.setTitle(t(commandLabelKey(entry)));
+      item.setIcon(entry.icon);
+      item.onClick(onClick);
+    });
+  }
+
+  /**
+   * The file-explorer and editor context menus.
+   *
+   * These are thin wrappers over registered commands: anything offered here is
+   * also reachable from the command palette and can therefore be pinned to the
+   * mobile editing toolbar.
+   */
+  private registerContextMenus(): void {
+    // File explorer menu (event not in Obsidian's public typings)
+    this.registerEvent(
+      this.app.workspace.on('file-menu', (...data: unknown[]) => {
+        const menu = data[0] as Menu;
+        const file = data[1];
+        if (!(file instanceof TFile) || file.extension !== 'md') return;
+        this.addNoteMenuItems(menu, file);
+      }),
+    );
+
+    // Editor menu (event not in Obsidian's public typings)
+    this.registerEvent(
+      this.app.workspace.on('editor-menu', (...data: unknown[]) => {
+        const menu = data[0] as Menu;
+        const editor = data[1] as Editor;
+        const info = data[2] as MarkdownFileInfo | undefined;
+        const file = info?.file ?? this.getActiveMarkdownFile();
+        if (!file) return;
+        this.addNoteMenuItems(menu, file);
+        this.addAIEditorSubmenu(menu, editor);
+      }),
+    );
+  }
+
+  /**
+   * The note-scoped entries shared by both menus: "edit this note's theme"
+   * when the note carries WeWrite theme frontmatter, the two preview views
+   * otherwise.
+   */
+  private addNoteMenuItems(menu: Menu, file: TFile): void {
+    if (this.hasThemeFrontmatter(file)) {
+      this.addCommandMenuItem(menu, 'wewrite-edit-theme', () => {
+        void this.openWeWriteThemeViewForFile(file.path);
+      });
+      return;
+    }
+    this.addCommandMenuItem(menu, 'open-wechat-news-view', () => {
+      void this.openWeChatNewsViewForFile(file.path);
+    });
+    this.addCommandMenuItem(menu, 'open-wechat-newspic-view', () => {
+      void this.openWeChatNewsPicViewForFile(file.path);
+    });
+  }
+
+  /**
+   * The editor menu's "WeWrite AI" submenu.
+   *
+   * Built from the command catalog and dispatched through `aiEditorRunners`,
+   * the same table the palette and the mobile toolbar invoke. Uses Obsidian's
+   * native setSubmenu() (runtime API, typed in src/types) so the item gets the
+   * standard chevron-right indicator and Obsidian's own hover / tap
+   * positioning. Falls back to a manual popup only on builds without
+   * setSubmenu().
+   */
+  private addAIEditorSubmenu(menu: Menu, editor: Editor): void {
+    menu.addItem((item: MenuItem) => {
+      item.setTitle(t('contextMenu.wewrite_ai'));
+      item.setIcon('wewrite-ai-generate');
+
+      const buildSubmenu = (submenu: Menu): void => {
+        for (const entry of AI_EDITOR_MENU_COMMANDS) {
+          // Image generation opens the second group: text tools above,
+          // generators below.
+          if (startsAIGeneratorGroup(entry.id)) submenu.addSeparator();
+          const run = this.aiEditorRunners[entry.id];
+          submenu.addItem((i: MenuItem) => {
+            i.setTitle(t(commandLabelKey(entry)));
+            i.setIcon(entry.icon);
+            i.onClick(() => run(editor));
+          });
+        }
+      };
+
+      // Native submenu path: Obsidian renders the unified chevron-right
+      // indicator and positions the popup itself. The created menu is
+      // either returned by setSubmenu() or exposed as `item.submenu`,
+      // depending on the Obsidian build.
+      const submenuItem = item as MenuItem & { submenu?: Menu };
+      if (typeof submenuItem.setSubmenu === 'function') {
+        const created = submenuItem.setSubmenu();
+        const nativeSubmenu = created && 'addItem' in created ? created : submenuItem.submenu;
+        if (nativeSubmenu) {
+          buildSubmenu(nativeSubmenu);
+          return;
+        }
+      }
+
+      // Fallback (Obsidian builds without setSubmenu): build the menu
+      // manually and pop it out on click and hover.
+      const submenu = new Menu();
+      buildSubmenu(submenu);
+
+      // Click fallback (mobile / keyboard): open at the pointer position.
+      item.onClick((evt) => {
+        let x = Math.round(window.innerWidth / 2);
+        let y = Math.round(window.innerHeight / 2);
+        if ('clientX' in evt && typeof evt.clientX === 'number' && typeof evt.clientY === 'number') {
+          x = evt.clientX;
+          y = evt.clientY;
+        }
+        submenu.showAtPosition({ x, y });
+      });
+
+      // Hover: pop the submenu out to the right of the item, flipping
+      // to the left near the right screen edge. MenuItem.dom is not in
+      // the public typings but exists at runtime (`.menu-item` element).
+      const itemDom = (item as unknown as { dom?: HTMLElement }).dom;
+      if (itemDom) {
+        itemDom.addClass('wewrite-ai-submenu');
+        itemDom.addEventListener('mouseenter', () => {
+          if (!Platform.isDesktop) return;
+          const rect = itemDom.getBoundingClientRect();
+          if (window.innerWidth - rect.right > 260) {
+            submenu.showAtPosition({ x: rect.right + 2, y: rect.top });
+          } else {
+            submenu.showAtPosition({ x: rect.left - 2, y: rect.top, left: true });
+          }
+        });
+      }
     });
   }
 
@@ -720,15 +766,14 @@ export default class WeWritePlugin extends Plugin {
     return view?.file ?? null;
   }
 
-  private generateImageByAI(): void {
+  private generateImageByAI(editorArg?: Editor): void {
     const settings = this.settingsManager.getSettings();
     const imgAcct = settings.aiImageGenAccounts.find((a) => a.id === settings.activeAIImageGenAccountId);
     if (!imgAcct) { new Notice(t('notice.no_ai_image_account')); return; }
 
-    const view = this.app.workspace.getActiveViewOfType<MarkdownView>(MarkdownView);
-    if (!view?.editor) { new Notice(t('notice.no_active_editor')); return; }
+    const editor = editorArg ?? this.getActiveEditor();
+    if (!editor) return;
 
-    const editor = view.editor;
     new AIImageGenerateModal(
       this.app,
       imgAcct,
@@ -1059,18 +1104,6 @@ export default class WeWritePlugin extends Plugin {
     } catch (err) {
       new Notice(t('notice.theme_create_failed', { error: String(err) }));
     }
-  }
-
-  private async openWeChatNewsView(): Promise<void> {
-    const file = this.getActiveMarkdownFile();
-    if (!file) return;
-    await this.openWeChatNewsViewForFile(file.path);
-  }
-
-  private async openWeChatNewsPicView(): Promise<void> {
-    const file = this.getActiveMarkdownFile();
-    if (!file) return;
-    await this.openWeChatNewsPicViewForFile(file.path);
   }
 
   private async openWeChatNewsViewForFile(filePath: string): Promise<void> {

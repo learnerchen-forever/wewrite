@@ -23,6 +23,7 @@ import wewriteGallery from '../resources/icons/wewrite-gallery.svg';
 import wewriteLink from '../resources/icons/wewrite-link.svg';
 import wewriteMath from '../resources/icons/wewrite-math.svg';
 import wewriteMaterial from '../resources/icons/wewrite-material.svg';
+import wewriteMermaid from '../resources/icons/wewrite-mermaid.svg';
 import wewriteMultiselect from '../resources/icons/wewrite-multiselect.svg';
 import wewriteNewTheme from '../resources/icons/wewrite-new-theme.svg';
 import wewriteNews from '../resources/icons/wewrite-news.svg';
@@ -59,6 +60,7 @@ const WEWRITE_ICONS: Record<string, string> = {
 	'wewrite-link': wewriteLink,
 	'wewrite-math': wewriteMath,
 	'wewrite-material': wewriteMaterial,
+	'wewrite-mermaid': wewriteMermaid,
 	'wewrite-multiselect': wewriteMultiselect,
 	'wewrite-new-theme': wewriteNewTheme,
 	'wewrite-news': wewriteNews,
@@ -79,6 +81,15 @@ const WEWRITE_ICONS: Record<string, string> = {
 	'wewrite-undo': wewriteUndo,
 	'wewrite-zoom': wewriteZoom,
 };
+
+/**
+ * Ids registered by {@link registerWewriteIcons}.
+ *
+ * Exported so a command's `icon` can be asserted against the icons that
+ * actually exist — an unregistered id renders as a blank "?" button on the
+ * mobile toolbar instead of failing loudly.
+ */
+export const WEWRITE_ICON_IDS: readonly string[] = Object.keys(WEWRITE_ICONS);
 
 /** Register all WeWrite custom icons. Call once during plugin onload(). */
 export function registerWewriteIcons(): void {

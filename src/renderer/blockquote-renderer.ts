@@ -18,7 +18,7 @@
 
 import { resolveBlockquoteDecoration } from '../core/blockquote-config';
 import type { BlockquoteDecoration } from '../core/blockquote-decoration-types';
-import { BLOCKQUOTE_PATTERN_CSS } from '../core/blockquote-decoration-library';
+import { BLOCKQUOTE_PATTERN_CSS, BLOCKQUOTE_PLAIN_PADDING_LEFT_PX } from '../core/blockquote-decoration-library';
 import { ThemeResolver } from './theme-resolver';
 import type { TokenVars } from '../core/slot-types';
 import type { ThemePreset } from '../core/interfaces';
@@ -123,7 +123,13 @@ function renderPlainQuote(
 	tokens: TokenVars,
 ): void {
 	const htmlEl = el as HTMLElement;
-	appendStyle(htmlEl, `margin:${lineHeightPx}px 0;color:${String(tokens.text)}`);
+	// `padding-left` is the gap between the host's quote rule (WeChat paints one
+	// on a bare <blockquote>) and the text — the decorated path gets it from the
+	// template's `padX`, an undecorated quote needs the default.
+	appendStyle(
+		htmlEl,
+		`margin:${lineHeightPx}px 0;padding-left:${BLOCKQUOTE_PLAIN_PADDING_LEFT_PX}px;color:${String(tokens.text)}`,
+	);
 	if (iconText) {
 		const iconSpan = createEl('span');
 		iconSpan.setAttribute('style', 'margin-right:8px;font-size:1.1em');
@@ -235,7 +241,12 @@ export function renderBlockquotes(doc: Document, r: ThemeResolver): boolean {
 	const lineHeightPx = quoteLineHeightPx(preset);
 	const tokens = r.getTokens();
 
-	for (const el of Array.from(doc.querySelectorAll('blockquote'))) {
+	// Innermost first: rendering a quote replaces it with the decorated root and
+	// copies the original children into that root, so any nested quote must
+	// already carry its decoration when its parent is rendered. Outer-first order
+	// cloned the *unrendered* inner quote into the new tree and threw the inner
+	// element (and its rendered result) away with the replaced subtree.
+	for (const el of Array.from(doc.querySelectorAll('blockquote')).reverse()) {
 		renderBlockquoteElement(el, decoration, params, doc, tokens, iconText, lineHeightPx);
 	}
 	return true;
