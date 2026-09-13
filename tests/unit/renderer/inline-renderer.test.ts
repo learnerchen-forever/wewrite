@@ -180,6 +180,29 @@ describe('无饰 fallback and preview', () => {
     expect(html).toContain('color:#ff6b35');
     expect(html).toContain('示例文字');
   });
+
+  it('expands every ${token} the shared token map provides', () => {
+    // The renderer used to carry a private token map that was missing
+    // letterSpacing, so ${letterSpacing} leaked into the output verbatim.
+    const preset = { ...DEFAULT_PRESET };
+    const html = renderInlinePreview(preset, '<strong style="letter-spacing:${letterSpacing}">{text}</strong>', {});
+    expect(html).not.toContain('$' + '{letterSpacing}');
+    expect(html).toMatch(/letter-spacing:[^;"]+/);
+  });
+
+  it('escapes an apostrophe in a decoration param', () => {
+    // The renderer used to carry a private escapeHtmlAttr that skipped `'`,
+    // so a param dropped into a single-quoted attribute broke out of it and
+    // the attribute was silently truncated. The escaping is not observable in
+    // the serialized HTML (the DOM decodes &#39; on parse), so assert the
+    // attribute survived the round trip intact.
+    const preset = { ...DEFAULT_PRESET };
+    const html = renderInlinePreview(preset, "<strong data-note='{{note}}'>{text}</strong>", {
+      note: "it's a 'quote'",
+    });
+    const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
+    expect(doc.querySelector('strong')!.getAttribute('data-note')).toBe("it's a 'quote'");
+  });
 });
 
 describe('integration with the full WeChat pipeline', () => {

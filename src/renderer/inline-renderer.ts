@@ -26,6 +26,10 @@ import type {
 import type { TokenVars } from '../core/slot-types';
 import type { ThemePreset } from '../core/interfaces';
 import { ThemeResolver } from './theme-resolver';
+// Local copies of these two drifted from shared.ts (the apostrophe escape and
+// the letterSpacing token were missing), so inline decorations escaped and
+// expanded differently from every other renderer. Always import them.
+import { buildTokenMap, escapeHtmlAttr } from './shared';
 
 const INLINE_MARK = 'data-wewrite-inline-type';
 const DECO_MARK = 'data-wewrite-decoration';
@@ -52,14 +56,6 @@ const MATH_SCALE_CSS: Record<string, string> = {
 	extraLarge: 'font-size:1.35em',
 	huge: 'font-size:1.6em',
 };
-
-function escapeHtmlAttr(value: string): string {
-	return value
-		.replace(/&/g, '&amp;')
-		.replace(/"/g, '&quot;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;');
-}
 
 function appendStyle(el: Element, css: string): void {
 	const current = el.getAttribute('style') || '';
@@ -91,25 +87,6 @@ function applyMergedStyle(el: Element, ...styles: string[]): void {
 		}
 	}
 	if (missing.length > 0) appendStyle(el, missing.join(';'));
-}
-
-function buildTokenMap(tokens: TokenVars): Record<string, string> {
-	return {
-		accent: String(tokens.accent),
-		accentDeep: String(tokens.accentDeep),
-		accentBg: String(tokens.accentBg),
-		accentBg2: String(tokens.accentBg2),
-		accentBorder: String(tokens.accentBorder),
-		onAccent: String(tokens.onAccent),
-		text: String(tokens.text),
-		textMuted: String(tokens.textMuted),
-		bg: String(tokens.bg),
-		sans: String(tokens.sans),
-		serif: String(tokens.serif),
-		mono: String(tokens.mono),
-		baseSize: String(tokens.baseSize),
-		lineHeight: String(tokens.lineHeight),
-	};
 }
 
 function expandTemplate(
