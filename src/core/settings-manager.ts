@@ -101,6 +101,25 @@ export const WeWriteSettingsSchema = z.object({
   lastDeviceSize: z.string().optional().catch(undefined),
 });
 
+/** Account lists, validated element-by-element rather than as one value. */
+const ACCOUNT_ARRAY_FIELDS = [
+  { key: 'wechatAccounts', schema: WeChatAccountSchema },
+  { key: 'aiTextAccounts', schema: AITextAccountSchema },
+  { key: 'aiImageGenAccounts', schema: AIImageGenAccountSchema },
+] as const;
+
+/**
+ * Every scalar setting key, derived from the schema.
+ *
+ * This list used to be maintained by hand and was indexed *by* the schema
+ * (`WeWriteSettingsSchema.shape[key]`), so it could never report a field the
+ * schema itself was missing — which is exactly how `lastStyleId` and
+ * `lastDeviceSize` stayed invisible. Deriving it cannot drift.
+ */
+const SCALAR_SETTING_KEYS = (
+  Object.keys(WeWriteSettingsSchema.shape) as Array<keyof typeof WeWriteSettingsSchema.shape>
+).filter((key) => !ACCOUNT_ARRAY_FIELDS.some((field) => field.key === key));
+
 // ── Migration Pipeline ──
 
 interface Migration {
@@ -172,14 +191,7 @@ function recoverPartialSettings(
   const settings: WeWriteSettings = { ...DEFAULT_SETTINGS };
 
   // Scalar fields: try each individually
-  const scalarKeys = ['version', 'ipAddress', 'useCenterToken', 'activeWeChatAccountId', 'activeAITextAccountId',
-    'activeAIImageGenAccountId', 'wewriteFolder', 'stylesDirectory', 'coverStorageMode',
-    'coverStoragePath', 'dumpPublishContent',
-    'logRenderPipeline', 'svgFallbackThresholdKb', 'showCopyButton', 'logAICalling',
-    'articleWatermark',
-    'syncEnabled', 'syncWebdavUrl', 'syncUsername', 'syncPassword', 'syncRemoteDir', 'syncIntervalMinutes', 'syncLogDebug', 'syncMaxFileSizeMb', 'syncRiskAcknowledgedAt'] as const;
-
-  for (const key of scalarKeys) {
+  for (const key of SCALAR_SETTING_KEYS) {
     const fieldSchema = WeWriteSettingsSchema.shape[key];
     const result = fieldSchema.safeParse(data[key]);
     if (result.success) {
@@ -190,13 +202,7 @@ function recoverPartialSettings(
   }
 
   // Array fields: validate each element, keep valid ones
-  const arrayFields = [
-    { key: 'wechatAccounts', schema: WeChatAccountSchema },
-    { key: 'aiTextAccounts', schema: AITextAccountSchema },
-    { key: 'aiImageGenAccounts', schema: AIImageGenAccountSchema },
-  ] as const;
-
-  for (const { key, schema } of arrayFields) {
+  for (const { key, schema } of ACCOUNT_ARRAY_FIELDS) {
     const rawArray = data[key];
     if (!Array.isArray(rawArray)) {
       if (rawArray !== undefined) {
@@ -272,13 +278,8 @@ export class SettingsManager {
     // Step 5: Pre-process arrays — validate each element individually so
     // a single malformed account doesn't cause Zod's .catch([]) to discard the entire array.
     const warnings: string[] = [];
-    const arrayFields = [
-      { key: 'wechatAccounts', schema: WeChatAccountSchema },
-      { key: 'aiTextAccounts', schema: AITextAccountSchema },
-      { key: 'aiImageGenAccounts', schema: AIImageGenAccountSchema },
-    ] as const;
 
-    for (const { key, schema } of arrayFields) {
+    for (const { key, schema } of ACCOUNT_ARRAY_FIELDS) {
       const rawArray = settingsData[key];
       if (!Array.isArray(rawArray)) continue;
 
