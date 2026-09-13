@@ -815,7 +815,7 @@ export class WeChatNewsView extends ItemView {
     // Screen selector toggle chevron button
     const screenToggleBtn = styleRow.createEl('button', {
       cls: 'wewrite-btn-icon wewrite-screen-toggle-btn',
-      attr: { 'aria-label': 'Toggle screen selector' },
+      attr: { 'aria-label': t('misc.toggle_screen_selector') },
     });
     setIcon(screenToggleBtn, 'chevron-right');
 
@@ -2297,7 +2297,7 @@ export class WeChatNewsView extends ItemView {
         : (localPath.split('/').pop() || src.slice(0, 40));
       log.debug('publish: image task built', { i, src: src.slice(0, 80), localPath, isRemote, isLocalHostUrl, displayName });
       tasks.push({
-        name: `Image ${i + 1}/${imgs.length}: ${displayName}`,
+        name: t('publish.task_image_named', { index: i + 1, total: imgs.length, name: displayName }),
         status: 'pending', type: 'image',
         localPath,
         url: remoteUrl,
@@ -2316,7 +2316,7 @@ export class WeChatNewsView extends ItemView {
       unresolved: unresolvedCount,
     });
 
-    tasks.push({ name: 'Create WeChat draft', status: 'pending', type: 'draft' });
+    tasks.push({ name: t('publish.task_create_draft'), status: 'pending', type: 'draft' });
 
     // Populate logger image refs
     imageTasks.forEach((t, i) => {
@@ -2459,7 +2459,7 @@ export class WeChatNewsView extends ItemView {
         if (action === 'cancel') { globalSpinner.hide(); modal.close(); return; }
 
         // Convert / split problematic media
-        globalSpinner.show('Converting media...');
+        globalSpinner.show(t('publish.converting_media'));
         let conversion: ConversionResult;
         try {
           conversion = await validator.convertAll(report, validationTargets, baseDir,
@@ -3247,11 +3247,7 @@ class PublishProgressModal {
         fileName,
         mimeType,
       });
-      throw new Error(
-        `SVG files must be converted to PNG before upload. ` +
-        `File: ${fileName}. This is a render pipeline issue — the SVG should ` +
-        `have been converted in the SVG fallback phase.`,
-      );
+      throw new Error(t('error.publish_svg_not_converted', { file: fileName }));
     }
 
     // Log pre-upload details for debugging upload failures
@@ -3302,7 +3298,7 @@ class PublishProgressModal {
       log.debug(`    upload OK → media_id: ${response.data.media_id}`);
       return { mediaId: response.data.media_id, url };
     }
-    throw new Error(response.error?.errmsg || 'Upload failed: no media_id returned');
+    throw new Error(response.error?.errmsg || t('error.publish_upload_no_media_id'));
   }
 
   private replaceMediaUrl(html: string, localPath: string, wechatUrl: string): string {
