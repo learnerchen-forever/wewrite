@@ -12,6 +12,12 @@ dist/
 # Obsidian plugin local data
 data.json
 
+# Release body handed to the GitHub Release (derived from CHANGELOG.md)
+.release-notes.md
+
+# Scratch file the release workflow writes while rewriting versions.json
+versions.tmp.json
+
 # env
 .env
 .env.*

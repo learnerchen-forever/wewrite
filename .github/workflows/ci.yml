@@ -31,6 +31,26 @@ jobs:
           fi
           echo "Versions match: $PKG_VER"
 
+      # Obsidian reads versions.json as { "<plugin version>": "<minAppVersion>" }.
+      # A manifest-shaped value silently breaks the "which app version does
+      # this release need" fallback, and that is what happened here until 2.0.18.
+      - name: Validate versions.json
+        run: |
+          node -e '
+            const versions = require("./versions.json");
+            const bad = Object.entries(versions).filter(([, value]) => typeof value !== "string");
+            if (bad.length > 0) {
+              console.error(`::error::versions.json must map a plugin version to a minAppVersion string; ${bad.length} entry(ies) are objects.`);
+              process.exit(1);
+            }
+            console.log(`versions.json: ${Object.keys(versions).length} entries, all strings.`);
+          '
+
+      # CHANGELOG.md is the source of truth; the bundled JSON is derived from
+      # it. Failing here means someone edited one without the other.
+      - name: Check bundled changelog is in sync
+        run: node tools/changelog.js check
+
       - name: Type check
         run: npm run typecheck
 

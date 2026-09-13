@@ -10,6 +10,11 @@
     "test": "jest --config jest.config.js",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
+    "changelog": "node tools/changelog.js release",
+    "changelog:note": "node tools/changelog.js note",
+    "changelog:preview": "node tools/changelog.js preview",
+    "changelog:sync": "node tools/changelog.js sync",
+    "changelog:check": "node tools/changelog.js check",
     "check:bundle": "node tools/check-bundle.mjs main.js src"
   },
   "dependencies": {
