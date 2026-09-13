@@ -98,7 +98,7 @@ Dataview 查询（`dataview` / `dataviewjs` 代码块与行内 `$= ...`）经 Da
 在 Obsidian 社区插件市场搜索 **"WeWrite"**，安装并启用。
 
 或手动安装：
-1. 从 [Releases](https://github.com/learnerchen-forever/wewrite-next/releases) 下载最新版本
+1. 从 [Releases](https://github.com/learnerchen-forever/wewrite/releases) 下载最新版本
 2. 解压到 `<vault>/.obsidian/plugins/wewrite/`
 3. 重启 Obsidian 并在设置中启用
 

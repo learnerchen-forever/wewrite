@@ -86,7 +86,7 @@ Full JSON export (with version number) for cross-vault migration. Automatically 
 Search **"WeWrite"** in the Obsidian Community Plugins marketplace, install and enable it.
 
 Or install manually:
-1. Download the latest release from [Releases](https://github.com/learnerchen-forever/wewrite-next/releases)
+1. Download the latest release from [Releases](https://github.com/learnerchen-forever/wewrite/releases)
 2. Extract to `<vault>/.obsidian/plugins/wewrite/`
 3. Restart Obsidian and enable the plugin in settings
 
