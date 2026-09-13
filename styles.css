@@ -147,33 +147,10 @@ button.wewrite-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 button.wewrite-btn svg { width: 14px; height: 14px; }
 
 /* Accent variant — colored text, filled bg on hover */
-button.wewrite-btn-accent {
-  color: var(--interactive-accent);
-}
-button.wewrite-btn-accent:hover { background: var(--interactive-accent); color: var(--text-on-accent); }
 
 /* Warning / danger variant — red text, red bg on hover */
-button.wewrite-btn-danger {
-  color: var(--text-error);
-}
-button.wewrite-btn-danger:hover { background: var(--background-modifier-error); }
 
 /* ── Toolbar / control row (flex,两端对齐, one flex:1 fill) ── */
-.wewrite-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-  border-bottom: 1px solid var(--background-modifier-border);
-}
-.wewrite-row-noborder { border-bottom: none; }
-.wewrite-row-tight { padding-top: 2px; padding-bottom: 2px; }
-.wewrite-row-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  white-space: nowrap;
-}
 
 /* ── Obsidian theme override layer ──
    Obsidian's theme (especially mobile) applies pill-shaped (capsule)
@@ -336,23 +313,8 @@ body .wewrite-auto-expand button.mod-warning:focus-visible {
 }
 
 /* Inline setting rows (label + button on one line) */
-.wewrite-setting-inline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--background-modifier-border);
-}
 
-.wewrite-setting-inline-label {
-  font-size: 13px;
-  color: var(--text-normal);
-  flex: 1;
-}
 
-.wewrite-setting-inline button {
-  flex-shrink: 0;
-}
 
 /* Fix iPhone Delete button ghost — prevent overflow clipping on buttons */
 .wewrite-account-row button {
@@ -616,24 +578,7 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   border-bottom: none;
 }
 
-.wewrite-sync-status-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  gap: 12px;
-  border-top: 1px solid var(--background-modifier-border);
-}
 
-.wewrite-sync-status-text {
-  font-size: 13px;
-  color: var(--text-muted);
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* ── IP Display ── */
 .wewrite-ip-display {
@@ -708,22 +653,7 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   flex-shrink: 0;
 }
 
-.wewrite-material-tab-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 0;
-}
 
-.wewrite-material-fp-stats {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-  text-overflow: ellipsis;
-}
 
 .wewrite-material-toolbar-left {
   display: flex;
@@ -763,10 +693,6 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   gap: 0;
   margin-bottom: 16px;
   border-bottom: 2px solid var(--background-modifier-border);
-}
-.wewrite-material-tabs-group {
-  display: flex;
-  gap: 0;
 }
 
 .wewrite-material-tab {
@@ -1055,27 +981,6 @@ body.is-mobile .wewrite-test-row .setting-item-control {
 }
 
 /* ── Collapse toggle (Cover Image section) ── */
-.wewrite-collapse-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  cursor: pointer;
-  color: var(--text-muted);
-  opacity: 0.6;
-  flex-shrink: 0;
-  border-radius: 3px;
-  transition: opacity 0.15s;
-}
-.wewrite-collapse-toggle:hover {
-  opacity: 1;
-  background: var(--background-modifier-hover);
-}
-.wewrite-collapse-toggle svg {
-  width: 14px;
-  height: 14px;
-}
 
 /* ── Checkbox group — wraps as a single unit ── */
 .wewrite-checkbox-group {
@@ -1096,94 +1001,17 @@ body.is-mobile .wewrite-test-row .setting-item-control {
 
 
 /* ── Cover Frame ── */
-.wewrite-cover-frame {
-  width: 100%;
-  aspect-ratio: 2.35 / 1;
-  border: 2px dashed var(--background-modifier-border);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  cursor: pointer;
-  background: var(--background-primary-alt);
-}
 
-.wewrite-cover-frame.has-image {
-  border-style: solid;
-  border-color: var(--background-modifier-border);
-}
 
-.wewrite-cover-placeholder {
-  color: var(--text-faint);
-  font-size: 13px;
-  pointer-events: none;
-}
 
-.wewrite-cover-frame.drag-over {
-  border-color: var(--interactive-accent);
-  background: var(--background-modifier-hover);
-}
 
-.wewrite-cover-img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  user-select: none;
-  pointer-events: auto;
-}
 
-.wewrite-cover-crop-btn {
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  cursor: pointer;
-  color: var(--text-muted);
-  z-index: 2;
-}
 
-.wewrite-cover-crop-btn:hover {
-  color: var(--text-normal);
-  border-color: var(--interactive-accent);
-}
 
 /* ── Cover Mode Toggle Buttons ── */
-.wewrite-cover-mode-toggle {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  display: flex;
-  gap: 4px;
-  z-index: 3;
-}
 
-.wewrite-cover-mode-btn {
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-primary);
-  color: var(--text-muted);
-  cursor: pointer;
-  line-height: 1.4;
-}
 
-.wewrite-cover-mode-btn.active {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border-color: var(--interactive-accent);
-}
 
-.wewrite-cover-mode-btn:hover:not(.active) {
-  color: var(--text-normal);
-  border-color: var(--text-accent);
-}
 
 /* ── Part 3: Phone Frame Preview ── */
 
@@ -1448,25 +1276,7 @@ body.is-mobile .wewrite-test-row .setting-item-control {
 }
 
 /* ── Migration Confirm Dialog ── */
-.wewrite-migrate-move {
-  padding: 6px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-}
 
-.wewrite-migrate-keep {
-  padding: 6px 16px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  background: transparent;
-  color: var(--text-normal);
-}
 
 /* ── Publish Modal ── */
 .wewrite-publish-modal {
@@ -1749,19 +1559,8 @@ body.is-mobile .wewrite-test-row .setting-item-control {
 }
 
 /* Outer frame — solid border matching text-input/dropdown style */
-.wewrite-cover-frame {
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  background: transparent;
-}
 
 /* Inner wrapper — provides padding, separated from border to avoid specificity issues */
-.wewrite-cover-frame-inner {
-  padding: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 
 /* Compose button row — full width, same as Zone C */
 .wewrite-compose-btn-row {
@@ -2017,7 +1816,6 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   min-width: fit-content;
 }
 
-.wewrite-newspic-spacer { flex: 1; }
 
 .wewrite-newspic-account-select {
   /* inherits from .wewrite-select */
@@ -2027,9 +1825,6 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   /* inherits from .wewrite-select */
 }
 
-.wewrite-newspic-input {
-  /* inherits from .wewrite-input */
-}
 
 
 /* ── Preview Area ── */
@@ -2372,10 +2167,6 @@ body.is-mobile .wewrite-test-row .setting-item-control {
 }
 
 /* ── Character counter over-limit indicator ── */
-.wewrite-prop-counter.over {
-  color: #e74c3c;
-  font-weight: 700;
-}
 
 /* ── Image Edit Modal ── */
 .wewrite-image-edit-modal {
@@ -2647,15 +2438,6 @@ body.is-mobile .wewrite-test-row .setting-item-control {
   gap: 4px;
 }
 
-.wewrite-material-checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-muted);
-  cursor: pointer;
-  white-space: nowrap;
-}
 
 button.wewrite-btn-icon.wewrite-material-multiselect-btn.active {
   color: var(--text-accent);
