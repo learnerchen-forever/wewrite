@@ -54,24 +54,24 @@ export class HeadingPasteHtmlModal extends WeWriteModal {
 		const textarea = contentEl.createEl('textarea', {
 			attr: { placeholder: '<h2 style="background:#0366d6;color:#fff;padding:8px 16px;border-radius:8px">01、示例标题</h2>', rows: '6', spellcheck: 'false' },
 		});
-		textarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:12px;box-sizing:border-box';
+		textarea.addClass('wewrite-paste-code-input');
 
 		const nameWrap = contentEl.createDiv();
-		nameWrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:10px';
+		nameWrap.addClass('wewrite-paste-name-row');
 		nameWrap.createSpan({ text: t('paste.name_label'), cls: 'setting-item-description' });
 		const nameInput = nameWrap.createEl('input', { type: 'text', placeholder: t("paste.name_placeholder") });
-		nameInput.style.flex = '1';
+		nameInput.addClass('wewrite-paste-name-input');
 		nameInput.addEventListener('input', () => {
 			this.nameValue = nameInput.value;
 		});
 
 		this.chipsEl = contentEl.createDiv();
-		this.chipsEl.style.cssText = 'margin-top:8px;display:none;flex-wrap:wrap';
+		this.chipsEl.addClass('wewrite-paste-chips');
 
 		const previewTitle = contentEl.createEl('h4', { text: t('paste.preview_label') });
-		previewTitle.style.cssText = 'margin:12px 0 6px;font-size:13px;display:none';
+		previewTitle.addClass('wewrite-paste-preview-title');
 		this.previewEl = contentEl.createDiv();
-		this.previewEl.style.cssText = 'border:1px solid var(--background-modifier-border);border-radius:4px;padding:8px;background:#ffffff;color:#333333;min-height:40px;display:none';
+		this.previewEl.addClass('wewrite-paste-preview-box');
 
 		let parseTimeout: number;
 		textarea.addEventListener('input', () => {
@@ -80,7 +80,7 @@ export class HeadingPasteHtmlModal extends WeWriteModal {
 		});
 
 		const btnRow = contentEl.createDiv();
-		btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:16px';
+		btnRow.addClass('wewrite-paste-buttons');
 		btnRow.createEl('button', { text: t('misc.cancel') }).addEventListener('click', () => this.close());
 		btnRow.createEl('button', { text: t('paste.create_decoration'), cls: 'mod-cta' }).addEventListener('click', () => {
 			if (!this.extraction) {
@@ -99,18 +99,18 @@ export class HeadingPasteHtmlModal extends WeWriteModal {
 		const previewTitle = this.previewEl?.previousElementSibling as HTMLElement | null;
 		if (!html.trim()) {
 			this.extraction = null;
-			if (this.chipsEl) this.chipsEl.style.display = 'none';
-			if (this.previewEl) this.previewEl.style.display = 'none';
-			if (previewTitle) previewTitle.style.display = 'none';
+			if (this.chipsEl) this.chipsEl.removeClass('is-shown');
+			if (this.previewEl) this.previewEl.removeClass('is-shown');
+			if (previewTitle) previewTitle.removeClass('is-shown');
 			return;
 		}
 
 		const extracted = extractHeadingFromHtml(html, this.options.accentHex);
 		if (!extracted) {
 			this.extraction = null;
-			if (this.chipsEl) this.chipsEl.style.display = 'none';
-			if (this.previewEl) this.previewEl.style.display = 'none';
-			if (previewTitle) previewTitle.style.display = 'none';
+			if (this.chipsEl) this.chipsEl.removeClass('is-shown');
+			if (this.previewEl) this.previewEl.removeClass('is-shown');
+			if (previewTitle) previewTitle.removeClass('is-shown');
 			new Notice(t("paste.err_heading_text"));
 			return;
 		}
@@ -121,7 +121,7 @@ export class HeadingPasteHtmlModal extends WeWriteModal {
 		this.active = Object.fromEntries(Object.keys(extracted.params).map(k => [k, true]));
 		if (!this.nameValue) this.nameValue = extracted.name;
 		this.renderChips();
-		if (previewTitle) previewTitle.style.display = '';
+		if (previewTitle) previewTitle.addClass('is-shown');
 		this.schedulePreview();
 	}
 
@@ -131,18 +131,18 @@ export class HeadingPasteHtmlModal extends WeWriteModal {
 		el.empty();
 		const keys = Object.keys(this.params);
 		if (keys.length === 0) {
-			el.style.display = 'none';
+			el.removeClass('is-shown');
 			return;
 		}
-		el.style.display = 'flex';
-		el.createSpan({ text: t('paste.params_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:var(--ww-deco-param-font,11px);align-self:center';
+		el.addClass('is-shown');
+		el.createSpan({ text: t('paste.params_label'), cls: 'setting-item-description' }).addClass('wewrite-paste-param-label');
 		for (const key of keys) {
 			const label = el.createEl('label');
-			label.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;font-size:var(--ww-deco-param-font,11px);padding:var(--ww-deco-param-pad,2px 8px);border:1px solid var(--background-modifier-border);border-radius:10px;cursor:pointer';
+			label.addClass('wewrite-paste-chip');
 			const cb = label.createEl('input', { type: 'checkbox' });
 			cb.checked = this.active[key];
 			const text = label.createSpan({ text: `${key} (${this.params[key].default})` });
-			text.style.fontFamily = 'var(--font-monospace)';
+			text.addClass('wewrite-paste-chip-key');
 			cb.addEventListener('change', () => {
 				this.active[key] = cb.checked;
 				this.schedulePreview();
@@ -169,7 +169,7 @@ export class HeadingPasteHtmlModal extends WeWriteModal {
 				if (active && this.params[key]) params[key] = this.params[key].default;
 			}
 			setTrustedHtml(this.previewEl, renderDecorationPreview(this.options.basePreset, this.buildTemplate(), params));
-			this.previewEl.style.display = '';
+			this.previewEl.addClass('is-shown');
 		}, 200);
 	}
 
