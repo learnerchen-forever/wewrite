@@ -107,4 +107,4 @@ wewrite/
 
 ---
 
-**下一步**：回到 [教程 1：快速开始](01-quickstart.md) 复习，或查看 [README](../README.md) 总览。
+**下一步**：回到 [教程 1：快速开始](01-quickstart.md) 复习，或查看 [README](../README_zh.md) 总览。
