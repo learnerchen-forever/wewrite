@@ -1101,6 +1101,10 @@ body .wewrite-auto-expand .wewrite-test-row .setting-item-control button {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  /* The zoom transform scales the bezel; anchor it top-left so the scaled
+     frame stays aligned with the zoom box that reserves its footprint.
+     (Previously re-assigned inline on every zoom pass.) */
+  transform-origin: top left;
 
   /* Clean dark bezel */
   background:
@@ -3534,16 +3538,18 @@ select.wewrite-font-select {
 }
 
 /* ── Hand-rolled modal panels ──
-   ai-image-generate-modal / image-validation-modal / wechat-newspic-view and
-   image-edit-modal build their own overlay div and append it to <body>. They
-   used to force themselves visible with `modalEl.style.display = 'flex'`
-   inline; the .is-shown state class does exactly the same through the
-   stylesheet. (The validate and publish modals already declare display:flex,
-   so for them this only preserves the previous "make sure it is flex"
-   intent — off a stylesheet rule rather than an inline one.) */
+   ai-image-generate-modal / image-validation-modal / wechat-newspic-view,
+   image-edit-modal and wechat-news-view build their own overlay div and
+   append it to <body>. They used to force themselves visible with
+   `modalEl.style.display = 'flex'` inline; the .is-shown state class does
+   exactly the same through the stylesheet. (The validate, publish and
+   caption modals already declare display, so for them this only preserves
+   the previous "make sure it is shown" intent — off a stylesheet rule
+   rather than an inline one.) */
 .wewrite-publish-modal.is-shown,
 .wewrite-validate-modal.is-shown,
-.wewrite-image-edit-modal.is-shown {
+.wewrite-image-edit-modal.is-shown,
+.wewrite-caption-modal.is-shown {
   display: flex;
 }
 /* wechat-newspic-view hides Obsidian's own view header while the image editor
@@ -3636,4 +3642,61 @@ select.wewrite-font-select {
    its default, matching the old inline reset to ''. */
 .newspic-phone-bezel:not(.newspic-bezel-none) .newspic-phone-frame {
   overflow: hidden auto;
+}
+/* ══════════════════════════════════════════════════════════════════════════
+   WeChat News view — views/wechat-news-view.ts
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Bottom chrome hiding ──
+   While this view owns the leaf it hides Obsidian's own status bar and sync
+   icon. This used to be an inline display:none plus "remember the previous
+   inline value and put it back on restore" bookkeeping; the class is its own
+   inverse, so dropping it restores the stylesheet value. Two classes so it
+   reliably beats Obsidian's own `.status-bar` rule. */
+.status-bar.wewrite-hide-status-bar,
+.sync-status-icon.wewrite-hide-status-bar {
+  display: none;
+}
+
+/* ── Property-row / toolbar visibility states ──
+   The ext-wide checkbox gates the compose checkbox, the cover-row fold toggle
+   hides the whole component group, and the copy button follows a setting. All
+   three used to flip `element.style.display` between '' and 'none'. The state
+   class does the same; the two-class selector keeps it above
+   `.wewrite-cover-checkbox-label` (display:inline-flex) and
+   `.wewrite-prop-row` (display:flex). */
+.wewrite-cover-checkbox-label.is-hidden,
+.wewrite-cover-composer-frame.is-hidden,
+.wewrite-toolbar-btn.is-hidden {
+  display: none;
+}
+
+/* Collapsed preview panel: the phone scroll wrapper is taken out of flow.
+   Named after the `collapsed` vocabulary the screen row already uses. */
+.wewrite-phone-scroll.is-collapsed {
+  display: none;
+}
+
+/* ── No-simulation zoom box ──
+   In no-device mode the zoom box spans the wrapper and centres itself. The px
+   measurements the device branch writes are inline and would win over this
+   rule, so that branch drops them (removeProperty) before adding the class. */
+.wewrite-preview-zoom-box.is-unscaled {
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── Pass 1 native-render container ──
+   Obsidian renders the article into a fixed off-screen div at the WeChat
+   content width (677px) before conversion. opacity:0.01 rather than
+   left:-9999px keeps iOS WebKit's async plugin post-processors firing
+   (off-viewport elements get deprioritised and never finish rendering). */
+.wewrite-wechat-pass1-render {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 677px;
+  opacity: 0.01;
+  pointer-events: none;
+  z-index: -1;
 }

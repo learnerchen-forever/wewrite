@@ -235,41 +235,33 @@ export class WeChatNewsView extends ItemView {
     this.restoreBottomBars();
   }
 
-  private _statusBarOrigDisplay: string | undefined;
-  private _syncStatusOrigDisplay: string | undefined;
   private _leafChangeRef: EventRef | null = null;
 
   private hideViewHeader(): void {
     const leafEl = this.containerEl.closest('.workspace-leaf');
     if (!leafEl) return;
     const viewHeader: HTMLElement | null = leafEl.querySelector(':scope > .view-header');
-    if (viewHeader) viewHeader.style.display = 'none';
+    if (viewHeader) viewHeader.addClass('wewrite-hide-view-header');
   }
 
+  /**
+   * Hide Obsidian's own status bar + sync icon while this view owns the leaf.
+   * `.wewrite-hide-status-bar` is its own inverse, so the previous
+   * "remember each element's inline display value, put it back on restore"
+   * bookkeeping is gone — dropping the class restores the stylesheet value.
+   */
   private hideBottomBars(): void {
     const statusBar: HTMLElement | null = this.app.workspace.containerEl.querySelector('.status-bar');
-    if (statusBar && this._statusBarOrigDisplay === undefined) {
-      this._statusBarOrigDisplay = statusBar.style.display;
-      statusBar.style.display = 'none';
-    }
+    if (statusBar) statusBar.addClass('wewrite-hide-status-bar');
     const syncBtn: HTMLElement | null = document.querySelector('.sync-status-icon');
-    if (syncBtn && this._syncStatusOrigDisplay === undefined) {
-      this._syncStatusOrigDisplay = syncBtn.style.display;
-      syncBtn.style.display = 'none';
-    }
+    if (syncBtn) syncBtn.addClass('wewrite-hide-status-bar');
   }
 
   private restoreBottomBars(): void {
-    if (this._statusBarOrigDisplay !== undefined) {
-      const statusBar: HTMLElement | null = this.app.workspace.containerEl.querySelector('.status-bar');
-      if (statusBar) statusBar.style.display = this._statusBarOrigDisplay;
-      this._statusBarOrigDisplay = undefined;
-    }
-    if (this._syncStatusOrigDisplay !== undefined) {
-      const syncBtn: HTMLElement | null = document.querySelector('.sync-status-icon');
-      if (syncBtn) syncBtn.style.display = this._syncStatusOrigDisplay;
-      this._syncStatusOrigDisplay = undefined;
-    }
+    const statusBar: HTMLElement | null = this.app.workspace.containerEl.querySelector('.status-bar');
+    if (statusBar) statusBar.removeClass('wewrite-hide-status-bar');
+    const syncBtn: HTMLElement | null = document.querySelector('.sync-status-icon');
+    if (syncBtn) syncBtn.removeClass('wewrite-hide-status-bar');
   }
 
   async setFile(filePath: string): Promise<void> {
@@ -597,7 +589,7 @@ export class WeChatNewsView extends ItemView {
       const newRatio = checked ? 3.35 : 2.35;
       this.coverComposer.setCoverAspectRatio(newRatio);
       // show/hide compose checkbox
-      this.composeCheckboxLabelEl.style.display = checked ? '' : 'none';
+      this.composeCheckboxLabelEl.toggleClass('is-hidden', !checked);
       if (!checked) {
         this.composeCheckboxEl.checked = false;
         this.coverComposer.setComposeVisible(false);
@@ -617,7 +609,7 @@ export class WeChatNewsView extends ItemView {
     compLabel.createSpan({ text: t('misc.compose') });
     this.composeCheckboxLabelEl = compLabel;
     // initially hidden (ext-wide unchecked by default)
-    compLabel.style.display = 'none';
+    compLabel.addClass('is-hidden');
 
     // collapse/fold toggle
     const collapseBtn = this.coverRowEl.createEl('button', {
@@ -628,16 +620,16 @@ export class WeChatNewsView extends ItemView {
     collapseBtn.addEventListener('click', () => {
       this.coverCollapsed = !this.coverCollapsed;
       if (this.coverCollapsed) {
-        this.extWideLabelEl.style.display = 'none';
-        this.composeCheckboxLabelEl.style.display = 'none';
-        this.coverComposerContainerEl.style.display = 'none';
+        this.extWideLabelEl.addClass('is-hidden');
+        this.composeCheckboxLabelEl.addClass('is-hidden');
+        this.coverComposerContainerEl.addClass('is-hidden');
         this.coverRowEl.classList.remove('wewrite-prop-row-full');
         setIcon(collapseBtn, 'chevron-right');
       } else {
-        this.extWideLabelEl.style.display = '';
+        this.extWideLabelEl.removeClass('is-hidden');
         // restore compose label visibility based on ext-wide state
-        this.composeCheckboxLabelEl.style.display = this.extWideCheckboxEl.checked ? '' : 'none';
-        this.coverComposerContainerEl.style.display = '';
+        this.composeCheckboxLabelEl.toggleClass('is-hidden', !this.extWideCheckboxEl.checked);
+        this.coverComposerContainerEl.removeClass('is-hidden');
         this.coverRowEl.classList.add('wewrite-prop-row-full');
         setIcon(collapseBtn, 'chevron-down');
       }
@@ -928,11 +920,11 @@ export class WeChatNewsView extends ItemView {
     this.previewCollapsed = !this.previewCollapsed;
     if (this.previewCollapsed) {
       // this.screenRowEl.classList.add('collapsed');
-      this.phoneScrollEl.style.display = 'none';
+      this.phoneScrollEl.addClass('is-collapsed');
       setIcon(this.previewCollapseBtnEl, 'chevron-right');
     } else {
       this.screenRowEl.classList.remove('collapsed');
-      this.phoneScrollEl.style.display = '';
+      this.phoneScrollEl.removeClass('is-collapsed');
       setIcon(this.previewCollapseBtnEl, 'chevron-down');
       // The panel was display:none — recompute the fit zoom now that it has
       // layout again (the window-resize listener does not fire on expand).
@@ -955,18 +947,20 @@ export class WeChatNewsView extends ItemView {
     if (notch) notch.remove();
 
     if (isNone) {
-      // Clear inline styles — CSS class .wewrite-bezel-none handles appearance
-      this.previewFrameEl.style.width = '';
-      this.previewFrameEl.style.maxWidth = '';
-      this.previewFrameEl.style.height = '';
-      this.previewFrameEl.style.borderRadius = '';
-      this.previewFrameEl.style.padding = '';
+      // Drop the device measurements written below — CSS class
+      // .wewrite-bezel-none (and its .wewrite-phone-frame child rule) then
+      // takes over the appearance, exactly like the old inline resets to ''.
+      this.previewFrameEl.style.removeProperty('width');
+      this.previewFrameEl.style.removeProperty('max-width');
+      this.previewFrameEl.style.removeProperty('height');
+      this.previewFrameEl.style.removeProperty('border-radius');
+      this.previewFrameEl.style.removeProperty('padding');
 
       const screen = this.previewFrameEl.querySelector('.wewrite-phone-frame') as HTMLElement;
       if (screen) {
-        screen.style.width = '';
-        screen.style.height = '';
-        screen.style.borderRadius = '';
+        screen.style.removeProperty('width');
+        screen.style.removeProperty('height');
+        screen.style.removeProperty('border-radius');
       }
       return;
     }
@@ -1028,15 +1022,21 @@ export class WeChatNewsView extends ItemView {
       }
     }
 
+    // transform-origin: top left lives in the .wewrite-phone-bezel rule — it
+    // never changed, so it does not need re-assigning on every zoom pass.
     bezel.style.transform = scale >= 1 ? '' : `scale(${scale})`;
-    bezel.style.transformOrigin = 'top left';
 
     if (isNone) {
-      zoomBox.style.width = '100%';
-      zoomBox.style.height = '';
-      zoomBox.style.margin = '0 auto';
+      // No-device mode: the zoom box spans the wrapper and centres itself.
+      // The measurements written in the device branch below are inline and
+      // would win over the class, so drop them first.
+      zoomBox.addClass('is-unscaled');
+      zoomBox.style.removeProperty('width');
+      zoomBox.style.removeProperty('height');
+      zoomBox.style.removeProperty('margin');
       return;
     }
+    zoomBox.removeClass('is-unscaled');
     const scaledW = Math.round(bezel.offsetWidth * scale);
     const scaledH = Math.round(bezel.offsetHeight * scale);
     zoomBox.style.width = `${scaledW}px`;
@@ -1057,7 +1057,7 @@ export class WeChatNewsView extends ItemView {
   updateCopyButtonVisibility(): void {
     if (!this.copyBtnEl) return;
     const show = this.plugin.settingsManager.getSettings().showCopyButton;
-    this.copyBtnEl.style.display = show ? '' : 'none';
+    this.copyBtnEl.toggleClass('is-hidden', !show);
   }
 
   async renderContent(): Promise<void> {
@@ -1331,8 +1331,9 @@ export class WeChatNewsView extends ItemView {
       // Use opacity:0.01 instead of left:-9999px so iOS WebKit (15.x/16.x)
       // keeps the element in its render tree. Off-viewport elements are
       // deprioritized, causing async plugin post-processors to never fire.
+      // (Geometry lives in .wewrite-wechat-pass1-render.)
       const tempDiv = createDiv();
-      tempDiv.style.cssText = 'position:fixed;left:0;top:0;width:677px;opacity:0.01;pointer-events:none;z-index:-1';
+      tempDiv.addClass('wewrite-wechat-pass1-render');
       // Marker so the finally-block safety net can remove this container even
       // when an exception skips the removeChild below (leak prevention).
       tempDiv.setAttribute('data-wewrite-pass1', '1');
@@ -1590,7 +1591,7 @@ export class WeChatNewsView extends ItemView {
           </div>
         </div>`);
       document.body.appendChild(modalEl);
-      modalEl.style.display = 'flex';
+      modalEl.addClass('is-shown');
 
       const textarea = modalEl.querySelector('textarea')!;
       const cancelBtn = modalEl.querySelector('.wewrite-caption-cancel')!;
@@ -1656,7 +1657,7 @@ export class WeChatNewsView extends ItemView {
           </div>
         </div>`);
       document.body.appendChild(modalEl);
-      modalEl.style.display = 'flex';
+      modalEl.addClass('is-shown');
 
       const widthInput = modalEl.querySelector('#dim-width') as HTMLInputElement;
       const heightInput = modalEl.querySelector('#dim-height') as HTMLInputElement;
@@ -2840,7 +2841,7 @@ export class WeChatNewsView extends ItemView {
         this.extWideCheckboxEl.checked = isExtWide;
         // sync compose checkbox visibility and state
         if (this.composeCheckboxLabelEl) {
-          this.composeCheckboxLabelEl.style.display = isExtWide ? '' : 'none';
+          this.composeCheckboxLabelEl.toggleClass('is-hidden', !isExtWide);
         }
         if (this.composeCheckboxEl) {
           this.composeCheckboxEl.checked = isExtWide;
@@ -2940,7 +2941,7 @@ class PublishProgressModal {
   }
 
   open(): void {
-    this.modalEl.style.display = 'flex';
+    this.modalEl.addClass('is-shown');
   }
 
   updatePreScanTask(index: number, status: 'pending' | 'running' | 'done' | 'error', error?: string): void {
@@ -3429,7 +3430,7 @@ class ImageGenerateDialog {
     this.generateBtn.addEventListener('click', () => { void this.generate(); });
   }
 
-  open(): void { this.modalEl.style.display = 'flex'; }
+  open(): void { this.modalEl.addClass('is-shown'); }
 
   private async generate(): Promise<void> {
     this.generateBtn.disabled = true;
