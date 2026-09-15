@@ -24,6 +24,7 @@ import type { TokenVars } from '../core/slot-types';
 import type { ThemePreset } from '../core/interfaces';
 import { escapeHtmlAttr, buildTokenMap } from './shared';
 import { parseTrustedHtml } from '../utils/trusted-html';
+import { ARTICLE_INLINE_STYLE } from './article-inline-styles';
 
 const ICON_SENTINEL = '__WEWRITE_QUOTE_ICON__';
 
@@ -133,7 +134,7 @@ function renderPlainQuote(
 	);
 	if (iconText) {
 		const iconSpan = createSpan();
-		iconSpan.setAttribute('style', 'margin-right:8px;font-size:1.1em');
+		iconSpan.setAttribute('style', ARTICLE_INLINE_STYLE.iconBeforeDecoration);
 		iconSpan.textContent = iconText;
 		el.insertBefore(iconSpan, el.firstChild);
 	}
@@ -179,7 +180,7 @@ function renderBlockquoteElement(
 		const iconHost = findPlaceholderElement(container, ICON_SENTINEL);
 		if (iconHost) {
 			const iconSpan = createSpan();
-			iconSpan.setAttribute('style', 'margin-right:8px;font-size:1.1em');
+			iconSpan.setAttribute('style', ARTICLE_INLINE_STYLE.iconBeforeDecoration);
 			iconSpan.textContent = iconText;
 			replaceTextPlaceholder(iconHost, [iconSpan], doc, ICON_SENTINEL);
 		}

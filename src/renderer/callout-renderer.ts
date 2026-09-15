@@ -26,6 +26,7 @@ import { ThemeResolver } from './theme-resolver';
 import type { ThemePreset } from '../core/interfaces';
 import { buildTokenMap } from './shared';
 import { setTrustedHtml } from '../utils/trusted-html';
+import { ARTICLE_INLINE_STYLE } from './article-inline-styles';
 
 /** Obsidian callout aliases → canonical types (kept in sync with ThemeResolver). */
 const CALLOUT_ALIASES: Record<string, CalloutType> = {
@@ -116,7 +117,7 @@ function applyTypeIcon(
 	if (!svg) return;
 	svg.setAttribute('width', size);
 	svg.setAttribute('height', size);
-	svg.setAttribute('style', 'width:100%;height:100%;display:block');
+	svg.setAttribute('style', ARTICLE_INLINE_STYLE.calloutIconSvg);
 	svg.setAttribute('fill', 'none');
 	svg.setAttribute('stroke', 'currentColor');
 	svg.setAttribute('stroke-width', '2');

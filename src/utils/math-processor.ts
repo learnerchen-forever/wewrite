@@ -7,6 +7,7 @@ import { latexToSvg } from '../renderer/math-to-svg';
 import { sanitizeSvgElement } from '../renderer/wechat-svg-sanitizer';
 import { createLogger } from './logger';
 import { setTrustedHtml, parseTrustedHtml } from './trusted-html';
+import { ARTICLE_INLINE_STYLE } from '../renderer/article-inline-styles';
 
 const log = createLogger('MathProcessor');
 
@@ -112,12 +113,12 @@ export async function processMathToSvg(container: HTMLElement, markdown: string)
 		const isDisplay = formula.display || mjx.hasAttribute('display');
 		const wrapper = createEl(isDisplay ? 'section' : 'span');
 		if (isDisplay) {
-			wrapper.setAttribute('style', 'text-align:center;display:block;margin:16px 0');
+			wrapper.setAttribute('style', ARTICLE_INLINE_STYLE.mathDisplay);
 		} else {
 			// Use display:inline (not inline-block): WeChat's editor treats
 			// inline-block inside <li> as a block trigger and re-wraps it,
 			// which splits "text + formula" onto separate lines after paste.
-			wrapper.setAttribute('style', 'display:inline;vertical-align:middle');
+			wrapper.setAttribute('style', ARTICLE_INLINE_STYLE.mathInline);
 			wrapper.classList.add('wewrite-math-inline');
 		}
 		setTrustedHtml(wrapper, sanitized);

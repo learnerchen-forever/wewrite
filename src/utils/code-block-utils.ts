@@ -12,6 +12,7 @@ import {
 	type CodeTheme,
 } from '../core/code-theme-library';
 import { setTrustedHtml } from './trusted-html';
+import { ARTICLE_INLINE_STYLE } from '../renderer/article-inline-styles';
 
 export interface CodeBlockRenderOptions {
 	/** Code theme (token colors + background/foreground). Defaults to oneDark. */
@@ -176,8 +177,8 @@ function rebuildWithLineNumbers(codeEl: HTMLElement, theme: CodeTheme): void {
 
 	lines.forEach((nodes, i) => {
 		const line = createSpan();
-		line.style.display = 'block';
-		line.style.minHeight = '1.6em';
+		line.style.display = ARTICLE_INLINE_STYLE.codeLineDisplay;
+		line.style.minHeight = ARTICLE_INLINE_STYLE.codeLineMinHeight;
 
 		if (gutterWidth > 0) {
 			const num = createSpan();

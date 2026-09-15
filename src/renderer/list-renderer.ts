@@ -28,6 +28,7 @@ import type { TokenVars } from '../core/slot-types';
 import type { ThemePreset } from '../core/interfaces';
 import { escapeHtmlAttr, buildTokenMap } from './shared';
 import { setTrustedHtml, parseTrustedHtml } from '../utils/trusted-html';
+import { ARTICLE_INLINE_STYLE } from './article-inline-styles';
 
 const NATIVE_MARKERS = ['disc', 'circle', 'square'];
 /** 嵌套列表每级缩进（px）。 */
@@ -223,10 +224,10 @@ function makeTaskIconSpan(
 			(checked ? `background:${color};` : ''));
 		if (checked) {
 			span.textContent = '✓';
-			span.style.color = '#ffffff';
+			span.style.color = ARTICLE_INLINE_STYLE.taskTickColor;
 			span.style.fontSize = `${Math.round(size * 0.72)}px`;
-			span.style.lineHeight = '1';
-			span.style.fontWeight = 'bold';
+			span.style.lineHeight = ARTICLE_INLINE_STYLE.taskTickLineHeight;
+			span.style.fontWeight = ARTICLE_INLINE_STYLE.taskTickFontWeight;
 		}
 		return span;
 	}
@@ -301,7 +302,7 @@ export function renderTaskLists(doc: Document, r: ThemeResolver): boolean {
 				next = next.nextSibling;
 				if (sib.nodeType === Node.TEXT_NODE) {
 					const wrap = createSpan();
-					wrap.setAttribute('style', 'text-decoration:line-through;color:#8b949e');
+					wrap.setAttribute('style', ARTICLE_INLINE_STYLE.taskDoneText);
 					sib.parentNode!.replaceChild(wrap, sib);
 					wrap.appendChild(sib);
 				} else if (sib.nodeType === Node.ELEMENT_NODE && sib !== cb) {

@@ -32,6 +32,7 @@ import {
 	resolveExcalidrawDecorationStyle,
 } from './excalidraw-renderer';
 import { setTrustedHtml } from '../utils/trusted-html';
+import { ARTICLE_INLINE_STYLE } from './article-inline-styles';
 
 // ── Mermaid SVG style inlining ──
 // Mermaid generates SVGs with <style> blocks that define visual properties
@@ -297,7 +298,7 @@ export class WechatRenderer {
             counters[level]++;
             const formatted = formatHeadingNumber(counters[level], numberingStyle);
             const numSpan = createSpan();
-            numSpan.setAttribute('style', 'margin-right:0.5em;user-select:none;');
+            numSpan.setAttribute('style', ARTICLE_INLINE_STYLE.headingNumber);
             numSpan.setAttribute('data-wewrite-numbering', 'true');
             numSpan.textContent = formatted;
             el.insertBefore(numSpan, el.firstChild);
@@ -335,7 +336,7 @@ export class WechatRenderer {
       // diagram colors come from the Mermaid themer, not the code theme.
       const isMermaidPre = (el.classList?.contains('mermaid') ?? false) || el.querySelector('svg') !== null;
       if (isMermaidPre) {
-        el.setAttribute('style', 'background:transparent;padding:0;margin:0;overflow:visible;text-align:center');
+        el.setAttribute('style', ARTICLE_INLINE_STYLE.mermaidPre);
         return;
       }
       const section = createEl('section');
@@ -699,7 +700,7 @@ export class WechatRenderer {
       if (!svg) return;
 
       // Wrapper: match Obsidian's .obsidian-icon { width:1.8rem; display:inline-block }
-      el.setAttribute('style', 'display:inline-block;width:1.8em;text-align:center');
+      el.setAttribute('style', ARTICLE_INLINE_STYLE.iconWrapper);
 
       // SVG: fill wrapper, match .obsidian-icon.react-icon > svg
       const cur = svg.getAttribute('style') || '';
