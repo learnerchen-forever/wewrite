@@ -83,6 +83,8 @@ Full JSON export (with version number) for cross-vault migration. Automatically 
 
 ## Installation
 
+> Requires **Obsidian 1.6.6 or later** — the plugin calls `FileManager.trashFile` (API introduced in 1.6.6), so older builds cannot run it. Language detection uses `getLanguage()` (API 1.8.7) behind a `requireApiVersion` guard and falls back to English on 1.6.6–1.8.6.
+
 Search **"WeWrite"** in the Obsidian Community Plugins marketplace, install and enable it.
 
 Or install manually:

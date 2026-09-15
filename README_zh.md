@@ -86,6 +86,8 @@ Dataview 查询（`dataview` / `dataviewjs` 代码块与行内 `$= ...`）经 Da
 
 ## 安装
 
+> 需要 **Obsidian 1.6.6 或更高版本**——插件调用了 1.6.6 才引入的 `FileManager.trashFile` API，更低版本无法运行。语言检测使用的 `getLanguage()`（1.8.7 引入）已用 `requireApiVersion` 守卫，在 1.6.6–1.8.6 上会回退为英文。
+
 在 Obsidian 社区插件市场搜索 **"WeWrite"**，安装并启用。
 
 或手动安装：
