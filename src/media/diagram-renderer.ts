@@ -181,7 +181,8 @@ export async function renderMermaidToPng(
   // Use opacity:0.01 instead of left:-9999px so iOS WebKit (15.x/16.x)
   // keeps the element in its render tree. Off-viewport elements
   // are deprioritized and async plugin post-processors never fire.
-  el.style.cssText = 'position:fixed;left:0;top:0;width:800px;opacity:0.01;pointer-events:none;z-index:-1';
+  el.addClass('wewrite-offscreen-render');
+  el.addClass('is-narrow');
   document.body.appendChild(el);
 
   const comp = new Component();
@@ -305,7 +306,7 @@ async function renderExcalidrawViaObsidian(
   // keeps the element in its render tree.
   const wrapper = createDiv();
   wrapper.className = 'markdown-reading-view';
-  wrapper.style.cssText = 'position:fixed;left:0;top:0;width:1024px;opacity:0.01;pointer-events:none;z-index:-1';
+  wrapper.addClass('wewrite-offscreen-render');
 
   const renderEl = createDiv();
   renderEl.className = 'markdown-preview-section';

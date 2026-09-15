@@ -133,7 +133,7 @@ async function renderSnippet(
   // the element in WebKit's render tree so async post-processors fire.
   const wrapper = createDiv();
   wrapper.className = 'markdown-reading-view';
-  wrapper.style.cssText = 'position:fixed;left:0;top:0;width:1024px;opacity:0.01;pointer-events:none;z-index:-1';
+  wrapper.addClass('wewrite-offscreen-render');
 
   const renderEl = createDiv();
   renderEl.className = 'markdown-preview-section';

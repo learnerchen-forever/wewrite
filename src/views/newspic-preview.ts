@@ -106,9 +106,9 @@ export class NewsPicPreview {
 
     // Nav arrows
     const pa = this.slideshowEl.createDiv({ cls: 'newspic-nav-arrow newspic-nav-prev' });
-    pa.innerHTML = '&#10094;'; pa.addEventListener('click', () => this.navigateImage(-1));
+    pa.setText('❮'); pa.addEventListener('click', () => this.navigateImage(-1));
     const na = this.slideshowEl.createDiv({ cls: 'newspic-nav-arrow newspic-nav-next' });
-    na.innerHTML = '&#10095;'; na.addEventListener('click', () => this.navigateImage(1));
+    na.setText('❯'); na.addEventListener('click', () => this.navigateImage(1));
 
     // Crop overlay
     this.cropOverlayEl = this.slideshowEl.createDiv({ cls: 'newspic-crop-overlay' });

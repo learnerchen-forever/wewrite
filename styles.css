@@ -3242,3 +3242,55 @@ body.is-mobile .wewrite-theme-view .wewrite-theme-split {
   --ww-theme-split-flex: none;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Plugin-chrome styles hoisted out of TypeScript
+   These were previously assigned inline (el.style.*) in the modules
+   named below. Declared here so they live with the rest of the design
+   system and adapt to the user's theme. Values are unchanged — these
+   are not restyled, only relocated.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Movable modals — utils/modal-drag.ts ──
+   The title bar is grabbed/grabbing during a drag, and the box must not
+   animate while the pointer moves or it visibly lags behind. Selectors
+   include the core classes so they win over Obsidian's own .modal rules. */
+.modal-title.wewrite-modal-drag-handle {
+  cursor: grab;
+}
+.modal-title.wewrite-modal-drag-handle.wewrite-dragging {
+  cursor: grabbing;
+}
+.modal.wewrite-modal-dragging {
+  transition: none;
+}
+
+/* ── Grouped font-family picker — utils/font-select.ts ──
+   Deliberately more compact than .wewrite-select: it sits inline next to a
+   short label inside the decoration rows, where the 30px control height
+   would dominate the row. */
+select.wewrite-font-select {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 3px 6px;
+}
+
+/* ── Off-screen render hosts — media/diagram-renderer.ts, media/dataview-renderer.ts ──
+   Obsidian renders the diagram/dataview into these, hidden. They are moved
+   just off-opacity rather than display:none / left:-9999px because iOS WebKit
+   deprioritises off-viewport elements and never fires the async plugin
+   post-processors we are waiting on. 1024px is the layout width the article
+   is measured at; the narrow variant matches the mermaid measurement width. */
+.wewrite-offscreen-render {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 1024px;
+  opacity: 0.01;
+  pointer-events: none;
+  z-index: -1;
+}
+.wewrite-offscreen-render.is-narrow {
+  width: 800px;
+}
+

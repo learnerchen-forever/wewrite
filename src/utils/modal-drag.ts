@@ -28,7 +28,6 @@ export function enableModalDrag(modal: Modal): void {
   let baseY = 0;
 
   titleEl.addClass('wewrite-modal-drag-handle');
-  titleEl.style.cursor = 'grab';
 
   const onPointerDown = (evt: PointerEvent): void => {
     // Left button only for mouse; touch always ok.
@@ -44,8 +43,8 @@ export function enableModalDrag(modal: Modal): void {
     startY = evt.clientY;
     dragging = true;
     // No transition while dragging, or the box lags behind the pointer.
-    modalEl.style.transition = 'none';
-    titleEl.style.cursor = 'grabbing';
+    modalEl.addClass('wewrite-modal-dragging');
+    titleEl.addClass('wewrite-dragging');
     try { titleEl.setPointerCapture(evt.pointerId); } catch { /* ignore */ }
     evt.preventDefault();
   };
@@ -58,8 +57,8 @@ export function enableModalDrag(modal: Modal): void {
   const onPointerEnd = (evt: PointerEvent): void => {
     if (!dragging) return;
     dragging = false;
-    titleEl.style.cursor = 'grab';
-    modalEl.style.transition = '';
+    titleEl.removeClass('wewrite-dragging');
+    modalEl.removeClass('wewrite-modal-dragging');
     try { titleEl.releasePointerCapture(evt.pointerId); } catch { /* ignore */ }
   };
 
