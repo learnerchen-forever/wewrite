@@ -30,6 +30,7 @@ import { ThemeResolver } from './theme-resolver';
 // the letterSpacing token were missing), so inline decorations escaped and
 // expanded differently from every other renderer. Always import them.
 import { buildTokenMap, escapeHtmlAttr } from './shared';
+import { parseTrustedHtml } from '../utils/trusted-html';
 
 const INLINE_MARK = 'data-wewrite-inline-type';
 const DECO_MARK = 'data-wewrite-decoration';
@@ -224,8 +225,7 @@ function renderInlineElement(
 
 	const templateSource = decoration.template.replace(/\{tag\}/g, def.renderTag);
 	const expanded = expandTemplate(templateSource, params, tokens);
-	const container = createDiv();
-	container.innerHTML = expanded;
+	const container = parseTrustedHtml(expanded);
 	const root = container.firstElementChild;
 	if (!root) {
 		applyMergedStyle(el, getInlineFallbackStyle(el, r), typeBase);
@@ -242,8 +242,7 @@ function renderInlineElement(
 	if (carrier === container) carrier = root;
 
 	// Move the element content into the text carrier.
-	const contentHost = createDiv();
-	contentHost.innerHTML = (el as HTMLElement).innerHTML;
+	const contentHost = parseTrustedHtml((el as HTMLElement).innerHTML);
 	replaceTextPlaceholder(carrier, Array.from(contentHost.childNodes), doc, '{text}');
 
 	applyMergedStyle(carrier, typeBase);

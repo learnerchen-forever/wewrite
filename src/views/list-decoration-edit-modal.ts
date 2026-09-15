@@ -14,6 +14,7 @@ import type { ListDecoration } from '../core/list-decoration-types';
 import { renderListPreview } from '../renderer/list-renderer';
 import type { ThemePreset } from '../core/interfaces';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export interface ListDecorationEditOptions {
 	/** 目标列表类型（有序/无序/任务），决定预览示例。 */
@@ -230,7 +231,7 @@ export class ListDecorationEditModal extends WeWriteModal {
 		for (const [k, v] of Object.entries(this.params)) {
 			params[k] = v.default;
 		}
-		this.previewEl.innerHTML = renderListPreview(this.options.basePreset, this.options.kind, template, itemTemplate, params);
+		setTrustedHtml(this.previewEl, renderListPreview(this.options.basePreset, this.options.kind, template, itemTemplate, params));
 	}
 
 	private save(asCopy: boolean): void {

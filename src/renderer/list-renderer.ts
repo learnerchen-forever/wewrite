@@ -27,6 +27,7 @@ import { ThemeResolver } from './theme-resolver';
 import type { TokenVars } from '../core/slot-types';
 import type { ThemePreset } from '../core/interfaces';
 import { escapeHtmlAttr, buildTokenMap } from './shared';
+import { setTrustedHtml, parseTrustedHtml } from '../utils/trusted-html';
 
 const NATIVE_MARKERS = ['disc', 'circle', 'square'];
 /** 嵌套列表每级缩进（px）。 */
@@ -104,8 +105,7 @@ function renderListElement(
 		.map((li, i) => renderItem(li, i + 1, itemTemplate, params, tokens, nativeMarker || markerNone, markerChar))
 		.join('');
 	const expanded = expandTemplate(rootTemplate, params, tokens).replace('{items}', itemsHtml);
-	const container = createDiv();
-	container.innerHTML = expanded;
+	const container = parseTrustedHtml(expanded);
 	const root = container.firstElementChild;
 	if (!root) return;
 
@@ -237,10 +237,9 @@ function makeTaskIconSpan(
 		span.setAttribute('style',
 			`display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;` +
 			`width:${size}px;height:${size}px;margin-right:${gap}px;flex-shrink:0`);
-		span.innerHTML =
-			`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" ` +
+		setTrustedHtml(span, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" ` +
 			`stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ` +
-			`style="width:${size}px;height:${size}px;display:block">${TASK_SVG_PATHS[pathKey]}</svg>`;
+			`style="width:${size}px;height:${size}px;display:block">${TASK_SVG_PATHS[pathKey]}</svg>`);
 		return span;
 	}
 	span.setAttribute('style',

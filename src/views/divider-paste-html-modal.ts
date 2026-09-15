@@ -13,6 +13,7 @@ import { extractDividerFromHtml } from '../core/divider-extract';
 import { renderDividerPreview } from '../renderer/divider-renderer';
 import type { ThemePreset } from '../core/interfaces';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export interface DividerPasteHtmlOptions {
 	/** Current theme preset for the live preview. */
@@ -173,7 +174,7 @@ export class DividerPasteHtmlModal extends WeWriteModal {
 			for (const [key, active] of Object.entries(this.active)) {
 				if (active && this.params[key]) params[key] = this.params[key].default;
 			}
-			this.previewEl.innerHTML = renderDividerPreview(this.options.basePreset, this.buildTemplate(), params);
+			setTrustedHtml(this.previewEl, renderDividerPreview(this.options.basePreset, this.buildTemplate(), params));
 			this.previewEl.style.display = '';
 		}, 200);
 	}

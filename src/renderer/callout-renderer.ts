@@ -25,6 +25,7 @@ import type { TokenVars } from '../core/slot-types';
 import { ThemeResolver } from './theme-resolver';
 import type { ThemePreset } from '../core/interfaces';
 import { buildTokenMap } from './shared';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 /** Obsidian callout aliases → canonical types (kept in sync with ThemeResolver). */
 const CALLOUT_ALIASES: Record<string, CalloutType> = {
@@ -102,10 +103,9 @@ function applyTypeIcon(
 	if (!svg && iconPaths) {
 		const wrap = createSpan();
 		wrap.setAttribute('style', `display:inline-block;width:${size};height:${size};margin-right:0.25em;flex-shrink:0;line-height:0`);
-		wrap.innerHTML =
-			'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" ' +
+		setTrustedHtml(wrap, '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" ' +
 			'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
-			`style="width:100%;height:100%;display:block">${iconPaths}</svg>`;
+			`style="width:100%;height:100%;display:block">${iconPaths}</svg>`);
 		const svgEl = wrap.firstElementChild;
 		if (svgEl) {
 			titleRow.insertBefore(wrap, titleRow.firstChild);
@@ -124,7 +124,7 @@ function applyTypeIcon(
 	svg.setAttribute('stroke-linejoin', 'round');
 	svg.setAttribute('viewBox', '0 0 24 24');
 	if (iconPaths && svg.innerHTML !== iconPaths) {
-		svg.innerHTML = iconPaths;
+		setTrustedHtml(svg, iconPaths);
 	}
 }
 

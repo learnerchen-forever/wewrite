@@ -6,6 +6,8 @@
 // plugin renders the same .callout structure (just with extra .admonition-*
 // classes), so we only need to target .callout.
 
+import { setTrustedHtml } from './trusted-html';
+
 /**
  * Wait for async plugins (callout rendering, admonition plugin) to finish
  * populating the DOM. Polls up to maxWait ms, returns early once stable.
@@ -116,7 +118,7 @@ export function processCalloutsAndAdmonitions(container: HTMLElement): void {
     );
 
     if (titleEl) {
-      titleSection.innerHTML = titleEl.innerHTML;
+      setTrustedHtml(titleSection, titleEl.innerHTML);
       // Ensure icon SVGs have explicit dimensions. Native callout icons
       // include width/height (e.g. 24×24), but FontAwesome SVGs injected
       // by the Admonition plugin rely on CSS classes (.svg-inline--fa,
@@ -138,12 +140,12 @@ export function processCalloutsAndAdmonitions(container: HTMLElement): void {
     const bodySection = createEl('section');
     bodySection.setAttribute('data-wewrite-callout-body', '');
     if (contentEl) {
-      bodySection.innerHTML = contentEl.innerHTML;
+      setTrustedHtml(bodySection, contentEl.innerHTML);
     } else {
       const clone = block.cloneNode(true) as HTMLElement;
       const cloneTitle = clone.querySelector('.callout-title');
       if (cloneTitle) cloneTitle.remove();
-      bodySection.innerHTML = clone.innerHTML;
+      setTrustedHtml(bodySection, clone.innerHTML);
     }
     wrapper.appendChild(bodySection);
 

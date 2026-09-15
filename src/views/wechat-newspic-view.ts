@@ -24,6 +24,7 @@ import { PublishLogBuilder } from '../utils/publish-logger';
 import { RenderLogger, type SvgProcessResult } from '../utils/render-logger';
 import { globalSpinner } from '../utils/global-spinner';
 import { eventBus } from '../core/event-bus';
+import { setTrustedHtml, parseTrustedHtml } from '../utils/trusted-html';
 
 const log = createLogger('Views:WeChatNewsPic');
 
@@ -550,8 +551,7 @@ export class WeChatNewsPicView extends ItemView {
 
         try {
           // Sanitize SVG before conversion
-          const tmp = createDiv();
-          tmp.innerHTML = svg.html;
+          const tmp = parseTrustedHtml(svg.html);
           const svgEl = tmp.querySelector('svg');
           if (svgEl) sanitizeSvgElement(svgEl);
 
@@ -1453,7 +1453,7 @@ class NewsPicPublishModal {
 
     this.modalEl = createDiv();
     this.modalEl.addClass('wewrite-publish-modal');
-    this.modalEl.innerHTML = `
+    setTrustedHtml(this.modalEl, `
       <div class="wewrite-publish-overlay"></div>
       <div class="wewrite-publish-dialog">
         <h3>${t('modal.publish_title', { name: account.name })}</h3>
@@ -1461,7 +1461,7 @@ class NewsPicPublishModal {
         <div class="wewrite-publish-actions">
           <button class="wewrite-publish-cancel">${t('misc.cancel')}</button>
         </div>
-      </div>`;
+      </div>`);
     document.body.appendChild(this.modalEl);
     this.taskListEl = this.modalEl.querySelector('.wewrite-publish-tasks')!;
     this.cancelBtn = this.modalEl.querySelector('.wewrite-publish-cancel')!;

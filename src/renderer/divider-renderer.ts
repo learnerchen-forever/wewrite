@@ -18,6 +18,7 @@ import { ThemeResolver } from './theme-resolver';
 import type { TokenVars } from '../core/slot-types';
 import type { ThemePreset } from '../core/interfaces';
 import { escapeHtmlAttr, buildTokenMap } from './shared';
+import { parseTrustedHtml } from '../utils/trusted-html';
 
 function expandTemplate(
 	template: string,
@@ -55,8 +56,7 @@ function renderDividerElement(
 	}
 
 	const expanded = expandTemplate(decoration.template, params, tokens);
-	const container = createDiv();
-	container.innerHTML = expanded;
+	const container = parseTrustedHtml(expanded);
 	const root = container.firstElementChild;
 	if (!root) {
 		(el as HTMLElement).setAttribute('style', plainDividerStyle(preset));

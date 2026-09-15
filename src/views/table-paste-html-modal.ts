@@ -12,6 +12,7 @@ import { extractTableFromHtml } from '../core/table-extract';
 import { renderTablePreview } from '../renderer/table-renderer';
 import type { ThemePreset } from '../core/interfaces';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export interface TablePasteHtmlOptions {
 	/** Current theme preset for the live preview. */
@@ -187,7 +188,7 @@ export class TablePasteHtmlModal extends WeWriteModal {
 				...(this.extraction.zebraEven !== undefined ? { zebraEven: this.extraction.zebraEven } : {}),
 				family: 'card',
 			};
-			this.previewEl.innerHTML = renderTablePreview(this.options.basePreset, decoration, params);
+			setTrustedHtml(this.previewEl, renderTablePreview(this.options.basePreset, decoration, params));
 			this.previewEl.style.display = '';
 		}, 200);
 	}

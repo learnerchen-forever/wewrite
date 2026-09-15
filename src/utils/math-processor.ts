@@ -6,6 +6,7 @@
 import { latexToSvg } from '../renderer/math-to-svg';
 import { sanitizeSvgElement } from '../renderer/wechat-svg-sanitizer';
 import { createLogger } from './logger';
+import { setTrustedHtml, parseTrustedHtml } from './trusted-html';
 
 const log = createLogger('MathProcessor');
 
@@ -98,8 +99,7 @@ export async function processMathToSvg(container: HTMLElement, markdown: string)
 		if (!svgString) continue; // invalid LaTeX — leave original CHTML
 
 		// Parse the SVG string to a DOM element for sanitization
-		const tmp = createDiv();
-		tmp.innerHTML = svgString;
+		const tmp = parseTrustedHtml(svgString);
 		const svgEl = tmp.firstElementChild;
 		if (!svgEl) continue;
 
@@ -120,7 +120,7 @@ export async function processMathToSvg(container: HTMLElement, markdown: string)
 			wrapper.setAttribute('style', 'display:inline;vertical-align:middle');
 			wrapper.classList.add('wewrite-math-inline');
 		}
-		wrapper.innerHTML = sanitized;
+		setTrustedHtml(wrapper, sanitized);
 		// Mark math SVGs so content prescan doesn't deduplicate/convert them
 		const mathSvg = wrapper.querySelector('svg');
 		if (mathSvg) {

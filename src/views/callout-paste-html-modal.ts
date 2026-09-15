@@ -12,6 +12,7 @@ import { extractCalloutFromHtml } from '../core/callout-extract';
 import { buildCalloutPreviewSample, renderCalloutPreview } from '../renderer/callout-renderer';
 import type { ThemePreset } from '../core/interfaces';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export interface CalloutPasteHtmlOptions {
 	/** Current theme preset for the live preview. */
@@ -114,11 +115,11 @@ export class CalloutPasteHtmlModal extends WeWriteModal {
 		if (this.previewEl) {
 			const sampleType = extracted.type;
 			const sampleTitle = extracted.name.replace(/标注$/, '') || 'Note';
-			this.previewEl.innerHTML = renderCalloutPreview(
+			setTrustedHtml(this.previewEl, renderCalloutPreview(
 				this.options.basePreset,
 				extracted.decoration,
 				buildCalloutPreviewSample(sampleType, sampleTitle),
-			);
+			));
 			this.previewEl.style.display = '';
 		}
 	}

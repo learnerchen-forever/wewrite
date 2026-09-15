@@ -8,6 +8,7 @@ import type { MediaRegistry } from './media-registry';
 import { resolveLocalImagePath, readLocalImage } from './local-image-resolver';
 import { buildMultipartBody } from '../publisher/api-manager';
 import { createLogger } from '../utils/logger';
+import { parseTrustedHtml } from '../utils/trusted-html';
 
 const log = createLogger('CopyUpload');
 
@@ -188,8 +189,7 @@ export async function prepareHtmlForWechatClipboard(
   let skipped = 0;
   let result = html;
 
-  const temp = createDiv();
-  temp.innerHTML = html;
+  const temp = parseTrustedHtml(html);
   const imgs = Array.from(temp.querySelectorAll('img'));
   const seen = new Set<string>();
 

@@ -6,6 +6,7 @@ import { createLogger } from '../utils/logger';
 import { AIImageGenLogger } from '../utils/ai-logger';
 import { generateImage, AIImageSizeError, sizeHintExample, type AIImageAccountLike } from '../publisher/ai-image-client';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 const log = createLogger('Views:AIImageGenModal');
 
@@ -25,7 +26,7 @@ export class AIImageGenerateModal {
   ) {
     this.modalEl = createDiv();
     this.modalEl.addClass('wewrite-publish-modal');
-    this.modalEl.innerHTML = `
+    setTrustedHtml(this.modalEl, `
       <div class="wewrite-publish-overlay" style="background:rgba(0,0,0,0.4)"></div>
       <div class="wewrite-publish-dialog" style="max-width:480px">
         <h3>${t('modal.ai_image_generate_title')}</h3>
@@ -40,7 +41,7 @@ export class AIImageGenerateModal {
           <button class="wewrite-publish-cancel">${t('misc.cancel')}</button>
           <button class="wewrite-publish-cancel mod-cta">${t('modal.image_generate_button')}</button>
         </div>
-      </div>`;
+      </div>`);
     document.body.appendChild(this.modalEl);
     this.promptEl = this.modalEl.querySelector('textarea')!;
     this.sizeEl = this.modalEl.querySelector('input[type="text"]')!;

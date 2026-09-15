@@ -12,6 +12,7 @@ import { extractBlockquoteFromHtml } from '../core/blockquote-extract';
 import { renderBlockquotePreview } from '../renderer/blockquote-renderer';
 import type { ThemePreset } from '../core/interfaces';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export interface BlockquotePasteHtmlOptions {
 	/** Current theme preset for the live preview. */
@@ -172,7 +173,7 @@ export class BlockquotePasteHtmlModal extends WeWriteModal {
 			for (const [key, active] of Object.entries(this.active)) {
 				if (active && this.params[key]) params[key] = this.params[key].default;
 			}
-			this.previewEl.innerHTML = renderBlockquotePreview(this.options.basePreset, this.buildTemplate(), params);
+			setTrustedHtml(this.previewEl, renderBlockquotePreview(this.options.basePreset, this.buildTemplate(), params));
 			this.previewEl.style.display = '';
 		}, 200);
 	}

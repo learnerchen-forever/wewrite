@@ -9,6 +9,7 @@ import { t } from '../i18n';
 import { createLogger } from '../utils/logger';
 import { resolveCacheStorageDir } from '../utils/vault-helpers';
 import { globalSpinner } from '../utils/global-spinner';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 const log = createLogger('ImageEditModal');
 const MAX_ZOOM = 3.0;
@@ -105,7 +106,7 @@ export class ImageEditModal {
          </div>`
       : '';
 
-    this.modalEl.innerHTML = `
+    setTrustedHtml(this.modalEl, `
       <div class="wewrite-image-edit-overlay"></div>
       <div class="wewrite-image-edit-dialog${isMobile ? ' wewrite-image-edit-mobile' : ''}">
         ${togglesHtml}
@@ -118,7 +119,7 @@ export class ImageEditModal {
           <button class="wewrite-image-edit-btn wewrite-iem-cancel"></button>
           <button class="wewrite-image-edit-btn wewrite-image-edit-btn-primary wewrite-iem-crop"></button>
         </div>
-      </div>`;
+      </div>`);
 
     this.areaB = this.modalEl.querySelector('.wewrite-image-edit-area') as HTMLElement;
 

@@ -11,6 +11,7 @@ import { extractHeadingFromHtml } from '../core/heading-extract';
 import { renderDecorationPreview } from '../renderer/heading-renderer';
 import type { ThemePreset } from '../core/interfaces';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export interface HeadingPasteHtmlOptions {
 	/** Current theme preset for the live preview. */
@@ -167,7 +168,7 @@ export class HeadingPasteHtmlModal extends WeWriteModal {
 			for (const [key, active] of Object.entries(this.active)) {
 				if (active && this.params[key]) params[key] = this.params[key].default;
 			}
-			this.previewEl.innerHTML = renderDecorationPreview(this.options.basePreset, this.buildTemplate(), params);
+			setTrustedHtml(this.previewEl, renderDecorationPreview(this.options.basePreset, this.buildTemplate(), params));
 			this.previewEl.style.display = '';
 		}, 200);
 	}

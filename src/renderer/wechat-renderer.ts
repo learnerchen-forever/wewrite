@@ -31,6 +31,7 @@ import {
 	isExcalidrawImage,
 	resolveExcalidrawDecorationStyle,
 } from './excalidraw-renderer';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 // ── Mermaid SVG style inlining ──
 // Mermaid generates SVGs with <style> blocks that define visual properties
@@ -255,7 +256,7 @@ export class WechatRenderer {
             // Prepend: insert before the heading
             if (domTransform.prepend) {
               const prependSpan = createSpan();
-              prependSpan.innerHTML = domTransform.prepend;
+              setTrustedHtml(prependSpan, domTransform.prepend);
               parent.insertBefore(prependSpan, el);
             }
 
@@ -272,7 +273,7 @@ export class WechatRenderer {
             // Append: insert after the heading (or after wrapper)
             if (domTransform.append) {
               const appendSpan = createSpan();
-              appendSpan.innerHTML = domTransform.append;
+              setTrustedHtml(appendSpan, domTransform.append);
               const refNode = domTransform.wrap
                 ? el.parentNode  // heading is now inside wrapper
                 : el;
@@ -352,7 +353,7 @@ export class WechatRenderer {
       const titleBarHtml = r.buildCodeTitleBarHtml(language);
       if (titleBarHtml) {
         const prependEl = createSpan();
-        prependEl.innerHTML = titleBarHtml;
+        setTrustedHtml(prependEl, titleBarHtml);
         section.insertBefore(prependEl, el);
       }
     });
@@ -673,7 +674,7 @@ export class WechatRenderer {
       for (const attr of div.attributes) {
         section.setAttribute(attr.name, attr.value);
       }
-      section.innerHTML = div.innerHTML;
+      setTrustedHtml(section, div.innerHTML);
       div.parentNode?.replaceChild(section, div);
     });
 

@@ -23,6 +23,7 @@ import { ThemeResolver } from './theme-resolver';
 import type { TokenVars } from '../core/slot-types';
 import type { ThemePreset } from '../core/interfaces';
 import { escapeHtmlAttr, buildTokenMap } from './shared';
+import { parseTrustedHtml } from '../utils/trusted-html';
 
 const ICON_SENTINEL = '__WEWRITE_QUOTE_ICON__';
 
@@ -154,8 +155,7 @@ function renderBlockquoteElement(
 	}
 
 	const expanded = expandTemplate(decoration.template, params, tokens, iconText);
-	const container = createDiv();
-	container.innerHTML = expanded;
+	const container = parseTrustedHtml(expanded);
 	let root = container.firstElementChild;
 	if (!root) {
 		renderPlainQuote(el, iconText, lineHeightPx, tokens);
@@ -171,8 +171,7 @@ function renderBlockquoteElement(
 	if (carrier === container) carrier = root;
 
 	// Move the blockquote content into the text carrier.
-	const contentHost = createDiv();
-	contentHost.innerHTML = (el as HTMLElement).innerHTML;
+	const contentHost = parseTrustedHtml((el as HTMLElement).innerHTML);
 	replaceTextPlaceholder(carrier, Array.from(contentHost.childNodes), doc, '{text}');
 
 	// Icon: wherever {icon} sat (already replaced with the sentinel).

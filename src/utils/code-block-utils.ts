@@ -11,6 +11,7 @@ import {
 	resolveTokenKey,
 	type CodeTheme,
 } from '../core/code-theme-library';
+import { setTrustedHtml } from './trusted-html';
 
 export interface CodeBlockRenderOptions {
 	/** Code theme (token colors + background/foreground). Defaults to oneDark. */
@@ -77,11 +78,11 @@ export function processCodeBlocksInPlace(
 function convertNewlinesToBr(codeEl: HTMLElement): void {
 	const html = codeEl.innerHTML;
 	if (!html.includes('\n')) return;
-	codeEl.innerHTML = html
+	setTrustedHtml(codeEl, html
 		.replace(/\n+$/, '')
 		.replace(/\n/g, '<br/>')
 		.replace(/<br\/>( +)/g, (_m, spaces: string) =>
-			'<br/>' + '&nbsp;'.repeat(spaces.length));
+			'<br/>' + '&nbsp;'.repeat(spaces.length)));
 }
 
 /** Apply the theme's token colors to Prism-style spans (comments get italic). */

@@ -11,6 +11,7 @@ import type { DecorationParam, HeadingDecoration } from '../core/heading-decorat
 import { renderDecorationPreview } from '../renderer/heading-renderer';
 import type { ThemePreset } from '../core/interfaces';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export interface HeadingDecorationEditOptions {
 	/** Existing decoration, or null to create a new one. */
@@ -204,7 +205,7 @@ export class HeadingDecorationEditModal extends WeWriteModal {
 		for (const [k, v] of Object.entries(this.params)) {
 			params[k] = v.default;
 		}
-		this.previewEl.innerHTML = renderDecorationPreview(this.options.basePreset, template, params);
+		setTrustedHtml(this.previewEl, renderDecorationPreview(this.options.basePreset, template, params));
 	}
 
 	private save(asCopy: boolean): void {

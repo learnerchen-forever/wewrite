@@ -12,6 +12,7 @@ import { extractListFromHtml, extractTaskListFromHtml } from '../core/list-extra
 import { renderListPreview } from '../renderer/list-renderer';
 import type { ThemePreset } from '../core/interfaces';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export interface ListPasteHtmlOptions {
 	/** 目标列表类型（有序/无序/任务），决定提取方式与预览示例。 */
@@ -183,7 +184,7 @@ export class ListPasteHtmlModal extends WeWriteModal {
 				if (active && this.params[key]) params[key] = this.params[key].default;
 			}
 			const built = this.buildTemplate();
-			this.previewEl.innerHTML = renderListPreview(this.options.basePreset, this.options.kind, built.t, built.it, params);
+			setTrustedHtml(this.previewEl, renderListPreview(this.options.basePreset, this.options.kind, built.t, built.it, params));
 			this.previewEl.style.display = '';
 		}, 200);
 	}

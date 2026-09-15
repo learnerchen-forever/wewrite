@@ -14,6 +14,7 @@ import type { DividerDecoration } from '../core/divider-decoration-types';
 import { renderDividerPreview } from '../renderer/divider-renderer';
 import type { ThemePreset } from '../core/interfaces';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export interface DividerDecorationEditOptions {
 	/** Existing decoration, or null to create a new one. */
@@ -208,7 +209,7 @@ export class DividerDecorationEditModal extends WeWriteModal {
 		for (const [k, v] of Object.entries(this.params)) {
 			params[k] = v.default;
 		}
-		this.previewEl.innerHTML = renderDividerPreview(this.options.basePreset, template, params);
+		setTrustedHtml(this.previewEl, renderDividerPreview(this.options.basePreset, template, params));
 	}
 
 	private save(asCopy: boolean): void {

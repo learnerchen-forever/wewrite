@@ -171,6 +171,7 @@ import { waitForCalloutPlugins, processCalloutsAndAdmonitions } from '../utils/c
 import { extractMermaidBlocks, renderMermaidToPng } from '../media/diagram-renderer';
 import { processCodeBlocksInPlace } from '../utils/code-block-utils';
 import { processMathToSvg } from '../utils/math-processor';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 const log = createLogger('ThemeView');
 export const VIEW_TYPE_WEWRITE_THEME = 'wewrite-theme-view';
@@ -3779,10 +3780,9 @@ export class WeWriteThemeView extends ItemView {
 			const { html: styledHtml } = this.renderer.processPreRenderedHtml(nativeHtml, '');
 			// Zoom wrapper: .zoom reserves the scaled footprint, .scaled carries
 			// the article at its layout width and the scale transform.
-			this.previewContainer.innerHTML =
-				'<div class="wewrite-theme-preview-zoom"><div class="wewrite-theme-preview-scaled">' +
+			setTrustedHtml(this.previewContainer, '<div class="wewrite-theme-preview-zoom"><div class="wewrite-theme-preview-scaled">' +
 				deferImgSrcs(styledHtml) +
-				'</div></div>';
+				'</div></div>');
 			// New .zoom/.scaled nodes: forget the cached layout so the zoom
 			// is (re)applied even if the panel size did not change.
 			this._lastPreviewPanelW = 0;

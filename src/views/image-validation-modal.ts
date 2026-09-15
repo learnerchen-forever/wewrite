@@ -2,6 +2,7 @@
 
 import { t } from '../i18n';
 import type { ValidationReport } from '../media/image-validator';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export type ValidationAction = 'convert' | 'cancel';
 
@@ -23,7 +24,7 @@ export class ImageValidationModal {
   constructor(private report: ValidationReport) {
     this.modalEl = createDiv();
     this.modalEl.addClass('wewrite-validate-modal');
-    this.modalEl.innerHTML = this.buildHtml();
+    setTrustedHtml(this.modalEl, this.buildHtml());
     document.body.appendChild(this.modalEl);
   }
 

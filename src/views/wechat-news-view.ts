@@ -41,6 +41,7 @@ import { ImageValidationModal } from './image-validation-modal';
 import { NoteConfigStore } from '../data/note-config-store';
 import { globalSpinner } from '../utils/global-spinner';
 import { t, onLanguageChange } from '../i18n';
+import { setTrustedHtml, parseTrustedHtml } from '../utils/trusted-html';
 
 const log = createLogger('Views:WeChatNews');
 
@@ -342,7 +343,7 @@ export class WeChatNewsView extends ItemView {
     });
     setIcon(refreshBtn, 'wewrite-refresh');
     refreshBtn.addEventListener('click', () => {
-      this.previewEl.innerHTML = '';
+      setTrustedHtml(this.previewEl, '');
       void this.renderContent();
     });
 
@@ -1498,7 +1499,7 @@ export class WeChatNewsView extends ItemView {
       // file's own render (queued via renderPending) will populate it.
       if (renderToken !== this._loadToken) return;
 
-      this.previewEl.innerHTML = deferredHtml;
+      setTrustedHtml(this.previewEl, deferredHtml);
       const cdnImages = restoreDeferredImgSrcs(this.previewEl);
       // Android WebView safety net: some WebViews still deliver the hotlink
       // placeholder for WeChat CDN images; re-fetch via requestUrl (no
@@ -1510,7 +1511,7 @@ export class WeChatNewsView extends ItemView {
         /[&<>"']/g,
         (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c] ?? c,
       );
-      this.previewEl.innerHTML = `<p style="color:var(--text-error)">${t('notice.render_error', { error: errText })}</p>`;
+      setTrustedHtml(this.previewEl, `<p style="color:var(--text-error)">${t('notice.render_error', { error: errText })}</p>`);
       new Notice(t('notice.render_error', { error: String(err) }));
     } finally {
       // Safety net: remove any Pass-1 render container left behind by an
@@ -1578,7 +1579,7 @@ export class WeChatNewsView extends ItemView {
     return new Promise((resolve) => {
       const modalEl = createDiv();
       modalEl.addClass('wewrite-caption-modal');
-      modalEl.innerHTML = `
+      setTrustedHtml(modalEl, `
         <div class="wewrite-caption-overlay"></div>
         <div class="wewrite-caption-dialog">
           <h3>${t('modal.caption_title')}</h3>
@@ -1587,7 +1588,7 @@ export class WeChatNewsView extends ItemView {
             <button class="wewrite-caption-cancel">${t('misc.cancel')}</button>
             <button class="wewrite-caption-save mod-cta">${t('misc.save')}</button>
           </div>
-        </div>`;
+        </div>`);
       document.body.appendChild(modalEl);
       modalEl.style.display = 'flex';
 
@@ -1632,7 +1633,7 @@ export class WeChatNewsView extends ItemView {
       const w = existing?.width ?? '';
       const h = existing?.height ?? '';
       const a = existing?.align ?? '';
-      modalEl.innerHTML = `
+      setTrustedHtml(modalEl, `
         <div class="wewrite-caption-overlay"></div>
         <div class="wewrite-caption-dialog">
           <h3>${t('modal.dimension_title')}</h3>
@@ -1653,7 +1654,7 @@ export class WeChatNewsView extends ItemView {
             <button class="wewrite-caption-cancel">${t('misc.cancel')}</button>
             <button class="wewrite-caption-save mod-cta">${t('misc.save')}</button>
           </div>
-        </div>`;
+        </div>`);
       document.body.appendChild(modalEl);
       modalEl.style.display = 'flex';
 
@@ -1743,8 +1744,7 @@ export class WeChatNewsView extends ItemView {
         }
 
         // Parse and sanitize the SVG
-        const tmp = createDiv();
-        tmp.innerHTML = svgBody;
+        const tmp = parseTrustedHtml(svgBody);
         const svgEl = tmp.firstElementChild;
         if (!svgEl || svgEl.tagName.toLowerCase() !== 'svg') continue;
 
@@ -2035,8 +2035,7 @@ export class WeChatNewsView extends ItemView {
   private convertCapacitorImageUrls(html: string): string {
     if (!html.includes('_capacitor_file_')) return html;
 
-    const tempDiv = createDiv();
-    tempDiv.innerHTML = html;
+    const tempDiv = parseTrustedHtml(html);
     const imgs = tempDiv.querySelectorAll('img');
 
     for (const img of imgs) {
@@ -2219,8 +2218,7 @@ export class WeChatNewsView extends ItemView {
 
     // Scan preview HTML for images. Skip data: URIs, already-uploaded WeChat URLs,
     // SVG references (must be converted to PNG before upload), and empty src attrs.
-    const tempDiv = createDiv();
-    tempDiv.innerHTML = this.renderedHtml;
+    const tempDiv = parseTrustedHtml(this.renderedHtml);
 
     const SVG_EXT = /\.svg(\?.*)?$/i;
     const imgs = tempDiv.querySelectorAll('img');
@@ -2673,8 +2671,7 @@ export class WeChatNewsView extends ItemView {
     log.debug('📋 copy content', { len: compressed.length, preview: compressed.slice(0, 500) });
 
     // Extract plain text fallback from the HTML
-    const tempDiv = createDiv();
-    tempDiv.innerHTML = compressed;
+    const tempDiv = parseTrustedHtml(compressed);
     const plainText = tempDiv.textContent || '';
 
     // Try ClipboardItem first — writes the exact HTML string without browser
@@ -2925,7 +2922,7 @@ class PublishProgressModal {
     this.tasks = uploadTasks;
     this.modalEl = createDiv();
     this.modalEl.addClass('wewrite-publish-modal');
-    this.modalEl.innerHTML = `
+    setTrustedHtml(this.modalEl, `
       <div class="wewrite-publish-overlay"></div>
       <div class="wewrite-publish-dialog">
         <h3>${t('modal.publish_title', { name: account.name })}</h3>
@@ -2933,7 +2930,7 @@ class PublishProgressModal {
         <div class="wewrite-publish-actions">
           <button class="wewrite-publish-cancel">${t('misc.cancel')}</button>
         </div>
-      </div>`;
+      </div>`);
     document.body.appendChild(this.modalEl);
     this.taskListEl = this.modalEl.querySelector('.wewrite-publish-tasks')!;
     this.cancelBtn = this.modalEl.querySelector('.wewrite-publish-cancel')!;
@@ -3404,7 +3401,7 @@ class ImageGenerateDialog {
 
     this.modalEl = createDiv();
     this.modalEl.addClass('wewrite-publish-modal');
-    this.modalEl.innerHTML = `
+    setTrustedHtml(this.modalEl, `
       <div class="wewrite-publish-overlay" style="background:rgba(0,0,0,0.4)"></div>
       <div class="wewrite-publish-dialog" style="max-width:480px">
         <h3>${t('modal.image_generate_title', { label: meta.label, aspect: meta.aspectLabel })}</h3>
@@ -3420,7 +3417,7 @@ class ImageGenerateDialog {
           <button class="wewrite-publish-cancel">${t('misc.cancel')}</button>
           <button class="wewrite-publish-cancel mod-cta">${t('modal.image_generate_button')}</button>
         </div>
-      </div>`;
+      </div>`);
     document.body.appendChild(this.modalEl);
     this.promptEl = this.modalEl.querySelector('textarea')!;
     this.promptEl.value = promptVal;

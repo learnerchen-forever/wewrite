@@ -12,6 +12,7 @@ import type { TableDecoration, TableDecorationParts } from '../core/table-decora
 import { renderTablePreview } from '../renderer/table-renderer';
 import type { ThemePreset } from '../core/interfaces';
 import { t } from '../i18n';
+import { setTrustedHtml } from '../utils/trusted-html';
 
 export interface TableDecorationEditOptions {
 	/** Existing decoration, or null to create a new one. */
@@ -226,7 +227,7 @@ export class TableDecorationEditModal extends WeWriteModal {
 			parts: this.parts,
 			family: 'card',
 		};
-		this.previewEl.innerHTML = renderTablePreview(this.options.basePreset, decoration, params);
+		setTrustedHtml(this.previewEl, renderTablePreview(this.options.basePreset, decoration, params));
 	}
 
 	private save(asCopy: boolean): void {

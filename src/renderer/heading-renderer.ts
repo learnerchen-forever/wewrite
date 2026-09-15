@@ -22,6 +22,7 @@ import type { ThemePreset } from '../core/interfaces';
 import { FONT_FAMILIES } from '../core/interfaces';
 import { onAccentColor } from '../core/token-engine';
 import { escapeHtmlAttr, buildTokenMap as sharedBuildTokenMap } from './shared';
+import { parseTrustedHtml } from '../utils/trusted-html';
 
 const HEADING_TAG_RE = /^H[1-6]$/;
 const LEVEL_TAG: Record<HeadingLevel, string> = { h1: 'H1', h2: 'H2', h3: 'H3', h4: 'H4', h5: 'H5', h6: 'H6' };
@@ -327,8 +328,7 @@ function renderHeadingElement(
 	// level-agnostic instead of hardcoding e.g. <h2>.
 	const templateSource = decoration.template.replace(/\{tag\}/g, level);
 	const expanded = expandTemplate(templateSource, cfg, tokens, params, numberingOn);
-	const container = createDiv();
-	container.innerHTML = expanded;
+	const container = parseTrustedHtml(expanded);
 	let root = container.firstElementChild;
 	if (!root) {
 		el.setAttribute('style', plainHeadingStyle(cfg, tokens));
@@ -356,8 +356,7 @@ function renderHeadingElement(
 
 	// Move the heading content into the text carrier (in place, preserving
 	// any text that shares the node, e.g. "02｜" + {text}).
-	const contentHost = createDiv();
-	contentHost.innerHTML = (el as HTMLElement).innerHTML;
+	const contentHost = parseTrustedHtml((el as HTMLElement).innerHTML);
 	replaceTextPlaceholder(carrier, Array.from(contentHost.childNodes), doc, '{text}');
 	if (numberEl) {
 		replaceTextPlaceholder(numberEl, [doc.createTextNode(numberText)], doc, NUMBER_SENTINEL);
