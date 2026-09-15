@@ -662,7 +662,7 @@ export class WeChatNewsPicView extends ItemView {
     const leafEl = this.containerEl.closest('.workspace-leaf');
     if (!leafEl) return;
     const viewHeader: HTMLElement | null = leafEl.querySelector(':scope > .view-header');
-    if (viewHeader) viewHeader.style.display = 'none';
+    if (viewHeader) viewHeader.addClass('wewrite-hide-view-header');
   }
 
   private refreshTitle(): void {
@@ -1472,7 +1472,7 @@ class NewsPicPublishModal {
 
   get isCancelled(): boolean { return this._cancelled; }
 
-  open(): void { this.modalEl.style.display = 'flex'; }
+  open(): void { this.modalEl.addClass('is-shown'); }
 
   updatePreScanTask(index: number, status: string, error?: string): void {
     const task = this.preScanTasks[index];

@@ -3532,3 +3532,30 @@ select.wewrite-font-select {
   margin-top: 8px;
   color: var(--text-faint);
 }
+
+/* ── Hand-rolled modal panels ──
+   ai-image-generate-modal / image-validation-modal / wechat-newspic-view and
+   image-edit-modal build their own overlay div and append it to <body>. They
+   used to force themselves visible with `modalEl.style.display = 'flex'`
+   inline; the .is-shown state class does exactly the same through the
+   stylesheet. (The validate and publish modals already declare display:flex,
+   so for them this only preserves the previous "make sure it is flex"
+   intent — off a stylesheet rule rather than an inline one.) */
+.wewrite-publish-modal.is-shown,
+.wewrite-validate-modal.is-shown,
+.wewrite-image-edit-modal.is-shown {
+  display: flex;
+}
+/* wechat-newspic-view hides Obsidian's own view header while the image editor
+   owns the leaf. Two classes so this reliably beats .view-header. Named after
+   what it does, because it sits on an Obsidian element, not ours. */
+.view-header.wewrite-hide-view-header {
+  display: none;
+}
+/* ai-generate-modal: the result section stays hidden until the first run. */
+.wewrite-ai-generate-modal .wewrite-generate-result-section {
+  display: none;
+}
+.wewrite-ai-generate-modal .wewrite-generate-result-section.is-shown {
+  display: block;
+}

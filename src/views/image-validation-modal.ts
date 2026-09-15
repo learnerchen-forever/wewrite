@@ -99,7 +99,7 @@ export class ImageValidationModal {
   show(): Promise<ValidationAction> {
     return new Promise((resolve) => {
       this.resolveFn = resolve;
-      this.modalEl.style.display = 'flex';
+      this.modalEl.addClass('is-shown');
 
       const cancelBtn = this.modalEl.querySelector('.wewrite-validate-cancel')!;
       const convertBtn = this.modalEl.querySelector('.wewrite-validate-convert')!;

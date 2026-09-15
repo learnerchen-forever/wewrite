@@ -72,7 +72,7 @@ export class AIGenerateModal extends WeWriteModal {
 
     // Result section (hidden until the first generation).
     this.resultSection = contentEl.createDiv({ cls: 'wewrite-generate-result-section' });
-    this.resultSection.style.display = 'none';
+    this.resultSection.removeClass('is-shown');
     this.resultSection.createDiv({ text: t('modal.generate.result'), cls: 'wewrite-generate-label' });
     this.resultEl = this.resultSection.createEl('textarea', { cls: 'wewrite-generate-result', attr: { rows: '8', readonly: 'true', spellcheck: 'false' } });
     const resultActions = this.resultSection.createDiv({ cls: 'wewrite-generate-actions' });
@@ -98,7 +98,7 @@ export class AIGenerateModal extends WeWriteModal {
     this.generateBtn.disabled = true;
     this.generateBtn.setText(t('modal.generate.generating'));
     if (this.regenerateBtn) this.regenerateBtn.disabled = true;
-    this.resultSection.style.display = 'block';
+    this.resultSection.addClass('is-shown');
     this.resultEl.value = t('modal.generate.generating');
     this.resultEl.disabled = true;
 

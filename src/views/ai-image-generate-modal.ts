@@ -53,7 +53,7 @@ export class AIImageGenerateModal {
     this.generateBtn.addEventListener('click', () => { void this.generate(); });
   }
 
-  open(): void { this.modalEl.style.display = 'flex'; }
+  open(): void { this.modalEl.addClass('is-shown'); }
 
   close(): void { this.modalEl.remove(); }
 

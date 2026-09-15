@@ -85,7 +85,7 @@ export class TableDecorationEditModal extends WeWriteModal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.addClass('wewrite-table-deco-modal');
+		contentEl.addClass('wewrite-table-deco-modal', 'wewrite-deco-edit-modal');
 
 		const isBuiltin = this.options.builtinReadonly;
 		const isNew = !this.options.decoration;
@@ -95,7 +95,7 @@ export class TableDecorationEditModal extends WeWriteModal {
 		const nameWrap = contentEl.createDiv();
 		nameWrap.createSpan({ text: t('deco_edit.name_label'), cls: 'setting-item-description' });
 		const nameInput = nameWrap.createEl('input', { type: 'text', value: this.nameValue });
-		nameInput.style.cssText = 'width:100%;margin-top:4px;box-sizing:border-box';
+		nameInput.addClass('wewrite-deco-name-input');
 		nameInput.disabled = isBuiltin;
 		nameInput.addEventListener('input', () => {
 			this.nameValue = nameInput.value;
@@ -103,21 +103,21 @@ export class TableDecorationEditModal extends WeWriteModal {
 
 		// Params
 		const paramsWrap = contentEl.createDiv();
-		paramsWrap.style.marginTop = '12px';
-		paramsWrap.createEl('h4', { text: t('deco_edit.params_label') }).style.cssText = 'margin:0 0 6px;font-size:13px';
+		paramsWrap.addClass('wewrite-deco-params-wrap');
+		paramsWrap.createEl('h4', { text: t('deco_edit.params_label') }).addClass('wewrite-deco-params-title');
 		this.paramsListEl = paramsWrap.createDiv();
 		this.renderParamsList();
 
 		// Per-part CSS (custom decorations only)
 		if (!isBuiltin) {
 			const partsWrap = contentEl.createDiv();
-			partsWrap.style.marginTop = '12px';
-			partsWrap.createEl('h4', { text: t('deco_edit.parts_optional') }).style.cssText = 'margin:0 0 6px;font-size:13px';
+			partsWrap.addClass('wewrite-deco-params-wrap');
+			partsWrap.createEl('h4', { text: t('deco_edit.parts_optional') }).addClass('wewrite-deco-params-title');
 			for (const part of PART_DEFS) {
 				const label = partsWrap.createDiv({ text: `${partLabel(part.key)} — ${partHint(part.key)}`, cls: 'setting-item-description' });
-				label.style.cssText = 'font-size:var(--ww-deco-param-font,11px);line-height:1.5';
+				label.addClass('wewrite-deco-hint');
 				const textarea = partsWrap.createEl('textarea', { attr: { rows: '2', spellcheck: 'false' } });
-				textarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:var(--ww-deco-param-font,11px);box-sizing:border-box;margin-bottom:4px';
+				textarea.addClass('wewrite-deco-template-part');
 				textarea.value = this.parts[part.key] || '';
 				textarea.addEventListener('input', () => {
 					this.parts = { ...this.parts, [part.key]: textarea.value };
@@ -128,13 +128,13 @@ export class TableDecorationEditModal extends WeWriteModal {
 
 		// Preview
 		const previewTitle = contentEl.createEl('h4', { text: t('deco_edit.preview_label') });
-		previewTitle.style.cssText = 'margin:12px 0 6px;font-size:13px';
+		previewTitle.addClass('wewrite-deco-preview-title');
 		this.previewEl = contentEl.createDiv();
-		this.previewEl.style.cssText = 'border:1px solid var(--background-modifier-border);border-radius:4px;padding:8px;background:#ffffff;color:#333333;min-height:40px;overflow-x:auto';
+		this.previewEl.addClass('wewrite-deco-preview', 'wewrite-deco-preview-scroll');
 
 		// Buttons
 		const btnRow = contentEl.createDiv();
-		btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:16px';
+		btnRow.addClass('wewrite-deco-actions');
 		btnRow.createEl('button', { text: t('misc.cancel') }).addEventListener('click', () => this.close());
 		if (isBuiltin) {
 			btnRow.createEl('button', { text: t('deco_edit.save_copy'), cls: 'mod-cta' }).addEventListener('click', () => this.save(true));
@@ -153,10 +153,10 @@ export class TableDecorationEditModal extends WeWriteModal {
 		const isBuiltin = this.options.builtinReadonly;
 		for (const [key, param] of Object.entries(this.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0';
+			row.addClass('wewrite-deco-param-row');
 
 			const keyInput = row.createEl('input', { type: 'text', value: key });
-			keyInput.style.cssText = 'width:84px;font-family:var(--font-monospace);font-size:var(--ww-deco-param-font,11px);padding:1px 4px';
+			keyInput.addClass('wewrite-deco-param-key');
 			keyInput.disabled = isBuiltin;
 			keyInput.addEventListener('change', () => {
 				const newKey = keyInput.value.trim() || key;
@@ -170,7 +170,7 @@ export class TableDecorationEditModal extends WeWriteModal {
 			});
 
 			const typeSelect = row.createEl('select');
-			typeSelect.style.cssText = 'width:76px;font-size:var(--ww-deco-param-font,11px)';
+			typeSelect.addClass('wewrite-deco-param-type');
 			for (const t of PARAM_TYPES) {
 				const opt = typeSelect.createEl('option', { text: t });
 				opt.value = t;
@@ -182,14 +182,14 @@ export class TableDecorationEditModal extends WeWriteModal {
 			});
 
 			const labelInput = row.createEl('input', { type: 'text', value: param.label, placeholder: t('deco_edit.param_label_ph') });
-			labelInput.style.cssText = 'flex:1;min-width:60px;font-size:var(--ww-deco-param-font,11px);padding:1px 4px';
+			labelInput.addClass('wewrite-deco-param-label');
 			labelInput.disabled = isBuiltin;
 			labelInput.addEventListener('input', () => {
 				this.params[key] = { ...this.params[key], label: labelInput.value || key };
 			});
 
 			const defaultInput = row.createEl('input', { type: 'text', value: param.default, placeholder: t('deco_edit.param_default_ph') });
-			defaultInput.style.cssText = 'width:110px;font-family:var(--font-monospace);font-size:var(--ww-deco-param-font,11px);padding:1px 4px';
+			defaultInput.addClass('wewrite-deco-param-default');
 			defaultInput.disabled = isBuiltin;
 			defaultInput.addEventListener('input', () => {
 				this.params[key] = { ...this.params[key], default: defaultInput.value };
@@ -198,7 +198,7 @@ export class TableDecorationEditModal extends WeWriteModal {
 
 			if (!isBuiltin) {
 				const delBtn = row.createEl('button', { text: '✕' });
-				delBtn.style.fontSize = 'var(--ww-deco-param-font,11px)';
+				delBtn.addClass('wewrite-deco-param-del');
 				delBtn.addEventListener('click', () => {
 					delete this.params[key];
 					this.renderParamsList();
