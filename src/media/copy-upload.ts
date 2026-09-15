@@ -5,6 +5,8 @@
 
 import { requestUrl, TFile, type App } from 'obsidian';
 import type { MediaRegistry } from './media-registry';
+import type { FingerprintCache, SourceStat } from './fingerprint-cache';
+import { statVaultFile } from './fingerprint-cache';
 import { resolveLocalImagePath, readLocalImage } from './local-image-resolver';
 import { buildMultipartBody } from '../publisher/api-manager';
 import { createLogger } from '../utils/logger';
@@ -69,7 +71,7 @@ export function replaceMediaUrlByVaultPath(html: string, vaultPath: string, cdnU
 async function readImageBuffer(
   app: App,
   localPath: string,
-): Promise<{ buf: ArrayBuffer; fileName: string; mimeType: string; vaultPath: string } | null> {
+): Promise<{ buf: ArrayBuffer; fileName: string; mimeType: string; vaultPath: string; stat: SourceStat | null } | null> {
   const isLocalHostUrl = localPath.startsWith('http://127.0.0.1')
     || localPath.startsWith('http://localhost')
     || localPath.startsWith('capacitor://localhost');
@@ -89,6 +91,7 @@ async function readImageBuffer(
       fileName,
       mimeType: extractMimeType(resp.headers['content-type'] || '', path),
       vaultPath: path,
+      stat: null,
     };
   }
 
@@ -97,7 +100,10 @@ async function readImageBuffer(
   if (file instanceof TFile) {
     const buf = await app.vault.readBinary(file);
     if (buf.byteLength === 0) return null;
-    return { buf, fileName: file.name, mimeType: guessMimeType(file.name), vaultPath: file.path };
+    return {
+      buf, fileName: file.name, mimeType: guessMimeType(file.name), vaultPath: file.path,
+      stat: { size: file.stat.size, mtime: file.stat.mtime },
+    };
   }
 
   const viaAdapter = await readLocalImage(app, resolvedPath);
@@ -107,6 +113,7 @@ async function readImageBuffer(
     fileName: viaAdapter.fileName,
     mimeType: guessMimeType(viaAdapter.fileName),
     vaultPath: resolvedPath,
+    stat: await statVaultFile(app, resolvedPath),
   };
 }
 
@@ -115,6 +122,7 @@ async function uploadOneImage(
   account: WechatAccountRef,
   apiManager: ApiManagerLike,
   mediaRegistry: MediaRegistry,
+  fingerprints: FingerprintCache | undefined,
   src: string,
 ): Promise<{ vaultPath: string; url: string; reused: boolean } | null> {
   const loaded = await readImageBuffer(app, src);
@@ -127,7 +135,25 @@ async function uploadOneImage(
     return null;
   }
 
-  const fingerprint = mediaRegistry.computeFingerprint(loaded.mimeType, loaded.buf);
+  // L0: a record stores the size/mtime of the file it was built from. When both
+  // still match the file on disk, its content cannot have changed, so there is
+  // nothing to hash — not even a memo probe. `loaded.stat` is only present for
+  // local vault files, which is exactly where this applies.
+  if (loaded.stat) {
+    const unchanged = mediaRegistry.lookupSourceRecord(
+      loaded.vaultPath, loaded.stat.size, loaded.stat.mtime,
+    );
+    const l0Url = unchanged?.accountUrls[account.appId];
+    const l0Id = unchanged?.accountMediaIds[account.appId];
+    if (l0Url && l0Id) {
+      return { vaultPath: loaded.vaultPath, url: l0Url, reused: true };
+    }
+  }
+
+  // Reuse the session memo when this file was already hashed during render.
+  const fingerprint = fingerprints
+    ? fingerprints.fingerprintForBuffer(loaded.vaultPath, loaded.mimeType, loaded.buf, loaded.stat)
+    : mediaRegistry.computeFingerprint(loaded.mimeType, loaded.buf);
   const cachedUrl = mediaRegistry.lookupUrlForAccount(fingerprint, account.appId);
   const cachedId = mediaRegistry.lookupMediaIdForAccount(fingerprint, account.appId);
   if (cachedUrl && cachedId) {
@@ -153,6 +179,9 @@ async function uploadOneImage(
     convertedPath: loaded.vaultPath.startsWith('http') ? undefined : loaded.vaultPath,
     accountMediaIds: { [account.appId]: response.data.media_id },
     accountUrls: url ? { [account.appId]: url } : {},
+    // L0: lets a later publish reuse this CDN URL without hashing the file.
+    sourceSize: loaded.stat?.size,
+    sourceMtime: loaded.stat?.mtime,
   });
 
   if (!url) {
@@ -181,6 +210,9 @@ export async function prepareHtmlForWechatClipboard(
     account: WechatAccountRef;
     apiManager: ApiManagerLike;
     mediaRegistry: MediaRegistry;
+    /** Optional session fingerprint memo, so copy-paste shares hashes with
+     *  the render and publish paths instead of re-hashing every image. */
+    fingerprints?: FingerprintCache;
   },
 ): Promise<PrepareCopyResult> {
   const warnings: string[] = [];
@@ -210,6 +242,7 @@ export async function prepareHtmlForWechatClipboard(
         deps.account,
         deps.apiManager,
         deps.mediaRegistry,
+        deps.fingerprints,
         src,
       );
       if (!out) {

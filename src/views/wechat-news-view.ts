@@ -23,6 +23,8 @@ import { processCodeBlocksInPlace } from '../utils/code-block-utils';
 import { sanitizeSvgElement } from '../renderer/wechat-svg-sanitizer';
 import { applySvgFallback, MAX_CONTENT_BYTES, type FallbackResult } from '../media/svg-fallback';
 import { prescanSvgs, prescanImages } from '../media/content-prescan';
+import type { SourceStat } from '../media/fingerprint-cache';
+import { utf8ByteLength } from '../utils/fingerprint';
 import { RenderLogger, type SvgProcessResult, type MermaidProcessResult, type ExcalidrawProcessResult, type PdfProcessResult, type SvgInlineResult, type DataviewProcessResult } from '../utils/render-logger';
 import { extractMermaidBlocks, renderMermaidToPng, cacheDiagramPng, extractExcalidrawEmbeds, renderExcalidrawToPng } from '../media/diagram-renderer';
 import { compressImageBuffer } from '../media/image-compress';
@@ -1422,6 +1424,7 @@ export class WeChatNewsView extends ItemView {
       const imgPrescan = await prescanImages(
         this.renderedHtml, this.plugin.app, prescanCacheDir, this.plugin.mediaRegistry,
         (text) => globalSpinner.updateText(text),
+        this.plugin.fingerprintCache,
       );
       this.renderedHtml = imgPrescan.html;
 
@@ -1909,7 +1912,7 @@ export class WeChatNewsView extends ItemView {
         this.plugin.mediaRegistry.register({
           fingerprint: svgFp,
           mimeType: 'image/svg+xml',
-          fileSize: new TextEncoder().encode(conv.svgHtml).length,
+          fileSize: utf8ByteLength(conv.svgHtml),
           convertedPath: pngPath,
           accountMediaIds: {},
           accountUrls: {},
@@ -1929,12 +1932,11 @@ export class WeChatNewsView extends ItemView {
       }
     }
 
-    const encoder = new TextEncoder();
     return {
       ...fallback,
       html,
       conversions,
-      finalByteLength: encoder.encode(html).length,
+      finalByteLength: utf8ByteLength(html),
     };
   }
 
@@ -2343,7 +2345,13 @@ export class WeChatNewsView extends ItemView {
     modal.updatePreScanTask(1, 'running');
 
     // ── Fingerprint-based URL pre-resolution ──
-    // Replace app:// URLs with WeChat media_ids for images already uploaded
+    // Replace app:// URLs with WeChat CDN URLs for images already uploaded.
+    //
+    // This is the first place in a publish that needs content hashes, and the
+    // same hashes are needed again by uploadMedia. Two guards keep it cheap:
+    // the session memo means a file hashed during render is not hashed again,
+    // and the L1 (mime, byteLength) pre-filter skips the hash outright when no
+    // stored record can possibly share this content.
     for (const task of tasks) {
       if (!task.localPath || task.type === 'draft') continue;
 
@@ -2356,10 +2364,43 @@ export class WeChatNewsView extends ItemView {
           continue;
         }
 
-        const buf = await this.plugin.app.vault.readBinary(afile);
         const fileName = afile.path.split('/').pop() || '';
         const mime = guessMimeType(fileName);
-        const fp = this.plugin.mediaRegistry.computeFingerprint(mime, buf);
+
+        // L0: this exact file content has a record already (a previous upload
+        // or conversion) and the file has not been touched since. Zero reads,
+        // zero hashes — the common "publish this article again" case.
+        const unchanged = this.plugin.mediaRegistry.lookupSourceRecord(
+          task.localPath, afile.stat.size, afile.stat.mtime,
+        );
+        const unchangedUrl = unchanged?.accountUrls[acct.appId] || '';
+        if (unchangedUrl) {
+          const beforeLen = this.renderedHtml.length;
+          this.renderedHtml = replaceMediaUrlByVaultPath(this.renderedHtml, task.localPath, unchangedUrl);
+          if (this.renderedHtml.length !== beforeLen) {
+            task.status = 'done';
+            task.resolvedUrl = unchangedUrl;
+            log.debug('pre-resolved via source stat (unchanged file)', {
+              localPath: task.localPath, url: unchangedUrl,
+            });
+            continue;
+          }
+        }
+
+        // L1: an empty size bucket proves no stored record can match, so a
+        // content hash could only confirm the miss. stat is free (vault index).
+        if (!this.plugin.mediaRegistry.hasSameSize(mime, afile.stat.size)) {
+          log.debug('fingerprint pre-resolution: no record with this size — skipping hash', {
+            localPath: task.localPath, size: afile.stat.size,
+          });
+          continue;
+        }
+
+        const lookup = await this.plugin.fingerprintCache.fingerprintForPath(
+          this.plugin.app, task.localPath, mime,
+        );
+        if (!lookup) continue;
+        const fp = lookup.fingerprint;
         const existingMediaId = this.plugin.mediaRegistry.lookupMediaIdForAccount(fp, acct.appId);
         const existingUrl = this.plugin.mediaRegistry.lookupUrlForAccount(fp, acct.appId) || '';
 
@@ -2373,6 +2414,7 @@ export class WeChatNewsView extends ItemView {
 
           if (this.renderedHtml.length !== beforeLen) {
             task.status = 'done'; // mark as already uploaded
+            task.resolvedUrl = existingUrl;
             log.debug('pre-resolved fingerprint cache hit', { localPath: task.localPath, url: existingUrl, mediaId: existingMediaId });
           }
         }
@@ -2441,7 +2483,7 @@ export class WeChatNewsView extends ItemView {
     }
 
     if (validationTargets.length > 0) {
-      const validator = new ImageValidator(this.plugin.app, this.plugin.mediaRegistry);
+      const validator = new ImageValidator(this.plugin.app, this.plugin.mediaRegistry, this.plugin.fingerprintCache);
       globalSpinner.show(t('misc.validation_media'));
       let report: ValidationReport;
       try {
@@ -2552,7 +2594,7 @@ export class WeChatNewsView extends ItemView {
         const svgMatches = this.renderedHtml.match(/<svg[\s\S]*?<\/svg>/g) || [];
         const svgContent = svgMatches.map((s) => s.slice(0, 200));
 
-        const contentLen = new TextEncoder().encode(this.renderedHtml).length;
+        const contentLen = utf8ByteLength(this.renderedHtml);
 
         // Build API params matching what createDraft sends
         const coverMediaId = effectiveThumbMediaId || '';
@@ -2606,7 +2648,7 @@ export class WeChatNewsView extends ItemView {
           getWeWriteSubPath(dumpSettings.wewriteFolder, WEWRITE_SUBDIRS.debug),
         );
         const noteName = this.filePath.split('/').pop()?.replace('.md', '') || 'note';
-        const contentLen = new TextEncoder().encode(html).length;
+        const contentLen = utf8ByteLength(html);
         const imgMatches = html.match(/<img[^>]+src="([^"]+)"/g) || [];
         const imageUrls = imgMatches.map((m) => {
           const srcMatch = m.match(/src="([^"]+)"/);
@@ -2642,6 +2684,7 @@ export class WeChatNewsView extends ItemView {
           account: { appId: acct.appId, appSecret: acct.appSecret, name: acct.name },
           apiManager: this.plugin.apiManager,
           mediaRegistry: this.plugin.mediaRegistry,
+          fingerprints: this.plugin.fingerprintCache,
         });
         copyHtml = prepared.html;
         if (prepared.warnings.length > 0) {
@@ -2881,6 +2924,10 @@ function replaceMediaUrlByVaultPath(html: string, vaultPath: string, cdnUrl: str
 interface PublishTask {
   name: string; status: 'pending' | 'running' | 'done' | 'error'; type: string;
   localPath?: string; url?: string; error?: string;
+  /** CDN URL that fingerprint pre-resolution matched for this image. Recorded
+   *  here so the upload loop does not have to re-derive it (which meant
+   *  reading and hashing the file a second time just to fill in a log line). */
+  resolvedUrl?: string;
 }
 
 interface PublishOptions {
@@ -3004,27 +3051,13 @@ class PublishProgressModal {
       if (t.status === 'done') {
         if (t.type === 'image') {
           imageIdx++;
-          // Look up CDN URL from fingerprint registry for log detail.
-          // Try path-based lookup first; fall back to fingerprint-based
-          // (reads file + hashes) for cached/converted images whose
-          // registry record may be keyed under a different path.
-          let cachedUrl = '';
-          if (t.localPath) {
+          // The CDN URL was recorded when pre-resolution matched it. Only fall
+          // back to a registry probe when it is missing — and even then the
+          // session memo answers without re-reading or re-hashing the file.
+          let cachedUrl = t.resolvedUrl || '';
+          if (!cachedUrl && t.localPath) {
             cachedUrl = this.plugin.mediaRegistry.lookupByPath(t.localPath)
               ?.accountUrls[this.account.appId] || '';
-            if (!cachedUrl) {
-              try {
-                const afile = this.plugin.app.vault.getAbstractFileByPath(t.localPath);
-                if (afile && 'extension' in afile) {
-                  const buf = await this.plugin.app.vault.readBinary(afile as import('obsidian').TFile);
-                  const ext = t.localPath.split('.').pop() || '';
-                  const mimeMap: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
-                  const mime = mimeMap[ext] || 'image/png';
-                  const fp = this.plugin.mediaRegistry.computeFingerprint(mime, buf);
-                  cachedUrl = this.plugin.mediaRegistry.lookupUrlForAccount(fp, this.account.appId) || '';
-                }
-              } catch { /* file unreadable — leave cachedUrl empty */ }
-            }
           }
           this.publishLogger.appendImageLog(imageIdx,
             `reuse url: ${t.name} → ${cachedUrl || '(cdn url not found in registry)'}`);
@@ -3165,6 +3198,10 @@ class PublishProgressModal {
     let buf: ArrayBuffer;
     let fileName: string;
     let mimeType: string;
+    /** Size/mtime of the vault file `buf` came from, when it came from one.
+     *  Passed to the session fingerprint memo so this file is hashed once per
+     *  session no matter how many pipeline stages look at it. */
+    let sourceStat: SourceStat | null = null;
 
     // On mobile, getResourcePath() returns http://127.0.0.1:PORT/... which
     // must be resolved as a vault path, not fetched via requestUrl.
@@ -3219,6 +3256,7 @@ class PublishProgressModal {
           fileName = resolvedImg.fileName;
           mimeType = guessMimeType(fileName);
           localPath = resolvedImg.vaultPath;
+          sourceStat = await this.plugin.fingerprintCache.stat(this.plugin.app, localPath);
           log.debug(`    read via adapter: ${fileName} (${buf.byteLength} bytes)`);
         } else {
           log.error('uploadMedia: vault file not found', { localPath,
@@ -3232,6 +3270,7 @@ class PublishProgressModal {
       }
       fileName = file.name;
       mimeType = guessMimeType(file.name);
+      sourceStat = this.plugin.fingerprintCache.statOfFile(file);
       log.debug(`    read from vault: ${fileName} (${buf.byteLength} bytes, ${mimeType})`);
     }
     }
@@ -3257,8 +3296,15 @@ class PublishProgressModal {
       isRemote,
     });
 
-    // Fingerprint dedup: check if this content was already uploaded for this account
-    const fingerprint = this.plugin.mediaRegistry.computeFingerprint(mimeType, buf);
+    // Fingerprint dedup: check if this content was already uploaded for this account.
+    //
+    // Hashing goes through the session memo, which is what stops a publish from
+    // hashing the same file at every stage. Only buffers that really are a vault
+    // file's own bytes are memoised on a path — a pre-converted buffer has
+    // different content than the path it came from.
+    const fingerprint = sourceStat
+      ? this.plugin.fingerprintCache.fingerprintForBuffer(localPath, mimeType, buf, sourceStat)
+      : this.plugin.mediaRegistry.computeFingerprint(mimeType, buf);
     const cachedMediaId = this.plugin.mediaRegistry.lookupMediaIdForAccount(fingerprint, this.account.appId);
     const cachedUrl = this.plugin.mediaRegistry.lookupUrlForAccount(fingerprint, this.account.appId);
     if (cachedMediaId && cachedUrl) {
@@ -3291,6 +3337,10 @@ class PublishProgressModal {
         convertedPath: isRemote ? undefined : localPath,
         accountMediaIds: { [this.account.appId]: response.data.media_id },
         accountUrls: url ? { [this.account.appId]: url } : {},
+        // Enables the L0 fast path: a later publish of an untouched file can
+        // reuse this CDN URL without reading or hashing it again.
+        sourceSize: sourceStat?.size,
+        sourceMtime: sourceStat?.mtime,
       });
 
       log.debug(`    upload OK → media_id: ${response.data.media_id}`);
@@ -3309,7 +3359,7 @@ class PublishProgressModal {
 
   private async createDraft(): Promise<void> {
     // Log content size for diagnostics — WeChat API will reject if truly oversized
-    const contentLen = new TextEncoder().encode(this.html).length;
+    const contentLen = utf8ByteLength(this.html);
     log.debug('draft content size', { byteLen: contentLen, kb: (contentLen / 1024).toFixed(1) });
 
     // Defensive: scan for any unreplaced app:// URLs before sending

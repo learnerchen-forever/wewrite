@@ -10,6 +10,7 @@ import { MediaRegistry } from './media-registry';
 import { canvasToBlobSafe, clampCanvasDimensions } from './diagram-renderer';
 import { createLogger } from '../utils/logger';
 import { readLocalImage } from './local-image-resolver';
+import { statVaultFile, type FingerprintCache, type SourceStat } from './fingerprint-cache';
 import { mimeFromExtension } from '../utils/fingerprint';
 import { t } from '../i18n';
 
@@ -201,6 +202,10 @@ export class ImageValidator {
   constructor(
     private app: App,
     private mediaRegistry: MediaRegistry,
+    /** Shared session memo. Optional so existing callers/tests keep working;
+     *  when present, source hashing is shared with the render and upload
+     *  stages instead of being repeated here. */
+    private fingerprints?: FingerprintCache,
   ) {}
 
   /** Resolve a vault file from a raw path (handles URL-encoding, query params, absolute paths). */
@@ -255,9 +260,9 @@ export class ImageValidator {
     const issues: MediaIssue[] = [];
     let passed = 0;
 
-    for (const target of targets) {
+    for (const [targetIdx, target] of targets.entries()) {
       try {
-        const idx = targets.indexOf(target) + 1;
+        const idx = targetIdx + 1;
         onProgress?.(t('validate.img.scanning', { current: String(idx), total: String(targets.length), name: target.name }));
         let buf: ArrayBuffer;
         let mimeType: string;
@@ -395,11 +400,15 @@ export class ImageValidator {
     const newVaultPaths = new Map<string, string>();
     const errors: string[] = [];
 
-    for (const issue of report.issues) {
+    // Index the targets once — `targets.find(...)` inside the issue loop made
+    // this quadratic in the number of media items.
+    const targetByIdentifier = new Map(targets.map((t) => [t.identifier, t]));
+
+    for (const [issueIdx, issue] of report.issues.entries()) {
       try {
-        const idx = report.issues.indexOf(issue) + 1;
+        const idx = issueIdx + 1;
         onProgress?.(t('validate.img.converting', { current: String(idx), total: String(report.issues.length), name: issue.name }));
-        const target = targets.find((t) => t.identifier === issue.identifier);
+        const target = targetByIdentifier.get(issue.identifier);
         if (!target) {
           errors.push(t('validate.img.target_not_found', { id: issue.identifier }));
           continue;
@@ -453,9 +462,16 @@ export class ImageValidator {
 
         // Compute source fingerprint and check content-based dedup fallback
         let sourceFp: string | undefined;
+        let sourceStat: SourceStat | null = null;
         if (!target.isRemote && buf.byteLength > 0) {
           const sourceExt = resolvedPath.split('.').pop()?.toLowerCase() || '';
-          sourceFp = this.mediaRegistry.computeFingerprint(mimeFromExtension(sourceExt), buf);
+          // Share the hash with the render and upload stages via the session
+          // memo; without it this was the third full hash of the same bytes
+          // inside a single publish.
+          sourceStat = await statVaultFile(this.app, resolvedPath);
+          sourceFp = this.fingerprints
+            ? this.fingerprints.fingerprintForBuffer(resolvedPath, mimeFromExtension(sourceExt), buf, sourceStat)
+            : this.mediaRegistry.computeFingerprint(mimeFromExtension(sourceExt), buf);
           const sourceRecord = this.mediaRegistry.lookupBySourceFingerprint(sourceFp);
           if (sourceRecord?.convertedPath &&
               sourceRecord.convertedPath !== resolvedPath &&
@@ -548,6 +564,10 @@ export class ImageValidator {
               convertedPath: newPath,
               originalPath: resolvedPath,
               sourceFingerprint: sourceFp,
+              // L0: lets the next render/publish reuse this conversion without
+              // reading or hashing the source file again.
+              sourceSize: sourceStat?.size,
+              sourceMtime: sourceStat?.mtime,
               accountMediaIds: {},
               accountUrls: {},
             });

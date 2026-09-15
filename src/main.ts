@@ -21,6 +21,7 @@ import { ThemeDownloader } from './styles/theme-downloader';
 import { WeChatApiManager } from './publisher/api-manager';
 import { MaterialManager } from './media/material-manager';
 import { MediaRegistry } from './media/media-registry';
+import { FingerprintCache } from './media/fingerprint-cache';
 import { NoteConfigStore } from './data/note-config-store';
 import { WeChatNewsView, VIEW_TYPE_WECHAT_NEWS } from './views/wechat-news-view';
 import { WeChatNewsPicView, VIEW_TYPE_WECHAT_NEWSPIC } from './views/wechat-newspic-view';
@@ -90,6 +91,10 @@ export default class WeWritePlugin extends Plugin {
   apiManager!: WeChatApiManager;
   materialManager!: MaterialManager;
   mediaRegistry!: MediaRegistry;
+  /** Session-scoped path→fingerprint memo; see src/media/fingerprint-cache.ts.
+   *  Collapses the repeated read+hash of the same image across the render,
+   *  validation and upload stages into a single pass. */
+  fingerprintCache!: FingerprintCache;
   configStore!: NoteConfigStore;
   private materialCacheLoaded = false;
   private materialViewEnsured = false;
@@ -136,6 +141,7 @@ export default class WeWritePlugin extends Plugin {
 
     // Initialize unified media registry (fingerprint DB)
     this.mediaRegistry = new MediaRegistry();
+    this.fingerprintCache = new FingerprintCache();
 
     // Initialize note config store for cold storage of per-note configurations
     this.configStore = new NoteConfigStore(this.app.vault.adapter, this.app.vault.configDir);
@@ -215,6 +221,7 @@ export default class WeWritePlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on('delete', (file) => {
         if (file.path) {
+          this.fingerprintCache.forget(file.path);
           const removed = this.mediaRegistry.remove(file.path);
           if (removed) {
             log.debug('cleaned registry entry for deleted file', { path: file.path });
@@ -227,6 +234,8 @@ export default class WeWritePlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on('rename', (file, oldPath) => {
         if (file.path && oldPath) {
+          this.fingerprintCache.forget(oldPath);
+          this.fingerprintCache.forget(file.path);
           this.mediaRegistry.updatePath(oldPath, file.path);
         }
       }),
@@ -314,6 +323,20 @@ export default class WeWritePlugin extends Plugin {
     this.themeLoader?.destroy();
     disposeI18n();
     log.info('plugin unloaded');
+  }
+
+  /**
+   * Wipe the media fingerprint DB *and* the session fingerprint memo together.
+   *
+   * The two must be reset as a pair: the memo keys on vault path, so a stale
+   * entry would keep answering "this file hashes to X" after the user has
+   * deliberately cleared the registry (and, in the reset flow, deleted the
+   * converted files those records pointed at). Returns the record count that
+   * was dropped, for the settings notice.
+   */
+  clearMediaFingerprints(): number {
+    this.fingerprintCache.clear();
+    return this.mediaRegistry.clear();
   }
 
   async loadSettings(): Promise<void> {

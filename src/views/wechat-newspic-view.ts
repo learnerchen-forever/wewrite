@@ -11,6 +11,8 @@ import { debounce } from '../utils/debounce';
 import { createLogger } from '../utils/logger';
 import { buildMultipartBody } from '../publisher/api-manager';
 import { ImageValidator, type ValidationTarget, type ConversionResult, type ValidationReport } from '../media/image-validator';
+import type { SourceStat } from '../media/fingerprint-cache';
+import { utf8ByteLength } from '../utils/fingerprint';
 import { ImageValidationModal } from './image-validation-modal';
 import { removeFrontMatter, isIosVersionBelow17 } from '../utils/vault-helpers';
 import type { DraftNewsPicArticle } from '../publisher/draft-service';
@@ -582,7 +584,7 @@ export class WeChatNewsPicView extends ItemView {
           this.plugin.mediaRegistry.register({
             fingerprint: svgFp,
             mimeType: 'image/svg+xml',
-            fileSize: new TextEncoder().encode(svg.html).length,
+            fileSize: utf8ByteLength(svg.html),
             convertedPath: pngPath,
             accountMediaIds: {},
             accountUrls: {},
@@ -624,7 +626,7 @@ export class WeChatNewsPicView extends ItemView {
     if (settings.logRenderPipeline) {
       try {
         const renderLogger = new RenderLogger(this.plugin.app, getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.debug));
-        const contentLen = new TextEncoder().encode(this.config?.content || '').length;
+        const contentLen = utf8ByteLength(this.config?.content || '');
         await renderLogger.logRender({
           noteName,
           articleType: 'newspic',
@@ -822,7 +824,7 @@ export class WeChatNewsPicView extends ItemView {
     }
 
     if (validationTargets.length > 0) {
-      const validator = new ImageValidator(this.app, this.plugin.mediaRegistry);
+      const validator = new ImageValidator(this.app, this.plugin.mediaRegistry, this.plugin.fingerprintCache);
       globalSpinner.show(t('misc.validation_media'));
       let report: ValidationReport;
       try {
@@ -889,7 +891,7 @@ export class WeChatNewsPicView extends ItemView {
           apiParams.cover_crop_percent = this.config.coverCropPercent;
         }
 
-        const contentLen = new TextEncoder().encode(this.config.content).length;
+        const contentLen = utf8ByteLength(this.config.content);
 
         publishLogger.setApiParams(apiParams);
         publishLogger.setContentByteLength(contentLen);
@@ -960,6 +962,9 @@ export class WeChatNewsPicView extends ItemView {
       try {
         let arrayBuffer: ArrayBuffer; let fileName: string; let mimeType: string;
         let svgCachedPath: string | null = null;
+        /** Size/mtime when `arrayBuffer` is a vault file's own bytes — lets the
+         *  session memo return the hash without hashing the file again. */
+        let sourceStat: SourceStat | null = null;
         // The SVG→PNG conversion yields PNG, but the >10MB fallback below
         // re-encodes to JPEG. Everything that names or declares these bytes —
         // the cache file, the upload filename, the multipart Content-Type and
@@ -1056,14 +1061,51 @@ export class WeChatNewsPicView extends ItemView {
             modal.setFinished(false);
             return;
           }
-          arrayBuffer = await this.app.vault.readBinary(file);
           const ext = img.vaultPath.split('.').pop()?.toLowerCase() || 'png';
           mimeType = mm[ext] || 'image/png';
           fileName = img.vaultPath.split('/').pop() || 'image';
+          sourceStat = { size: file.stat.size, mtime: file.stat.mtime };
+
+          // L0: this exact content already has a CDN URL for this account and
+          // the file has not been touched since (size + mtime come from the
+          // in-memory vault index), so the file need not be read or hashed at
+          // all. This is the common "publish the same note again" case.
+          const unchanged = this.plugin.mediaRegistry.lookupSourceRecord(
+            img.vaultPath, sourceStat.size, sourceStat.mtime,
+          );
+          const l0MediaId = unchanged?.accountMediaIds[acct.appId];
+          if (l0MediaId) {
+            const l0Url = unchanged?.accountUrls[acct.appId] || '';
+            imageMediaIds.push(l0MediaId);
+            if (!this.config.imageMediaIds) this.config.imageMediaIds = {};
+            if (!this.config.imageMediaIds[acct.appId]) this.config.imageMediaIds[acct.appId] = {};
+            this.config.imageMediaIds[acct.appId][cacheKey] = l0MediaId;
+            modal.setTaskDone(taskIdx, `${displayName} (cached)`);
+            publishLogger.appendImageLog(i + 1,
+              `reuse url: ${displayName} → ${l0Url || '(cdn url not found in registry)'}`);
+            if (l0Url) {
+              publishLogger.appendImageLog(i + 1,
+                `  URL replaced: ${l0Url.slice(0, 100)}`);
+            }
+            publishLogger.addImageAction({
+              index: i + 1,
+              renderedUrl: img.url || img.vaultPath || '',
+              action: 'reuse url',
+              localPath: img.vaultPath || '',
+            });
+            taskIdx++;
+            continue;
+          }
+
+          arrayBuffer = await this.app.vault.readBinary(file);
         }
 
-        // Fingerprint dedup: check if already uploaded for this account
-        const fingerprint = this.plugin.mediaRegistry.computeFingerprint(mimeType, arrayBuffer);
+        // Fingerprint dedup: check if already uploaded for this account.
+        // Routed through the session memo so a re-publish does not hash the
+        // same file again (the render/validation stages already did).
+        const fingerprint = sourceStat
+          ? this.plugin.fingerprintCache.fingerprintForBuffer(img.vaultPath, mimeType, arrayBuffer, sourceStat)
+          : this.plugin.mediaRegistry.computeFingerprint(mimeType, arrayBuffer);
         const cachedMediaId = this.plugin.mediaRegistry.lookupMediaIdForAccount(fingerprint, acct.appId);
         if (cachedMediaId) {
           imageMediaIds.push(cachedMediaId);
@@ -1111,6 +1153,9 @@ export class WeChatNewsPicView extends ItemView {
           convertedPath: cacheKey,
           accountMediaIds: { [acct.appId]: response.data.media_id },
           accountUrls: url ? { [acct.appId]: url } : {},
+          // L0: reuse this CDN URL on a later publish of an untouched file.
+          sourceSize: sourceStat?.size,
+          sourceMtime: sourceStat?.mtime,
         });
 
         // If this was an SVG→PNG conversion, also register the SVG fingerprint
@@ -1118,7 +1163,7 @@ export class WeChatNewsPicView extends ItemView {
           this.plugin.mediaRegistry.register({
             fingerprint: svgFp,
             mimeType: 'image/svg+xml',
-            fileSize: new TextEncoder().encode(svgStr).length,
+            fileSize: utf8ByteLength(svgStr),
             convertedPath: svgCachedPath || undefined,
             accountMediaIds: { [acct.appId]: response.data.media_id },
             accountUrls: response.data.url ? { [acct.appId]: response.data.url } : {},
@@ -1317,7 +1362,7 @@ export class WeChatNewsPicView extends ItemView {
           if (await this.app.vault.adapter.exists(pngPath)) {
             this.plugin.mediaRegistry.register({
               fingerprint: svgFp, mimeType: 'image/svg+xml',
-              fileSize: new TextEncoder().encode(svgText).length,
+              fileSize: utf8ByteLength(svgText),
               convertedPath: pngPath, accountMediaIds: {}, accountUrls: {},
             });
             fixed.push({ vaultPath: pngPath, url: '', order: img.order });
@@ -1332,7 +1377,7 @@ export class WeChatNewsPicView extends ItemView {
 
           this.plugin.mediaRegistry.register({
             fingerprint: svgFp, mimeType: 'image/svg+xml',
-            fileSize: new TextEncoder().encode(svgText).length,
+            fileSize: utf8ByteLength(svgText),
             convertedPath: pngPath, accountMediaIds: {}, accountUrls: {},
           });
           this.plugin.mediaRegistry.register({

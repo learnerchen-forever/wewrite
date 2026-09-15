@@ -1,6 +1,19 @@
 // Content prescan — SVG dedup + large SVG → PNG, data URI extraction,
 // and vault image format fixing. Runs during render, before svg-fallback.
 // Ported from main-16.js prescanSvgs (td) / prescanImages (rd) patterns.
+//
+// ── Cost model ──
+// This module runs on *every* render (there is no "content unchanged" short
+// circuit in the view), so anything done per image is paid again each time the
+// user hits Refresh — and again at publish. The rules that keep it cheap:
+//
+//  1. Decide whether a file needs work *before* reading or hashing it. The
+//     stat is free (Obsidian keeps it in the vault index); the bytes are not.
+//  2. Never hash the same bytes twice.
+//  3. Never hash content that cannot possibly be a duplicate. A fingerprint's
+//     `${mime}:${byteLength}` prefix is a cheap pre-filter for exactly this.
+//  4. Hash through the shared session memo so the render, validation and
+//     upload stages share one result per file.
 
 import type { ProgressCallback } from '../core/interfaces';
 import { type App, TFile } from 'obsidian';
@@ -11,7 +24,8 @@ import { compressToTarget } from './cover-processor';
 import { resizeImage } from './image-processor';
 import { createLogger } from '../utils/logger';
 import { resolveLocalImagePath } from './local-image-resolver';
-import { mimeFromExtension } from '../utils/fingerprint';
+import { mimeFromExtension, utf8ByteLength } from '../utils/fingerprint';
+import { statVaultFile, type FingerprintCache, type SourceStat } from './fingerprint-cache';
 
 const log = createLogger('ContentPrescan');
 
@@ -24,10 +38,19 @@ export function convertCachePath(cacheDir: string, fpHash: string, ext: string):
   return `${cacheDir}/wewrite-${fpHash}.${ext}`;
 }
 
+/** 16-char hash suffix of a fingerprint, used as the cache filename stem. */
+function fpHashOf(fingerprint: string): string {
+  return fingerprint.split(':').pop() || fingerprint.replace(/[^a-f0-9]/gi, '').slice(0, 16);
+}
+
 const SVG_SIZE_THRESHOLD = 50_000;       // 50KB per SVG — only convert SVGs above this size
 const DATAURI_INDIVIDUAL_THRESHOLD = 10_000;  // 10KB single data URI
 const DATAURI_CUMULATIVE_THRESHOLD = 200_000; // 200KB all data URIs
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;      // 10MB
+
+/** Scan pattern shared by the collection pass and the single replacement pass
+ *  so a collected SVG is always the exact substring that gets substituted. */
+const SVG_REGEX_SOURCE = /<svg[\s\S]*?<\/svg>/gi;
 
 // ── Types ──
 
@@ -112,14 +135,49 @@ function convertToPng(buf: ArrayBuffer): Promise<ArrayBuffer> {
   });
 }
 
+/** Read a vault file's bytes, tolerating files the vault index does not know
+ *  about (Android). */
+async function readVaultBytes(
+  app: App,
+  vaultPath: string,
+): Promise<
+  | { ok: true; buf: ArrayBuffer; svgText?: string; isSvg: boolean }
+  | { ok: false; reason: 'missing' | 'not-a-file' }
+> {
+  const isSvg = /\.svg$/i.test(vaultPath);
+  if (await app.vault.adapter.exists(vaultPath)) {
+    const buf = await app.vault.adapter.readBinary(vaultPath);
+    const svgText = isSvg ? await app.vault.adapter.read(vaultPath) : undefined;
+    return { ok: true, buf, svgText, isSvg };
+  }
+  const file = app.vault.getAbstractFileByPath(vaultPath);
+  if (!file) return { ok: false, reason: 'missing' };
+  if (!(file instanceof TFile)) return { ok: false, reason: 'not-a-file' };
+  const buf = await app.vault.readBinary(file);
+  const svgText = isSvg ? await app.vault.read(file) : undefined;
+  return { ok: true, buf, svgText, isSvg };
+}
+
 // ── SVG Prescan ──
 
+/** One distinct inline SVG (by exact markup) found in the article. */
+interface SvgEntry {
+  exactHtml: string;
+  byteLength: number;
+  isProtected: boolean;
+  /** Occurrences of this exact markup in the article. */
+  count: number;
+  /** Set in pass 2: large enough and not protected, so it becomes a PNG. */
+  needsConvert: boolean;
+}
+
 /**
- * Scan rendered HTML for inline SVGs, deduplicate by fingerprint,
+ * Scan rendered HTML for inline SVGs, deduplicate by exact markup,
  * and convert large or repeated SVGs to PNG.
  *
  * Skips SVGs with data-wewrite-no-prescan (callout/codeblock icons)
- * and SVGs with class wewrite-math (math formulas).
+ * and SVGs with class wewrite-math (math formulas) — those are never
+ * converted, so their content is never hashed at all.
  */
 export async function prescanSvgs(
   html: string,
@@ -131,160 +189,180 @@ export async function prescanSvgs(
   const warnings: string[] = [];
   const details: SvgPrescanDetail[] = [];
 
-  const svgRegex = /<svg[\s\S]*?<\/svg>/gi;
-  const svgs: Array<{ exactHtml: string; fingerprint: string; byteLength: number; isProtected: boolean }> = [];
-
+  // ── Pass 1: collect, keyed by exact markup ──
+  // Grouping by markup rather than by fingerprint is equivalent (identical
+  // content implies an identical string) and skips hashing the hundreds of
+  // small icons and math formulas that will never be converted.
+  const entries = new Map<string, SvgEntry>();
+  SVG_REGEX_SOURCE.lastIndex = 0;
   let m: RegExpExecArray | null;
-  while ((m = svgRegex.exec(html)) !== null) {
+  while ((m = SVG_REGEX_SOURCE.exec(html)) !== null) {
     const exactHtml = m[0];
-    const byteLength = new TextEncoder().encode(exactHtml).length;
-    const hasProtected = exactHtml.includes('data-wewrite-no-prescan');
+    const existing = entries.get(exactHtml);
+    if (existing) {
+      existing.count++;
+      continue;
+    }
     const isMath = /class=["'][^"']*\bwewrite-math\b/.test(exactHtml);
-    const isProtected = hasProtected || isMath;
-    const fingerprint = registry.computeSvgFingerprint(exactHtml);
-
-    svgs.push({ exactHtml, fingerprint, byteLength, isProtected });
+    entries.set(exactHtml, {
+      exactHtml,
+      byteLength: utf8ByteLength(exactHtml),
+      isProtected: isMath || exactHtml.includes('data-wewrite-no-prescan'),
+      count: 1,
+      needsConvert: false,
+    });
   }
 
-  if (svgs.length === 0) {
+  if (entries.size === 0) {
     return { html, duplicatesResolved: 0, largeConverted: 0, totalConverted: 0, warnings, details };
   }
 
-  // Group by fingerprint
-  const groups = new Map<string, typeof svgs>();
-  for (const svg of svgs) {
-    const existing = groups.get(svg.fingerprint) || [];
-    existing.push(svg);
-    groups.set(svg.fingerprint, existing);
-  }
-
-  // Determine which fingerprints to convert
-  const convertSet = new Set<string>();
-  for (const [fp, group] of groups) {
-    const first = group[0];
-    if (first.isProtected) continue;
-    if (first.byteLength >= SVG_SIZE_THRESHOLD) {
-      convertSet.add(fp);
+  // ── Pass 2: decide what actually needs converting ──
+  let toConvertCount = 0;
+  for (const entry of entries.values()) {
+    if (entry.isProtected) continue;
+    if (entry.byteLength >= SVG_SIZE_THRESHOLD) {
+      entry.needsConvert = true;
+      toConvertCount++;
     }
   }
 
-  if (convertSet.size === 0) {
+  if (toConvertCount === 0) {
     return { html, duplicatesResolved: 0, largeConverted: 0, totalConverted: 0, warnings, details };
   }
 
-  // Convert targeted SVGs to PNG
   await ensureCacheDir(app, cacheDir);
 
-  let resultHtml = html;
+  // ── Pass 3: convert (hash only the SVGs that are actually converted) ──
+  const replacements = new Map<string, string>();
   let largeConverted = 0;
   let totalConverted = 0;
+  let duplicatesResolved = 0;
   let detailIdx = 0;
-  const totalConvert = convertSet.size;
-  let svgIdx = 0;
 
-  for (const [fp, group] of groups) {
+  for (const entry of entries.values()) {
     detailIdx++;
-    const first = group[0];
-    if (!convertSet.has(fp)) {
+    if (!entry.needsConvert) {
       details.push({
-        index: detailIdx, source: `SVG #${detailIdx}, ${formatBytes(first.byteLength)}`,
-        byteLength: first.byteLength, action: 'skipped-inline',
-        note: first.isProtected ? 'protected icon/math, always inline' : `below ${SVG_SIZE_THRESHOLD / 1024}KB threshold`,
+        index: detailIdx, source: `SVG #${detailIdx}, ${formatBytes(entry.byteLength)}`,
+        byteLength: entry.byteLength, action: 'skipped-inline',
+        note: entry.isProtected
+          ? 'protected icon/math, always inline'
+          : `below ${SVG_SIZE_THRESHOLD / 1024}KB threshold`,
       });
       continue;
     }
 
-    svgIdx++;
-    onProgress?.(`Optimizing SVG ${svgIdx}/${totalConvert}`);
+    totalConverted++;
+    onProgress?.(`Optimizing SVG ${totalConverted}/${toConvertCount}`);
 
     try {
-      const fpHash = fp.split(':').pop() || fp.replace(/[^a-f0-9]/gi, '').slice(0, 16);
-      const pngPath = convertCachePath(cacheDir, fpHash, 'png');
+      const fp = registry.computeSvgFingerprint(entry.exactHtml);
+      const fpHash = fpHashOf(fp);
 
       // Check for existing cached PNG
       const cached = registry.lookup(fp);
 
       if (cached?.convertedPath && await app.vault.adapter.exists(cached.convertedPath)) {
-        // Reuse cached PNG
-        const imgTag = `<img src="${app.vault.adapter.getResourcePath(cached.convertedPath)}" style="max-width:100%" alt="SVG diagram">`;
-        for (const svg of group) {
-          resultHtml = resultHtml.split(svg.exactHtml).join(imgTag);
-        }
+        replacements.set(
+          entry.exactHtml,
+          `<img src="${app.vault.adapter.getResourcePath(cached.convertedPath)}" style="max-width:100%" alt="SVG diagram">`,
+        );
+        details.push({
+          index: detailIdx, source: `SVG #${detailIdx}, ${formatBytes(entry.byteLength)}`,
+          byteLength: entry.byteLength, action: 'cached',
+          outputPath: cached.convertedPath,
+        });
       } else {
         // Convert SVG to PNG
-        const pngBuf = await svgToPngBuffer(first.exactHtml, 2);
+        const pngBuf = await svgToPngBuffer(entry.exactHtml, 2);
+        let outPath: string;
+
         if (pngBuf.byteLength > MAX_IMAGE_BYTES) {
           const blob = new Blob([pngBuf], { type: 'image/png' });
           const compressed = await compressToTarget(blob, MAX_IMAGE_BYTES, 'image/jpeg');
           const compressedBuf = await compressed.arrayBuffer();
-          const jpgPath = convertCachePath(cacheDir, fpHash, 'jpg');
-          if (!await app.vault.adapter.exists(jpgPath)) {
-            await app.vault.createBinary(jpgPath, compressedBuf);
+          outPath = convertCachePath(cacheDir, fpHash, 'jpg');
+          if (!await app.vault.adapter.exists(outPath)) {
+            await app.vault.createBinary(outPath, compressedBuf);
           }
           registry.register({
             fingerprint: fp, mimeType: 'image/svg+xml',
-            fileSize: first.byteLength, convertedPath: jpgPath,
+            fileSize: entry.byteLength, convertedPath: outPath,
             accountMediaIds: {}, accountUrls: {},
           });
           registry.register({
             fingerprint: registry.computeFingerprint('image/jpeg', compressedBuf),
             mimeType: 'image/jpeg', fileSize: compressedBuf.byteLength,
-            convertedPath: jpgPath, accountMediaIds: {}, accountUrls: {},
+            convertedPath: outPath, accountMediaIds: {}, accountUrls: {},
           });
-          // Replace all occurrences with <img> tag
-          const imgTag = `<img src="${app.vault.adapter.getResourcePath(jpgPath)}" style="max-width:100%" alt="SVG diagram">`;
-          for (const svg of group) {
-            resultHtml = resultHtml.split(svg.exactHtml).join(imgTag);
-          }
         } else {
-          if (!await app.vault.adapter.exists(pngPath)) {
-            await app.vault.createBinary(pngPath, pngBuf);
+          outPath = convertCachePath(cacheDir, fpHash, 'png');
+          if (!await app.vault.adapter.exists(outPath)) {
+            await app.vault.createBinary(outPath, pngBuf);
           }
           registry.register({
             fingerprint: fp, mimeType: 'image/svg+xml',
-            fileSize: first.byteLength, convertedPath: pngPath,
+            fileSize: entry.byteLength, convertedPath: outPath,
             accountMediaIds: {}, accountUrls: {},
           });
           registry.register({
             fingerprint: registry.computeFingerprint('image/png', pngBuf),
             mimeType: 'image/png', fileSize: pngBuf.byteLength,
-            convertedPath: pngPath, accountMediaIds: {}, accountUrls: {},
+            convertedPath: outPath, accountMediaIds: {}, accountUrls: {},
           });
-          const imgTag = `<img src="${app.vault.adapter.getResourcePath(pngPath)}" style="max-width:100%" alt="SVG diagram">`;
-          for (const svg of group) {
-            resultHtml = resultHtml.split(svg.exactHtml).join(imgTag);
-          }
         }
+
+        replacements.set(
+          entry.exactHtml,
+          `<img src="${app.vault.adapter.getResourcePath(outPath)}" style="max-width:100%" alt="SVG diagram">`,
+        );
+        details.push({
+          index: detailIdx, source: `SVG #${detailIdx}, ${formatBytes(entry.byteLength)}`,
+          byteLength: entry.byteLength, action: 'converted',
+          outputPath: outPath,
+        });
       }
 
-      if (first.byteLength >= SVG_SIZE_THRESHOLD) {
-        largeConverted++;
-      }
-      totalConverted++;
+      // The same markup may appear several times in the article; every copy is
+      // served by the one PNG we just resolved.
+      if (entry.count > 1) duplicatesResolved += entry.count - 1;
 
-      details.push({
-        index: detailIdx, source: `SVG #${detailIdx}, ${formatBytes(first.byteLength)}`,
-        byteLength: first.byteLength, action: cached?.convertedPath ? 'cached' : 'converted',
-        outputPath: cached?.convertedPath || convertCachePath(cacheDir, fpHash, 'png'),
-      });
+      if (entry.byteLength >= SVG_SIZE_THRESHOLD) largeConverted++;
     } catch (err) {
       warnings.push(`SVG conversion failed: ${String(err)}`);
       details.push({
-        index: detailIdx, source: `SVG #${detailIdx}, ${formatBytes(first.byteLength)}`,
-        byteLength: first.byteLength, action: 'skipped-inline',
+        index: detailIdx, source: `SVG #${detailIdx}, ${formatBytes(entry.byteLength)}`,
+        byteLength: entry.byteLength, action: 'skipped-inline',
         note: `conversion failed: ${String(err)}`,
       });
       log.warn('prescanSvgs: conversion failed', { err: String(err) });
     }
   }
 
+  // ── Pass 4: one substitution pass over the article ──
+  // Previously each converted SVG ran `html.split(svg).join(img)` over the
+  // whole document — quadratic in the number of SVGs. A single regex pass with
+  // a lookup table is linear, and the pattern is the same one used to collect.
+  const resultHtml = replacements.size === 0
+    ? html
+    : replaceAllSvgs(html, replacements);
+
   log.info('prescanSvgs complete', {
-    totalSvgs: svgs.length,
+    totalSvgs: entries.size,
     totalConverted,
     large: largeConverted,
+    duplicatesResolved,
+    fingerprintsSkipped: entries.size - toConvertCount,
   });
 
-  return { html: resultHtml, duplicatesResolved: 0, largeConverted, totalConverted, warnings, details };
+  return { html: resultHtml, duplicatesResolved, largeConverted, totalConverted, warnings, details };
+}
+
+/** Substitute every collected SVG with its replacement, in a single pass. */
+function replaceAllSvgs(html: string, replacements: Map<string, string>): string {
+  SVG_REGEX_SOURCE.lastIndex = 0;
+  return html.replace(SVG_REGEX_SOURCE, (match) => replacements.get(match) ?? match);
 }
 
 // ── Image Prescan ──
@@ -302,6 +380,7 @@ export async function prescanImages(
   cacheDir: string,
   registry: MediaRegistry,
   onProgress?: ProgressCallback,
+  fingerprints?: FingerprintCache,
 ): Promise<ImagePrescanResult> {
   const warnings: string[] = [];
   const details: ImagePrescanDetail[] = [];
@@ -365,9 +444,8 @@ export async function prescanImages(
         }
 
         const fp = registry.computeFingerprint(m.mimeType, buf);
-        const fpHash = fp.split(':').pop() || fp.replace(/[^a-f0-9]/gi, '').slice(0, 16);
         const ext = m.mimeType.split('/')[1] || 'png';
-        const outPath = convertCachePath(cacheDir, fpHash, ext);
+        const outPath = convertCachePath(cacheDir, fpHashOf(fp), ext);
 
         if (!await app.vault.adapter.exists(outPath)) {
           await app.vault.createBinary(outPath, buf);
@@ -433,54 +511,105 @@ export async function prescanImages(
     const fileName = match.vaultPath.split('/').pop() || match.vaultPath;
     onProgress?.(`Optimizing image ${detailIdx}/${vaultImgMatches.length}: ${fileName}`);
     try {
-      // Use adapter fallback: on Android, files may not be in vault index
       const fileExt = fileName.split('.').pop()?.toLowerCase() || '';
       const isSvg = fileExt === 'svg';
-      let buf: ArrayBuffer;
-      let svgText: string | undefined;
+      const isUnsupportedFormat = fileExt === 'webp' || fileExt === 'bmp';
 
-      if (await app.vault.adapter.exists(match.vaultPath)) {
-        buf = await app.vault.adapter.readBinary(match.vaultPath);
-        if (isSvg) svgText = await app.vault.adapter.read(match.vaultPath);
-      } else {
-        const file = app.vault.getAbstractFileByPath(match.vaultPath);
-        if (!file) {
-          log.warn('prescanImages: vault file not found', { vaultPath: match.vaultPath });
-          details.push({ index: detailIdx, source: fileName, action: 'failed', note: 'file not found in vault' });
+      // ── Cheap gates: one free stat + O(1) index hits, no read, no hash ──
+      // The stat comes from Obsidian's in-memory vault index. Everything below
+      // it used to run for *every* image in the article — a full file read plus
+      // a full content hash — only to conclude that the image needed nothing.
+      const stat = await statVaultFile(app, match.vaultPath);
+
+      // L0: this exact source was already converted and nothing has touched it
+      // since (same size, same mtime) — reuse the result outright.
+      if (stat) {
+        const unchanged = registry.lookupUnchangedSource(match.vaultPath, stat.size, stat.mtime);
+        if (unchanged?.convertedPath && await app.vault.adapter.exists(unchanged.convertedPath)) {
+          const resourcePath = app.vault.adapter.getResourcePath(unchanged.convertedPath);
+          const newTag = match.fullTag.replace(`src="${match.src}"`, `src="${resourcePath}"`);
+          resultHtml = resultHtml.split(match.fullTag).join(newTag);
+          if (unchanged.mimeType === 'image/jpeg') imagesCompressed++;
+          else imagesConverted++;
+          details.push({
+            index: detailIdx, source: fileName,
+            action: 'cached', originalSize: stat.size,
+            outputPath: unchanged.convertedPath,
+            note: 'reused cached conversion (source unchanged)',
+          });
           continue;
         }
-        if (!(file instanceof TFile)) continue;
-        buf = await app.vault.readBinary(file);
-        if (isSvg) svgText = await app.vault.read(file);
       }
 
-      // Check if this source was already converted in an earlier phase.
-      // Self-path guard: a record whose convertedPath IS the source file
-      // itself (ingested webp/bmp/svg, data-URI extraction output) is NOT a
-      // finished conversion — reusing it would ship the unconverted file.
+      // A record that already converted this vault path still wins over a fresh
+      // conversion — self-path guard: a record whose convertedPath IS the source
+      // file (ingested webp/bmp/svg) is not a finished conversion.
       const existingRecord = registry.lookupByPath(match.vaultPath);
-      if (existingRecord?.convertedPath &&
-          existingRecord.convertedPath !== match.vaultPath &&
-          await app.vault.adapter.exists(existingRecord.convertedPath)) {
-        const resourcePath = app.vault.adapter.getResourcePath(existingRecord.convertedPath);
+      const reusablePath =
+        existingRecord?.convertedPath && existingRecord.convertedPath !== match.vaultPath
+          ? existingRecord.convertedPath
+          : undefined;
+
+      // Only files that plausibly need conversion are worth opening. With no
+      // stat available we cannot tell, so fall through and check after reading.
+      const mightNeedWork = isSvg || isUnsupportedFormat || !stat || stat.size > MAX_IMAGE_BYTES;
+
+      if (!mightNeedWork && !reusablePath) {
+        details.push({
+          index: detailIdx, source: fileName,
+          action: 'skipped-ok', originalSize: stat?.size,
+          note: 'valid format, within size limits',
+        });
+        continue;
+      }
+
+      // ── From here on the bytes are genuinely needed ──
+      const read = await readVaultBytes(app, match.vaultPath);
+      if (!read.ok) {
+        if (read.reason === 'not-a-file') continue; // resolved to a folder — nothing to do
+        log.warn('prescanImages: vault file not found', { vaultPath: match.vaultPath });
+        details.push({ index: detailIdx, source: fileName, action: 'failed', note: 'file not found in vault' });
+        continue;
+      }
+      const { buf, svgText } = read;
+
+      if (reusablePath && await app.vault.adapter.exists(reusablePath)) {
+        const resourcePath = app.vault.adapter.getResourcePath(reusablePath);
         const newTag = match.fullTag.replace(`src="${match.src}"`, `src="${resourcePath}"`);
         resultHtml = resultHtml.split(match.fullTag).join(newTag);
-        if (existingRecord.mimeType === 'image/jpeg') imagesCompressed++;
+        if (existingRecord!.mimeType === 'image/jpeg') imagesCompressed++;
         else imagesConverted++;
         details.push({
           index: detailIdx, source: fileName,
           action: 'cached', originalSize: buf.byteLength,
-          outputPath: existingRecord.convertedPath,
+          outputPath: reusablePath,
           note: 'reused cached conversion',
         });
         continue;
       }
 
-      // Compute source fingerprint from original bytes for content-based dedup
+      const isOversized = buf.byteLength > MAX_IMAGE_BYTES;
+      if (!isSvg && !isUnsupportedFormat && !isOversized) {
+        // stat was unavailable or stale — nothing to do after all.
+        details.push({
+          index: detailIdx, source: fileName,
+          action: 'skipped-ok', originalSize: buf.byteLength,
+          note: 'valid format, within size limits',
+        });
+        continue;
+      }
+
+      const isGifLarge = fileExt === 'gif' && isOversized;
       const sourceMime = mimeFromExtension(fileExt);
+
+      // Source-content fingerprint. Computed once and reused for both the
+      // "file was moved/renamed" fallback and the record we may write; the
+      // SVG path derives it from the (identical) text.
       const sourceFp = isSvg && svgText
         ? registry.computeSvgFingerprint(svgText)
-        : registry.computeFingerprint(sourceMime, buf);
+        : fingerprints
+          ? fingerprints.fingerprintForBuffer(match.vaultPath, sourceMime, buf, stat)
+          : registry.computeFingerprint(sourceMime, buf);
 
       // Fallback: check by original content hash (handles moved/renamed files).
       // Same self-path guard as above — the source's own ingest record must
@@ -504,10 +633,10 @@ export async function prescanImages(
       }
 
       if (isSvg) {
-        // SVG files: convert to PNG
-        const fp = registry.computeSvgFingerprint(svgText!);
-        const fpHash = fp.split(':').pop() || fp.replace(/[^a-f0-9]/gi, '').slice(0, 16);
-        const pngPath = convertCachePath(cacheDir, fpHash, 'png');
+        // SVG files: convert to PNG. `sourceFp` was already derived from the
+        // same text, so it doubles as the SVG fingerprint here.
+        const fp = sourceFp;
+        const pngPath = convertCachePath(cacheDir, fpHashOf(fp), 'png');
 
         // Check cache
         const cached = registry.lookup(fp);
@@ -518,9 +647,10 @@ export async function prescanImages(
           usePath = pngPath;
           registry.register({
             fingerprint: fp, mimeType: 'image/svg+xml',
-            fileSize: new TextEncoder().encode(svgText).length,
+            fileSize: utf8ByteLength(svgText ?? ''),
             convertedPath: pngPath, originalPath: match.vaultPath,
             sourceFingerprint: fp,
+            sourceSize: stat?.size, sourceMtime: stat?.mtime,
             accountMediaIds: {}, accountUrls: {},
           });
         } else {
@@ -529,9 +659,10 @@ export async function prescanImages(
           await app.vault.createBinary(pngPath, pngBuf);
           registry.register({
             fingerprint: fp, mimeType: 'image/svg+xml',
-            fileSize: new TextEncoder().encode(svgText).length,
+            fileSize: utf8ByteLength(svgText),
             convertedPath: pngPath, originalPath: match.vaultPath,
             sourceFingerprint: fp,
+            sourceSize: stat?.size, sourceMtime: stat?.mtime,
             accountMediaIds: {}, accountUrls: {},
           });
           registry.register({
@@ -539,6 +670,7 @@ export async function prescanImages(
             mimeType: 'image/png', fileSize: pngBuf.byteLength,
             convertedPath: pngPath, originalPath: match.vaultPath,
             sourceFingerprint: fp,
+            sourceSize: stat?.size, sourceMtime: stat?.mtime,
             accountMediaIds: {}, accountUrls: {},
           });
           usePath = pngPath;
@@ -556,34 +688,19 @@ export async function prescanImages(
         continue;
       }
 
-      // Check format support and size
-      const ext = fileName.split('.').pop()?.toLowerCase() || '';
-      const isUnsupported = ext === 'webp' || ext === 'bmp';
-      const isOversized = buf.byteLength > MAX_IMAGE_BYTES;
-      const isGifLarge = ext === 'gif' && buf.byteLength > MAX_IMAGE_BYTES;
-
-      if (!isUnsupported && !isOversized) {
-        details.push({
-          index: detailIdx, source: fileName,
-          action: 'skipped-ok', originalSize: buf.byteLength,
-          note: 'valid format, within size limits',
-        });
-        continue;
-      }
-
       // Convert / compress
       let processed: ArrayBuffer;
       let outMime: string;
       let outExt: string;
       let action: 'converted' | 'compressed';
 
-      if (isUnsupported && !isOversized) {
+      if (isUnsupportedFormat && !isOversized) {
         processed = await convertToPng(buf);
         outMime = 'image/png';
         outExt = 'png';
         action = 'converted';
         imagesConverted++;
-      } else if (isUnsupported && isOversized) {
+      } else if (isUnsupportedFormat && isOversized) {
         const pngBuf = await convertToPng(buf);
         const blob = new Blob([pngBuf]);
         const compressed = await compressToTarget(blob, MAX_IMAGE_BYTES, 'image/jpeg');
@@ -615,8 +732,7 @@ export async function prescanImages(
       if (cached?.convertedPath && await app.vault.adapter.exists(cached.convertedPath)) {
         outPath = cached.convertedPath;
       } else {
-        const fpHash = fp.split(':').pop() || fp.replace(/[^a-f0-9]/gi, '').slice(0, 16);
-        outPath = convertCachePath(cacheDir, fpHash, outExt);
+        outPath = convertCachePath(cacheDir, fpHashOf(fp), outExt);
         if (!await app.vault.adapter.exists(outPath)) {
           await app.vault.createBinary(outPath, processed);
         }
@@ -625,6 +741,7 @@ export async function prescanImages(
           fileSize: processed.byteLength, convertedPath: outPath,
           originalPath: match.vaultPath,
           sourceFingerprint: sourceFp,
+          sourceSize: stat?.size, sourceMtime: stat?.mtime,
           accountMediaIds: {}, accountUrls: {},
         });
       }
@@ -642,9 +759,9 @@ export async function prescanImages(
         action, originalSize: buf.byteLength, processedSize: processed.byteLength,
         outputPath: outPath,
         note: isGifLarge ? 'Animated GIF → static JPEG, animation lost'
-          : isUnsupported && isOversized ? 'unsupported format → PNG → JPEG'
-          : isUnsupported ? 'unsupported format → PNG'
-          : 'oversized → JPEG compressed',
+          : isUnsupportedFormat && isOversized ? 'unsupported format → PNG → JPEG'
+          : isUnsupportedFormat ? 'unsupported format → PNG'
+          : 'oversized → JPEG compression',
       });
     } catch (err) {
       warnings.push(`Image processing failed for ${fileName}: ${String(err)}`);
@@ -660,7 +777,16 @@ export async function prescanImages(
     dataUrisExtracted,
     imagesConverted,
     imagesCompressed,
+    scanned: vaultImgMatches.length,
   });
 
   return { html: resultHtml, dataUrisExtracted, imagesConverted, imagesCompressed, warnings, details };
 }
+
+/** Exposed for tests: the prescan's notion of "needs work" for a vault file. */
+export function imageNeedsWork(ext: string, byteLength: number): boolean {
+  const lower = ext.toLowerCase();
+  return lower === 'svg' || lower === 'webp' || lower === 'bmp' || byteLength > MAX_IMAGE_BYTES;
+}
+
+export type { SourceStat };

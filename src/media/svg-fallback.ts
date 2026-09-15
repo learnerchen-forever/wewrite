@@ -13,6 +13,7 @@
 // cascaded — they're too small to help and lose vector quality if rasterized.
 
 import { classifySvg, compareByTierDesc, type SvgInfo } from './svg-classifier';
+import { utf8ByteLength } from '../utils/fingerprint';
 import { canInlineSvg } from '../renderer/wechat-svg-sanitizer';
 import { createLogger } from '../utils/logger';
 
@@ -61,11 +62,10 @@ export function extractSvgs(html: string, sourceLabel: string): SvgInfo[] {
 export function applySvgFallback(html: string, sourceLabel: string, svgSizeThreshold = DEFAULT_SVG_THRESHOLD_BYTES): FallbackResult {
   const warnings: string[] = [];
   const conversions: SvgConversionItem[] = [];
-  const encoder = new TextEncoder();
 
   const allSvgs = extractSvgs(html, sourceLabel);
   if (allSvgs.length === 0) {
-    const size = encoder.encode(html).length;
+    const size = utf8ByteLength(html);
     return { html, conversions, finalByteLength: size, limitsOk: size < MAX_CONTENT_BYTES, warnings };
   }
 
@@ -96,7 +96,7 @@ export function applySvgFallback(html: string, sourceLabel: string, svgSizeThres
     mustConvert: mustConvert.length,
     oversized: oversized.length,
     keepInline: keepInline.length,
-    htmlSize: encoder.encode(html).length,
+    htmlSize: utf8ByteLength(html),
     svgSizeThreshold,
   });
 
@@ -124,7 +124,7 @@ export function applySvgFallback(html: string, sourceLabel: string, svgSizeThres
     warnings.push(`SVG (${svg.source}, ${svg.tier}, ${(svg.byteLength / 1024).toFixed(1)}KB) exceeds per-SVG threshold → PNG`);
   }
 
-  let currentSize = encoder.encode(workingHtml).length;
+  let currentSize = utf8ByteLength(workingHtml);
 
   // Article-level cascade: if total content still exceeds WeChat's 1MB hard
   // limit, convert the remaining medium/large inline SVGs largest-first until
@@ -143,7 +143,7 @@ export function applySvgFallback(html: string, sourceLabel: string, svgSizeThres
           svgHtml: svg.html, fingerprint: '',
           byteLength: svg.byteLength, tier: svg.tier, source: svg.source,
         });
-        currentSize = encoder.encode(workingHtml).length;
+        currentSize = utf8ByteLength(workingHtml);
         warnings.push(`SVG (${svg.source}, ${svg.tier}) → PNG (article over 1MB limit)`);
       }
     }

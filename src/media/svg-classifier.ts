@@ -1,5 +1,7 @@
 // SVG tier classification by byte length.
 
+import { utf8ByteLength } from '../utils/fingerprint';
+
 export type SvgTier = 'tiny' | 'small' | 'medium' | 'large';
 
 export interface SvgInfo {
@@ -24,7 +26,9 @@ const TIER_ORDER: Record<SvgTier, number> = {
 };
 
 export function classifySvg(svgHtml: string, source: string): SvgInfo {
-  const byteLength = new TextEncoder().encode(svgHtml).length;
+  // Byte length without materialising a copy — this runs once per inline SVG
+  // on every render, and the article can hold hundreds of them.
+  const byteLength = utf8ByteLength(svgHtml);
   let tier: SvgTier = 'large';
   for (const t of TIER_THRESHOLDS) {
     if (byteLength < t.maxBytes) {

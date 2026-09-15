@@ -572,6 +572,14 @@ export interface MediaRecord {
   sourceFingerprint?: string;
   /** Cached converted/cropped/PNG file path in vault */
   convertedPath?: string;
+  /** Size in bytes of the *source file* this record was converted from.
+   *  Together with {@link sourceMtime} it forms the L0 exact-identity check:
+   *  if the source file on disk still reports the same pair, its bytes cannot
+   *  have changed and `convertedPath` can be reused with zero IO and zero
+   *  hashing. Optional — records written by older versions simply miss L0. */
+  sourceSize?: number;
+  /** Modification time (ms) of the source file this record was converted from. */
+  sourceMtime?: number;
   /** Per-account WeChat material media_id */
   accountMediaIds: Record<string, string>;
   /** Per-account WeChat CDN URL */
