@@ -1710,6 +1710,7 @@ body .wewrite-auto-expand .wewrite-test-row .setting-item-control button {
 /* ── Cover Zone ── */
 .wewrite-cover-zone {
   position: relative;
+  width: 100%;
   overflow: hidden;
   border-radius: 4px;
   border: 1px dashed var(--background-modifier-border);
@@ -1723,8 +1724,21 @@ body .wewrite-auto-expand .wewrite-test-row .setting-item-control button {
 }
 
 .wewrite-zone-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
   pointer-events: none;
   user-select: none;
+}
+
+/* Hidden while an image is displayed (was an inline display:none). */
+.wewrite-zone-placeholder.is-hidden {
+  display: none;
 }
 
 .wewrite-zone-ratio-label {
@@ -1741,6 +1755,14 @@ body .wewrite-auto-expand .wewrite-test-row .setting-item-control button {
 }
 
 .wewrite-zone-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
   max-width: none;
   user-select: none;
   pointer-events: none;
@@ -1784,6 +1806,7 @@ body .wewrite-auto-expand .wewrite-test-row .setting-item-control button {
   flex-shrink: 0;
 }
 .wewrite-vault-image-search {
+  width: 100%;
   padding: 6px 10px;
   margin-bottom: 10px;
   border: 1px solid var(--background-modifier-border);
@@ -3699,4 +3722,388 @@ select.wewrite-font-select {
   opacity: 0.01;
   pointer-events: none;
   z-index: -1;
+}
+/* ══════════════════════════════════════════════════════════════════════════
+   Theme wizard modal — views/theme-wizard-modal.ts
+   Layout that used to be assigned inline on the wizard's own divs. The
+   selection borders / type preview stay inline because they interpolate the
+   user's accent, font size and line height.
+   ══════════════════════════════════════════════════════════════════════════ */
+.wewrite-wizard-swatches,
+.wewrite-wizard-presets,
+.wewrite-wizard-card-row,
+.wewrite-wizard-palette-swatches {
+  display: flex;
+  flex-wrap: wrap;
+}
+.wewrite-wizard-swatches,
+.wewrite-wizard-presets,
+.wewrite-wizard-card-row {
+  gap: 8px;
+}
+.wewrite-wizard-swatches,
+.wewrite-wizard-presets {
+  margin-bottom: 16px;
+}
+.wewrite-wizard-card-row {
+  margin-top: 6px;
+}
+
+.wewrite-wizard-element-section {
+  margin-bottom: 12px;
+}
+
+/* Custom colour picker + its hex read-out sit in a Setting row, so the class
+   is scoped by the modal to stay above Obsidian's own control rules. */
+.wewrite-wizard-modal .wewrite-wizard-color-input {
+  width: 60px;
+  height: 32px;
+}
+.wewrite-wizard-modal .wewrite-wizard-hex-label {
+  margin-left: 8px;
+  font-family: monospace;
+}
+
+.wewrite-wizard-palette-preview {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+.wewrite-wizard-palette-swatches {
+  gap: 12px;
+  margin-top: 8px;
+}
+.wewrite-wizard-swatch-item {
+  text-align: center;
+  font-size: 11px;
+}
+
+.wewrite-wizard-buttons {
+  margin-top: 20px;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+.wewrite-wizard-nav-right {
+  display: flex;
+  gap: 8px;
+}
+/* ══════════════════════════════════════════════════════════════════════════
+   Cover zone + vault image picker — views/cover-zone.ts
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Account-upload-status badge ──
+   Was an inline cssText block: a positioned pill that stays hidden until
+   updateValidityIndicator runs. The two colour classes are its ready /
+   needs-upload states. */
+.wewrite-cover-validity-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 2;
+  display: none;
+}
+.wewrite-cover-validity-badge.is-shown {
+  /* Back to the <span> default, which is what the old reset to '' produced
+     (the absolute positioning blockifies it either way). */
+  display: inline;
+}
+.wewrite-cover-validity-badge.is-ready {
+  background: #4caf50;
+  color: #fff;
+}
+.wewrite-cover-validity-badge.is-pending {
+  background: #ff9800;
+  color: #fff;
+}
+
+/* ── Drag-over state ──
+   The zone border flips to the accent colour while a file is dragged over it,
+   and back to the dashed colour on leave/drop. The idle rule deliberately
+   carries the same priority as :hover and comes later in the stylesheet: the
+   inline border it replaces also out-ranked the :hover rule, so hovering never
+   recoloured the border, and this keeps that behaviour unchanged. */
+.wewrite-cover-zone.is-drag-over {
+  border-color: var(--interactive-accent);
+}
+.wewrite-cover-zone:not(.is-drag-over) {
+  border-color: var(--background-modifier-border);
+}
+
+/* ── Vault image picker ── */
+.modal-title.wewrite-vault-image-title {
+  font-weight: 600;
+  text-align: center;
+  width: 100%;
+  font-size: 13px;
+}
+/* "Show more" is hidden once every match is on screen. */
+.wewrite-vault-image-more.is-hidden {
+  display: none;
+}
+
+/* ── Utility: a file input that only exists to open the OS picker ──
+   Used by the cover zone and the settings tab. */
+.wewrite-file-input-hidden {
+  display: none;
+}
+/* ══════════════════════════════════════════════════════════════════════════
+   Settings tab — views/setting-tab.ts
+   Layout that used to be assigned inline (cssText blocks, display/width
+   toggles). The sync tab has two renderers — the imperative builder and the
+   declarative definition list — which is why most classes serve two sites.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Derived subdirectory paths ── */
+.wewrite-derived-paths {
+  /* grid-column matters in the declarative renderer (setting rows are a
+     grid); it is inert in the imperative one. */
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.wewrite-derived-path-row {
+  padding: 2px 0;
+}
+
+/* ── Slider rows ──
+   Give the slider the whole row: fix the label column on desktop, and let it
+   shrink on mobile where a narrow slider is hard to drag precisely. */
+.wewrite-slider-full {
+  width: 100%;
+}
+.wewrite-setting-label-column {
+  flex: 0 0 180px;
+  max-width: 40%;
+}
+.wewrite-setting-label-column.is-compact {
+  flex: 0 0 auto;
+  max-width: none;
+}
+.wewrite-setting-control-grow {
+  flex: 1 1 0%;
+}
+
+/* ── WeChat API help toggle ── */
+.wewrite-help-toggle-row {
+  margin-bottom: 12px;
+}
+.wewrite-help-toggle-header {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.wewrite-help-toggle-body {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+}
+.wewrite-help-box {
+  padding: 16px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-secondary);
+  line-height: 1.7;
+  font-size: 13px;
+  color: var(--text-normal);
+}
+.wewrite-help-image {
+  display: block;
+  margin: 12px auto 0;
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+/* ── Sync: persistent experimental warning ── */
+.wewrite-sync-warn {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  color: var(--text-error);
+  border: 1px solid var(--text-error);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.wewrite-sync-warn-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.wewrite-sync-warn-list {
+  margin: 0;
+  padding-left: 16px;
+}
+
+/* The frame is taken out of flow while sync is disabled. */
+.wewrite-sync-frame.is-hidden {
+  display: none;
+}
+
+/* ── Sync: server info panel ──
+   Hidden until a quota answer arrives; `is-spaced` is the imperative
+   renderer, which sat in a plain div and used a slightly deeper bottom
+   margin. */
+.wewrite-sync-server-info {
+  grid-column: 1 / -1;
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  display: none;
+}
+.wewrite-sync-server-info.is-spaced {
+  margin-bottom: 12px;
+}
+.wewrite-sync-server-info.is-shown {
+  display: block;
+}
+.wewrite-sync-server-info-warn {
+  color: var(--text-error);
+}
+
+/* ── Sync: progress bar ──
+   Three states: hidden (default), running (accent, measured width) and
+   quota-paused (.is-paused on the bar — full width, warning colour). The
+   paused branch drops the measured inline width first, otherwise that inline
+   value would out-rank the class. */
+.wewrite-sync-progress {
+  grid-column: 1 / -1;
+  margin: 8px 0 4px;
+  display: none;
+}
+.wewrite-sync-progress.is-shown {
+  display: block;
+}
+.wewrite-sync-progress-track {
+  height: 6px;
+  background: var(--background-modifier-border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.wewrite-sync-progress-bar {
+  height: 6px;
+  background: var(--interactive-accent);
+  width: 0%;
+  border-radius: 3px;
+  transition: width 0.2s;
+}
+.wewrite-sync-progress-bar.is-paused {
+  background: var(--text-warning);
+  width: 100%;
+}
+.wewrite-sync-progress-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ── Settings export: throwaway anchor ──
+   Only clicked programmatically, never shown. The file input next to it uses
+   .wewrite-file-input-hidden. */
+.wewrite-download-anchor {
+  display: none;
+}
+
+/* ── Sync modals ──
+   SyncRiskModal / SyncConflictModal / SyncResetModal /
+   AndroidExportGuidanceModal — all four are built by hand in setting-tab.ts. */
+.wewrite-sync-modal-content {
+  padding: 16px;
+  max-width: 420px;
+}
+.wewrite-sync-modal-content.is-narrow {
+  max-width: 400px;
+}
+.wewrite-sync-modal-content.is-risk {
+  padding: 20px;
+  max-width: 440px;
+}
+
+.wewrite-sync-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.wewrite-sync-risk-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--text-error);
+}
+.wewrite-sync-modal-desc {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+.wewrite-sync-modal-desc.is-small {
+  font-size: 13px;
+  line-height: 1.7;
+}
+.wewrite-sync-modal-list {
+  margin: 0 0 16px 0;
+  padding-left: 20px;
+  line-height: 1.8;
+}
+.wewrite-sync-modal-list.is-strong {
+  margin-bottom: 20px;
+  line-height: 1.9;
+  font-weight: 600;
+  font-size: 14px;
+}
+.wewrite-sync-modal-list.is-small {
+  font-size: 13px;
+}
+.wewrite-sync-modal-action {
+  margin-bottom: 16px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.wewrite-sync-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.wewrite-sync-modal-warn {
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: var(--background-modifier-warning);
+  color: var(--text-normal);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  border: 1px solid var(--background-modifier-border);
+}
+.wewrite-sync-modal-path {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  font-size: 12px;
+  word-break: break-all;
+  user-select: text;
+}
+.wewrite-sync-modal-hint {
+  margin-bottom: 10px;
+  line-height: 1.6;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.wewrite-sync-modal-steps-title {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
 }

@@ -129,10 +129,6 @@ export class ThemeWizardModal extends WeWriteModal {
 
 		// Preset swatches
 		const swatchRow = container.createDiv({ cls: 'wewrite-wizard-swatches' });
-		swatchRow.style.display = 'flex';
-		swatchRow.style.gap = '8px';
-		swatchRow.style.marginBottom = '16px';
-		swatchRow.style.flexWrap = 'wrap';
 
 		for (const preset of PRESET_COLORS) {
 			const dot = swatchRow.createDiv();
@@ -151,16 +147,13 @@ export class ThemeWizardModal extends WeWriteModal {
 				text.setValue(this.state.accent)
 					.setPlaceholder('#009688');
 				text.inputEl.setAttribute('type', 'color');
-				text.inputEl.style.width = '60px';
-				text.inputEl.style.height = '32px';
+				text.inputEl.addClass('wewrite-wizard-color-input');
 				text.inputEl.addEventListener('input', () => {
 					this.state.accent = text.getValue();
 					this.renderStep();
 				});
 				// Also show hex text next to color picker
-				const hexLabel = container.createSpan({ text: this.state.accent });
-				hexLabel.style.marginLeft = '8px';
-				hexLabel.style.fontFamily = 'monospace';
+				const hexLabel = container.createSpan({ text: this.state.accent, cls: 'wewrite-wizard-hex-label' });
 				text.inputEl.addEventListener('input', () => {
 					hexLabel.setText(text.getValue());
 				});
@@ -177,10 +170,6 @@ export class ThemeWizardModal extends WeWriteModal {
 		};
 
 		const previewContainer = container.createDiv({ cls: 'wewrite-wizard-palette-preview' });
-		previewContainer.style.marginTop = '16px';
-		previewContainer.style.padding = '12px';
-		previewContainer.style.background = '#f8f9fa';
-		previewContainer.style.borderRadius = '6px';
 
 		previewContainer.createDiv({ text: t('wizard.hue_judgement', { family: familyLabels[family] || '' }), cls: 'setting-item-description' });
 
@@ -195,16 +184,10 @@ export class ThemeWizardModal extends WeWriteModal {
 			{ label: t('wizard.swatch_bg'), color: palette.bg },
 		];
 
-		const swatchContainer = previewContainer.createDiv();
-		swatchContainer.style.display = 'flex';
-		swatchContainer.style.gap = '12px';
-		swatchContainer.style.flexWrap = 'wrap';
-		swatchContainer.style.marginTop = '8px';
+		const swatchContainer = previewContainer.createDiv({ cls: 'wewrite-wizard-palette-swatches' });
 
 		for (const s of swatches) {
-			const item = swatchContainer.createDiv();
-			item.style.textAlign = 'center';
-			item.style.fontSize = '11px';
+			const item = swatchContainer.createDiv({ cls: 'wewrite-wizard-swatch-item' });
 			const colorBox = item.createDiv();
 			colorBox.style.cssText = `width:40px;height:24px;background:${s.color};border:1px solid #ddd;border-radius:3px;margin-bottom:2px`;
 			item.createSpan({ text: s.label });
@@ -220,10 +203,6 @@ export class ThemeWizardModal extends WeWriteModal {
 
 		// Preset cards
 		const presetRow = container.createDiv({ cls: 'wewrite-wizard-presets' });
-		presetRow.style.display = 'flex';
-		presetRow.style.gap = '8px';
-		presetRow.style.marginBottom = '16px';
-		presetRow.style.flexWrap = 'wrap';
 
 		for (const preset of TYPO_PRESETS) {
 			const card = presetRow.createDiv({ cls: 'wewrite-wizard-preset-card' });
@@ -321,16 +300,11 @@ export class ThemeWizardModal extends WeWriteModal {
 
 		for (const [elemPath, presets] of Object.entries(ELEMENT_PRESETS)) {
 			const section = container.createDiv({ cls: 'wewrite-wizard-element-section' });
-			section.style.marginBottom = '12px';
 
 			const labelKey = elementLabelKeys[elemPath];
 			section.createEl('strong', { text: labelKey ? t(labelKey) : elemPath });
 
-			const cardRow = section.createDiv();
-			cardRow.style.display = 'flex';
-			cardRow.style.gap = '8px';
-			cardRow.style.marginTop = '6px';
-			cardRow.style.flexWrap = 'wrap';
+			const cardRow = section.createDiv({ cls: 'wewrite-wizard-card-row' });
 
 			const currentPick = this.state.elementPicks[elemPath] || presets[0].id;
 
@@ -354,18 +328,12 @@ export class ThemeWizardModal extends WeWriteModal {
 
 	private renderNavButtons(container: HTMLElement): void {
 		const buttonRow = container.createDiv({ cls: 'wewrite-wizard-buttons' });
-		buttonRow.style.marginTop = '20px';
-		buttonRow.style.display = 'flex';
-		buttonRow.style.gap = '8px';
-		buttonRow.style.justifyContent = 'space-between';
 
 		// Cancel
 		const cancelBtn = buttonRow.createEl('button', { text: t('wizard.cancel') });
 		cancelBtn.addEventListener('click', () => this.resolveAndClose(null));
 
-		const rightBtns = buttonRow.createDiv();
-		rightBtns.style.display = 'flex';
-		rightBtns.style.gap = '8px';
+		const rightBtns = buttonRow.createDiv({ cls: 'wewrite-wizard-nav-right' });
 
 		if (this.step > 0) {
 			const backBtn = rightBtns.createEl('button', { text: t('wizard.back') });

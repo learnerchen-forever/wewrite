@@ -213,11 +213,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
     // Show derived subdirectory paths
     const derivedPaths = generalBody.createDiv({ cls: 'wewrite-derived-paths' });
-    derivedPaths.style.cssText = 'margin-top:8px;padding:8px 12px;background:var(--background-secondary);border-radius:6px;font-size:12px;color:var(--text-muted);';
     for (const [label, sub] of Object.entries(WEWRITE_SUBDIRS)) {
       const path = getWeWriteSubPath(settings.wewriteFolder, sub);
       const row = derivedPaths.createDiv();
-      row.style.cssText = 'padding:2px 0;';
+      row.addClass('wewrite-derived-path-row');
       row.createSpan({ text: `${label}: `, cls: '' });
       row.createEl('code', { text: path });
     }
@@ -235,15 +234,15 @@ export class WeWriteSettingTab extends PluginSettingTab {
             this.plugin.settingsManager.updateSettings({ svgFallbackThresholdKb: value });
             await this.plugin.saveSettings();
           });
-        slider.sliderEl.style.width = '100%';
+        slider.sliderEl.addClass('wewrite-slider-full');
         return slider;
       });
     // Give the slider equal width in the row — on mobile a narrow slider
     // is hard to control precisely (especially 10–1000 range).
     const isMobile = window.matchMedia('(max-width: 500px)').matches;
-    svgThresholdSetting.infoEl.style.flex = isMobile ? '0 0 auto' : '0 0 180px';
-    svgThresholdSetting.infoEl.style.maxWidth = isMobile ? 'none' : '40%';
-    svgThresholdSetting.controlEl.style.flex = '1 1 0%';
+    svgThresholdSetting.infoEl.addClass('wewrite-setting-label-column');
+    svgThresholdSetting.infoEl.toggleClass('is-compact', isMobile);
+    svgThresholdSetting.controlEl.addClass('wewrite-setting-control-grow');
 
     // Clear fingerprint database (with SVG/image counts)
     const fpCounts = this.plugin.mediaRegistry.countByType();
@@ -409,26 +408,17 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
     // ── WeChat API config help toggle ──
     const helpToggleRow = wechatBody.createDiv({ cls: 'wewrite-help-toggle-row' });
-    helpToggleRow.style.cssText = 'margin-bottom:12px;';
     const helpHeader = helpToggleRow.createDiv({ cls: 'wewrite-help-toggle-header' });
     helpHeader.setAttribute('role', 'button');
     helpHeader.setAttribute('tabindex', '0');
-    helpHeader.style.cssText = 'cursor:pointer;display:flex;align-items:center;gap:6px;padding:4px 0;';
     const helpIcon = helpHeader.createSpan({ cls: 'wewrite-help-toggle-icon' });
     setIcon(helpIcon, 'chevron-right');
     helpHeader.createSpan({ text: t('settings.wechat_api_help_label'), cls: 'wewrite-help-toggle-label' });
-    helpHeader.style.cssText += 'font-size:13px;color:var(--text-muted);';
 
     const helpBody = helpToggleRow.createDiv({ cls: 'wewrite-help-toggle-body collapsed' });
-    helpBody.style.cssText = 'margin-top:8px;';
 
     // Rounded rectangle wrapper
     const helpBox = helpBody.createDiv({ cls: 'wewrite-help-box' });
-    helpBox.style.cssText = [
-      'padding:16px', 'border:1px solid var(--background-modifier-border)',
-      'border-radius:10px', 'background:var(--background-secondary)',
-      'line-height:1.7', 'font-size:13px', 'color:var(--text-normal)',
-    ].join(';');
 
     // Description text
     const descEl = helpBox.createDiv({ cls: 'wewrite-help-desc' });
@@ -437,7 +427,6 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // Image
     const imgEl = helpBox.createEl('img', { cls: 'wewrite-help-image' });
     imgEl.src = 'data:image/png;base64,' + WECHAT_ACCOUNT_HELP_IMAGE;
-    imgEl.style.cssText = 'display:block;margin:12px auto 0;max-width:100%;border-radius:6px;';
 
     // Toggle behavior — collapsed by default
     let helpExpanded = false;
@@ -843,17 +832,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // Explains that Vault Sync is an EXPERIMENTAL feature, its limitations
     // (WebDAV only, 坚果云 free-plan caps) and the risks (data loss).
     const warnBox = syncBody.createDiv({ cls: 'wewrite-sync-warn' });
-    warnBox.style.cssText = [
-      'margin-bottom:12px', 'padding:10px 12px',
-      'color:var(--text-error)',
-      'border:1px solid var(--text-error)',
-      'border-radius:6px', 'font-size:12px', 'line-height:1.7',
-    ].join(';');
-    const warnTitle = warnBox.createDiv();
-    warnTitle.style.cssText = 'font-weight:700;margin-bottom:4px;';
+    const warnTitle = warnBox.createDiv({ cls: 'wewrite-sync-warn-title' });
     warnTitle.setText(t('settings.sync_warn_experimental'));
-    const warnList = warnBox.createEl('ul');
-    warnList.style.cssText = 'margin:0;padding-left:16px;';
+    const warnList = warnBox.createEl('ul', { cls: 'wewrite-sync-warn-list' });
     for (const msg of [
       t('settings.sync_warn_data_risk'),
       t('settings.sync_warn_webdav_only'),
@@ -904,7 +885,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // ── Sync frame (rounded container, visibility toggled by enable) ──
     const frame = syncBody.createDiv({ cls: 'wewrite-sync-frame' });
     if (!settings.syncEnabled) {
-      frame.style.display = 'none';
+      frame.addClass('is-hidden');
     }
 
     const isSyncRunning = () => this.plugin.syncEngine?.isRunning ?? false;
@@ -986,7 +967,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             this.plugin.syncScheduler?.updateInterval(value);
             intervalSetting.setName(this.intervalLabel(value));
           });
-        slider.sliderEl.style.width = '100%';
+        slider.sliderEl.addClass('wewrite-slider-full');
         return slider;
       });
 
@@ -1004,7 +985,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             this.save();
             maxFileSizeSetting.setName(this.maxFileSizeLabel(value));
           });
-        slider.sliderEl.style.width = '100%';
+        slider.sliderEl.addClass('wewrite-slider-full');
         return slider;
       });
 
@@ -1026,21 +1007,15 @@ export class WeWriteSettingTab extends PluginSettingTab {
       );
 
     // ── Server info (provider / storage quota / plan hint) ──
-    const serverInfoEl = frame.createDiv({ cls: 'wewrite-sync-server-info' });
-    serverInfoEl.style.cssText = [
-      'margin:8px 0 12px', 'padding:8px 10px',
-      'font-size:12px', 'line-height:1.7',
-      'border:1px solid var(--background-modifier-border)',
-      'border-radius:6px', 'display:none',
-    ].join(';');
+    const serverInfoEl = frame.createDiv({ cls: 'wewrite-sync-server-info is-spaced' });
     this._serverInfoEl = serverInfoEl;
     const renderServerInfo = (quota: ServerQuotaInfo | null | undefined) => {
       if (!quota) {
-        serverInfoEl.style.display = 'none';
+        serverInfoEl.removeClass('is-shown');
         return;
       }
       serverInfoEl.empty();
-      serverInfoEl.style.display = '';
+      serverInfoEl.addClass('is-shown');
       const provider = quota.provider === 'jianguoyun'
         ? t('sync.provider_jianguoyun')
         : t('sync.provider_generic');
@@ -1059,8 +1034,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           pct: String(pct),
         })}`);
         if (quota.availableBytes !== undefined && quota.availableBytes < 100 * 1024 * 1024) {
-          const warn = serverInfoEl.createDiv();
-          warn.style.color = 'var(--text-error)';
+          const warn = serverInfoEl.createDiv({ cls: 'wewrite-sync-server-info-warn' });
           warn.setText(t('settings.sync_server_info_low_space'));
         }
       }
@@ -1069,13 +1043,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
     // ── Progress bar + status line (visible while a cycle runs) ──
     const progressEl = frame.createDiv({ cls: 'wewrite-sync-progress' });
-    progressEl.style.cssText = 'margin:8px 0 4px;display:none;';
-    const barWrap = progressEl.createDiv();
-    barWrap.style.cssText = 'height:6px;background:var(--background-modifier-border);border-radius:3px;overflow:hidden;margin-bottom:6px;';
-    const progressBar = barWrap.createDiv();
-    progressBar.style.cssText = 'height:6px;background:var(--interactive-accent);width:0%;border-radius:3px;transition:width .2s;';
-    const progressText = progressEl.createDiv();
-    progressText.style.cssText = 'font-size:12px;color:var(--text-muted);line-height:1.6;';
+    const barWrap = progressEl.createDiv({ cls: 'wewrite-sync-progress-track' });
+    const progressBar = barWrap.createDiv({ cls: 'wewrite-sync-progress-bar' });
+    const progressText = progressEl.createDiv({ cls: 'wewrite-sync-progress-text' });
 
     // ── Sync Status + Start/Stop button ──
     let syncActionBtn!: ButtonComponent;
@@ -1083,7 +1053,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const stopProgressPolling = () => {
       if (this._syncProgressTimer) { window.clearInterval(this._syncProgressTimer); this._syncProgressTimer = null; }
       this.plugin.syncEngine?.onProgress(null);
-      if (progressEl) progressEl.style.display = 'none';
+      if (progressEl) progressEl.removeClass('is-shown');
     };
 
     const updateStatusUI = (s: Setting) => {
@@ -1124,14 +1094,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
         const phaseLabel = PHASE_LABELS[p.phase] || '';
         if (p.phase === 'quota_wait' && p.rateLimit) {
           // Paused — show the wait state prominently.
-          progressEl.style.display = '';
-          progressBar.style.width = '100%';
-          progressBar.style.background = 'var(--text-warning)';
+          progressEl.addClass('is-shown');
+          progressBar.style.removeProperty('width');
+          progressBar.addClass('is-paused');
           const deferredText = p.deferred ? ` · ${t('sync.deferred_count', { count: String(p.deferred) })}` : '';
           progressText.setText(`${phaseLabel} ${t('sync.status_waiting_quota', { min: String(p.rateLimit.remainingMin) })}${deferredText}`);
         } else if (p.running) {
-          progressEl.style.display = '';
-          progressBar.style.background = 'var(--interactive-accent)';
+          progressEl.addClass('is-shown');
+          progressBar.removeClass('is-paused');
           const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
           progressBar.style.width = `${pct}%`;
           if (p.currentKind) {
@@ -1144,7 +1114,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           }
         } else {
           // Cycle finished (done/error) — hide the bar, keep the desc text.
-          progressEl.style.display = 'none';
+          progressEl.removeClass('is-shown');
         }
       });
       this._syncProgressTimer = window.setInterval(() => {
@@ -1156,9 +1126,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
           const cooldown = this.plugin.syncEngine?.getCooldownUntil() ?? 0;
           if (cooldown > Date.now() && progressEl) {
             const min = Math.max(1, Math.ceil((cooldown - Date.now()) / 60000));
-            progressEl.style.display = '';
-            progressBar.style.width = '100%';
-            progressBar.style.background = 'var(--text-warning)';
+            progressEl.addClass('is-shown');
+            progressBar.style.removeProperty('width');
+            progressBar.addClass('is-paused');
             progressText.setText(`${PHASE_LABELS.quota_wait} ${t('sync.status_waiting_quota', { min: String(min) })}`);
           }
         }
@@ -1444,7 +1414,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const a = createEl('a');
     a.href = url;
     a.download = fileName;
-    a.style.display = 'none';
+    a.addClass('wewrite-download-anchor');
     doc.body.appendChild(a);
     a.click();
     window.setTimeout(() => {
@@ -1553,7 +1523,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     const a = createEl('a');
     a.href = url;
     a.download = fileName;
-    a.style.display = 'none';
+    a.addClass('wewrite-download-anchor');
     doc.body.appendChild(a);
     a.click();
     window.setTimeout(() => {
@@ -1610,7 +1580,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
     input.type = 'file';
     input.accept = '.json';
     input.className = 'wewrite-settings-file-input';
-    input.style.display = 'none';
+    input.addClass('wewrite-file-input-hidden');
     doc.body.appendChild(input);
     let settled = false;
     const done = (file: File | null) => {
@@ -1756,7 +1726,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       // Show server quota/plan info in the settings frame.
       if (this._serverInfoEl && result.quota) {
         this._serverInfoEl.empty();
-        this._serverInfoEl.style.display = '';
+        this._serverInfoEl.addClass('is-shown');
         const provider = result.quota.provider === 'jianguoyun'
           ? t('sync.provider_jianguoyun')
           : t('sync.provider_generic');
@@ -1869,15 +1839,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
           // Derived subdirectory paths (full-width row below the folder input).
           const derivedPaths = setting.settingEl.createDiv({ cls: 'wewrite-derived-paths' });
-          derivedPaths.style.cssText = [
-            'grid-column:1 / -1', 'margin-top:8px', 'padding:8px 12px',
-            'background:var(--background-secondary)', 'border-radius:6px',
-            'font-size:12px', 'color:var(--text-muted)',
-          ].join(';');
           for (const [label, sub] of Object.entries(WEWRITE_SUBDIRS)) {
             const path = getWeWriteSubPath(settings.wewriteFolder, sub);
             const row = derivedPaths.createDiv();
-            row.style.cssText = 'padding:2px 0;';
+            row.addClass('wewrite-derived-path-row');
             row.createSpan({ text: `${label}: `, cls: '' });
             row.createEl('code', { text: path });
           }
@@ -1896,13 +1861,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
                 settings.svgFallbackThresholdKb = value;
                 this.save();
               });
-            slider.sliderEl.style.width = '100%';
+            slider.sliderEl.addClass('wewrite-slider-full');
             return slider;
           });
           const isMobile = window.matchMedia('(max-width: 500px)').matches;
-          setting.infoEl.style.flex = isMobile ? '0 0 auto' : '0 0 180px';
-          setting.infoEl.style.maxWidth = isMobile ? 'none' : '40%';
-          setting.controlEl.style.flex = '1 1 0%';
+          setting.infoEl.addClass('wewrite-setting-label-column');
+          setting.infoEl.toggleClass('is-compact', isMobile);
+          setting.controlEl.addClass('wewrite-setting-control-grow');
         },
       },
       {
@@ -2244,24 +2209,16 @@ export class WeWriteSettingTab extends PluginSettingTab {
           const header = setting.controlEl.createDiv({ cls: 'wewrite-help-toggle-header' });
           header.setAttribute('role', 'button');
           header.setAttribute('tabindex', '0');
-          header.style.cssText = 'cursor:pointer;display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;color:var(--text-muted);';
           const helpIcon = header.createSpan({ cls: 'wewrite-help-toggle-icon' });
           setIcon(helpIcon, 'chevron-right');
           header.createSpan({ text: t('settings.wechat_api_help_label'), cls: 'wewrite-help-toggle-label' });
 
           const body = setting.settingEl.createDiv({ cls: 'wewrite-help-toggle-body collapsed' });
-          body.style.cssText = 'grid-column:1 / -1;margin-top:8px;';
           const helpBox = body.createDiv({ cls: 'wewrite-help-box' });
-          helpBox.style.cssText = [
-            'padding:16px', 'border:1px solid var(--background-modifier-border)',
-            'border-radius:10px', 'background:var(--background-secondary)',
-            'line-height:1.7', 'font-size:13px', 'color:var(--text-normal)',
-          ].join(';');
           const descEl = helpBox.createDiv({ cls: 'wewrite-help-desc' });
           descEl.setText(t('settings.wechat_api_help_desc'));
           const imgEl = helpBox.createEl('img', { cls: 'wewrite-help-image' });
           imgEl.src = 'data:image/png;base64,' + WECHAT_ACCOUNT_HELP_IMAGE;
-          imgEl.style.cssText = 'display:block;margin:12px auto 0;max-width:100%;border-radius:6px;';
 
           let expanded = false;
           const toggleHelp = () => {
@@ -2786,10 +2743,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
                 this.plugin.syncScheduler?.updateInterval(value);
                 setting.setName(this.intervalLabel(value));
               });
-            slider.sliderEl.style.width = '100%';
+            slider.sliderEl.addClass('wewrite-slider-full');
             return slider;
           });
-          setting.controlEl.style.flex = '1 1 0%';
+          setting.controlEl.addClass('wewrite-setting-control-grow');
         },
       },
       {
@@ -2807,10 +2764,10 @@ export class WeWriteSettingTab extends PluginSettingTab {
                 this.save();
                 setting.setName(this.maxFileSizeLabel(value));
               });
-            slider.sliderEl.style.width = '100%';
+            slider.sliderEl.addClass('wewrite-slider-full');
             return slider;
           });
-          setting.controlEl.style.flex = '1 1 0%';
+          setting.controlEl.addClass('wewrite-setting-control-grow');
         },
       },
       {
@@ -2838,20 +2795,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
         visible: frameVisible,
         render: (setting) => {
           const serverInfoEl = setting.settingEl.createDiv({ cls: 'wewrite-sync-server-info' });
-          serverInfoEl.style.cssText = [
-            'grid-column:1 / -1', 'margin:8px 0 4px', 'padding:8px 10px',
-            'font-size:12px', 'line-height:1.7',
-            'border:1px solid var(--background-modifier-border)',
-            'border-radius:6px', 'display:none',
-          ].join(';');
           this._serverInfoEl = serverInfoEl;
           const renderServerInfo = (quota: ServerQuotaInfo | null | undefined) => {
             if (!quota) {
-              serverInfoEl.style.display = 'none';
+              serverInfoEl.removeClass('is-shown');
               return;
             }
             serverInfoEl.empty();
-            serverInfoEl.style.display = '';
+            serverInfoEl.addClass('is-shown');
             const provider = quota.provider === 'jianguoyun'
               ? t('sync.provider_jianguoyun')
               : t('sync.provider_generic');
@@ -2870,8 +2821,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
                 pct: String(pct),
               }));
               if (quota.availableBytes !== undefined && quota.availableBytes < 100 * 1024 * 1024) {
-                const warn = serverInfoEl.createDiv();
-                warn.style.color = 'var(--text-error)';
+                const warn = serverInfoEl.createDiv({ cls: 'wewrite-sync-server-info-warn' });
                 warn.setText(t('settings.sync_server_info_low_space'));
               }
             }
@@ -2888,13 +2838,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
           this.plugin.syncEngine?.onProgress(null);
 
           const progressEl = setting.settingEl.createDiv({ cls: 'wewrite-sync-progress' });
-          progressEl.style.cssText = 'grid-column:1 / -1;margin:8px 0 4px;display:none;';
-          const barWrap = progressEl.createDiv();
-          barWrap.style.cssText = 'height:6px;background:var(--background-modifier-border);border-radius:3px;overflow:hidden;margin-bottom:6px;';
-          const progressBar = barWrap.createDiv();
-          progressBar.style.cssText = 'height:6px;background:var(--interactive-accent);width:0%;border-radius:3px;transition:width .2s;';
-          const progressText = progressEl.createDiv();
-          progressText.style.cssText = 'font-size:12px;color:var(--text-muted);line-height:1.6;';
+          const barWrap = progressEl.createDiv({ cls: 'wewrite-sync-progress-track' });
+          const progressBar = barWrap.createDiv({ cls: 'wewrite-sync-progress-bar' });
+          const progressText = progressEl.createDiv({ cls: 'wewrite-sync-progress-text' });
 
           const stopProgressPolling = () => {
             if (this._syncProgressTimer) {
@@ -2902,7 +2848,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
               this._syncProgressTimer = null;
             }
             this.plugin.syncEngine?.onProgress(null);
-            progressEl.style.display = 'none';
+            progressEl.removeClass('is-shown');
           };
 
           const updateStatusUI = (s: Setting, actionBtn: ButtonComponent) => {
@@ -2938,14 +2884,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
               this._renderServerInfo?.(p.quota);
               const phaseLabel = PHASE_LABELS[p.phase] || '';
               if (p.phase === 'quota_wait' && p.rateLimit) {
-                progressEl.style.display = '';
-                progressBar.style.width = '100%';
-                progressBar.style.background = 'var(--text-warning)';
+                progressEl.addClass('is-shown');
+                progressBar.style.removeProperty('width');
+                progressBar.addClass('is-paused');
                 const deferredText = p.deferred ? ` \u00b7 ${t('sync.deferred_count', { count: String(p.deferred) })}` : '';
                 progressText.setText(`${phaseLabel} ${t('sync.status_waiting_quota', { min: String(p.rateLimit.remainingMin) })}${deferredText}`);
               } else if (p.running) {
-                progressEl.style.display = '';
-                progressBar.style.background = 'var(--interactive-accent)';
+                progressEl.addClass('is-shown');
+                progressBar.removeClass('is-paused');
                 const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
                 progressBar.style.width = `${pct}%`;
                 if (p.currentKind) {
@@ -2957,7 +2903,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
                   progressText.setText(`${phaseLabel}${p.currentPath ? ' ' + p.currentPath : ''}`);
                 }
               } else {
-                progressEl.style.display = 'none';
+                progressEl.removeClass('is-shown');
               }
             });
             this._syncProgressTimer = window.setInterval(() => {
@@ -2966,9 +2912,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
                 const cooldown = this.plugin.syncEngine?.getCooldownUntil() ?? 0;
                 if (cooldown > Date.now() && progressEl) {
                   const min = Math.max(1, Math.ceil((cooldown - Date.now()) / 60000));
-                  progressEl.style.display = '';
-                  progressBar.style.width = '100%';
-                  progressBar.style.background = 'var(--text-warning)';
+                  progressEl.addClass('is-shown');
+                  progressBar.style.removeProperty('width');
+                  progressBar.addClass('is-paused');
                   progressText.setText(`${PHASE_LABELS.quota_wait} ${t('sync.status_waiting_quota', { min: String(min) })}`);
                 }
               }
@@ -3089,15 +3035,14 @@ class RiskAcknowledgmentModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.style.padding = '20px';
-    contentEl.style.maxWidth = '440px';
+    contentEl.addClass('wewrite-sync-modal-content', 'is-risk');
 
     const titleEl = contentEl.createDiv();
-    titleEl.style.cssText = 'font-size:17px;font-weight:700;margin-bottom:16px;color:var(--text-error);';
+    titleEl.addClass('wewrite-sync-risk-title');
     titleEl.setText(t('settings.sync_risk_title'));
 
     const listEl = contentEl.createEl('ul');
-    listEl.style.cssText = 'margin:0 0 20px 0;padding-left:20px;line-height:1.9;font-weight:600;font-size:14px;';
+    listEl.addClass('wewrite-sync-modal-list', 'is-strong');
     for (const msg of [
       t('settings.sync_warn_data_risk'),
       t('settings.sync_warn_webdav_only'),
@@ -3110,7 +3055,7 @@ class RiskAcknowledgmentModal extends Modal {
 
     const confirmLabel = t('settings.sync_risk_confirm');
     const btnRow = contentEl.createDiv();
-    btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+    btnRow.addClass('wewrite-sync-modal-actions');
     const cancelBtn = btnRow.createEl('button');
     cancelBtn.setText(t('misc.cancel'));
     cancelBtn.addEventListener('click', () => this.close());
@@ -3138,34 +3083,33 @@ class SyncConflictModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.style.padding = '16px';
-    contentEl.style.maxWidth = '400px';
+    contentEl.addClass('wewrite-sync-modal-content', 'is-narrow');
 
     // Title
     const titleEl = contentEl.createDiv({ cls: 'wewrite-sync-conflict-title' });
-    titleEl.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:12px;';
+    titleEl.addClass('wewrite-sync-modal-title');
     titleEl.setText(t('settings.sync_conflict_title'));
 
     // Description
     const descEl = contentEl.createDiv({ cls: 'wewrite-sync-conflict-desc' });
-    descEl.style.cssText = 'margin-bottom:12px;line-height:1.6;';
+    descEl.addClass('wewrite-sync-modal-desc');
     descEl.setText(t('settings.sync_conflict_desc'));
 
     // List conflicting plugins
     const listEl = contentEl.createEl('ul');
-    listEl.style.cssText = 'margin:0 0 16px 0;padding-left:20px;line-height:1.8;';
+    listEl.addClass('wewrite-sync-modal-list');
     for (const name of this.conflicts) {
       listEl.createEl('li', { text: name });
     }
 
     // Action hint
     const actionEl = contentEl.createDiv();
-    actionEl.style.cssText = 'margin-bottom:16px;line-height:1.6;color:var(--text-muted);';
+    actionEl.addClass('wewrite-sync-modal-action');
     actionEl.setText(t('settings.sync_conflict_action'));
 
     // Close button
     const btnRow = contentEl.createDiv();
-    btnRow.style.cssText = 'display:flex;justify-content:flex-end;';
+    btnRow.addClass('wewrite-sync-modal-actions');
     const closeBtn = btnRow.createEl('button', { cls: 'mod-cta' });
     closeBtn.setText(t('misc.ok'));
     closeBtn.addEventListener('click', () => this.close());
@@ -3187,19 +3131,18 @@ class SyncResetModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.style.padding = '16px';
-    contentEl.style.maxWidth = '420px';
+    contentEl.addClass('wewrite-sync-modal-content');
 
     const titleEl = contentEl.createDiv();
-    titleEl.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:12px;';
+    titleEl.addClass('wewrite-sync-modal-title');
     titleEl.setText(t('settings.sync_reset_title'));
 
     const descEl = contentEl.createDiv();
-    descEl.style.cssText = 'margin-bottom:12px;line-height:1.6;';
+    descEl.addClass('wewrite-sync-modal-desc');
     descEl.setText(t('settings.sync_reset_confirm_desc'));
 
     const listEl = contentEl.createEl('ul');
-    listEl.style.cssText = 'margin:0 0 16px 0;padding-left:20px;line-height:1.8;';
+    listEl.addClass('wewrite-sync-modal-list');
     for (const item of [
       t('settings.sync_reset_item_record'),
       t('settings.sync_reset_item_conflicts'),
@@ -3210,11 +3153,11 @@ class SyncResetModal extends Modal {
     }
 
     const warnEl = contentEl.createDiv();
-    warnEl.style.cssText = 'margin-bottom:16px;padding:8px 12px;background:var(--background-modifier-warning);color:var(--text-normal);border-radius:6px;font-size:13px;line-height:1.6;border:1px solid var(--background-modifier-border);';
+    warnEl.addClass('wewrite-sync-modal-warn');
     warnEl.setText(t('settings.sync_reset_warn'));
 
     const btnRow = contentEl.createDiv();
-    btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+    btnRow.addClass('wewrite-sync-modal-actions');
     const cancelBtn = btnRow.createEl('button');
     cancelBtn.setText(t('misc.cancel'));
     cancelBtn.addEventListener('click', () => this.close());
@@ -3247,32 +3190,31 @@ class AndroidExportGuidanceModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.style.padding = '16px';
-    contentEl.style.maxWidth = '420px';
+    contentEl.addClass('wewrite-sync-modal-content');
 
     const titleEl = contentEl.createDiv();
-    titleEl.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:12px;';
+    titleEl.addClass('wewrite-sync-modal-title');
     titleEl.setText(t('settings.export_android_title'));
 
     const descEl = contentEl.createDiv();
-    descEl.style.cssText = 'margin-bottom:12px;line-height:1.7;font-size:13px;';
+    descEl.addClass('wewrite-sync-modal-desc', 'is-small');
     descEl.setText(t('settings.export_android_desc'));
 
     // The guaranteed vault copy — selectable so it can be copied manually.
     const pathBox = contentEl.createDiv();
-    pathBox.style.cssText = 'margin-bottom:12px;padding:8px 10px;background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:6px;font-size:12px;word-break:break-all;user-select:text;';
+    pathBox.addClass('wewrite-sync-modal-path');
     pathBox.setText(this.vaultPath);
 
     const hintEl = contentEl.createDiv();
-    hintEl.style.cssText = 'margin-bottom:10px;line-height:1.6;font-size:13px;color:var(--text-muted);';
+    hintEl.addClass('wewrite-sync-modal-hint');
     hintEl.setText(t('settings.export_android_download_hint'));
 
     const stepsTitle = contentEl.createDiv();
-    stepsTitle.style.cssText = 'margin-bottom:6px;font-size:13px;font-weight:600;';
+    stepsTitle.addClass('wewrite-sync-modal-steps-title');
     stepsTitle.setText(t('settings.export_android_steps_title'));
 
     const stepsEl = contentEl.createEl('ul');
-    stepsEl.style.cssText = 'margin:0 0 16px 0;padding-left:20px;line-height:1.8;font-size:13px;';
+    stepsEl.addClass('wewrite-sync-modal-list', 'is-small');
     for (const step of [
       t('settings.export_android_step_filemanager'),
       t('settings.export_android_step_longpress'),
@@ -3282,7 +3224,7 @@ class AndroidExportGuidanceModal extends Modal {
     }
 
     const btnRow = contentEl.createDiv();
-    btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+    btnRow.addClass('wewrite-sync-modal-actions');
     const copyBtn = btnRow.createEl('button');
     copyBtn.setText(t('settings.export_android_copy_path'));
     copyBtn.addEventListener('click', () => {
