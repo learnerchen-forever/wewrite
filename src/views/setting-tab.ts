@@ -150,17 +150,16 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
   /** PluginSettingTab#display() is typed void; Obsidian calls it to (re)build
    *  the pane. The heavy rendering is async, so delegate to a private method
-   *  and keep the override's void contract. */
+   *  and keep the override's void contract.
+   *
+   *  No scroll handling here on purpose: renderTab() owns exactly one capture
+   *  (before the DOM is destroyed) and one restore (after the full DOM is
+   *  built). A second restore in this finally block would run while the DOM is
+   *  still empty — the browser clamps the offset to 0, and because restoreSync
+   *  consumes the held value, the real restore later would be a no-op. That
+   *  ordering bug was the jump-to-top on every account add/remove. */
   display(): void {
-    // On Obsidian 1.13+ this path is not used for accounts (display() is never
-    // called once getSettingDefinitions() returns items), but it is still the
-    // render path on older versions.
-    this._scrollKeeper.capture();
-    try {
-      void this.renderTab();
-    } finally {
-      this._scrollKeeper.restoreSync();
-    }
+    void this.renderTab();
   }
 
   /**
@@ -191,15 +190,22 @@ export class WeWriteSettingTab extends PluginSettingTab {
    * Both operations are "nothing moves": the list simply gains or loses a card
    * in place. A newly added card is then revealed and its first parameter field
    * focused, but only if it landed outside the viewport.
+   *
+   * The rebuild itself owns the capture/restore (see rerender/display), so this
+   * must not wrap it in a second one — that second restore would fire before
+   * the new DOM is laid out and consume the held offset.
    */
   private accountListChanged(addedAccountId?: string): void {
-    this._scrollKeeper.capture();
-    try {
-      this.rerender();
-    } finally {
-      this._scrollKeeper.restoreSync();
-    }
+    this.rerender();
     if (addedAccountId) this.deferRevealCard(addedAccountId);
+  }
+
+  /**
+   * Deletion only happens after the user confirms — the modal's confirm button
+   * runs the actual removal (settings mutation + rebuild).
+   */
+  private confirmDeleteAccount(accountName: string, remove: () => void): void {
+    new DeleteAccountModal(this.app, accountName, remove).open();
   }
 
   async renderTab(): Promise<void> {
@@ -210,6 +216,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
       this._syncProgressTimer = null;
     }
     this.plugin.syncEngine?.onProgress(null);
+
+    // Async lookups happen BEFORE capture()/empty(): everything between the
+    // capture and the restoreSync() at the end of this method must stay in one
+    // synchronous stretch. An await in between suspends the build while the
+    // pane is empty; the restore would then clamp to 0 and the pane jumps to
+    // the top (the exact bug this file used to have).
+    const noteCfgCount = await this.plugin.configStore.count();
 
     // The DOM is about to be replaced — hold the pane's scroll offset so the
     // user keeps looking at the same place after the rebuild.
@@ -302,7 +315,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       .setDesc(t('settings.clear_fingerprint_desc'))
       .addButton((btn) =>
         btn.setButtonText(t('settings.clear_button')).setWarning().onClick(async () => {
-          const count = this.plugin.mediaRegistry.clear();
+          const count = this.plugin.clearMediaFingerprints();
           await this.plugin.saveSettings();
           this.rerender();
           new Notice(t('notice.fingerprints_cleared', { count }));
@@ -310,7 +323,6 @@ export class WeWriteSettingTab extends PluginSettingTab {
       );
 
     // Clear all per-note render/publish configs (with count)
-    const noteCfgCount = await this.plugin.configStore.count();
     new Setting(generalBody)
       .setName(t('settings.clear_note_configs', { count: noteCfgCount }))
       .setDesc(t('settings.clear_note_configs_desc'))
@@ -334,7 +346,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           const debugDir = getWeWriteSubPath(s.wewriteFolder, WEWRITE_SUBDIRS.debug);
 
           // Clear fingerprint DB
-          const fpCount = this.plugin.mediaRegistry.clear();
+          const fpCount = this.plugin.clearMediaFingerprints();
 
           // Clear material cache (all accounts)
           this.plugin.materialManager.clearCache();
@@ -561,12 +573,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
       }
       buttonRow.addButton((btn) =>
         buttonWithIcon(btn, 'trash', t('settings.delete')).onClick(() => {
-          settings.wechatAccounts = settings.wechatAccounts.filter((a) => a.id !== account.id);
-          if (settings.activeWeChatAccountId === account.id) {
-            settings.activeWeChatAccountId = settings.wechatAccounts[0]?.id || '';
-          }
-          this.save();
-          this.accountListChanged();
+          this.confirmDeleteAccount(account.name || account.appId, () => {
+            settings.wechatAccounts = settings.wechatAccounts.filter((a) => a.id !== account.id);
+            if (settings.activeWeChatAccountId === account.id) {
+              settings.activeWeChatAccountId = settings.wechatAccounts[0]?.id || '';
+            }
+            this.save();
+            this.accountListChanged();
+          });
         }),
       );
     }
@@ -661,12 +675,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
       }
       aiTextButtonRow.addButton((btn) =>
         buttonWithIcon(btn, 'trash', t('settings.delete')).onClick(() => {
-          settings.aiTextAccounts = settings.aiTextAccounts.filter((a) => a.id !== account.id);
-          if (settings.activeAITextAccountId === account.id) {
-            settings.activeAITextAccountId = settings.aiTextAccounts[0]?.id || '';
-          }
-          this.save();
-          this.accountListChanged();
+          this.confirmDeleteAccount(account.name || account.model, () => {
+            settings.aiTextAccounts = settings.aiTextAccounts.filter((a) => a.id !== account.id);
+            if (settings.activeAITextAccountId === account.id) {
+              settings.activeAITextAccountId = settings.aiTextAccounts[0]?.id || '';
+            }
+            this.save();
+            this.accountListChanged();
+          });
         }),
       );
     }
@@ -797,12 +813,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
       }
       aiImageButtonRow.addButton((btn) =>
         buttonWithIcon(btn, 'trash', t('settings.delete')).onClick(() => {
-          settings.aiImageGenAccounts = settings.aiImageGenAccounts.filter((a) => a.id !== account.id);
-          if (settings.activeAIImageGenAccountId === account.id) {
-            settings.activeAIImageGenAccountId = settings.aiImageGenAccounts[0]?.id || '';
-          }
-          this.save();
-          this.accountListChanged();
+          this.confirmDeleteAccount(account.name || account.model, () => {
+            settings.aiImageGenAccounts = settings.aiImageGenAccounts.filter((a) => a.id !== account.id);
+            if (settings.activeAIImageGenAccountId === account.id) {
+              settings.activeAIImageGenAccountId = settings.aiImageGenAccounts[0]?.id || '';
+            }
+            this.save();
+            this.accountListChanged();
+          });
         }),
       );
     }
@@ -1806,11 +1824,22 @@ export class WeWriteSettingTab extends PluginSettingTab {
    * Refresh the tab on whichever rendering path the host supports:
    * declarative settings (Obsidian 1.13+) rebuild from getSettingDefinitions(),
    * while older versions still re-run the imperative display().
+   *
+   * Only the declarative branch handles scroll here: Obsidian's update()
+   * replaces the pane's DOM behind our back, so the offset has to be held and
+   * re-applied around it. The imperative path does that inside renderTab(),
+   * between containerEl.empty() and the end of the build — the only ordering
+   * that puts the offset back after the new content exists.
    */
   private rerender(): void {
     const tab = this as unknown as { update?: () => void };
     if (typeof tab.update === 'function') {
-      tab.update();
+      this._scrollKeeper.capture();
+      try {
+        tab.update();
+      } finally {
+        this._scrollKeeper.restoreSync();
+      }
     } else {
       void this.display();
     }
@@ -1915,7 +1944,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
           setting.setName(t('settings.clear_fingerprint', { svgCount: counts.svg, imageCount: counts.image }));
           setting.addButton((btn) =>
             btn.setButtonText(t('settings.clear_button')).setWarning().onClick(async () => {
-              const count = this.plugin.mediaRegistry.clear();
+              const count = this.plugin.clearMediaFingerprints();
               await this.plugin.saveSettings();
               this.rerender();
               new Notice(t('notice.fingerprints_cleared', { count }));
@@ -1951,7 +1980,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
               const s = this.plugin.settingsManager.getSettings();
               const cacheDir = getWeWriteSubPath(s.wewriteFolder, WEWRITE_SUBDIRS.cache);
               const debugDir = getWeWriteSubPath(s.wewriteFolder, WEWRITE_SUBDIRS.debug);
-              const fpCount = this.plugin.mediaRegistry.clear();
+              const fpCount = this.plugin.clearMediaFingerprints();
               this.plugin.materialManager.clearCache();
               const cfgCount = await this.plugin.configStore.clearAll();
               let cacheDeleted = 0;
@@ -2342,12 +2371,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
         name: t('settings.delete'),
         aliases: [account.name],
         action: () => {
-          settings.wechatAccounts = settings.wechatAccounts.filter((a) => a.id !== account.id);
-          if (settings.activeWeChatAccountId === account.id) {
-            settings.activeWeChatAccountId = settings.wechatAccounts[0]?.id || '';
-          }
-          this.save();
-          this.accountListChanged();
+          this.confirmDeleteAccount(account.name || account.appId, () => {
+            settings.wechatAccounts = settings.wechatAccounts.filter((a) => a.id !== account.id);
+            if (settings.activeWeChatAccountId === account.id) {
+              settings.activeWeChatAccountId = settings.wechatAccounts[0]?.id || '';
+            }
+            this.save();
+            this.accountListChanged();
+          });
         },
       });
     }
@@ -2476,12 +2507,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
         name: t('settings.delete'),
         aliases: alias,
         action: () => {
-          settings.aiTextAccounts = settings.aiTextAccounts.filter((a) => a.id !== account.id);
-          if (settings.activeAITextAccountId === account.id) {
-            settings.activeAITextAccountId = settings.aiTextAccounts[0]?.id || '';
-          }
-          this.save();
-          this.accountListChanged();
+          this.confirmDeleteAccount(account.name || account.model, () => {
+            settings.aiTextAccounts = settings.aiTextAccounts.filter((a) => a.id !== account.id);
+            if (settings.activeAITextAccountId === account.id) {
+              settings.activeAITextAccountId = settings.aiTextAccounts[0]?.id || '';
+            }
+            this.save();
+            this.accountListChanged();
+          });
         },
       });
     }
@@ -2639,12 +2672,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
         name: t('settings.delete'),
         aliases: alias,
         action: () => {
-          settings.aiImageGenAccounts = settings.aiImageGenAccounts.filter((a) => a.id !== account.id);
-          if (settings.activeAIImageGenAccountId === account.id) {
-            settings.activeAIImageGenAccountId = settings.aiImageGenAccounts[0]?.id || '';
-          }
-          this.save();
-          this.accountListChanged();
+          this.confirmDeleteAccount(account.name || account.model, () => {
+            settings.aiImageGenAccounts = settings.aiImageGenAccounts.filter((a) => a.id !== account.id);
+            if (settings.activeAIImageGenAccountId === account.id) {
+              settings.activeAIImageGenAccountId = settings.aiImageGenAccounts[0]?.id || '';
+            }
+            this.save();
+            this.accountListChanged();
+          });
         },
       });
     }
@@ -3156,6 +3191,53 @@ class SyncConflictModal extends Modal {
     const closeBtn = btnRow.createEl('button', { cls: 'mod-cta' });
     closeBtn.setText(t('misc.ok'));
     closeBtn.addEventListener('click', () => this.close());
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+/**
+ * Asks for confirmation before an account is deleted. Deletion cannot be
+ * undone, and on the imperative render path the pane rebuild is what keeps the
+ * scroll position — so the actual removal runs in onConfirm, after the user
+ * has agreed.
+ */
+class DeleteAccountModal extends Modal {
+  private readonly onConfirm: () => void;
+  private readonly accountName: string;
+
+  constructor(app: App, accountName: string, onConfirm: () => void) {
+    super(app);
+    this.accountName = accountName;
+    this.onConfirm = onConfirm;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('wewrite-sync-modal-content');
+
+    const titleEl = contentEl.createDiv();
+    titleEl.addClass('wewrite-sync-modal-title');
+    titleEl.setText(t('settings.delete_account_title'));
+
+    const descEl = contentEl.createDiv();
+    descEl.addClass('wewrite-sync-modal-desc');
+    descEl.setText(t('settings.delete_account_confirm', { name: this.accountName }));
+
+    const btnRow = contentEl.createDiv();
+    btnRow.addClass('wewrite-sync-modal-actions');
+    const cancelBtn = btnRow.createEl('button');
+    cancelBtn.setText(t('misc.cancel'));
+    cancelBtn.addEventListener('click', () => this.close());
+    const confirmBtn = btnRow.createEl('button', { cls: 'mod-warning' });
+    confirmBtn.setText(t('settings.delete_account_button'));
+    confirmBtn.addEventListener('click', () => {
+      this.onConfirm();
+      this.close();
+    });
   }
 
   onClose(): void {

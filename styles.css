@@ -212,6 +212,16 @@ input[type="password"], input[type="url"], textarea, select) {
    CSS (which sets flex-direction:column on .setting-item) from
    stacking the label and control. Simple label+button rows stay on
    one line even on narrow screens like iPhone 7 (375px). */
+/* The settings tab's own root is a size container so the narrow-panel rules
+   below can key off the REAL width of the settings content column instead of
+   the viewport. On Android tablets in portrait the viewport stays ~700px,
+   but the column next to the vertical tab header is only ~300px — viewport
+   media queries never fire there, container queries do. */
+.wewrite-auto-expand {
+  container-type: inline-size;
+  container-name: wewrite-settings;
+}
+
 .wewrite-auto-expand .setting-item {
   background: none;
   border: none;
@@ -359,8 +369,9 @@ body .wewrite-folder-row .setting-item-control button {
      .wewrite-test-row        label + description + a single icon button
      .wewrite-account-actions 右对齐的 设为启用 / 删除 按钮，没有 label
 
-   Obsidian 1.13 wraps every setting row in a size container and ships an
-   `@container (max-width: 400px)` rule that turns ANY `.setting-item` into a
+   Obsidian 1.13 wraps every setting row in a size container (the settings
+   modal's `.vertical-tab-content`) and ships an
+   `@container (max-width: 340px)` rule that turns ANY `.setting-item` into a
    vertical stack with a full-width, left-aligned `.setting-item-control`:
 
        .setting-item:not(:is(.mod-toggle, .mod-navigable, .mod-action,
@@ -435,7 +446,11 @@ body .wewrite-auto-expand .wewrite-test-row .setting-item-control {
   flex: 0 0 auto !important;
   width: auto !important;
   align-items: center;
-  justify-content: flex-end;
+  /* !important: Obsidian's @container (max-width: 340px) rule sets
+     justify-content: flex-start with a 0,4,0 selector, which outranks this
+     0,3,1 rule and pushed the icon button to the middle of the row on
+     Android tablets in portrait. */
+  justify-content: flex-end !important;
   margin-inline-start: 12px;
 }
 
@@ -538,6 +553,74 @@ body .wewrite-auto-expand .wewrite-test-row .setting-item-control button {
     margin-right: 0;
     border-radius: 0;
     padding: 8px;
+  }
+}
+
+/* ── Narrow settings PANEL (Android tablets in portrait) ─────────────────
+   The viewport query above never fires on a tablet in portrait: the window
+   stays ~700px+ even though the settings content column next to the vertical
+   tab header shrinks to ~300px. This container query keys off the tab's own
+   width (see the container-type declaration on .wewrite-auto-expand) and
+   applies the SAME compact look as a phone. Threshold 420px ≈ the largest
+   content column a phone can produce (viewport ≤ ~516px minus the settings
+   modal's ~96px horizontal padding), so phones see no change. It must come
+   AFTER the @media (min-width: 501px) blocks so it can undo their
+   38%/62% column split inside a narrow panel. */
+@container wewrite-settings (max-width: 420px) {
+  .wewrite-auto-expand .setting-item {
+    padding: 6px 0;
+  }
+
+  .wewrite-auto-expand .setting-item.wewrite-toggle-row {
+    justify-content: space-between;
+  }
+
+  .wewrite-auto-expand .setting-item.wewrite-toggle-row .setting-item-control {
+    flex: 0 0 auto;
+  }
+
+  /* ── Hide descriptions (keep rows compact) ── */
+  .wewrite-auto-expand .setting-item-description {
+    display: none;
+  }
+
+  /* ── Input + button combo: input flexes so both share one row ── */
+  .wewrite-auto-expand .wewrite-folder-row input[type="text"],
+  .wewrite-auto-expand .wewrite-folder-row input[type="password"],
+  .wewrite-auto-expand .wewrite-folder-row input[type="url"] {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* ── Account cards: full-width, no overflow ── */
+  .wewrite-auto-expand .wewrite-account-row {
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+    padding: 8px;
+  }
+
+  /* Undo the ≥501px viewport split inside a narrow panel: the label/input
+     columns collapse back to the phone layout — info takes what it needs,
+     control keeps its natural width (icon button flush right). */
+  body .wewrite-auto-expand .wewrite-test-row .setting-item-info {
+    flex: 1 1 auto !important;
+    max-width: none;
+  }
+  body .wewrite-auto-expand .wewrite-test-row .setting-item-control {
+    flex: 0 0 auto !important;
+    width: auto !important;
+  }
+  .wewrite-account-row .setting-item-info,
+  .wewrite-folder-row .setting-item-info {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+  .wewrite-account-row .setting-item-control,
+  .wewrite-folder-row .setting-item-control {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 }
 
