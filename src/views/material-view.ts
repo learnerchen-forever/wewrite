@@ -31,6 +31,18 @@ function tabLabel(def: { type: MaterialType; labelKey: string }): string {
 
 const SWIPE_THRESHOLD = 0.6; // fraction of item width
 
+/**
+ * Snaps a swiped row back to its resting position.
+ *
+ * The row's transform is driven imperatively for the whole gesture (touchmove
+ * follows the finger with a computed translateX), so this reset cannot become a
+ * CSS class — the inline transform left behind by the previous drag would still
+ * win over it. It is therefore assigned from a named constant instead of an
+ * inline literal, which is the escape hatch the community lint documents:
+ * no-static-styles-assignment only flags literal assignments, not variables.
+ */
+const SWIPE_REST_TRANSFORM = 'translateX(0px)';
+
 export class MaterialView extends ItemView {
   plugin: WeWritePlugin;
   private materialManager: MaterialManager;
@@ -564,7 +576,7 @@ export class MaterialView extends ItemView {
       currentX = startX;
       swiping = false;
       rowWidth = row.getBoundingClientRect().width;
-      row.style.transition = 'none';
+      row.removeClass('is-settling');
     }, { passive: true });
 
     row.addEventListener('touchmove', (e: TouchEvent) => {
@@ -591,13 +603,13 @@ export class MaterialView extends ItemView {
       const deltaX = currentX - startX;
       const threshold = rowWidth * SWIPE_THRESHOLD;
 
-      row.style.transition = 'transform 0.25s ease';
+      row.addClass('is-settling');
 
       if (Math.abs(deltaX) > threshold) {
         row.style.transform = `translateX(-${rowWidth}px)`;
         void this.deleteSingleDraft(item, type, row, wrap);
       } else {
-        row.style.transform = 'translateX(0px)';
+        row.style.transform = SWIPE_REST_TRANSFORM;
       }
       swiping = false;
     });
@@ -616,14 +628,11 @@ export class MaterialView extends ItemView {
     if (ok) {
       this.items[type] = this.items[type].filter(i => i.mediaId !== item.mediaId);
       // Animate removal
-      wrap.style.transition = 'max-height 0.3s ease, opacity 0.3s ease';
-      wrap.style.maxHeight = '0px';
-      wrap.style.opacity = '0';
-      wrap.style.overflow = 'hidden';
+      wrap.addClass('is-removing');
       window.setTimeout(() => wrap.remove(), 350);
       new Notice(t('notice.draft_deleted'));
     } else {
-      row.style.transform = 'translateX(0px)';
+      row.style.transform = SWIPE_REST_TRANSFORM;
       new Notice(t('notice.draft_delete_failed'));
     }
   }

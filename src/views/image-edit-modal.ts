@@ -171,12 +171,7 @@ export class ImageEditModal {
         : this.config.app.vault.adapter.getResourcePath(this.config.imagePath);
 
       this.imgEl = new Image();
-      this.imgEl.style.position = 'absolute';
-      this.imgEl.style.top = '0';
-      this.imgEl.style.left = '0';
-      this.imgEl.style.transformOrigin = '0 0';
-      this.imgEl.style.userSelect = 'none';
-      this.imgEl.style.pointerEvents = 'none';
+      this.imgEl.addClass('wewrite-image-edit-img');
       this.imgEl.draggable = false;
 
       await new Promise<void>((resolve, reject) => {
@@ -258,7 +253,6 @@ export class ImageEditModal {
 
     // D frame: 2.35:1 aspect ratio, full B height
     const dWidth = bH * 2.35;
-    this.frameD.style.height = '100%';
     this.frameD.style.width = `${dWidth}px`;
 
     // Restore from initialCrop2351 if provided (format: X1_Y1_X2_Y2), otherwise center
@@ -274,7 +268,6 @@ export class ImageEditModal {
 
     // F frame: 1:1 aspect ratio, full B height
     const fWidth = bH;
-    this.frameF.style.height = '100%';
     this.frameF.style.width = `${fWidth}px`;
 
     if (this.config.initialCrop11) {
@@ -352,7 +345,8 @@ export class ImageEditModal {
       this.isDragging = true;
       this.dragStartMouse = { x: e.clientX, y: e.clientY };
       this.dragStartPan = { x: this.panX, y: this.panY };
-      this.areaB.style.cursor = 'grabbing';
+      this.areaB.removeClass('is-grabbable');
+      this.areaB.addClass('is-grabbing');
       e.preventDefault();
     };
     this.areaB.addEventListener('mousedown', this.boundAreaMouseDown);
@@ -393,8 +387,8 @@ export class ImageEditModal {
       if (!this.isDragging) return;
       this.isDragging = false;
       this.dragTarget = null;
-      this.areaB.style.cursor = (!this.dVisible && !this.fVisible && this.zoom > this.getMinZoom())
-        ? 'grab' : '';
+      this.areaB.removeClass('is-grabbing');
+      this.areaB.toggleClass('is-grabbable', !this.dVisible && !this.fVisible && this.zoom > this.getMinZoom());
     };
     window.addEventListener('mouseup', this.boundMouseUp);
 
@@ -689,7 +683,7 @@ export class ImageEditModal {
   show(): Promise<ImageEditResult | null> {
     return new Promise((resolve) => {
       this.resolveFn = resolve;
-      this.modalEl.style.display = 'flex';
+      this.modalEl.addClass('is-shown');
 
       // Wait for image to load before initializing the view
       const initWhenReady = () => {

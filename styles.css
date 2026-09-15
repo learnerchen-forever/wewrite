@@ -3559,3 +3559,38 @@ select.wewrite-font-select {
 .wewrite-ai-generate-modal .wewrite-generate-result-section.is-shown {
   display: block;
 }
+
+/* ── Material view: swipe-to-delete motion ──
+   Row/wrap animation states, previously assigned inline. The row carries no
+   transition of its own (.wewrite-swipe-row), so .is-settling is what turns
+   the snap-back / fly-out into an animation; the touchstart handler drops the
+   class again so the next drag follows the finger without lag. */
+.wewrite-swipe-row.is-settling {
+  transition: transform 0.25s ease;
+}
+.wewrite-material-swipe-wrap.is-removing {
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+/* ── Image edit modal: crop area ──
+   The source image is positioned and scaled imperatively (applyTransform), so
+   only its static placement lives here. */
+.wewrite-image-edit-area .wewrite-image-edit-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  user-select: none;
+  pointer-events: none;
+}
+/* Pan-handle cursors. .is-grabbing is declared after .is-grabbable so the drag
+   state wins should both be momentarily present. */
+.wewrite-image-edit-area.is-grabbable {
+  cursor: grab;
+}
+.wewrite-image-edit-area.is-grabbing {
+  cursor: grabbing;
+}
