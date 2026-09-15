@@ -85,7 +85,7 @@ export class NewsPicPreview {
 
     // Crop tabs (outside bezel)
     this.cropTabsEl = this.container.createDiv({ cls: 'newspic-crop-tabs' });
-    this.cropTabsEl.style.display = 'none';
+    this.cropTabsEl.removeClass('is-shown');
     (['1_1', '16_9', '235_1'] as const).forEach(ratio => {
       const tab = this.cropTabsEl.createDiv({ cls: 'newspic-crop-tab', attr: { 'data-ratio': ratio } });
       tab.textContent = CROP_LABELS[ratio];
@@ -96,7 +96,7 @@ export class NewsPicPreview {
     this.scrollEl = this.container.createDiv({ cls: 'newspic-preview-scroll' });
     this.zoomBoxEl = this.scrollEl.createDiv({ cls: 'newspic-preview-zoom-box' });
     this.bezelEl = this.zoomBoxEl.createDiv({ cls: 'newspic-phone-bezel' });
-    this.bezelEl.style.visibility = 'hidden';
+    this.bezelEl.removeClass('is-ready');
     this.frameEl = this.bezelEl.createDiv({ cls: 'newspic-phone-frame' });
 
     // Slideshow area
@@ -112,7 +112,7 @@ export class NewsPicPreview {
 
     // Crop overlay
     this.cropOverlayEl = this.slideshowEl.createDiv({ cls: 'newspic-crop-overlay' });
-    this.cropOverlayEl.style.display = 'none';
+    this.cropOverlayEl.removeClass('is-shown');
     (['tl','tr','bl','br'] as const).forEach(pos => {
       this.cropOverlayEl.createDiv({ cls: 'newspic-crop-handle', attr: { 'data-handle': pos } });
     });
@@ -146,15 +146,15 @@ export class NewsPicPreview {
 
   setCropMode(ratio: '1_1' | '16_9' | '235_1', enabled: boolean): void {
     this.cropMode = { active: enabled, ratio };
-    this.cropTabsEl.style.display = enabled ? 'flex' : 'none';
+    this.cropTabsEl.toggleClass('is-shown', enabled);
     this.cropTabsEl.querySelectorAll('.newspic-crop-tab').forEach(tab => {
       tab.classList.toggle('active', (tab as HTMLElement).dataset.ratio === ratio && enabled);
     });
     if (enabled && this.config) {
-      this.cropOverlayEl.style.display = 'block';
+      this.cropOverlayEl.addClass('is-shown');
       this.applyCropOverlay(this.config.coverCropPercent?.[ratio] || { x1: 0.1, y1: 0.1, x2: 0.9, y2: 0.9 });
     } else {
-      this.cropOverlayEl.style.display = 'none';
+      this.cropOverlayEl.removeClass('is-shown');
     }
   }
 
@@ -270,7 +270,7 @@ export class NewsPicPreview {
     this.mouseDragStartX = e.clientX;
     this.mouseDragCurrentX = e.clientX;
     this.mouseDragging = true;
-    this.stackEl.style.cursor = 'grabbing';
+    this.stackEl.addClass('is-grabbing');
     e.preventDefault();
   }
 
@@ -287,7 +287,7 @@ export class NewsPicPreview {
   private onMouseDragEnd(): void {
     if (!this.mouseDragging) return;
     this.mouseDragging = false;
-    this.stackEl.style.cursor = '';
+    this.stackEl.removeClass('is-grabbing');
     const dx = this.mouseDragCurrentX - this.mouseDragStartX;
     if (Math.abs(dx) > 50) {
       this.navigateImage(dx < 0 ? 1 : -1);
@@ -336,14 +336,18 @@ export class NewsPicPreview {
     }
 
     bezel.style.transform = scale >= 1 ? '' : `scale(${scale})`;
-    bezel.style.transformOrigin = 'top left';
 
+    // The no-device state is a stylesheet class; the px measurements written
+    // below are inline, so they have to be cleared for it to take effect
+    // (removeProperty is the exact equivalent of the old `= ''` reset).
     if (isNone) {
-      this.zoomBoxEl.style.width = '100%';
-      this.zoomBoxEl.style.height = '';
-      this.zoomBoxEl.style.margin = '0 auto';
+      this.zoomBoxEl.addClass('is-unscaled');
+      this.zoomBoxEl.style.removeProperty('width');
+      this.zoomBoxEl.style.removeProperty('height');
+      this.zoomBoxEl.style.removeProperty('margin');
       return;
     }
+    this.zoomBoxEl.removeClass('is-unscaled');
     const scaledW = Math.round(bezel.offsetWidth * scale);
     const scaledH = Math.round(bezel.offsetHeight * scale);
     this.zoomBoxEl.style.width = `${scaledW}px`;
@@ -362,14 +366,17 @@ export class NewsPicPreview {
     if (existingNotch) existingNotch.remove();
 
     if (!p || p.isNone) {
+      // .newspic-bezel-none supplies width/max-width/height/radius/padding, so
+      // the px values written below have to be cleared for it to take effect.
       this.bezelEl.addClass('newspic-bezel-none');
-      this.bezelEl.style.width = ''; this.bezelEl.style.maxWidth = '';
-      this.bezelEl.style.height = '';
-      this.bezelEl.style.borderRadius = ''; this.bezelEl.style.padding = '';
-      this.frameEl.style.width = '';
-      this.frameEl.style.height = '';
-      this.frameEl.style.borderRadius = '';
-      this.frameEl.style.overflow = '';
+      this.bezelEl.style.removeProperty('width');
+      this.bezelEl.style.removeProperty('max-width');
+      this.bezelEl.style.removeProperty('height');
+      this.bezelEl.style.removeProperty('border-radius');
+      this.bezelEl.style.removeProperty('padding');
+      this.frameEl.style.removeProperty('width');
+      this.frameEl.style.removeProperty('height');
+      this.frameEl.style.removeProperty('border-radius');
       return;
     }
 
@@ -387,7 +394,6 @@ export class NewsPicPreview {
     this.frameEl.style.width = `${p.width}px`;
     this.frameEl.style.height = `${p.height}px`;
     this.frameEl.style.borderRadius = isPhone ? '14px' : '4px';
-    this.frameEl.style.overflow = 'hidden auto';
 
     // Notch for phones
     if (isPhone) {
@@ -402,14 +408,14 @@ export class NewsPicPreview {
   rebuild(config: NewsPicArticleConfig): void {
     this.config = config;
     this.currentImageIndex = 0;
-    this.bezelEl.style.visibility = 'visible';
+    this.bezelEl.addClass('is-ready');
     try {
       this.renderImageStack();
       this.renderSwipeDots();
       this.descEl.textContent = config.content || '';
       if (this.cropMode.active && config.coverCropPercent) {
         const c = config.coverCropPercent[this.cropMode.ratio];
-        if (c) { this.cropOverlayEl.style.display = 'block'; this.applyCropOverlay(c); }
+        if (c) { this.cropOverlayEl.addClass('is-shown'); this.applyCropOverlay(c); }
       }
     } catch (err) {
       this.setStatus('error', String(err));

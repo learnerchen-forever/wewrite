@@ -3594,3 +3594,46 @@ select.wewrite-font-select {
 .wewrite-image-edit-area.is-grabbing {
   cursor: grabbing;
 }
+
+/* ── NewsPic preview (views/newspic-preview.ts) ──
+   Inline literals relocated into classes. The toggled properties had no
+   stylesheet rules before, so the base classes below carry the state that used
+   to be assigned inline right after each element was created. */
+.newspic-preview-container .newspic-crop-tabs {
+  display: none;
+}
+.newspic-preview-container .newspic-crop-tabs.is-shown {
+  display: flex;
+}
+.newspic-preview-container .newspic-crop-overlay {
+  display: none;
+}
+.newspic-preview-container .newspic-crop-overlay.is-shown {
+  display: block;
+}
+/* The bezel — and everything inside it — stays invisible until rebuild() has
+   filled the frame with content. */
+.newspic-preview-container .newspic-phone-bezel {
+  visibility: hidden;
+  transform-origin: top left;
+}
+.newspic-preview-container .newspic-phone-bezel.is-ready {
+  visibility: visible;
+}
+/* Pan cursor over the slide stack: .newspic-image-stack already provides
+   cursor: grab, so dropping .is-grabbing falls back to it. */
+.newspic-image-stack.is-grabbing {
+  cursor: grabbing;
+}
+/* No-device zoom state: the zoom box spans the wrapper and centres itself.
+   Height is left to the stylesheet (that is what the old inline reset to ''
+   did), and the px measurements written in the device branch override this. */
+.newspic-preview-container .newspic-preview-zoom-box.is-unscaled {
+  width: 100%;
+  margin: 0 auto;
+}
+/* Only a real device frame scrolls; in the bezel-none state overflow stays at
+   its default, matching the old inline reset to ''. */
+.newspic-phone-bezel:not(.newspic-bezel-none) .newspic-phone-frame {
+  overflow: hidden auto;
+}
