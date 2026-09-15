@@ -3421,3 +3421,114 @@ select.wewrite-font-select {
 .wewrite-paste-html-modal .wewrite-paste-preview.is-shown {
   display: block;
 }
+
+/* ── Decoration edit modals — views/*-decoration-edit-modal.ts ──
+   Six near-identical template editors (heading / blockquote / divider /
+   inline / list / table). Every layout value used to be assigned inline
+   (element.style.cssText / element.style.<prop>), which the community lint
+   flags. The values are copied verbatim; only the location changed.
+
+   The six modals each keep their own root class (for the mobile media-query
+   overrides above) and share .wewrite-deco-edit-modal, under which these
+   rules live. Two classes keep them winning over Obsidian's own form-element
+   rules exactly as the inline styles did — the mobile block deliberately
+   never sets font-size (see its comment), it only sizes touch targets, so
+   nothing here fights it. */
+.wewrite-deco-edit-modal .wewrite-deco-name-input {
+  width: 100%;
+  margin-top: 4px;
+  box-sizing: border-box;
+}
+.wewrite-deco-edit-modal .wewrite-deco-hint {
+  font-size: var(--ww-deco-param-font, 11px);
+  line-height: 1.5;
+}
+.wewrite-deco-edit-modal .wewrite-deco-template {
+  width: 100%;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  box-sizing: border-box;
+}
+/* Table variant: one textarea per optional table part. */
+.wewrite-deco-edit-modal .wewrite-deco-template-part {
+  width: 100%;
+  font-family: var(--font-monospace);
+  font-size: var(--ww-deco-param-font, 11px);
+  box-sizing: border-box;
+  margin-bottom: 4px;
+}
+.wewrite-deco-edit-modal .wewrite-deco-params-wrap {
+  margin-top: 12px;
+}
+.wewrite-deco-edit-modal .wewrite-deco-params-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.wewrite-deco-edit-modal .wewrite-deco-add-param {
+  margin-top: 6px;
+}
+.wewrite-deco-edit-modal .wewrite-deco-preview-title {
+  margin: 12px 0 6px;
+  font-size: 13px;
+}
+/* Preview surface: decoration previews render WeChat article content, which
+   is always light, so the white/ink colours stay hardcoded (as inline before). */
+.wewrite-deco-edit-modal .wewrite-deco-preview {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 8px;
+  background: #ffffff;
+  color: #333333;
+  min-height: 40px;
+}
+.wewrite-deco-edit-modal .wewrite-deco-preview.wewrite-deco-preview-tall {
+  min-height: 60px;
+}
+.wewrite-deco-edit-modal .wewrite-deco-preview.wewrite-deco-preview-scroll {
+  overflow-x: auto;
+}
+.wewrite-deco-edit-modal .wewrite-deco-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+/* One {{param}} definition row: key + type + label + default (+ delete). */
+.wewrite-deco-edit-modal .wewrite-deco-param-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 2px 0;
+}
+.wewrite-deco-edit-modal .wewrite-deco-param-key {
+  width: 84px;
+  font-family: var(--font-monospace);
+  font-size: var(--ww-deco-param-font, 11px);
+  padding: 1px 4px;
+}
+.wewrite-deco-edit-modal .wewrite-deco-param-type {
+  width: 76px;
+  font-size: var(--ww-deco-param-font, 11px);
+}
+.wewrite-deco-edit-modal .wewrite-deco-param-label {
+  flex: 1;
+  min-width: 60px;
+  font-size: var(--ww-deco-param-font, 11px);
+  padding: 1px 4px;
+}
+.wewrite-deco-edit-modal .wewrite-deco-param-default {
+  width: 110px;
+  font-family: var(--font-monospace);
+  font-size: var(--ww-deco-param-font, 11px);
+  padding: 1px 4px;
+}
+.wewrite-deco-edit-modal .wewrite-deco-param-del {
+  font-size: var(--ww-deco-param-font, 11px);
+}
+/* List variant: "container template" / "item template" captions. */
+.wewrite-deco-edit-modal .wewrite-deco-field-label {
+  font-size: var(--ww-deco-param-font, 11px);
+  margin-top: 8px;
+  color: var(--text-faint);
+}
