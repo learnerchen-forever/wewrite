@@ -40,3 +40,7 @@ playwright-report/
 *.iml
 .DS_Store
 Thumbs.db
+
+# WorkBuddy agent workspace (scratch scripts, lint snapshots, memory) — tooling
+# output, never part of the shipped plugin.
+.workbuddy/
