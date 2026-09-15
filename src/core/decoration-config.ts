@@ -362,7 +362,7 @@ export function createDecorationFamily<
 			: (map[id] ?? map['none']);
 
 		if (!found) return { decoration: null, params: {} } as ResolveResult<D, P>;
-		return { decoration: found, params: paramsFor(found, paramsOverride) } as ResolveResult<D, P>;
+		return { decoration: found, params: paramsFor(found, paramsOverride) };
 	}
 
 	function configToFrontmatter(config: DecorationConfigBase | undefined): Record<string, unknown> {

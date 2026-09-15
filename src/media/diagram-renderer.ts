@@ -177,7 +177,7 @@ export async function renderMermaidToPng(
   style?: MermaidSvgStyle,
 ): Promise<ArrayBuffer | null> {
   const markdown = '```mermaid\n' + code + '\n```';
-  const el = createEl('div');
+  const el = createDiv();
   // Use opacity:0.01 instead of left:-9999px so iOS WebKit (15.x/16.x)
   // keeps the element in its render tree. Off-viewport elements
   // are deprioritized and async plugin post-processors never fire.
@@ -303,11 +303,11 @@ async function renderExcalidrawViaObsidian(
   // rendering context and fires its post-processor.
   // Use opacity:0.01 instead of left:-9999px so iOS WebKit (15.x/16.x)
   // keeps the element in its render tree.
-  const wrapper = createEl('div');
+  const wrapper = createDiv();
   wrapper.className = 'markdown-reading-view';
   wrapper.style.cssText = 'position:fixed;left:0;top:0;width:1024px;opacity:0.01;pointer-events:none;z-index:-1';
 
-  const renderEl = createEl('div');
+  const renderEl = createDiv();
   renderEl.className = 'markdown-preview-section';
   wrapper.appendChild(renderEl);
   document.body.appendChild(wrapper);

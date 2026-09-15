@@ -131,7 +131,7 @@ function renderPlainQuote(
 		`margin:${lineHeightPx}px 0;padding-left:${BLOCKQUOTE_PLAIN_PADDING_LEFT_PX}px;color:${String(tokens.text)}`,
 	);
 	if (iconText) {
-		const iconSpan = createEl('span');
+		const iconSpan = createSpan();
 		iconSpan.setAttribute('style', 'margin-right:8px;font-size:1.1em');
 		iconSpan.textContent = iconText;
 		el.insertBefore(iconSpan, el.firstChild);
@@ -154,7 +154,7 @@ function renderBlockquoteElement(
 	}
 
 	const expanded = expandTemplate(decoration.template, params, tokens, iconText);
-	const container = createEl('div');
+	const container = createDiv();
 	container.innerHTML = expanded;
 	let root = container.firstElementChild;
 	if (!root) {
@@ -171,7 +171,7 @@ function renderBlockquoteElement(
 	if (carrier === container) carrier = root;
 
 	// Move the blockquote content into the text carrier.
-	const contentHost = createEl('div');
+	const contentHost = createDiv();
 	contentHost.innerHTML = (el as HTMLElement).innerHTML;
 	replaceTextPlaceholder(carrier, Array.from(contentHost.childNodes), doc, '{text}');
 
@@ -179,7 +179,7 @@ function renderBlockquoteElement(
 	if (iconText) {
 		const iconHost = findPlaceholderElement(container, ICON_SENTINEL);
 		if (iconHost) {
-			const iconSpan = createEl('span');
+			const iconSpan = createSpan();
 			iconSpan.setAttribute('style', 'margin-right:8px;font-size:1.1em');
 			iconSpan.textContent = iconText;
 			replaceTextPlaceholder(iconHost, [iconSpan], doc, ICON_SENTINEL);

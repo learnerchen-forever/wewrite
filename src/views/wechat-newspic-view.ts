@@ -546,7 +546,7 @@ export class WeChatNewsPicView extends ItemView {
 
         try {
           // Sanitize SVG before conversion
-          const tmp = createEl('div');
+          const tmp = createDiv();
           tmp.innerHTML = svg.html;
           const svgEl = tmp.querySelector('svg');
           if (svgEl) sanitizeSvgElement(svgEl);
@@ -1445,7 +1445,7 @@ class NewsPicPublishModal {
     this.tasks.push({ name: t('publish.task_create_draft'), status: 'pending' });
     this.allTasks = [...this.preScanTasks, ...this.tasks];
 
-    this.modalEl = createEl('div');
+    this.modalEl = createDiv();
     this.modalEl.addClass('wewrite-publish-modal');
     this.modalEl.innerHTML = `
       <div class="wewrite-publish-overlay"></div>

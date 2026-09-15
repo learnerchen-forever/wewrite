@@ -273,7 +273,7 @@ function normalizeRoot(root: Element, cfg: ResolvedHeadingLevel): Element {
 
 /** Fallback numbering: inline span with the default suffix (D10). */
 function insertNumberFallback(carrier: Element, raw: string, style: Exclude<NumberingStyle, 'none'>): void {
-	const span = createEl('span');
+	const span = createSpan();
 	span.setAttribute('style', 'margin-right:0.5em;user-select:none;');
 	span.setAttribute('data-wewrite-numbering', 'true');
 	span.textContent = raw + NUMBER_SUFFIX[style];
@@ -327,7 +327,7 @@ function renderHeadingElement(
 	// level-agnostic instead of hardcoding e.g. <h2>.
 	const templateSource = decoration.template.replace(/\{tag\}/g, level);
 	const expanded = expandTemplate(templateSource, cfg, tokens, params, numberingOn);
-	const container = createEl('div');
+	const container = createDiv();
 	container.innerHTML = expanded;
 	let root = container.firstElementChild;
 	if (!root) {
@@ -356,7 +356,7 @@ function renderHeadingElement(
 
 	// Move the heading content into the text carrier (in place, preserving
 	// any text that shares the node, e.g. "02｜" + {text}).
-	const contentHost = createEl('div');
+	const contentHost = createDiv();
 	contentHost.innerHTML = (el as HTMLElement).innerHTML;
 	replaceTextPlaceholder(carrier, Array.from(contentHost.childNodes), doc, '{text}');
 	if (numberEl) {

@@ -112,7 +112,7 @@ export class TableDecorationEditModal extends WeWriteModal {
 			partsWrap.style.marginTop = '12px';
 			partsWrap.createEl('h4', { text: t('deco_edit.parts_optional') }).style.cssText = 'margin:0 0 6px;font-size:13px';
 			for (const part of PART_DEFS) {
-				const label = partsWrap.createEl('div', { text: `${partLabel(part.key)} — ${partHint(part.key)}`, cls: 'setting-item-description' });
+				const label = partsWrap.createDiv({ text: `${partLabel(part.key)} — ${partHint(part.key)}`, cls: 'setting-item-description' });
 				label.style.cssText = 'font-size:var(--ww-deco-param-font,11px);line-height:1.5';
 				const textarea = partsWrap.createEl('textarea', { attr: { rows: '2', spellcheck: 'false' } });
 				textarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:var(--ww-deco-param-font,11px);box-sizing:border-box;margin-bottom:4px';

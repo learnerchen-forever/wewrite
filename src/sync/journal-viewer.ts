@@ -52,7 +52,7 @@ export class JournalViewer extends Modal {
       return;
     }
 
-    const count = contentEl.createEl('div', { cls: 'wewrite-journal-count' });
+    const count = contentEl.createDiv({ cls: 'wewrite-journal-count' });
     count.createSpan({ text: t('journal.entry_count', { count: String(this.entries.length) }) });
 
     const table = contentEl.createEl('table', { cls: 'wewrite-journal-table' });

@@ -41,7 +41,7 @@ export class AIGenerateModal extends WeWriteModal {
       ? t('modal.generate.title_mermaid')
       : t('modal.generate.title_math'));
 
-    contentEl.createEl('div', { text: t('modal.generate.description_label'), cls: 'wewrite-generate-label' });
+    contentEl.createDiv({ text: t('modal.generate.description_label'), cls: 'wewrite-generate-label' });
     this.descEl = contentEl.createEl('textarea', {
       cls: 'wewrite-generate-desc',
       attr: {
@@ -54,7 +54,7 @@ export class AIGenerateModal extends WeWriteModal {
     this.descEl.value = this.initialDescription;
 
     if (this.hasSelection) {
-      contentEl.createEl('div', { text: t('modal.generate.selection_hint'), cls: 'wewrite-generate-hint' });
+      contentEl.createDiv({ text: t('modal.generate.selection_hint'), cls: 'wewrite-generate-hint' });
     }
 
     const topActions = contentEl.createDiv({ cls: 'wewrite-generate-actions' });
@@ -73,7 +73,7 @@ export class AIGenerateModal extends WeWriteModal {
     // Result section (hidden until the first generation).
     this.resultSection = contentEl.createDiv({ cls: 'wewrite-generate-result-section' });
     this.resultSection.style.display = 'none';
-    this.resultSection.createEl('div', { text: t('modal.generate.result'), cls: 'wewrite-generate-label' });
+    this.resultSection.createDiv({ text: t('modal.generate.result'), cls: 'wewrite-generate-label' });
     this.resultEl = this.resultSection.createEl('textarea', { cls: 'wewrite-generate-result', attr: { rows: '8', readonly: 'true', spellcheck: 'false' } });
     const resultActions = this.resultSection.createDiv({ cls: 'wewrite-generate-actions' });
     this.copyBtn = resultActions.createEl('button', { text: t('modal.generate.copy'), cls: 'wewrite-generate-btn' });

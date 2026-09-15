@@ -254,7 +254,7 @@ export class WechatRenderer {
 
             // Prepend: insert before the heading
             if (domTransform.prepend) {
-              const prependSpan = createEl('span');
+              const prependSpan = createSpan();
               prependSpan.innerHTML = domTransform.prepend;
               parent.insertBefore(prependSpan, el);
             }
@@ -271,7 +271,7 @@ export class WechatRenderer {
 
             // Append: insert after the heading (or after wrapper)
             if (domTransform.append) {
-              const appendSpan = createEl('span');
+              const appendSpan = createSpan();
               appendSpan.innerHTML = domTransform.append;
               const refNode = domTransform.wrap
                 ? el.parentNode  // heading is now inside wrapper
@@ -295,7 +295,7 @@ export class WechatRenderer {
           doc.querySelectorAll(level).forEach((el) => {
             counters[level]++;
             const formatted = formatHeadingNumber(counters[level], numberingStyle);
-            const numSpan = createEl('span');
+            const numSpan = createSpan();
             numSpan.setAttribute('style', 'margin-right:0.5em;user-select:none;');
             numSpan.setAttribute('data-wewrite-numbering', 'true');
             numSpan.textContent = formatted;
@@ -351,7 +351,7 @@ export class WechatRenderer {
       const language = codeEl ? getCodeLanguageFromClassList(Array.from(codeEl.classList)) : null;
       const titleBarHtml = r.buildCodeTitleBarHtml(language);
       if (titleBarHtml) {
-        const prependEl = createEl('span');
+        const prependEl = createSpan();
         prependEl.innerHTML = titleBarHtml;
         section.insertBefore(prependEl, el);
       }
@@ -616,7 +616,7 @@ export class WechatRenderer {
       }
       if (toWrap.length === 0) return;
 
-      const wrapper = createEl('span');
+      const wrapper = createSpan();
       wrapper.setAttribute('style', `margin:0;padding:0;line-height:${listLh}`);
       toWrap.forEach((n) => wrapper.appendChild(n));
       if (nestedList) {

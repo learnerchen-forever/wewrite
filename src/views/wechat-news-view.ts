@@ -993,7 +993,7 @@ export class WeChatNewsView extends ItemView {
 
     // Notch only for phones
     if (isPhone) {
-      const notchEl = createEl('div');
+      const notchEl = createDiv();
       notchEl.addClass('wewrite-phone-notch');
       this.previewFrameEl.appendChild(notchEl);
     }
@@ -1330,7 +1330,7 @@ export class WeChatNewsView extends ItemView {
       // Use opacity:0.01 instead of left:-9999px so iOS WebKit (15.x/16.x)
       // keeps the element in its render tree. Off-viewport elements are
       // deprioritized, causing async plugin post-processors to never fire.
-      const tempDiv = createEl('div');
+      const tempDiv = createDiv();
       tempDiv.style.cssText = 'position:fixed;left:0;top:0;width:677px;opacity:0.01;pointer-events:none;z-index:-1';
       // Marker so the finally-block safety net can remove this container even
       // when an exception skips the removeChild below (leak prevention).
@@ -1576,7 +1576,7 @@ export class WeChatNewsView extends ItemView {
     const existing = captions.find(c => c.imageKey === imageKey);
 
     return new Promise((resolve) => {
-      const modalEl = createEl('div');
+      const modalEl = createDiv();
       modalEl.addClass('wewrite-caption-modal');
       modalEl.innerHTML = `
         <div class="wewrite-caption-overlay"></div>
@@ -1627,7 +1627,7 @@ export class WeChatNewsView extends ItemView {
     const existing = dims.find(d => d.imageKey === imageKey);
 
     return new Promise((resolve) => {
-      const modalEl = createEl('div');
+      const modalEl = createDiv();
       modalEl.addClass('wewrite-caption-modal');
       const w = existing?.width ?? '';
       const h = existing?.height ?? '';
@@ -1743,7 +1743,7 @@ export class WeChatNewsView extends ItemView {
         }
 
         // Parse and sanitize the SVG
-        const tmp = createEl('div');
+        const tmp = createDiv();
         tmp.innerHTML = svgBody;
         const svgEl = tmp.firstElementChild;
         if (!svgEl || svgEl.tagName.toLowerCase() !== 'svg') continue;
@@ -1796,7 +1796,7 @@ export class WeChatNewsView extends ItemView {
           svgEl.setAttribute('height', '100%');
         }
 
-        const wrapper = createEl('span');
+        const wrapper = createSpan();
         wrapper.setAttribute('style', `display:inline-block;${svgStyle}`);
 
         // Move the sanitized SVG into the wrapper, replacing the <img>
@@ -2035,7 +2035,7 @@ export class WeChatNewsView extends ItemView {
   private convertCapacitorImageUrls(html: string): string {
     if (!html.includes('_capacitor_file_')) return html;
 
-    const tempDiv = createEl('div');
+    const tempDiv = createDiv();
     tempDiv.innerHTML = html;
     const imgs = tempDiv.querySelectorAll('img');
 
@@ -2219,7 +2219,7 @@ export class WeChatNewsView extends ItemView {
 
     // Scan preview HTML for images. Skip data: URIs, already-uploaded WeChat URLs,
     // SVG references (must be converted to PNG before upload), and empty src attrs.
-    const tempDiv = createEl('div');
+    const tempDiv = createDiv();
     tempDiv.innerHTML = this.renderedHtml;
 
     const SVG_EXT = /\.svg(\?.*)?$/i;
@@ -2673,7 +2673,7 @@ export class WeChatNewsView extends ItemView {
     log.debug('📋 copy content', { len: compressed.length, preview: compressed.slice(0, 500) });
 
     // Extract plain text fallback from the HTML
-    const tempDiv = createEl('div');
+    const tempDiv = createDiv();
     tempDiv.innerHTML = compressed;
     const plainText = tempDiv.textContent || '';
 
@@ -2923,7 +2923,7 @@ class PublishProgressModal {
     this.preScanTasks = preScanTasks;
     this.uploadTasks = uploadTasks;
     this.tasks = uploadTasks;
-    this.modalEl = createEl('div');
+    this.modalEl = createDiv();
     this.modalEl.addClass('wewrite-publish-modal');
     this.modalEl.innerHTML = `
       <div class="wewrite-publish-overlay"></div>
@@ -3402,7 +3402,7 @@ class ImageGenerateDialog {
     const promptVal = savedPrompt || defaultPrompt || t('modal.image_generate_placeholder');
     const sizeVal = savedSize || defaultSize;
 
-    this.modalEl = createEl('div');
+    this.modalEl = createDiv();
     this.modalEl.addClass('wewrite-publish-modal');
     this.modalEl.innerHTML = `
       <div class="wewrite-publish-overlay" style="background:rgba(0,0,0,0.4)"></div>

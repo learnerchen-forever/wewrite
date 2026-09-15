@@ -106,7 +106,7 @@ export class CoverZone {
     this.zoneEl.style.cursor = 'pointer';
 
     // Validity badge (hidden until first update)
-    this.validityBadge = this.zoneEl.createEl('span', {
+    this.validityBadge = this.zoneEl.createSpan({
       cls: 'wewrite-cover-validity-badge',
     });
     this.validityBadge.style.cssText =

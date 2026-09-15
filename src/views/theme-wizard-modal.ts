@@ -182,7 +182,7 @@ export class ThemeWizardModal extends WeWriteModal {
 		previewContainer.style.background = '#f8f9fa';
 		previewContainer.style.borderRadius = '6px';
 
-		previewContainer.createEl('div', { text: t('wizard.hue_judgement', { family: familyLabels[family] || '' }), cls: 'setting-item-description' });
+		previewContainer.createDiv({ text: t('wizard.hue_judgement', { family: familyLabels[family] || '' }), cls: 'setting-item-description' });
 
 		const swatches = [
 			{ label: 'accent', color: palette.accent },
@@ -234,7 +234,7 @@ export class ThemeWizardModal extends WeWriteModal {
 			card.style.cssText = `padding:10px 14px;border:2px solid ${isSelected ? '#0366d6' : '#ddd'};border-radius:6px;cursor:pointer;min-width:120px;text-align:center;transition:border-color 0.15s`;
 			card.createEl('strong', { text: t(preset.nameKey) });
 			const fontName = FONT_FAMILY_OPTIONS.find((f) => f.id === preset.family)?.name || preset.family;
-			card.createEl('div', { text: `${fontName} ${preset.baseSize}px · ${preset.lineHeight}`, cls: 'setting-item-description' });
+			card.createDiv({ text: `${fontName} ${preset.baseSize}px · ${preset.lineHeight}`, cls: 'setting-item-description' });
 			card.addEventListener('click', () => {
 				this.state.family = preset.family;
 				this.state.baseSize = preset.baseSize;
@@ -339,7 +339,7 @@ export class ThemeWizardModal extends WeWriteModal {
 				const isSelected = currentPick === preset.id;
 				card.style.cssText = `padding:8px 12px;border:2px solid ${isSelected ? '#0366d6' : '#ddd'};border-radius:6px;cursor:pointer;min-width:90px;text-align:center;transition:border-color 0.15s`;
 				card.createEl('strong', { text: t(preset.nameKey) });
-				card.createEl('div', { text: t(preset.descKey), cls: 'setting-item-description' });
+				card.createDiv({ text: t(preset.descKey), cls: 'setting-item-description' });
 				card.addEventListener('click', () => {
 					this.state.elementPicks[elemPath] = preset.id;
 					this.renderStep();

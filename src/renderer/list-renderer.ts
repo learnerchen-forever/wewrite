@@ -104,7 +104,7 @@ function renderListElement(
 		.map((li, i) => renderItem(li, i + 1, itemTemplate, params, tokens, nativeMarker || markerNone, markerChar))
 		.join('');
 	const expanded = expandTemplate(rootTemplate, params, tokens).replace('{items}', itemsHtml);
-	const container = createEl('div');
+	const container = createDiv();
 	container.innerHTML = expanded;
 	const root = container.firstElementChild;
 	if (!root) return;
@@ -212,7 +212,7 @@ function makeTaskIconSpan(
 	color: string,
 	checked: boolean,
 ): HTMLElement {
-	const span = createEl('span');
+	const span = createSpan();
 	if (emoji === 'cssSquare' || emoji === 'cssCircle') {
 		const borderW = Math.max(1, Math.round(size / 8));
 		const radius = emoji === 'cssSquare' ? `${Math.round(size / 5)}px` : '50%';
@@ -301,7 +301,7 @@ export function renderTaskLists(doc: Document, r: ThemeResolver): boolean {
 				const sib = next;
 				next = next.nextSibling;
 				if (sib.nodeType === Node.TEXT_NODE) {
-					const wrap = createEl('span');
+					const wrap = createSpan();
 					wrap.setAttribute('style', 'text-decoration:line-through;color:#8b949e');
 					sib.parentNode!.replaceChild(wrap, sib);
 					wrap.appendChild(sib);

@@ -188,7 +188,7 @@ export async function prepareHtmlForWechatClipboard(
   let skipped = 0;
   let result = html;
 
-  const temp = document.createElement('div');
+  const temp = createDiv();
   temp.innerHTML = html;
   const imgs = Array.from(temp.querySelectorAll('img'));
   const seen = new Set<string>();

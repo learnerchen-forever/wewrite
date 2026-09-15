@@ -55,12 +55,12 @@ export class TranslateModal extends WeWriteModal {
     this.titleEl.setText(t('modal.translate.title'));
 
     // Source preview (muted, scrollable).
-    contentEl.createEl('div', { text: t('modal.translate.source'), cls: 'wewrite-translate-label' });
+    contentEl.createDiv({ text: t('modal.translate.source'), cls: 'wewrite-translate-label' });
     const sourceEl = contentEl.createDiv({ cls: 'wewrite-translate-source' });
     sourceEl.setText(this.source);
 
     // Target language.
-    contentEl.createEl('div', { text: t('modal.translate.target_lang'), cls: 'wewrite-translate-label' });
+    contentEl.createDiv({ text: t('modal.translate.target_lang'), cls: 'wewrite-translate-label' });
     this.langSelect = contentEl.createEl('select', { cls: 'wewrite-translate-lang' });
     for (const lang of TRANSLATE_LANGUAGES) {
       const opt = this.langSelect.createEl('option', { text: lang.label, value: lang.value });
@@ -72,7 +72,7 @@ export class TranslateModal extends WeWriteModal {
     this.langSelect.addEventListener('change', () => { if (!this.busy) void this.run(); });
 
     // Result area.
-    contentEl.createEl('div', { text: t('modal.translate.result'), cls: 'wewrite-translate-label' });
+    contentEl.createDiv({ text: t('modal.translate.result'), cls: 'wewrite-translate-label' });
     this.resultEl = contentEl.createDiv({ cls: 'wewrite-translate-result' });
     this.resultEl.setText(t('modal.translate.translating'));
 

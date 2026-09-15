@@ -100,7 +100,7 @@ function applyTypeIcon(
 	let svg: Element | null = titleRow.querySelector('svg');
 
 	if (!svg && iconPaths) {
-		const wrap = createEl('span');
+		const wrap = createSpan();
 		wrap.setAttribute('style', `display:inline-block;width:${size};height:${size};margin-right:0.25em;flex-shrink:0;line-height:0`);
 		wrap.innerHTML =
 			'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" ' +

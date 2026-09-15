@@ -950,7 +950,7 @@ export class WeWriteThemeView extends ItemView {
 			},
 		});
 
-		section.createEl('div', { text: `${familyLabels[family]}`, cls: 'setting-item-description' });
+		section.createDiv({ text: `${familyLabels[family]}`, cls: 'setting-item-description' });
 
 		// Derived palette swatches — click any of them to edit
 		const swatches = section.createDiv();
@@ -1128,7 +1128,7 @@ export class WeWriteThemeView extends ItemView {
 		// Global heading variables
 		const globalBox = section.createDiv();
 		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createEl('div', { text: t('deco_ui.global_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.createDiv({ text: t('deco_ui.global_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		this.renderHeadingDecorationRow(globalBox, 'heading');
 		this.headingParamsContainer = globalBox.createDiv();
@@ -1143,7 +1143,7 @@ export class WeWriteThemeView extends ItemView {
 			const level = `h${i}` as HeadingLevel;
 			const box = section.createDiv();
 			box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-			box.createEl('div', { text: level.toUpperCase(), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+			box.createDiv({ text: level.toUpperCase(), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 			this.renderHeadingLevelRow(box, `heading.${level}`);
 		}
@@ -1220,7 +1220,7 @@ export class WeWriteThemeView extends ItemView {
 			section.children[i].remove();
 		}
 
-		const intro = section.createEl('div', {
+		const intro = section.createDiv({
 			text: t('deco_ui.inline_library_desc'),
 			cls: 'setting-item-description',
 		});
@@ -1254,7 +1254,7 @@ export class WeWriteThemeView extends ItemView {
 		// 装饰器库 selector — which decoration the edit/delete buttons target.
 		const libBox = section.createDiv();
 		libBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		libBox.createEl('div', { text: t('deco_ui.decoration_library'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		libBox.createDiv({ text: t('deco_ui.decoration_library'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 		const libRow = libBox.createDiv();
 		libRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
 		const libSelect = libRow.createEl('select');
@@ -1350,7 +1350,7 @@ export class WeWriteThemeView extends ItemView {
 		);
 		if (Object.keys(decoration.params).length === 0) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -1501,7 +1501,7 @@ export class WeWriteThemeView extends ItemView {
 		// Global blockquote decoration
 		const globalBox = section.createDiv();
 		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createEl('div', { text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		this.renderBlockquoteDecorationRow(globalBox);
 		this.blockquoteParamsContainer = globalBox.createDiv();
@@ -1603,7 +1603,7 @@ export class WeWriteThemeView extends ItemView {
 		);
 		if (Object.keys(decoration.params).length === 0) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -1783,7 +1783,7 @@ export class WeWriteThemeView extends ItemView {
 		// Decoration dropdown + shared params
 		const globalBox = section.createDiv();
 		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createEl('div', { text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 		this.renderCalloutDecorationRow(globalBox);
 		this.calloutParamsContainer = globalBox.createDiv();
 		this.renderCalloutParamsRows();
@@ -1791,7 +1791,7 @@ export class WeWriteThemeView extends ItemView {
 		// Per-type style table (13 types)
 		const typesBox = section.createDiv();
 		typesBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		typesBox.createEl('div', { text: t('deco_ui.callout_type_styles_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		typesBox.createDiv({ text: t('deco_ui.callout_type_styles_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 		this.calloutTypesContainer = typesBox.createDiv();
 		this.renderCalloutTypesRows();
 	}
@@ -1875,7 +1875,7 @@ export class WeWriteThemeView extends ItemView {
 		);
 		if (Object.keys(decoration.params).length === 0) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -2024,7 +2024,7 @@ export class WeWriteThemeView extends ItemView {
 
 		const box = section.createDiv();
 		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		box.createEl('div', { text: t('deco_ui.mermaid_deco_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		box.createDiv({ text: t('deco_ui.mermaid_deco_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		const row = box.createDiv();
 		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
@@ -2062,7 +2062,7 @@ export class WeWriteThemeView extends ItemView {
 		);
 		if (!decoration) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -2111,7 +2111,7 @@ export class WeWriteThemeView extends ItemView {
 
 		const box = section.createDiv();
 		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		box.createEl('div', { text: t('deco_ui.legacy_path_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		box.createDiv({ text: t('deco_ui.legacy_path_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		const row = box.createDiv();
 		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
@@ -2148,7 +2148,7 @@ export class WeWriteThemeView extends ItemView {
 		);
 		if (!decoration) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -2197,7 +2197,7 @@ export class WeWriteThemeView extends ItemView {
 
 		const box = section.createDiv();
 		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		box.createEl('div', { text: t('deco_ui.math_deco_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		box.createDiv({ text: t('deco_ui.math_deco_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		const row = box.createDiv();
 		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
@@ -2234,7 +2234,7 @@ export class WeWriteThemeView extends ItemView {
 		);
 		if (!decoration) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -2283,7 +2283,7 @@ export class WeWriteThemeView extends ItemView {
 
 		const box = section.createDiv();
 		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		box.createEl('div', { text: t('deco_ui.keep_obsidian_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		box.createDiv({ text: t('deco_ui.keep_obsidian_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		const row = box.createDiv();
 		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
@@ -2320,7 +2320,7 @@ export class WeWriteThemeView extends ItemView {
 		);
 		if (!decoration) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -2400,7 +2400,7 @@ export class WeWriteThemeView extends ItemView {
 		// Global table decoration
 		const globalBox = section.createDiv();
 		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createEl('div', { text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		this.renderTableDecorationRow(globalBox);
 		this.tableParamsContainer = globalBox.createDiv();
@@ -2502,7 +2502,7 @@ export class WeWriteThemeView extends ItemView {
 		);
 		if (Object.keys(decoration.params).length === 0) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -2572,7 +2572,7 @@ export class WeWriteThemeView extends ItemView {
 		// Global divider decoration
 		const globalBox = section.createDiv();
 		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createEl('div', { text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		this.renderDividerDecorationRow(globalBox);
 		this.dividerParamsContainer = globalBox.createDiv();
@@ -2674,7 +2674,7 @@ export class WeWriteThemeView extends ItemView {
 		);
 		if (Object.keys(decoration.params).length === 0) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -2809,7 +2809,7 @@ export class WeWriteThemeView extends ItemView {
 
 		const globalBox = section.createDiv();
 		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createEl('div', { text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 		this.renderListKindDecorationRow(globalBox, kind);
 		this.setListKindParamsContainer(kind, globalBox.createDiv());
@@ -2917,7 +2917,7 @@ export class WeWriteThemeView extends ItemView {
 		const { decoration, params } = this.resolveListKindDecoration(kind, decoId, cfg.decorationParams, this.listKindDecorations(kind));
 		if (Object.keys(decoration.params).length === 0) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -3016,7 +3016,7 @@ export class WeWriteThemeView extends ItemView {
 		);
 		if (Object.keys(decoration.params).length === 0) return;
 
-		const title = el.createEl('div', { text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
+		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
 		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
 
 		for (const [key, param] of Object.entries(decoration.params)) {
@@ -3295,7 +3295,7 @@ export class WeWriteThemeView extends ItemView {
 			// Element path label (only show sub-paths like h1, h2)
 			const parts = path.split('.');
 			const labelText = parts.length > 1 ? parts.slice(1).join('.') : path;
-			const pathLabel = slotContainer.createEl('div', { text: labelText, cls: 'setting-item-description' });
+			const pathLabel = slotContainer.createDiv({ text: labelText, cls: 'setting-item-description' });
 			pathLabel.style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
 
 			// Slot dropdowns

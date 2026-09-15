@@ -55,7 +55,7 @@ function renderDividerElement(
 	}
 
 	const expanded = expandTemplate(decoration.template, params, tokens);
-	const container = createEl('div');
+	const container = createDiv();
 	container.innerHTML = expanded;
 	const root = container.firstElementChild;
 	if (!root) {

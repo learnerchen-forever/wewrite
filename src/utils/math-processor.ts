@@ -98,7 +98,7 @@ export async function processMathToSvg(container: HTMLElement, markdown: string)
 		if (!svgString) continue; // invalid LaTeX — leave original CHTML
 
 		// Parse the SVG string to a DOM element for sanitization
-		const tmp = createEl('div');
+		const tmp = createDiv();
 		tmp.innerHTML = svgString;
 		const svgEl = tmp.firstElementChild;
 		if (!svgEl) continue;

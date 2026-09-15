@@ -849,7 +849,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       'border:1px solid var(--text-error)',
       'border-radius:6px', 'font-size:12px', 'line-height:1.7',
     ].join(';');
-    const warnTitle = warnBox.createEl('div');
+    const warnTitle = warnBox.createDiv();
     warnTitle.style.cssText = 'font-weight:700;margin-bottom:4px;';
     warnTitle.setText(t('settings.sync_warn_experimental'));
     const warnList = warnBox.createEl('ul');

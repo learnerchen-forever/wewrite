@@ -174,12 +174,12 @@ function rebuildWithLineNumbers(codeEl: HTMLElement, theme: CodeTheme): void {
 	codeEl.textContent = '';
 
 	lines.forEach((nodes, i) => {
-		const line = createEl('span');
+		const line = createSpan();
 		line.style.display = 'block';
 		line.style.minHeight = '1.6em';
 
 		if (gutterWidth > 0) {
-			const num = createEl('span');
+			const num = createSpan();
 			num.style.cssText =
 				`display:inline-block;width:${gutterWidth}em;padding-right:0.6em;margin-right:0.8em;`
 				+ `border-right:1px solid ${theme.gutterBorder};color:${theme.gutter};`

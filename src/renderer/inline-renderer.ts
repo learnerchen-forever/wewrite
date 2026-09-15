@@ -224,7 +224,7 @@ function renderInlineElement(
 
 	const templateSource = decoration.template.replace(/\{tag\}/g, def.renderTag);
 	const expanded = expandTemplate(templateSource, params, tokens);
-	const container = createEl('div');
+	const container = createDiv();
 	container.innerHTML = expanded;
 	const root = container.firstElementChild;
 	if (!root) {
@@ -242,7 +242,7 @@ function renderInlineElement(
 	if (carrier === container) carrier = root;
 
 	// Move the element content into the text carrier.
-	const contentHost = createEl('div');
+	const contentHost = createDiv();
 	contentHost.innerHTML = (el as HTMLElement).innerHTML;
 	replaceTextPlaceholder(carrier, Array.from(contentHost.childNodes), doc, '{text}');
 

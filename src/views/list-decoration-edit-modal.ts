@@ -81,7 +81,7 @@ export class ListDecorationEditModal extends WeWriteModal {
 		const hint = contentEl.createEl('p', { text: t('deco_edit.list_placeholder_hint'), cls: 'setting-item-description' });
 		hint.style.cssText = 'font-size:var(--ww-deco-param-font,11px);line-height:1.5';
 
-		const rootLabel = contentEl.createEl('div', { text: t('deco_edit.root_template'), cls: 'setting-item-description' });
+		const rootLabel = contentEl.createDiv({ text: t('deco_edit.root_template'), cls: 'setting-item-description' });
 		rootLabel.style.cssText = 'font-size:var(--ww-deco-param-font,11px);margin-top:8px;color:var(--text-faint)';
 		const textarea = contentEl.createEl('textarea', { attr: { rows: '4', spellcheck: 'false' } });
 		textarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:12px;box-sizing:border-box';
@@ -94,7 +94,7 @@ export class ListDecorationEditModal extends WeWriteModal {
 			this.schedulePreview();
 		});
 
-		const itemLabel = contentEl.createEl('div', { text: t('deco_edit.item_template'), cls: 'setting-item-description' });
+		const itemLabel = contentEl.createDiv({ text: t('deco_edit.item_template'), cls: 'setting-item-description' });
 		itemLabel.style.cssText = 'font-size:var(--ww-deco-param-font,11px);margin-top:8px;color:var(--text-faint)';
 		const itemTextarea = contentEl.createEl('textarea', { attr: { rows: '4', spellcheck: 'false' } });
 		itemTextarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:12px;box-sizing:border-box';

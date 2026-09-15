@@ -391,7 +391,7 @@ export class NewsPicPreview {
 
     // Notch for phones
     if (isPhone) {
-      const notchEl = createEl('div');
+      const notchEl = createDiv();
       notchEl.addClass('newspic-phone-notch');
       this.bezelEl.appendChild(notchEl);
     }
