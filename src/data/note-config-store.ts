@@ -143,7 +143,9 @@ export class NoteConfigStore {
           const exists = await this.adapter.exists(oldPath_);
           if (exists) {
             const raw = await this.adapter.read(oldPath_);
-            const config = JSON.parse(raw);
+            // Plugin-owned config file: the shape is known, so assert it here
+            // rather than letting `any` leak out of JSON.parse.
+            const config = JSON.parse(raw) as Record<string, unknown>;
             config.notePath = newPath;
             await this.adapter.write(newPath_, JSON.stringify(config, null, 2));
             await this.adapter.remove(oldPath_);

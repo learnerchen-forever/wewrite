@@ -2,6 +2,7 @@ import type { App, TFile } from 'obsidian';
 import { createLogger } from './logger';
 import { formatHtml } from './html-formatter';
 import { formatTimestamp } from './timestamp';
+import { toDisplayString } from './stringify';
 
 const log = createLogger('DumpService');
 
@@ -176,7 +177,7 @@ export class DumpService {
     if (typeof value === 'object') {
       return JSON.stringify(value).replace(/\|/g, '\\|');
     }
-    return String(value).replace(/\|/g, '\\|').replace(/\n/g, '\\n');
+    return toDisplayString(value).replace(/\|/g, '\\|').replace(/\n/g, '\\n');
   }
 
 

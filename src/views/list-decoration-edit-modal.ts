@@ -8,6 +8,7 @@
 
 import { App, Notice } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
+import { deepClone } from '../utils/deep-clone';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { ListDecoration } from '../core/list-decoration-types';
 import { renderListPreview } from '../renderer/list-renderer';
@@ -47,7 +48,7 @@ export class ListDecorationEditModal extends WeWriteModal {
 		this.itemTemplateValue = options.decoration?.itemTemplate || '';
 		this.nameValue = options.decoration?.name || '';
 		if (options.decoration) {
-			this.params = JSON.parse(JSON.stringify(options.decoration.params));
+			this.params = deepClone(options.decoration.params);
 			// Show the current effective values (theme overrides) instead of
 			// the built-in defaults; a copied decoration inherits them.
 			if (options.initialValues) {

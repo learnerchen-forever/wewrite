@@ -480,7 +480,8 @@ export function headingConfigToFrontmatter(config: HeadingConfig | undefined): R
 	if (shared) {
 		for (const [k, v] of Object.entries(shared)) {
 			if (k === 'decorationParams') {
-				if (v && Object.keys(v).length > 0) out['heading.decorationParams'] = { ...v };
+				const params = v as Record<string, unknown> | undefined;
+				if (params && Object.keys(params).length > 0) out['heading.decorationParams'] = { ...params };
 			} else if (v !== undefined && !isDefaultHeadingValue(k, v)) {
 				out[`heading.${k}`] = v;
 			}
@@ -503,8 +504,9 @@ export function headingConfigToFrontmatter(config: HeadingConfig | undefined): R
 			if (!lvl) continue;
 			for (const [k, v] of Object.entries(lvl)) {
 				if (k === 'decorationParams') {
-					if (v && Object.keys(v).length > 0) {
-						out[`heading.${level}.decorationParams`] = { ...v };
+					const params = v as Record<string, unknown> | undefined;
+					if (params && Object.keys(params).length > 0) {
+						out[`heading.${level}.decorationParams`] = { ...params };
 					}
 				} else if (v !== undefined && !isDefaultHeadingValue(k, v)) {
 					out[`heading.${level}.${k}`] = v;

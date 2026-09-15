@@ -156,7 +156,7 @@ export class TablePasteHtmlModal extends WeWriteModal {
 
 	private buildParts(): TableDecoration['parts'] {
 		const out: TableDecoration['parts'] = {};
-		for (const [part, fragment] of Object.entries(this.parts)) {
+		for (const [part, fragment] of Object.entries(this.parts) as Array<[string, string | undefined]>) {
 			if (!fragment) continue;
 			let t = fragment;
 			for (const [key, active] of Object.entries(this.active)) {

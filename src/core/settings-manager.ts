@@ -7,6 +7,8 @@ import { DEFAULT_SETTINGS, AI_PROVIDER_VALUES, IMAGE_PROVIDER_VALUES } from './i
 import { ALI_MAAS_BASE_URL_TEMPLATE, LEGACY_WANX_2_1_MODEL, WAN_2_6_MODEL } from './image-gen-defaults';
 import { encryptSettingsKeys, decryptSettingsKeys } from '../utils/encryption';
 import { compareVersions } from '../utils/version-utils';
+import { deepClone } from '../utils/deep-clone';
+import { toDisplayString } from '../utils/stringify';
 import { migrateLegacyToV2 } from '../utils/migration';
 
 // ── Zod Schemas ──
@@ -222,7 +224,7 @@ function recoverPartialSettings(
         validItems.push(result.data as unknown as Record<string, unknown>);
       } else {
         const name = (rawArray[i] as Record<string, unknown>)?.name || `item[${i}]`;
-        warnings.push(`Skipped invalid account: ${name}`);
+        warnings.push(`Skipped invalid account: ${toDisplayString(name)}`);
       }
     }
     (settings as unknown as Record<string, unknown>)[key] = validItems;
@@ -293,7 +295,7 @@ export class SettingsManager {
           validItems.push(itemResult.data as unknown as Record<string, unknown>);
         } else {
           const name = (rawArray[i] as Record<string, unknown>)?.name || `item[${i}]`;
-          warnings.push(`Skipped invalid account: ${name}`);
+          warnings.push(`Skipped invalid account: ${toDisplayString(name)}`);
         }
       }
       settingsData[key] = validItems;
@@ -339,7 +341,7 @@ export class SettingsManager {
    * Get a serializable copy of settings (for internal use).
    */
   toJSON(): WeWriteSettings {
-    return JSON.parse(JSON.stringify(this.settings));
+    return deepClone(this.settings);
   }
 
   /**

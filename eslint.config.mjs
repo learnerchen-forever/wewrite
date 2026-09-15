@@ -29,6 +29,11 @@ export default defineConfig([
       "test-results/",
       "playwright-report/",
 
+      // Agent workspace data (project memory, lint reports). Not part of the
+      // shipped plugin and not covered by any tsconfig, so type-aware linting
+      // would report a parser error instead of findings.
+      ".workbuddy/",
+
       // Not part of the shipped plugin, and not covered by `tsconfig.json`
       // (which only includes `src/**/*.ts`). Type-aware linting requires
       // files to belong to a TypeScript project, so linting these would
@@ -46,6 +51,17 @@ export default defineConfig([
   },
 
   ...obsidianmd.configs.recommended,
+
+  {
+    // `WeWrite` is this plugin's own name. The sentence-case rule ships with a
+    // fixed brand list that cannot know it, so without this it insists on
+    // "Wewrite sync" and would have us misspell our own product. `brands` is
+    // the rule's documented extension point for exactly this case; severity is
+    // left at the recommended `warn` and no other rule is touched.
+    rules: {
+      "obsidianmd/ui/sentence-case": ["warn", { brands: ["WeWrite"] }],
+    },
+  },
 
   {
     languageOptions: {

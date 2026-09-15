@@ -19,7 +19,7 @@ export function parseFrontmatter(content: string): Record<string, unknown> | nul
   const block = extractFrontmatterBlock(content);
   if (block === null) return null;
   try {
-    const data = parseYaml(block);
+    const data: unknown = parseYaml(block);
     if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
     return data as Record<string, unknown>;
   } catch {
@@ -36,7 +36,7 @@ export function splitFrontmatter(content: string): { data: Record<string, unknow
   const body = content.slice(m[0].length);
   let data: Record<string, unknown> | null = null;
   try {
-    const d = parseYaml(block);
+    const d: unknown = parseYaml(block);
     if (d && typeof d === 'object' && !Array.isArray(d)) data = d as Record<string, unknown>;
   } catch {
     data = null;

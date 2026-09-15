@@ -57,7 +57,7 @@ export class MaterialManager {
               if (val[i] != null) {
                 const page = Math.floor(i / UI_PAGE_SIZE) + 1;
                 if (!pageMap[page]) pageMap[page] = [];
-                pageMap[page].push(val[i]);
+                pageMap[page].push(val[i] as MaterialItem);
               }
             }
             ac.items[type] = pageMap;

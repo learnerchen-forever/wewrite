@@ -1630,7 +1630,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
   private async importSettingsFile(file: File): Promise<void> {
     try {
       const text = await file.text();
-      const data = JSON.parse(text);
+      const data: unknown = JSON.parse(text);
       const result = await this.plugin.settingsManager.load(data);
       this.plugin.settings = result.settings;
       await this.plugin.saveSettings();

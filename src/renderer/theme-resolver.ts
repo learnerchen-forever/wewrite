@@ -9,6 +9,7 @@ import { buildTokens, onAccentColor } from '../core/token-engine';
 import { getSlotRegistry } from '../core/slot-registry';
 import type { TokenVars } from '../core/slot-types';
 import { resolveMermaidDecoration } from '../core/mermaid-config';
+import { toPrimitiveString } from '../utils/stringify';
 import { BLOCKQUOTE_PLAIN_PADDING_LEFT_PX } from '../core/blockquote-decoration-library';
 import type { MermaidColors } from '../core/mermaid-decoration-types';
 import { generatePalette } from '../core/palette-engine';
@@ -513,11 +514,15 @@ export class ThemeResolver {
 				const slotCss = this.resolveSlotCSS('inline.code');
 				if (slotCss) return slotCss;
 				const code = p.code as Record<string, unknown> | undefined;
-				if (code?.inlineColor || code?.inlineBg) {
+				// Only primitives are usable as CSS values — a structural value here
+				// would emit invalid CSS such as `background: [object Object]`.
+				const bg = toPrimitiveString(code?.inlineBg);
+				const fg = toPrimitiveString(code?.inlineColor);
+				if (bg || fg) {
 					const parts: string[] = [];
-					if (code.inlineBg) parts.push(`background: ${code.inlineBg}`);
-					if (code.inlineColor) parts.push(`color: ${code.inlineColor}`);
-					if (parts.length) return parts.join(';');
+					if (bg) parts.push(`background: ${bg}`);
+					if (fg) parts.push(`color: ${fg}`);
+					return parts.join(';');
 				}
 				return '';
 			}

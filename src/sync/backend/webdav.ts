@@ -43,7 +43,14 @@ export function ensureWebdavPatched(): void {
     (window as unknown as { fetch: typeof fetch }).fetch = async (url: string | URL | Request, init?: RequestInit) => {
       const method = init?.method || 'GET';
       const body = init?.body as string | ArrayBuffer | undefined;
-      const safeUrl: string = typeof url === 'string' ? url : String(url);
+      // `url` can be a string, a URL, or a Request — each exposes the target
+      // address differently. Read it explicitly; stringifying a Request would
+      // yield the useless "[object Request]" and break the call below.
+      const safeUrl: string = typeof url === 'string'
+        ? url
+        : url instanceof URL
+          ? url.href
+          : url.url;
 
       // ── Header transformation (matches remotely-save pattern) ──
       const rawHeaders: Record<string, string> = {};

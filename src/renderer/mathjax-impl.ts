@@ -12,6 +12,7 @@
 // Based on the wewrite_lagacy approach by Sun BooShi (note-to-mp plugin).
 
 import { LiteAdaptor } from 'mathjax-full/js/adaptors/liteAdaptor';
+import type { LiteElement } from 'mathjax-full/js/adaptors/lite/Element';
 import { RegisterHTMLHandler } from 'mathjax-full/js/handlers/html';
 import { TeX } from 'mathjax-full/js/input/tex';
 import { AllPackages } from 'mathjax-full/js/input/tex/AllPackages';
@@ -51,7 +52,7 @@ export function createLatexToSvg(): (math: string, display: boolean) => string {
         ex: 8,
         containerWidth: display ? 677 : 400,
       };
-      const node = mjDoc.convert(math, options);
+      const node = mjDoc.convert(math, options) as LiteElement;
       return adaptor.innerHTML(node);
     } catch (err) {
       // MathJax throws on invalid LaTeX syntax — return empty

@@ -8,7 +8,7 @@
 // Hot-switch: workspace.on('layout-change') polls getLanguage(), fires
 // registered callbacks so views/settings can re-render.
 
-import { getLanguage } from 'obsidian';
+import { getLanguage, requireApiVersion } from 'obsidian';
 import type { Workspace, EventRef } from 'obsidian';
 import enRaw from './en.json';
 import zhCNRaw from './zh-CN.json';
@@ -52,7 +52,7 @@ function loadLocale(lang: string): void {
 
 function notifyListeners(): void {
   for (const cb of changeListeners) {
-    try { cb(); } catch (_e) { /* isolate failures */ }
+    try { cb(); } catch { /* isolate failures */ }
   }
 }
 
@@ -89,12 +89,26 @@ export function onLanguageChange(cb: () => void): () => void {
   };
 }
 
+/**
+ * Read the currently configured app language.
+ *
+ * `getLanguage()` was added in Obsidian 1.8.7, but this plugin declares
+ * minAppVersion 1.6.6. On older builds the imported binding is `undefined`,
+ * so calling it directly would throw during plugin load and take the whole
+ * plugin down. `requireApiVersion` is the guard Obsidian provides for
+ * exactly this case; older builds fall back to English.
+ */
+function detectLanguage(): string {
+  if (requireApiVersion('1.8.7')) return getLanguage();
+  return 'en';
+}
+
 /** One-time init. Pass workspace to enable hot-switch on layout-change. */
 export function initI18n(workspace?: Workspace): void {
   if (initDone) return;
   initDone = true;
 
-  const detected = resolveLang(workspace ? getLanguage() : 'en');
+  const detected = resolveLang(workspace ? detectLanguage() : 'en');
   if (detected !== 'en') loadLocale(detected);
 
   if (workspace) {
@@ -103,7 +117,7 @@ export function initI18n(workspace?: Workspace): void {
     // workspace (resource leak).
     workspaceRef = workspace;
     layoutChangeRef = workspace.on('layout-change', () => {
-      const newLang = resolveLang(getLanguage());
+      const newLang = resolveLang(detectLanguage());
       if (newLang !== currentLang) {
         loadLocale(newLang);
         notifyListeners();

@@ -457,7 +457,7 @@ export class ThemeLoader {
     const block = extractFrontmatterBlock(cleaned);
     if (block === null) return null;
     try {
-      const data = parseYaml(block);
+      const data: unknown = parseYaml(block);
       if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
       return data as Record<string, unknown>;
     } catch (err) {

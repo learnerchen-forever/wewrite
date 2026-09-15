@@ -2,6 +2,8 @@
 // console.debug is suppressed by default in Electron/browser consoles,
 // so boundary logs have zero performance impact during normal operation.
 
+import { toDisplayString } from './stringify';
+
 type LogData = Record<string, unknown> | string | number | undefined;
 
 function fmt(data: LogData): string {
@@ -10,7 +12,7 @@ function fmt(data: LogData): string {
   if (typeof data === 'number') return String(data);
   const entries = Object.entries(data).filter(([, v]) => v !== undefined);
   if (entries.length === 0) return '';
-  return entries.map(([k, v]) => `${k}:${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' | ');
+  return entries.map(([k, v]) => `${k}:${typeof v === 'object' ? JSON.stringify(v) : toDisplayString(v)}`).join(' | ');
 }
 
 export interface Logger {

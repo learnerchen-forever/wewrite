@@ -258,7 +258,7 @@ export async function chatComplete(
     try {
       const response = await requestUrl({ url: request.url, method: 'POST', headers: request.headers, body: request.body });
       const durationMs = Date.now() - start;
-      const json = response.json;
+      const json: unknown = response.json;
       if (response.status >= 200 && response.status < 300) {
         const text = request.extract(json);
         if (text) {

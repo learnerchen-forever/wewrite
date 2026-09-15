@@ -6,6 +6,7 @@
 
 import { App } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
+import { deepClone } from '../utils/deep-clone';
 import type { DecorationParam } from '../core/heading-decoration-types';
 import type { TableDecoration, TableDecorationParts } from '../core/table-decoration-types';
 import { renderTablePreview } from '../renderer/table-renderer';
@@ -68,8 +69,8 @@ export class TableDecorationEditModal extends WeWriteModal {
 		this.options = options;
 		this.nameValue = options.decoration?.name || '';
 		if (options.decoration) {
-			this.params = JSON.parse(JSON.stringify(options.decoration.params));
-			this.parts = JSON.parse(JSON.stringify(options.decoration.parts || {}));
+			this.params = deepClone(options.decoration.params);
+			this.parts = deepClone(options.decoration.parts || {});
 			// Show the current effective values (theme overrides) instead of
 			// the built-in defaults; a copied decoration inherits them.
 			if (options.initialValues) {

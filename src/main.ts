@@ -191,7 +191,7 @@ export default class WeWritePlugin extends Plugin {
     this.addSettingTab(new WeWriteSettingTab(this));
 
     // Sync ribbon icon (always visible, sync runs only when enabled)
-    this.syncRibbonEl = this.addRibbonIcon('wewrite-sync', 'WeWrite Sync', () => {
+    this.syncRibbonEl = this.addRibbonIcon('wewrite-sync', 'WeWrite sync', () => {
       void this.syncNow('manual');
     });
 
@@ -276,7 +276,7 @@ export default class WeWritePlugin extends Plugin {
 
     // Initialize sync engine
     this.syncEngine = new SyncEngine(this.app, this.settings.wewriteFolder, createSyncSettings(() => this.settings));
-    const syncRawData = await this.loadData();
+    const syncRawData: unknown = await this.loadData();
     await this.syncEngine.loadState(syncRawData);
 
     // Initialize sync scheduler
@@ -317,7 +317,7 @@ export default class WeWritePlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    const rawData = await this.loadData();
+    const rawData: unknown = await this.loadData();
     if (rawData && typeof rawData === 'object') {
       const data = rawData as Record<string, unknown>;
       // Material cache loaded lazily when MaterialView opens
@@ -444,7 +444,7 @@ export default class WeWritePlugin extends Plugin {
   /** Load material cache on demand (called by MaterialView on open). */
   async loadMaterialCache(): Promise<void> {
     if (this.materialCacheLoaded) return;
-    const rawData = await this.loadData();
+    const rawData: unknown = await this.loadData();
     if (rawData && typeof rawData === 'object') {
       const data = rawData as Record<string, unknown>;
       if (data.wewrite_material_cache) {

@@ -483,7 +483,11 @@ export class WeChatNewsPicView extends ItemView {
       for (const [accountId, val] of Object.entries(config.imageMediaIds)) {
         if (Array.isArray(val)) {
           const nm: Record<string, string> = {};
-          val.forEach((mid, i) => { if (config.images[i]) nm[config.images[i].vaultPath] = mid; });
+          const ids = val as unknown[];
+          ids.forEach((mid, i) => {
+            const img = config.images[i];
+            if (img && typeof mid === 'string') nm[img.vaultPath] = mid;
+          });
           config.imageMediaIds[accountId] = nm;
         }
       }
@@ -1149,7 +1153,9 @@ export class WeChatNewsPicView extends ItemView {
     let coverInfo: DraftNewsPicArticle['cover_info'] | undefined;
     if (this.config.coverCropPercent) {
       const crops: Array<{ ratio: string; x1: number; y1: number; x2: number; y2: number }> = [];
-      for (const [ratio, coords] of Object.entries(this.config.coverCropPercent)) { if (coords) crops.push({ ratio, ...coords }); }
+      const cropPercents = this.config.coverCropPercent as Record<string,
+        { x1: number; y1: number; x2: number; y2: number } | undefined>;
+      for (const [ratio, coords] of Object.entries(cropPercents)) { if (coords) crops.push({ ratio, ...coords }); }
       if (crops.length > 0) coverInfo = { crop_percent_list: crops };
     }
 

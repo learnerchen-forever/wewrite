@@ -3,6 +3,7 @@
 import type { App } from 'obsidian';
 import { formatTimestamp } from './timestamp';
 import { createLogger } from './logger';
+import { toDisplayString } from './stringify';
 
 const log = createLogger('PublishLogger');
 
@@ -98,7 +99,7 @@ export class PublishLogBuilder {
         for (const [key, value] of Object.entries(this.apiParams)) {
           const displayValue = value === undefined || value === null ? '' :
             typeof value === 'object' ? JSON.stringify(value).replace(/\|/g, '\\|') :
-            String(value).replace(/\|/g, '\\|').replace(/\n/g, '\\n');
+            toDisplayString(value).replace(/\|/g, '\\|').replace(/\n/g, '\\n');
           lines.push(`| ${key} | ${displayValue} |`);
         }
         lines.push('');
@@ -230,7 +231,7 @@ export class PublishLogBuilder {
         for (const [key, value] of Object.entries(resultData)) {
           const displayValue = value === undefined || value === null ? '' :
             typeof value === 'object' ? JSON.stringify(value).replace(/\|/g, '\\|') :
-            String(value).replace(/\|/g, '\\|').replace(/\n/g, '\\n');
+            toDisplayString(value).replace(/\|/g, '\\|').replace(/\n/g, '\\n');
           lines.push(`| ${key} | ${displayValue} |`);
         }
         lines.push('');

@@ -10,6 +10,7 @@ import { getSlotRegistry } from '../core/slot-registry';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { deferImgSrcs, restoreDeferredImgSrcs, hydrateWechatCdnImages } from '../utils/wechat-image-display';
 import { ensureFolderExists } from '../utils/vault-helpers';
+import { deepClone } from '../utils/deep-clone';
 import type { Slot, SlotValue } from '../core/slot-types';
 import { getMathColorValues, getMathScaleValues } from '../core/slot-values';
 import { parseFlatFrontmatter, registerCustomValues, type CustomValueDef } from '../core/frontmatter-parser';
@@ -4020,39 +4021,39 @@ export class WeWriteThemeView extends ItemView {
 
 	private takeSnapshot(): ThemeSnapshot {
 		return {
-			modifierConfig: JSON.parse(JSON.stringify(this.modifierConfig)),
+			modifierConfig: deepClone(this.modifierConfig),
 			paletteAccent: this.paletteAccent,
-			paletteOverrides: JSON.parse(JSON.stringify(this.paletteOverrides)),
+			paletteOverrides: deepClone(this.paletteOverrides),
 			typographyFamily: this.typographyFamily,
 			typographyBaseSize: this.typographyBaseSize,
 			typographyLineHeight: this.typographyLineHeight,
 			typographyLetterSpacing: this.typographyLetterSpacing,
 			themeName: this.themeName,
-			customValues: JSON.parse(JSON.stringify(this.customValues)),
-			headingConfig: JSON.parse(JSON.stringify(this.headingConfig)),
-			headingDecorations: JSON.parse(JSON.stringify(this.headingDecorations)),
-			inlineConfig: JSON.parse(JSON.stringify(this.inlineConfig)),
-			inlineDecorations: JSON.parse(JSON.stringify(this.inlineDecorations)),
-			blockquoteConfig: JSON.parse(JSON.stringify(this.blockquoteConfig)),
-			blockquoteDecorations: JSON.parse(JSON.stringify(this.blockquoteDecorations)),
-			calloutConfig: JSON.parse(JSON.stringify(this.calloutConfig)),
-			calloutDecorations: JSON.parse(JSON.stringify(this.calloutDecorations)),
-			mermaidConfig: JSON.parse(JSON.stringify(this.mermaidConfig)),
-			mermaidDecorations: JSON.parse(JSON.stringify(this.mermaidDecorations)),
-			imageConfig: JSON.parse(JSON.stringify(this.imageConfig)),
-			imageDecorations: JSON.parse(JSON.stringify(this.imageDecorations)),
-			mathConfig: JSON.parse(JSON.stringify(this.mathConfig)),
-			mathDecorations: JSON.parse(JSON.stringify(this.mathDecorations)),
-			excalidrawConfig: JSON.parse(JSON.stringify(this.excalidrawConfig)),
-			excalidrawDecorations: JSON.parse(JSON.stringify(this.excalidrawDecorations)),
-			dividerConfig: JSON.parse(JSON.stringify(this.dividerConfig)),
-			dividerDecorations: JSON.parse(JSON.stringify(this.dividerDecorations)),
-			orderedListConfig: JSON.parse(JSON.stringify(this.orderedListConfig)),
-			orderedDecorations: JSON.parse(JSON.stringify(this.orderedDecorations)),
-			unorderedListConfig: JSON.parse(JSON.stringify(this.unorderedListConfig)),
-			unorderedDecorations: JSON.parse(JSON.stringify(this.unorderedDecorations)),
-			taskListConfig: JSON.parse(JSON.stringify(this.taskListConfig)),
-			taskDecorations: JSON.parse(JSON.stringify(this.taskDecorations)),
+			customValues: deepClone(this.customValues),
+			headingConfig: deepClone(this.headingConfig),
+			headingDecorations: deepClone(this.headingDecorations),
+			inlineConfig: deepClone(this.inlineConfig),
+			inlineDecorations: deepClone(this.inlineDecorations),
+			blockquoteConfig: deepClone(this.blockquoteConfig),
+			blockquoteDecorations: deepClone(this.blockquoteDecorations),
+			calloutConfig: deepClone(this.calloutConfig),
+			calloutDecorations: deepClone(this.calloutDecorations),
+			mermaidConfig: deepClone(this.mermaidConfig),
+			mermaidDecorations: deepClone(this.mermaidDecorations),
+			imageConfig: deepClone(this.imageConfig),
+			imageDecorations: deepClone(this.imageDecorations),
+			mathConfig: deepClone(this.mathConfig),
+			mathDecorations: deepClone(this.mathDecorations),
+			excalidrawConfig: deepClone(this.excalidrawConfig),
+			excalidrawDecorations: deepClone(this.excalidrawDecorations),
+			dividerConfig: deepClone(this.dividerConfig),
+			dividerDecorations: deepClone(this.dividerDecorations),
+			orderedListConfig: deepClone(this.orderedListConfig),
+			orderedDecorations: deepClone(this.orderedDecorations),
+			unorderedListConfig: deepClone(this.unorderedListConfig),
+			unorderedDecorations: deepClone(this.unorderedDecorations),
+			taskListConfig: deepClone(this.taskListConfig),
+			taskDecorations: deepClone(this.taskDecorations),
 		};
 	}
 

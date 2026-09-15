@@ -1,4 +1,5 @@
 import { getSlotRegistry } from './slot-registry';
+import { toPrimitiveString } from '../utils/stringify';
 import { getModifierRegistry } from './modifier-registry';
 
 export type SlotConfig = Record<string, Record<string, string>>;
@@ -118,13 +119,19 @@ function extractCustomValues(
 		for (const def of defs) {
 			const d = def as Record<string, unknown> | null;
 			if (!d?.id || !d?.name || !d?.css) continue;
+			// Config/CSS values: keep primitives (YAML turns `id: 3` into a number)
+			// and skip anything structural instead of emitting "[object Object]".
+			const id = toPrimitiveString(d.id);
+			const name = toPrimitiveString(d.name);
+			const css = toPrimitiveString(d.css);
+			if (!id || !name || !css) continue;
 			out.push({
 				elementPath, slotId,
 				value: {
-					id: String(d.id),
-					name: String(d.name),
-					css: String(d.css),
-					description: d.description ? String(d.description) : undefined,
+					id,
+					name,
+					css,
+					description: d.description ? toPrimitiveString(d.description) : undefined,
 				},
 			});
 		}

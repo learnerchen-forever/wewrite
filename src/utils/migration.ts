@@ -135,9 +135,9 @@ export async function detectLegacySettings(): Promise<LegacySettings | null> {
       try {
         const value = window.localStorage.getItem(key);
         if (value) {
-          const parsed = JSON.parse(value);
+          const parsed = JSON.parse(value) as LegacySettings | null;
           if (parsed && (parsed.mpAccounts || parsed.chatAccounts || parsed.drawAccounts)) {
-            return parsed as LegacySettings;
+            return parsed;
           }
         }
       } catch {
