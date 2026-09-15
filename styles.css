@@ -3294,3 +3294,130 @@ select.wewrite-font-select {
   width: 800px;
 }
 
+/* ── Article background-pattern CSS modal — views/article-pattern-css-modal.ts ──
+   Previously assigned inline (element.style.cssText). Values are unchanged;
+   only relocated. Scoped under the modal class (2 classes) so the monospace
+   <pre> and the raw <textarea> keep winning over Obsidian's own pre and
+   form-element rules, exactly as the inline styles did. */
+.wewrite-paste-html-modal .wewrite-pattern-example {
+  font-family: var(--font-monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 8px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 8px 0 0;
+}
+.wewrite-paste-html-modal .wewrite-pattern-textarea {
+  width: 100%;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  box-sizing: border-box;
+  margin-top: 8px;
+}
+.wewrite-paste-html-modal .wewrite-pattern-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.wewrite-paste-html-modal .wewrite-pattern-name-input {
+  flex: 1;
+}
+.wewrite-paste-html-modal .wewrite-pattern-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* ── Paste-HTML extraction modals — views/*-paste-html-modal.ts ──
+   Previously assigned inline (element.style.cssText / element.style.<prop>),
+   which the community lint flags. Values are copied verbatim; only the
+   location changed. Scoped under the shared modal class (2 classes) so these
+   keep beating Obsidian's own form-element rules — and the mobile
+   `body .wewrite-paste-html-modal …` overrides in the media query above —
+   exactly as the inline styles did. */
+.wewrite-paste-html-modal .wewrite-paste-code-input {
+  width: 100%;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  box-sizing: border-box;
+}
+.wewrite-paste-html-modal .wewrite-paste-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.wewrite-paste-html-modal .wewrite-paste-name-input {
+  flex: 1;
+}
+/* Param-toggle chips: hidden until the pasted HTML yields {{params}}. */
+.wewrite-paste-html-modal .wewrite-paste-chips {
+  display: none;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.wewrite-paste-html-modal .wewrite-paste-chips.is-shown {
+  display: flex;
+}
+.wewrite-paste-html-modal .wewrite-paste-preview-title {
+  display: none;
+  margin: 12px 0 6px;
+  font-size: 13px;
+}
+.wewrite-paste-html-modal .wewrite-paste-preview-title.is-shown {
+  display: block;
+}
+/* Preview box: WeChat article content is always rendered on white, so the
+   fixed white/ink colours stay hardcoded here (they were inline before). */
+.wewrite-paste-html-modal .wewrite-paste-preview-box {
+  display: none;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 8px;
+  background: #ffffff;
+  color: #333333;
+  min-height: 40px;
+}
+.wewrite-paste-html-modal .wewrite-paste-preview-box.is-shown {
+  display: block;
+}
+.wewrite-paste-html-modal .wewrite-paste-preview-box.wewrite-paste-preview-tall {
+  min-height: 60px;
+}
+.wewrite-paste-html-modal .wewrite-paste-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.wewrite-paste-html-modal .wewrite-paste-param-label {
+  font-size: var(--ww-deco-param-font, 11px);
+  align-self: center;
+}
+.wewrite-paste-html-modal .wewrite-paste-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 6px 2px 0;
+  font-size: var(--ww-deco-param-font, 11px);
+  padding: var(--ww-deco-param-pad, 2px 8px);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.wewrite-paste-html-modal .wewrite-paste-chip-key {
+  font-family: var(--font-monospace);
+}
+/* Generic paste-HTML modal (views/paste-html-modal.ts): its preview container
+   only toggles display. */
+.wewrite-paste-html-modal .wewrite-paste-preview {
+  display: none;
+}
+.wewrite-paste-html-modal .wewrite-paste-preview.is-shown {
+  display: block;
+}

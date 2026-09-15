@@ -37,22 +37,25 @@ export class ArticlePatternCssModal extends WeWriteModal {
 			cls: 'setting-item-description',
 		});
 
-		const exampleEl = contentEl.createEl('pre');
-		exampleEl.style.cssText = 'font-family:var(--font-monospace);font-size:11px;line-height:1.5;padding:8px;background:var(--background-secondary);border-radius:4px;white-space:pre-wrap;word-break:break-all;margin:8px 0 0';
+		const exampleEl = contentEl.createEl('pre', { cls: 'wewrite-pattern-example' });
 		exampleEl.setText(this.example);
 
-		const textarea = contentEl.createEl('textarea', { attr: { rows: '8', spellcheck: 'false' } });
-		textarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:12px;box-sizing:border-box;margin-top:8px';
+		const textarea = contentEl.createEl('textarea', {
+			attr: { rows: '8', spellcheck: 'false' },
+			cls: 'wewrite-pattern-textarea',
+		});
 		textarea.value = this.initialCss || this.example;
 
-		const nameWrap = contentEl.createDiv();
-		nameWrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:10px';
+		const nameWrap = contentEl.createDiv({ cls: 'wewrite-pattern-name-row' });
 		nameWrap.createSpan({ text: t('pattern_modal.name_label'), cls: 'setting-item-description' });
-		const nameInput = nameWrap.createEl('input', { type: 'text', value: t('pattern_modal.name_default'), placeholder: t('pattern_modal.name_example') });
-		nameInput.style.flex = '1';
+		const nameInput = nameWrap.createEl('input', {
+			type: 'text',
+			value: t('pattern_modal.name_default'),
+			placeholder: t('pattern_modal.name_example'),
+			cls: 'wewrite-pattern-name-input',
+		});
 
-		const btnRow = contentEl.createDiv();
-		btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:16px';
+		const btnRow = contentEl.createDiv({ cls: 'wewrite-pattern-actions' });
 		btnRow.createEl('button', { text: t('pattern_modal.fill_example') }).addEventListener('click', () => {
 			textarea.value = this.example;
 		});

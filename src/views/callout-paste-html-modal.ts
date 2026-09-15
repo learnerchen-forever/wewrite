@@ -52,21 +52,21 @@ export class CalloutPasteHtmlModal extends WeWriteModal {
 				spellcheck: 'false',
 			},
 		});
-		textarea.style.cssText = 'width:100%;font-family:var(--font-monospace);font-size:12px;box-sizing:border-box';
+		textarea.addClass('wewrite-paste-code-input');
 
 		const nameWrap = contentEl.createDiv();
-		nameWrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:10px';
+		nameWrap.addClass('wewrite-paste-name-row');
 		nameWrap.createSpan({ text: t('paste.name_label'), cls: 'setting-item-description' });
 		const nameInput = nameWrap.createEl('input', { type: 'text', placeholder: t("paste.name_placeholder_callout") });
-		nameInput.style.flex = '1';
+		nameInput.addClass('wewrite-paste-name-input');
 		nameInput.addEventListener('input', () => {
 			this.nameValue = nameInput.value;
 		});
 
 		const previewTitle = contentEl.createEl('h4', { text: t('paste.preview_label'), cls: 'setting-item-description' });
-		previewTitle.style.cssText = 'margin:12px 0 6px;font-size:13px;display:none';
+		previewTitle.addClass('wewrite-paste-preview-title');
 		this.previewEl = contentEl.createDiv();
-		this.previewEl.style.cssText = 'border:1px solid var(--background-modifier-border);border-radius:4px;padding:8px;background:#ffffff;color:#333333;min-height:40px;display:none';
+		this.previewEl.addClass('wewrite-paste-preview-box');
 
 		let parseTimeout: number;
 		textarea.addEventListener('input', () => {
@@ -75,7 +75,7 @@ export class CalloutPasteHtmlModal extends WeWriteModal {
 		});
 
 		const btnRow = contentEl.createDiv();
-		btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:16px';
+		btnRow.addClass('wewrite-paste-buttons');
 		btnRow.createEl('button', { text: t('misc.cancel') }).addEventListener('click', () => this.close());
 		btnRow.createEl('button', { text: t('paste.create_decoration'), cls: 'mod-cta' }).addEventListener('click', () => {
 			if (!this.extraction) {
@@ -95,23 +95,23 @@ export class CalloutPasteHtmlModal extends WeWriteModal {
 		const previewTitle = this.previewEl?.previousElementSibling as HTMLElement | null;
 		if (!html.trim()) {
 			this.extraction = null;
-			if (this.previewEl) this.previewEl.style.display = 'none';
-			if (previewTitle) previewTitle.style.display = 'none';
+			if (this.previewEl) this.previewEl.removeClass('is-shown');
+			if (previewTitle) previewTitle.removeClass('is-shown');
 			return;
 		}
 
 		const extracted = extractCalloutFromHtml(html);
 		if (!extracted) {
 			this.extraction = null;
-			if (this.previewEl) this.previewEl.style.display = 'none';
-			if (previewTitle) previewTitle.style.display = 'none';
+			if (this.previewEl) this.previewEl.removeClass('is-shown');
+			if (previewTitle) previewTitle.removeClass('is-shown');
 			new Notice(t("paste.err_callout"));
 			return;
 		}
 
 		this.extraction = extracted;
 		if (!this.nameValue) this.nameValue = extracted.name;
-		if (previewTitle) previewTitle.style.display = '';
+		if (previewTitle) previewTitle.addClass('is-shown');
 		if (this.previewEl) {
 			const sampleType = extracted.type;
 			const sampleTitle = extracted.name.replace(/标注$/, '') || 'Note';
@@ -120,7 +120,7 @@ export class CalloutPasteHtmlModal extends WeWriteModal {
 				extracted.decoration,
 				buildCalloutPreviewSample(sampleType, sampleTitle),
 			));
-			this.previewEl.style.display = '';
+			this.previewEl.addClass('is-shown');
 		}
 	}
 }

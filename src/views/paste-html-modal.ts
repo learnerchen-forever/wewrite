@@ -61,7 +61,7 @@ export class PasteHtmlModal extends WeWriteModal {
 
 		// Preview area
 		const previewContainer = contentEl.createDiv({ cls: 'wewrite-paste-preview' });
-		previewContainer.style.display = 'none';
+		previewContainer.removeClass('is-shown');
 
 		// Auto-parse on input (debounced)
 		let parseTimeout: number;
@@ -70,7 +70,7 @@ export class PasteHtmlModal extends WeWriteModal {
 			parseTimeout = window.setTimeout(() => {
 				const html = textarea.value.trim();
 				if (!html) {
-					previewContainer.style.display = 'none';
+					previewContainer.removeClass('is-shown');
 					return;
 				}
 				const extracted = this.extractFromHtml(html);
@@ -80,10 +80,6 @@ export class PasteHtmlModal extends WeWriteModal {
 
 		// Buttons
 		const buttonContainer = contentEl.createDiv({ cls: 'wewrite-paste-buttons' });
-		buttonContainer.style.marginTop = '16px';
-		buttonContainer.style.display = 'flex';
-		buttonContainer.style.gap = '8px';
-		buttonContainer.style.justifyContent = 'flex-end';
 
 		const cancelBtn = buttonContainer.createEl('button', { text: t('misc.cancel') });
 		cancelBtn.addEventListener('click', () => {
@@ -187,7 +183,7 @@ export class PasteHtmlModal extends WeWriteModal {
 	}
 
 	private showPreview(container: HTMLElement, extracted: { css: string; prepend?: string; hasChildren: boolean }): void {
-		container.style.display = 'block';
+		container.addClass('is-shown');
 		container.empty();
 
 		container.createEl('h4', { text: t("paste.extract_preview") });
