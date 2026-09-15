@@ -8,6 +8,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This file is the single source of truth for release notes: the GitHub Release body and the
 in-plugin **What's New** dialog are both generated from it by `npm run changelog`.
 
+## [2.0.20](https://github.com/learnerchen-forever/wewrite/releases/tag/2.0.20) - 2026-09-15
+
+### 🐛 Fixes
+- **settings**: Deleting a WeChat, AI text or AI image account now asks for confirmation first, so an account's settings can no longer be removed by a single mis-tap.
+- The plugin loads again on Obsidian 1.6.6 to 1.8.6. Language detection used an API that only exists from 1.8.7, so on older builds the plugin could fail to load on startup; it now falls back to English there.
+- **settings**: On tablets in portrait (and in any narrow settings pane), the settings tab now uses the compact phone layout instead of squeezing the desktop one into a ~300px column, so rows, inputs and the delete button no longer overlap or drift to the middle.
+- **settings**: The settings pane keeps its scroll position when you add or remove a WeChat account, instead of jumping back to the top.
+
+### ⚡ Performance
+- **publish**: Rendering and publishing an article no longer re-reads and re-hashes the same images, so the preview and the upload step finish noticeably faster, especially on mobile.
+
 ## [2.0.19](https://github.com/learnerchen-forever/wewrite/releases/tag/2.0.19) - 2026-09-13
 
 ### ✨ Features
