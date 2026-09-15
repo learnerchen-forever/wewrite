@@ -16,6 +16,7 @@ import { createLogger } from '../utils/logger';
 import { encryptValue } from '../utils/encryption';
 import { t, onLanguageChange } from '../i18n';
 import { WECHAT_ACCOUNT_HELP_IMAGE } from './settings-help-image';
+import { ACCOUNT_CARD_ATTR, ScrollKeeper } from './settings-scroll-keeper';
 import { VIEW_TYPE_WECHAT_NEWS, WeChatNewsView } from './wechat-news-view';
 import { VIEW_TYPE_WECHAT_NEWSPIC } from './wechat-newspic-view';
 import { VIEW_TYPE_WEWRITE_THEME } from './wewrite-theme-view';
@@ -135,17 +136,70 @@ export class WeWriteSettingTab extends PluginSettingTab {
   private _serverInfoEl?: HTMLElement;
   /** Declarative server-info row renderer, kept so sync callbacks can refresh it. */
   private _renderServerInfo?: (quota: ServerQuotaInfo | null | undefined) => void;
+  /** Keeps the pane's scroll position across a DOM rebuild (see module doc). */
+  private readonly _scrollKeeper: ScrollKeeper;
 
   constructor(plugin: WeWritePlugin) {
     super(plugin.app, plugin);
     this.plugin = plugin;
+    this._scrollKeeper = new ScrollKeeper(
+      () => this.containerEl ?? null,
+      () => this.containerEl?.ownerDocument ?? window.document,
+    );
   }
 
   /** PluginSettingTab#display() is typed void; Obsidian calls it to (re)build
    *  the pane. The heavy rendering is async, so delegate to a private method
    *  and keep the override's void contract. */
   display(): void {
-    void this.renderTab();
+    // On Obsidian 1.13+ this path is not used for accounts (display() is never
+    // called once getSettingDefinitions() returns items), but it is still the
+    // render path on older versions.
+    this._scrollKeeper.capture();
+    try {
+      void this.renderTab();
+    } finally {
+      this._scrollKeeper.restoreSync();
+    }
+  }
+
+  /**
+   * Reveal (and focus) a freshly added account card once the rebuilt DOM has
+   * been laid out — or, when the settings window is hidden and rAF never fires,
+   * after a short delay.
+   */
+  private deferRevealCard(accountId: string): void {
+    const keeper = this._scrollKeeper;
+    const run = () => keeper.revealCard(accountId);
+    const container = this.containerEl as HTMLElement | undefined;
+    const hidden = typeof container?.isShown === 'function' && !container.isShown();
+    if (hidden || typeof window.requestAnimationFrame !== 'function') {
+      window.setTimeout(run, 0);
+      return;
+    }
+    window.requestAnimationFrame(() => window.requestAnimationFrame(run));
+  }
+
+  /** First row of an account card — how a card is found again after a rebuild. */
+  private markAccountCard(card: HTMLElement, accountId: string): void {
+    card.setAttribute(ACCOUNT_CARD_ATTR, accountId);
+  }
+
+  /**
+   * Rebuild the pane for an account add/remove without moving the viewport.
+   *
+   * Both operations are "nothing moves": the list simply gains or loses a card
+   * in place. A newly added card is then revealed and its first parameter field
+   * focused, but only if it landed outside the viewport.
+   */
+  private accountListChanged(addedAccountId?: string): void {
+    this._scrollKeeper.capture();
+    try {
+      this.rerender();
+    } finally {
+      this._scrollKeeper.restoreSync();
+    }
+    if (addedAccountId) this.deferRevealCard(addedAccountId);
   }
 
   async renderTab(): Promise<void> {
@@ -157,12 +211,9 @@ export class WeWriteSettingTab extends PluginSettingTab {
     }
     this.plugin.syncEngine?.onProgress(null);
 
-    // Preserve scroll position across rebuild so the user stays looking at
-    // the section they were editing (add/remove account, change provider, etc.)
-    const scrollAncestor = this.findScrollAncestor();
-    const savedScrollRatio = scrollAncestor && scrollAncestor.scrollHeight > 0
-      ? scrollAncestor.scrollTop / scrollAncestor.scrollHeight
-      : null;
+    // The DOM is about to be replaced — hold the pane's scroll offset so the
+    // user keeps looking at the same place after the rebuild.
+    this._scrollKeeper.capture();
     // Capture collapse state before rebuild so user's expand/collapse choices survive save
     const savedStates = this.captureCollapseState();
     containerEl.empty();
@@ -445,6 +496,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       const card = wechatBody.createDiv({
         cls: `wewrite-account-row${isActive ? ' wewrite-account-active' : ''}`,
       });
+      this.markAccountCard(card, account.id);
 
       // Active badge
       if (isActive) {
@@ -514,18 +566,19 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeWeChatAccountId = settings.wechatAccounts[0]?.id || '';
           }
           this.save();
-          this.rerender();
+          this.accountListChanged();
         }),
       );
     }
 
     new Setting(wechatBody).addButton((btn) =>
       buttonWithIcon(btn, 'plus', t('settings.add_wechat_account')).onClick(() => {
-        settings.wechatAccounts.push({
+        const added = {
           id: generateId(), name: t('settings.new_account'), appId: '', appSecret: '',
-        });
+        };
+        settings.wechatAccounts.push(added);
         this.save();
-        this.rerender();
+        this.accountListChanged(added.id);
       }),
     );
 
@@ -536,6 +589,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       const card = aiTextBody.createDiv({
         cls: `wewrite-account-row${isActive ? ' wewrite-account-active' : ''}`,
       });
+      this.markAccountCard(card, account.id);
 
       if (isActive) {
         const badge = card.createSpan({ cls: 'wewrite-active-badge', text: t('settings.active') });
@@ -612,19 +666,20 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeAITextAccountId = settings.aiTextAccounts[0]?.id || '';
           }
           this.save();
-          this.rerender();
+          this.accountListChanged();
         }),
       );
     }
 
     new Setting(aiTextBody).addButton((btn) =>
       buttonWithIcon(btn, 'plus', t('settings.add_ai_text_provider')).onClick(() => {
-        settings.aiTextAccounts.push({
-          id: generateId(), name: t('settings.new_provider'), provider: 'openai-compatible',
+        const added = {
+          id: generateId(), name: t('settings.new_provider'), provider: 'openai-compatible' as const,
           baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o',
-        });
+        };
+        settings.aiTextAccounts.push(added);
         this.save();
-        this.rerender();
+        this.accountListChanged(added.id);
       }),
     );
 
@@ -635,6 +690,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       const card = aiImageBody.createDiv({
         cls: `wewrite-account-row${isActive ? ' wewrite-account-active' : ''}`,
       });
+      this.markAccountCard(card, account.id);
 
       if (isActive) {
         const badge = card.createSpan({ cls: 'wewrite-active-badge', text: t('settings.active') });
@@ -746,7 +802,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeAIImageGenAccountId = settings.aiImageGenAccounts[0]?.id || '';
           }
           this.save();
-          this.rerender();
+          this.accountListChanged();
         }),
       );
     }
@@ -754,13 +810,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
     new Setting(aiImageBody).addButton((btn) =>
       buttonWithIcon(btn, 'plus', t('settings.add_ai_image_provider')).onClick(() => {
         const defs = IMAGE_PROVIDER_DEFAULTS.dashscope;
-        settings.aiImageGenAccounts.push({
-          id: generateId(), name: t('settings.new_provider'), provider: 'dashscope',
+        const added = {
+          id: generateId(), name: t('settings.new_provider'), provider: 'dashscope' as const,
           baseUrl: defs.baseUrl, workspaceId: '', apiKey: '',
           model: defs.model, defaultSize: defs.defaultSize,
-        });
+        };
+        settings.aiImageGenAccounts.push(added);
         this.save();
-        this.rerender();
+        this.accountListChanged(added.id);
       }),
     );
 
@@ -1305,16 +1362,8 @@ export class WeWriteSettingTab extends PluginSettingTab {
     // Restore collapse state so user-expanded sections stay expanded
     this.restoreCollapseState(savedStates);
 
-    // Restore scroll position so user stays at the section they were editing.
-    // Double rAF ensures the browser has completed layout after the DOM rebuild.
-    // Proportional ratio handles content height changes from add/remove account.
-    if (scrollAncestor && savedScrollRatio !== null) {
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          scrollAncestor.scrollTop = savedScrollRatio * scrollAncestor.scrollHeight;
-        });
-      });
-    }
+    // Put the scroll offset back — the rebuild emptied the pane, which reset it.
+    this._scrollKeeper.restoreSync();
 
     // Unsubscribe previous listener to prevent compounding leaks on re-display
     this._langUnsub?.();
@@ -1383,18 +1432,6 @@ export class WeWriteSettingTab extends PluginSettingTab {
     } catch {
       return null;
     }
-  }
-
-  /** Find the nearest scrollable ancestor so we can preserve scroll position. */
-  private findScrollAncestor(): HTMLElement | null {
-    let el: HTMLElement | null = this.containerEl.parentElement;
-    while (el) {
-      const style = window.getComputedStyle(el);
-      const overflowY = style.overflowY;
-      if (overflowY === 'auto' || overflowY === 'scroll') return el;
-      el = el.parentElement;
-    }
-    return null;
   }
 
   /**
@@ -2240,6 +2277,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         name: t('settings.account_name'),
         aliases: [account.name],
         render: (setting) => {
+          this.markAccountCard(setting.settingEl, account.id);
           setting.addText((text) =>
             text.setValue(account.name).onChange((v) => { account.name = v; this.save(); }),
           );
@@ -2309,7 +2347,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeWeChatAccountId = settings.wechatAccounts[0]?.id || '';
           }
           this.save();
-          this.rerender();
+          this.accountListChanged();
         },
       });
     }
@@ -2317,11 +2355,12 @@ export class WeWriteSettingTab extends PluginSettingTab {
     defs.push({
       name: t('settings.add_wechat_account'),
       action: () => {
-        settings.wechatAccounts.push({
+        const added = {
           id: generateId(), name: t('settings.new_account'), appId: '', appSecret: '',
-        });
+        };
+        settings.wechatAccounts.push(added);
         this.save();
-        this.rerender();
+        this.accountListChanged(added.id);
       },
     });
     return defs;
@@ -2348,6 +2387,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         name: t('settings.name'),
         aliases: alias,
         render: (setting) => {
+          this.markAccountCard(setting.settingEl, account.id);
           setting.addText((text) =>
             text.setValue(account.name).onChange((v) => { account.name = v; this.save(); }),
           );
@@ -2441,19 +2481,20 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeAITextAccountId = settings.aiTextAccounts[0]?.id || '';
           }
           this.save();
-          this.rerender();
+          this.accountListChanged();
         },
       });
     }
     defs.push({
       name: t('settings.add_ai_text_provider'),
       action: () => {
-        settings.aiTextAccounts.push({
-          id: generateId(), name: t('settings.new_provider'), provider: 'openai-compatible',
+        const added = {
+          id: generateId(), name: t('settings.new_provider'), provider: 'openai-compatible' as const,
           baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o',
-        });
+        };
+        settings.aiTextAccounts.push(added);
         this.save();
-        this.rerender();
+        this.accountListChanged(added.id);
       },
     });
     return defs;
@@ -2469,6 +2510,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
         name: t('settings.name'),
         aliases: alias,
         render: (setting) => {
+          this.markAccountCard(setting.settingEl, account.id);
           setting.addText((text) =>
             text.setValue(account.name).onChange((v) => { account.name = v; this.save(); }),
           );
@@ -2602,7 +2644,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             settings.activeAIImageGenAccountId = settings.aiImageGenAccounts[0]?.id || '';
           }
           this.save();
-          this.rerender();
+          this.accountListChanged();
         },
       });
     }
@@ -2610,13 +2652,14 @@ export class WeWriteSettingTab extends PluginSettingTab {
       name: t('settings.add_ai_image_provider'),
       action: () => {
         const def = IMAGE_PROVIDER_DEFAULTS.dashscope;
-        settings.aiImageGenAccounts.push({
-          id: generateId(), name: t('settings.new_provider'), provider: 'dashscope',
+        const added = {
+          id: generateId(), name: t('settings.new_provider'), provider: 'dashscope' as const,
           baseUrl: def.baseUrl, workspaceId: '', apiKey: '',
           model: def.model, defaultSize: def.defaultSize,
-        });
+        };
+        settings.aiImageGenAccounts.push(added);
         this.save();
-        this.rerender();
+        this.accountListChanged(added.id);
       },
     });
     return defs;
