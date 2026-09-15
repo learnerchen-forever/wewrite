@@ -3247,8 +3247,11 @@ body .wewrite-cp-field input { flex: 1; min-width: 0; height: 32px; padding: 0 8
     --ww-theme-section-header-margin: -6px -8px 6px;
   }
   /* Section internals: let flex rows wrap instead of overflowing, and give
-     every control room to shrink. */
-  .wewrite-theme-view .wewrite-theme-section [style*="display:flex"] { flex-wrap: wrap; }
+     every control room to shrink. Rows migrated to CSS classes carry
+     .wewrite-theme-wraprow; the attribute selector is kept for rows whose
+     display:flex is still written inline (e.g. the code-theme swatch). */
+  .wewrite-theme-view .wewrite-theme-section [style*="display:flex"],
+  .wewrite-theme-view .wewrite-theme-section .wewrite-theme-wraprow { flex-wrap: wrap; }
   .wewrite-theme-view .wewrite-theme-section input[type="text"],
   .wewrite-theme-view .wewrite-theme-section input[type="number"],
   .wewrite-theme-view .wewrite-theme-section select { min-width: 0; }
@@ -4107,3 +4110,224 @@ select.wewrite-font-select {
   font-size: 13px;
   font-weight: 600;
 }
+
+/* ── Theme editor view — wewrite-theme-view.ts ──
+   Same relocation as above: every value is copied verbatim from the inline
+   styles that used to be assigned in the view module. The --ww-theme-* tokens
+   are still set by the responsive rules above; consuming them from a class
+   cascades identically to consuming them inline. */
+.wewrite-theme-view .wewrite-theme-split {
+  display: flex; flex: var(--ww-theme-split-flex, 1);
+  overflow: var(--ww-theme-split-overflow, hidden);
+  min-height: 0; flex-wrap: var(--ww-theme-split-wrap, nowrap);
+}
+.wewrite-theme-view .wewrite-theme-editor-panel {
+  flex: var(--ww-theme-panel-flex, 1); overflow-y: auto;
+  padding: var(--ww-theme-editor-pad, 12px);
+  min-width: var(--ww-theme-panel-minw, 280px); min-height: 0;
+}
+.wewrite-theme-view .wewrite-theme-splitter {
+  width: 5px; cursor: col-resize; flex-shrink: 0;
+  background: var(--background-modifier-border); touch-action: none;
+}
+.wewrite-theme-view .wewrite-theme-splitter.is-dragging {
+  background: var(--interactive-accent);
+}
+.wewrite-theme-view .wewrite-theme-preview-panel {
+  flex: var(--ww-theme-panel-flex, 1); display: flex; flex-direction: column;
+  min-width: var(--ww-theme-panel-minw, 300px); min-height: 0;
+  border-left: var(--ww-theme-preview-border-left, 1px solid var(--background-modifier-border));
+}
+.wewrite-theme-view .wewrite-theme-preview-toolbar {
+  display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+  border-bottom: 1px solid var(--background-modifier-border); flex-shrink: 0;
+}
+.wewrite-theme-view .wewrite-theme-preview-content {
+  flex: 1; overflow-y: auto; padding: 16px; min-height: 0;
+}
+.wewrite-theme-view .wewrite-theme-preview-scaled { transform-origin: top left; }
+
+/* Section chrome */
+.wewrite-theme-view .wewrite-theme-section {
+  margin-bottom: var(--ww-theme-section-mb, 10px);
+  padding: var(--ww-theme-section-pad, 8px 10px);
+  border: var(--ww-theme-section-border, 1px solid var(--background-modifier-border));
+  border-radius: var(--ww-theme-section-radius, 8px);
+}
+.wewrite-theme-view .wewrite-theme-section-header {
+  display: flex; align-items: center; gap: 6px;
+  margin: var(--ww-theme-section-header-margin, -8px -10px 8px);
+  padding: var(--ww-theme-section-header-pad, 8px 10px);
+  min-height: var(--ww-theme-section-header-minh, 0);
+  font-size: 13px; font-weight: 600; cursor: pointer; user-select: none;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.wewrite-theme-view .wewrite-theme-section-title { flex: 1; min-width: 0; }
+.wewrite-theme-view .wewrite-theme-chevron {
+  display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; color: var(--text-muted); flex-shrink: 0;
+}
+
+/* Rows, boxes and eyebrows shared across the decoration sections */
+.wewrite-theme-view .wewrite-theme-row {
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  padding: var(--ww-theme-row-pad, 2px) 0;
+}
+.wewrite-theme-view .wewrite-theme-box {
+  margin-bottom: var(--ww-theme-row-gap, 8px);
+  padding: var(--ww-theme-box-pad, 4px);
+  border: var(--ww-theme-box-border, 1px solid var(--background-modifier-border));
+  border-radius: var(--ww-theme-box-radius, 4px);
+}
+.wewrite-theme-view .wewrite-theme-eyebrow {
+  font-size: 10px; text-transform: uppercase; margin-bottom: 2px; color: var(--text-faint);
+}
+.wewrite-theme-view .wewrite-theme-eyebrow-title {
+  font-size: 10px; text-transform: uppercase; margin: 6px 0 2px; color: var(--text-faint);
+}
+.wewrite-theme-view .wewrite-theme-tools-row {
+  display: flex; gap: 8px; margin-bottom: var(--ww-theme-row-gap, 8px); flex-wrap: wrap;
+}
+.wewrite-theme-view .wewrite-theme-accent-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: var(--ww-theme-row-gap, 8px); flex-wrap: wrap;
+}
+.wewrite-theme-view .wewrite-theme-swatch-strip {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px;
+}
+.wewrite-theme-view .wewrite-theme-palette-item {
+  text-align: center; font-size: 10px; cursor: pointer; padding: 2px;
+  border-radius: 4px; transition: background 0.15s;
+}
+.wewrite-theme-view .wewrite-theme-palette-item:hover {
+  background: var(--background-modifier-hover);
+}
+.wewrite-theme-view .wewrite-theme-family-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: var(--ww-theme-row-gap, 8px);
+}
+.wewrite-theme-view .wewrite-theme-slider-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 12px;
+}
+.wewrite-theme-view .wewrite-theme-intro {
+  font-size: 11px; line-height: 1.5; margin-bottom: 6px; color: var(--text-faint);
+}
+.wewrite-theme-view .wewrite-theme-type-row {
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  padding: var(--ww-theme-row-pad, 2px) 0; flex-wrap: wrap;
+}
+.wewrite-theme-view .wewrite-theme-type-label { min-width: 64px; font-weight: 600; }
+.wewrite-theme-view .wewrite-theme-hint {
+  font-size: 10px; color: var(--text-faint); min-width: 58px;
+}
+.wewrite-theme-view .wewrite-theme-flex-select { flex: 1; min-width: 120px; }
+.wewrite-theme-view .wewrite-theme-compact-row {
+  display: flex; align-items: center; gap: 4px; font-size: 11px;
+  padding: var(--ww-theme-row-pad, 2px) 0; flex-wrap: wrap;
+}
+.wewrite-theme-view .wewrite-theme-name-label { min-width: 62px; font-weight: 600; }
+.wewrite-theme-view .wewrite-theme-inline-group {
+  display: flex; align-items: center; gap: 2px;
+}
+.wewrite-theme-view .wewrite-theme-scope-row {
+  display: flex; align-items: center; gap: 5px; font-size: 12px;
+  padding: var(--ww-theme-row-pad, 2px) 0; flex-wrap: wrap;
+}
+.wewrite-theme-view .wewrite-theme-deco-cell { flex: 1.4; min-width: 110px; }
+.wewrite-theme-view .wewrite-theme-numbering-cell { flex: 0.9; min-width: 86px; }
+.wewrite-theme-view .wewrite-theme-color-cell { flex: 0.7; min-width: 70px; }
+.wewrite-theme-view .wewrite-theme-align-cell { flex: 0.6; min-width: 56px; }
+.wewrite-theme-view .wewrite-theme-scope-legend {
+  display: flex; align-items: center; gap: 5px; font-size: 10px;
+  color: var(--text-faint); padding: var(--ww-theme-row-pad, 2px) 0; flex-wrap: wrap;
+}
+.wewrite-theme-view .wewrite-theme-color-group {
+  display: flex; align-items: center; gap: 4px;
+}
+.wewrite-theme-view .wewrite-theme-code-btn {
+  font-size: 11px; padding: 2px 8px; flex-shrink: 0;
+}
+.wewrite-theme-view .wewrite-theme-swatch-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 4px 0 2px;
+}
+.wewrite-theme-view .wewrite-theme-swatch-group {
+  grid-column: 1/-1; font-size: 10px; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px;
+}
+.wewrite-theme-view .wewrite-theme-custom-row {
+  display: flex; align-items: center; gap: 6px; font-size: 11px;
+  padding: var(--ww-theme-row-pad, 2px) 0;
+}
+.wewrite-theme-view .wewrite-theme-code-name {
+  font-size: 10px; padding: 2px 4px; background: var(--background-secondary);
+  color: var(--text-normal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wewrite-theme-view .wewrite-theme-code-card {
+  border: 1px solid transparent; border-radius: 6px; overflow: hidden;
+  cursor: pointer; text-align: left;
+}
+.wewrite-theme-view .wewrite-theme-code-card.is-selected {
+  outline: 2px solid var(--interactive-accent); outline-offset: 1px;
+}
+
+/* Inputs and swatch internals */
+.wewrite-theme-view .wewrite-theme-hex-input {
+  flex: 1; font-family: var(--font-monospace);
+  font-size: var(--ww-theme-input-font, 11px); padding: 1px 4px;
+}
+.wewrite-theme-view .wewrite-theme-grow-input {
+  flex: 1; min-width: 52px; font-size: var(--ww-theme-input-font, 11px); padding: 1px 4px;
+}
+.wewrite-theme-view .wewrite-theme-size-input {
+  width: 48px; font-size: var(--ww-theme-input-font, 11px); padding: 1px 4px;
+}
+.wewrite-theme-view .wewrite-theme-hex-input-sm {
+  width: 78px; font-size: 11px; font-family: var(--font-monospace); padding: 1px 4px;
+}
+.wewrite-theme-view .wewrite-theme-pad-input {
+  width: 52px; font-size: var(--ww-theme-input-font, 11px); padding: 1px 4px;
+}
+.wewrite-theme-view .wewrite-theme-slider-line {
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  padding: var(--ww-theme-row-pad, 2px) 0; margin: 8px 0 12px;
+}
+.wewrite-theme-view .wewrite-theme-readout {
+  min-width: 42px; text-align: right; font-variant-numeric: tabular-nums;
+}
+.wewrite-theme-view .wewrite-theme-swatch-wrap {
+  position: relative; width: var(--input-height, 30px);
+  height: var(--input-height, 30px); flex-shrink: 0;
+}
+.wewrite-theme-view button.wewrite-swatch-btn {
+  width: 100%; height: var(--ww-theme-swatch-h, 100%); padding: 0;
+  border: 1px solid var(--background-modifier-border); border-radius: 3px;
+  cursor: pointer; background: transparent; box-sizing: border-box; display: block;
+}
+.wewrite-theme-view button.wewrite-swatch-btn.wewrite-swatch-btn-lg { border-radius: 4px; }
+.wewrite-theme-view button.wewrite-swatch-btn-sm {
+  width: 20px; height: 20px; padding: 0;
+  border: 1px solid var(--background-modifier-border); border-radius: 3px;
+  cursor: pointer; background: transparent; flex-shrink: 0;
+}
+.wewrite-theme-view .wewrite-swatch-fill {
+  width: 100%; height: 100%; border-radius: 2px; box-sizing: border-box;
+}
+.wewrite-theme-view .wewrite-swatch-fill.wewrite-swatch-fill-lg { border-radius: 3px; }
+
+/* Labels, small text, flexible rows */
+.wewrite-theme-view .wewrite-theme-label { min-width: 70px; }
+.wewrite-theme-view .wewrite-theme-label-sm { min-width: 50px; }
+.wewrite-theme-view .wewrite-theme-label-md { min-width: 64px; }
+.wewrite-theme-view .wewrite-theme-slider-label { min-width: 60px; }
+.wewrite-theme-view .wewrite-theme-grow { flex: 1; }
+.wewrite-theme-view .wewrite-theme-text-sm { font-size: 12px; }
+.wewrite-theme-view .wewrite-theme-mono { font-family: monospace; }
+
+/* Transient states (drag / selection / repaint nudge) */
+.wewrite-theme-view .wewrite-theme-flash {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+  transition: outline 0.3s ease-out 1s, outline-offset 0.3s ease-out 1s;
+}
+.wewrite-theme-view.is-force-repaint { visibility: hidden; }
+.wewrite-theme-view .wewrite-theme-force-paint { opacity: 0.999; }
+.wewrite-theme-view .wewrite-theme-editor-panel.is-resizing { min-width: 0; }

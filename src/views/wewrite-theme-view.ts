@@ -510,25 +510,20 @@ export class WeWriteThemeView extends ItemView {
 		// Each side scrolls independently; the splitter adjusts their widths on
 		// desktop and is hidden on small screens (panels wrap instead).
 		const split = c.createDiv({ cls: 'wewrite-theme-split' });
-		split.style.cssText = 'display:flex;flex:var(--ww-theme-split-flex,1);overflow:var(--ww-theme-split-overflow,hidden);min-height:0;flex-wrap:var(--ww-theme-split-wrap,nowrap)';
 
 		// Left: scrollable editor (collapsible)
 		this.editorPanel = split.createDiv({ cls: 'wewrite-theme-editor-panel' });
-		this.editorPanel.style.cssText = 'flex:var(--ww-theme-panel-flex,1);overflow-y:auto;padding:var(--ww-theme-editor-pad,12px);min-width:var(--ww-theme-panel-minw,280px);min-height:0';
 
 		const splitter = split.createDiv({ cls: 'wewrite-theme-splitter' });
-		splitter.style.cssText = 'width:5px;cursor:col-resize;flex-shrink:0;background:var(--background-modifier-border);touch-action:none';
 		this.bindSplitter(splitter);
 
 		// Right: preview
 		const previewPanel = split.createDiv({ cls: 'wewrite-theme-preview-panel' });
-		previewPanel.style.cssText = 'flex:var(--ww-theme-panel-flex,1);display:flex;flex-direction:column;min-width:var(--ww-theme-panel-minw,300px);min-height:0;border-left:var(--ww-theme-preview-border-left,1px solid var(--background-modifier-border))';
 
 		// Preview toolbar: zoom-out select. Zooming out re-lays the article at
 		// a wider width and scales it down, so on a narrow (mobile) panel you
 		// can still inspect the big-screen layout. Max zoom is 1:1.
 		const previewToolbar = previewPanel.createDiv({ cls: 'wewrite-theme-preview-toolbar' });
-		previewToolbar.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid var(--background-modifier-border);flex-shrink:0';
 		const zoomIcon = previewToolbar.createSpan({ cls: 'wewrite-label-icon' });
 		setIcon(zoomIcon, 'wewrite-zoom');
 		const zoomSelect = previewToolbar.createEl('select', { cls: 'dropdown wewrite-select wewrite-zoom-select' });
@@ -560,7 +555,6 @@ export class WeWriteThemeView extends ItemView {
 		this.setupMobileKeyboardRepaint();
 
 		this.previewContainer = previewPanel.createDiv({ cls: 'wewrite-theme-preview-content' });
-		this.previewContainer.style.cssText = 'flex:1;overflow-y:auto;padding:16px;min-height:0';
 
 		// Deferred loading: pick up pending file when user switches to this tab
 		this._leafChangeRef = this.app.workspace.on('active-leaf-change', (leaf) => {
@@ -917,7 +911,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Accent color picker: preset swatches + selected-color pill
 		const row = section.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
+		row.addClass('wewrite-theme-accent-row', 'wewrite-theme-wraprow');
 
 		for (const hex of ACCENT_PRESETS) {
 			const dot = row.createDiv();
@@ -936,8 +930,8 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const hexLabel = row.createSpan({ text: this.paletteAccent });
-		hexLabel.style.fontFamily = 'monospace';
-		hexLabel.style.fontSize = '12px';
+		hexLabel.addClass('wewrite-theme-mono');
+		hexLabel.addClass('wewrite-theme-text-sm');
 		// Selected-color swatch: unified square button (same height as inputs).
 		// Opens the cross-platform color picker modal (PC-style on every device).
 		this.renderColorSwatch(row, this.paletteAccent, {
@@ -956,7 +950,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Derived palette swatches — click any of them to edit
 		const swatches = section.createDiv();
-		swatches.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin-top:6px';
+		swatches.addClass('wewrite-theme-swatch-strip', 'wewrite-theme-wraprow');
 		const colors: { key: PaletteColorKey; label: string }[] = [
 			{ key: 'accent', label: t('deco_ui.accent_label') },
 			{ key: 'accentDeep', label: t('theme_editor.swatch_deep') },
@@ -967,14 +961,12 @@ export class WeWriteThemeView extends ItemView {
 		];
 		for (const c of colors) {
 			const item = swatches.createDiv();
-			item.style.cssText = 'text-align:center;font-size:10px;cursor:pointer;padding:2px;border-radius:4px;transition:background 0.15s';
+			item.addClass('wewrite-theme-palette-item');
 			item.title = t('theme_editor.swatch_title', { label: c.label, value: palette[c.key] });
 			const box = item.createDiv();
 			box.style.cssText = `width:38px;height:20px;background:${palette[c.key]};border:1px solid #ddd;border-radius:4px;margin-bottom:2px`;
 			item.createSpan({ text: c.label });
 
-			item.addEventListener('mouseenter', () => { item.style.background = 'var(--background-modifier-hover)'; });
-			item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
 			item.addEventListener('click', () => {
 				new ColorPickerModal(this.app, {
 					initial: toPickerHex(palette[c.key]),
@@ -1022,10 +1014,10 @@ export class WeWriteThemeView extends ItemView {
 
 		// Font family picker: grouped select, options preview their own font
 		const famRow = section.createDiv();
-		famRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px)';
+		famRow.addClass('wewrite-theme-family-row', 'wewrite-theme-wraprow');
 		const famLabel = famRow.createSpan({ text: t('deco_ui.font_label') });
-		famLabel.style.minWidth = '50px';
-		famLabel.style.fontSize = '12px';
+		famLabel.addClass('wewrite-theme-label-sm');
+		famLabel.addClass('wewrite-theme-text-sm');
 
 		// Preview (the picker below updates its font live)
 		const preview = section.createDiv();
@@ -1046,11 +1038,11 @@ export class WeWriteThemeView extends ItemView {
 
 	private addSlider(container: HTMLElement, label: string, min: number, max: number, step: number, value: number, unit: string, onChange: (v: number) => void): void {
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12px';
+		row.addClass('wewrite-theme-slider-row', 'wewrite-theme-wraprow');
 		const lbl = row.createSpan({ text: `${label}: ${value}${unit}` });
-		lbl.style.minWidth = '60px';
+		lbl.addClass('wewrite-theme-slider-label');
 		const slider = row.createEl('input', { type: 'range' });
-		slider.style.flex = '1';
+		slider.addClass('wewrite-theme-grow');
 		slider.min = String(min);
 		slider.max = String(max);
 		slider.step = String(step);
@@ -1100,19 +1092,19 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: edit the selected one or extract from pasted HTML (§8)
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
+		toolsRow.addClass('wewrite-theme-tools-row', 'wewrite-theme-wraprow');
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
-		editBtn.style.fontSize = '12px';
+		editBtn.addClass('wewrite-theme-text-sm');
 		editBtn.addEventListener('click', () => this.openDecorationEditor());
 		const pasteBtn = toolsRow.createEl('button', { text: t('deco_ui.extract_from_html') });
-		pasteBtn.style.fontSize = '12px';
+		pasteBtn.addClass('wewrite-theme-text-sm');
 		pasteBtn.addEventListener('click', () => this.openPasteHtml());
 
 		// Delete the selected decoration when it is user-defined.
 		const currentDecoId = this.headingConfig.shared?.decoration || 'none';
 		if (this.headingDecorations.some(d => d.id === currentDecoId)) {
 			const deleteBtn = toolsRow.createEl('button', { text: t('deco_ui.delete_decoration') });
-			deleteBtn.style.fontSize = '12px';
+			deleteBtn.addClass('wewrite-theme-text-sm');
 			deleteBtn.addEventListener('click', () => {
 				if (deleteBtn.getAttribute('data-armed') === '1') {
 					this.deleteHeadingDecoration(currentDecoId);
@@ -1129,8 +1121,8 @@ export class WeWriteThemeView extends ItemView {
 
 		// Global heading variables
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createDiv({ text: t('deco_ui.global_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.addClass('wewrite-theme-box');
+		globalBox.createDiv({ text: t('deco_ui.global_label'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 
 		this.renderHeadingDecorationRow(globalBox, 'heading');
 		this.headingParamsContainer = globalBox.createDiv();
@@ -1144,8 +1136,8 @@ export class WeWriteThemeView extends ItemView {
 		for (let i = 1; i <= 6; i++) {
 			const level = `h${i}` as HeadingLevel;
 			const box = section.createDiv();
-			box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-			box.createDiv({ text: level.toUpperCase(), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+			box.addClass('wewrite-theme-box');
+			box.createDiv({ text: level.toUpperCase(), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 
 			this.renderHeadingLevelRow(box, `heading.${level}`);
 		}
@@ -1226,19 +1218,19 @@ export class WeWriteThemeView extends ItemView {
 			text: t('deco_ui.inline_library_desc'),
 			cls: 'setting-item-description',
 		});
-		intro.style.cssText = 'font-size:11px;line-height:1.5;margin-bottom:6px;color:var(--text-faint)';
+		intro.addClass('wewrite-theme-intro');
 
 		// Decoration tools: edit the library decoration selected below, or
 		// delete it when it is user-defined.
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
+		toolsRow.addClass('wewrite-theme-tools-row', 'wewrite-theme-wraprow');
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
-		editBtn.style.fontSize = '12px';
+		editBtn.addClass('wewrite-theme-text-sm');
 		editBtn.addEventListener('click', () => this.openInlineDecorationEditor());
 
 		if (this.inlineDecorations.some(d => d.id === this.inlineEditTargetId)) {
 			const deleteBtn = toolsRow.createEl('button', { text: t('deco_ui.delete_decoration') });
-			deleteBtn.style.fontSize = '12px';
+			deleteBtn.addClass('wewrite-theme-text-sm');
 			deleteBtn.addEventListener('click', () => {
 				if (deleteBtn.getAttribute('data-armed') === '1') {
 					this.deleteInlineDecoration(this.inlineEditTargetId);
@@ -1255,12 +1247,12 @@ export class WeWriteThemeView extends ItemView {
 
 		// 装饰器库 selector — which decoration the edit/delete buttons target.
 		const libBox = section.createDiv();
-		libBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		libBox.createDiv({ text: t('deco_ui.decoration_library'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		libBox.addClass('wewrite-theme-box');
+		libBox.createDiv({ text: t('deco_ui.decoration_library'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 		const libRow = libBox.createDiv();
-		libRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		libRow.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const libSelect = libRow.createEl('select');
-		libSelect.style.flex = '1';
+		libSelect.addClass('wewrite-theme-grow');
 		const library = [...getInlineDecorationLibrary(), ...this.inlineDecorations];
 		for (const d of library) {
 			const opt = libSelect.createEl('option', { text: d.name });
@@ -1276,18 +1268,18 @@ export class WeWriteThemeView extends ItemView {
 		for (const type of INLINE_ELEMENT_TYPES) {
 			const def = INLINE_TYPE_DEFS[type];
 			const box = section.createDiv();
-			box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
+			box.addClass('wewrite-theme-box');
 
 			const header = box.createDiv();
-			header.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0;flex-wrap:wrap';
+			header.addClass('wewrite-theme-type-row', 'wewrite-theme-wraprow');
 			const typeLabel = header.createSpan({ text: def.label });
-			typeLabel.style.cssText = 'min-width:64px;font-weight:600';
+			typeLabel.addClass('wewrite-theme-type-label');
 			const hint = header.createSpan({ text: def.hint, cls: 'setting-item-description' });
-			hint.style.cssText = 'font-size:10px;color:var(--text-faint);min-width:58px';
+			hint.addClass('wewrite-theme-hint');
 
 			const paramsEl = box.createDiv();
 			const select = this.createInlineDecorationSelect(header, type, () => this.renderInlineParamsRows(paramsEl, type));
-			select.style.cssText = 'flex:1;min-width:120px';
+			select.addClass('wewrite-theme-flex-select');
 
 			this.renderInlineParamsRows(paramsEl, type);
 			if (def.hasColorScale) this.renderInlineMathControls(box, type);
@@ -1353,13 +1345,13 @@ export class WeWriteThemeView extends ItemView {
 		if (Object.keys(decoration.params).length === 0) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '64px';
+			label.addClass('wewrite-theme-label-md');
 			const effectiveDefault = def.defaultParams?.[key] ?? param.default;
 			// Show the effective default (type-level override wins) in the input.
 			this.renderBlockquoteParamInput(row, key, { ...param, default: effectiveDefault }, params[key], (value, noUndo) => {
@@ -1386,11 +1378,11 @@ export class WeWriteThemeView extends ItemView {
 		const tc = this.inlineTypeConfig(type) || {};
 
 		const colorRow = box.createDiv();
-		colorRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		colorRow.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const colorLabel = colorRow.createSpan({ text: t('deco_ui.formula_color') });
-		colorLabel.style.minWidth = '64px';
+		colorLabel.addClass('wewrite-theme-label-md');
 		const colorSelect = colorRow.createEl('select');
-		colorSelect.style.flex = '1';
+		colorSelect.addClass('wewrite-theme-grow');
 		const colorCurrent = tc.color || 'followText';
 		for (const [id, v] of Object.entries(getMathColorValues())) {
 			const opt = colorSelect.createEl('option', { text: v.name });
@@ -1402,11 +1394,11 @@ export class WeWriteThemeView extends ItemView {
 		});
 
 		const scaleRow = box.createDiv();
-		scaleRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		scaleRow.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const scaleLabel = scaleRow.createSpan({ text: t('deco_ui.formula_scale') });
-		scaleLabel.style.minWidth = '64px';
+		scaleLabel.addClass('wewrite-theme-label-md');
 		const scaleSelect = scaleRow.createEl('select');
-		scaleSelect.style.flex = '1';
+		scaleSelect.addClass('wewrite-theme-grow');
 		const scaleCurrent = tc.scale || 'normal';
 		for (const [id, v] of Object.entries(getMathScaleValues())) {
 			const opt = scaleSelect.createEl('option', { text: v.name });
@@ -1473,19 +1465,19 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: edit the selected one or extract from pasted HTML.
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
+		toolsRow.addClass('wewrite-theme-tools-row', 'wewrite-theme-wraprow');
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
-		editBtn.style.fontSize = '12px';
+		editBtn.addClass('wewrite-theme-text-sm');
 		editBtn.addEventListener('click', () => this.openBlockquoteDecorationEditor());
 		const pasteBtn = toolsRow.createEl('button', { text: t('deco_ui.extract_from_html') });
-		pasteBtn.style.fontSize = '12px';
+		pasteBtn.addClass('wewrite-theme-text-sm');
 		pasteBtn.addEventListener('click', () => this.openBlockquotePasteHtml());
 
 		// Delete the selected decoration when it is user-defined.
 		const currentDecoId = this.blockquoteConfig.decoration || 'none';
 		if (this.blockquoteDecorations.some(d => d.id === currentDecoId)) {
 			const deleteBtn = toolsRow.createEl('button', { text: t('deco_ui.delete_decoration') });
-			deleteBtn.style.fontSize = '12px';
+			deleteBtn.addClass('wewrite-theme-text-sm');
 			deleteBtn.addEventListener('click', () => {
 				if (deleteBtn.getAttribute('data-armed') === '1') {
 					this.deleteBlockquoteDecoration(currentDecoId);
@@ -1502,8 +1494,8 @@ export class WeWriteThemeView extends ItemView {
 
 		// Global blockquote decoration
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.addClass('wewrite-theme-box');
+		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 
 		this.renderBlockquoteDecorationRow(globalBox);
 		this.blockquoteParamsContainer = globalBox.createDiv();
@@ -1569,11 +1561,11 @@ export class WeWriteThemeView extends ItemView {
 
 	private renderBlockquoteDecorationRow(box: HTMLElement): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
-		label.style.minWidth = '70px';
+		label.addClass('wewrite-theme-label');
 		const select = this.createBlockquoteDecorationSelect(row);
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 	}
 
 	private createBlockquoteDecorationSelect(container: HTMLElement): HTMLSelectElement {
@@ -1606,13 +1598,13 @@ export class WeWriteThemeView extends ItemView {
 		if (Object.keys(decoration.params).length === 0) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '70px';
+			label.addClass('wewrite-theme-label');
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
 					const trimmed = value.trim();
@@ -1641,12 +1633,12 @@ export class WeWriteThemeView extends ItemView {
 		opts: { onChange: (hex: string) => void; title?: string },
 	): void {
 		const wrap = row.createDiv();
-		wrap.style.cssText = 'position:relative;width:var(--input-height,30px);height:var(--input-height,30px);flex-shrink:0';
+		wrap.addClass('wewrite-theme-swatch-wrap');
 		const swatch = wrap.createEl('button', { cls: 'wewrite-swatch-btn' });
-		swatch.style.cssText = 'width:100%;height:var(--ww-theme-swatch-h,100%);padding:0;border:1px solid var(--background-modifier-border);border-radius:3px;cursor:pointer;background:transparent;box-sizing:border-box;display:block';
+		swatch.addClass('wewrite-swatch-btn');
 		if (opts.title) swatch.title = opts.title;
 		const block = swatch.createDiv();
-		block.style.cssText = 'width:100%;height:100%;border-radius:2px;box-sizing:border-box';
+		block.addClass('wewrite-swatch-fill');
 		const refresh = (v: string): void => { block.style.backgroundColor = isCssColor(v) ? v : 'transparent'; };
 		refresh(value);
 		swatch.addEventListener('click', () => {
@@ -1670,7 +1662,7 @@ export class WeWriteThemeView extends ItemView {
 	): void {
 		if (param.type === 'select' && param.options) {
 			const select = row.createEl('select');
-			select.style.flex = '1';
+			select.addClass('wewrite-theme-grow');
 			for (const opt of param.options) {
 				// 任务图标选项显示可读标签（glyph + 名称），其余选项保持原样。
 				const label = (key === 'taskChecked' || key === 'taskUnchecked') ? taskIconOptionLabel(opt) : opt;
@@ -1683,14 +1675,14 @@ export class WeWriteThemeView extends ItemView {
 
 		if (param.type === 'color') {
 			const text = row.createEl('input', { type: 'text', value: current });
-			text.style.cssText = 'flex:1;font-family:var(--font-monospace);font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
+			text.addClass('wewrite-theme-hex-input');
 
 			const swatchWrap = row.createDiv();
-			swatchWrap.style.cssText = 'position:relative;width:var(--input-height, 30px);height:var(--input-height, 30px);flex-shrink:0';
+			swatchWrap.addClass('wewrite-theme-swatch-wrap');
 			const swatch = swatchWrap.createEl('button', { cls: 'wewrite-swatch-btn' });
-			swatch.style.cssText = 'width:100%;height:var(--ww-theme-swatch-h,100%);padding:0;border:1px solid var(--background-modifier-border);border-radius:4px;cursor:pointer;background:transparent;box-sizing:border-box;display:block';
+			swatch.addClass('wewrite-swatch-btn-lg');
 			const swatchBlock = swatch.createDiv();
-			swatchBlock.style.cssText = 'width:100%;height:100%;border-radius:3px;box-sizing:border-box';
+			swatchBlock.addClass('wewrite-swatch-fill-lg');
 
 			const refreshSwatch = (value: string): void => {
 				swatchBlock.style.backgroundColor = isCssColor(value) ? value.trim() : 'transparent';
@@ -1730,7 +1722,7 @@ export class WeWriteThemeView extends ItemView {
 
 		if (param.type === 'px' || param.type === 'number') {
 			const input = row.createEl('input', { type: 'number', value: current });
-			input.style.flex = '1';
+			input.addClass('wewrite-theme-grow');
 			if (param.min !== undefined) input.min = String(param.min);
 			if (param.max !== undefined) input.max = String(param.max);
 			if (param.step !== undefined) input.step = String(param.step);
@@ -1739,7 +1731,7 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const input = row.createEl('input', { type: 'text', value: current });
-		input.style.flex = '1';
+		input.addClass('wewrite-theme-grow');
 		if (param.type === 'image') input.placeholder = t('theme_editor.image_path_placeholder');
 		input.addEventListener('change', () => apply(input.value));
 	}
@@ -1759,15 +1751,15 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: extract from pasted HTML / delete the selected one.
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
+		toolsRow.addClass('wewrite-theme-tools-row', 'wewrite-theme-wraprow');
 		const pasteBtn = toolsRow.createEl('button', { text: t('deco_ui.extract_from_html') });
-		pasteBtn.style.fontSize = '12px';
+		pasteBtn.addClass('wewrite-theme-text-sm');
 		pasteBtn.addEventListener('click', () => this.openCalloutPasteHtml());
 
 		const currentDecoId = this.calloutConfig.decoration || 'none';
 		if (this.calloutDecorations.some(d => d.id === currentDecoId)) {
 			const deleteBtn = toolsRow.createEl('button', { text: t('deco_ui.delete_decoration') });
-			deleteBtn.style.fontSize = '12px';
+			deleteBtn.addClass('wewrite-theme-text-sm');
 			deleteBtn.addEventListener('click', () => {
 				if (deleteBtn.getAttribute('data-armed') === '1') {
 					this.deleteCalloutDecoration(currentDecoId);
@@ -1784,16 +1776,16 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration dropdown + shared params
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.addClass('wewrite-theme-box');
+		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 		this.renderCalloutDecorationRow(globalBox);
 		this.calloutParamsContainer = globalBox.createDiv();
 		this.renderCalloutParamsRows();
 
 		// Per-type style table (13 types)
 		const typesBox = section.createDiv();
-		typesBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		typesBox.createDiv({ text: t('deco_ui.callout_type_styles_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		typesBox.addClass('wewrite-theme-box');
+		typesBox.createDiv({ text: t('deco_ui.callout_type_styles_desc'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 		this.calloutTypesContainer = typesBox.createDiv();
 		this.renderCalloutTypesRows();
 	}
@@ -1839,11 +1831,11 @@ export class WeWriteThemeView extends ItemView {
 
 	private renderCalloutDecorationRow(box: HTMLElement): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
-		label.style.minWidth = '70px';
+		label.addClass('wewrite-theme-label');
 		const select = this.createCalloutDecorationSelect(row);
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 	}
 
 	private createCalloutDecorationSelect(container: HTMLElement): HTMLSelectElement {
@@ -1878,13 +1870,13 @@ export class WeWriteThemeView extends ItemView {
 		if (Object.keys(decoration.params).length === 0) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '70px';
+			label.addClass('wewrite-theme-label');
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
 					const trimmed = value.trim();
@@ -1919,9 +1911,9 @@ export class WeWriteThemeView extends ItemView {
 
 		for (const type of CALLOUT_TYPES) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:11px;padding:var(--ww-theme-row-pad,2px) 0;flex-wrap:wrap';
+			row.addClass('wewrite-theme-compact-row', 'wewrite-theme-wraprow');
 			const name = row.createSpan({ text: type });
-			name.style.cssText = 'min-width:62px;font-weight:600';
+			name.addClass('wewrite-theme-name-label');
 
 			const current = types[type] || {};
 			const defaults = decoration.types[type] || {};
@@ -1947,15 +1939,15 @@ export class WeWriteThemeView extends ItemView {
 	/** Compact color input + swatch for the per-type table. */
 	private renderCalloutColorCell(row: HTMLElement, title: string, value: string, apply: (v: string) => void, width = 76): void {
 		const wrap = row.createDiv();
-		wrap.style.cssText = 'display:flex;align-items:center;gap:2px';
+		wrap.addClass('wewrite-theme-inline-group', 'wewrite-theme-wraprow');
 		wrap.title = title;
 		const text = wrap.createEl('input', { type: 'text', value, placeholder: '—' });
 		text.style.cssText = `width:${width}px;font-family:var(--font-monospace);font-size:var(--ww-theme-input-font,10px);padding:1px 3px`;
 		const swatch = wrap.createEl('button', { cls: 'wewrite-swatch-btn-sm' });
-		swatch.style.cssText = 'width:20px;height:20px;padding:0;border:1px solid var(--background-modifier-border);border-radius:3px;cursor:pointer;background:transparent;flex-shrink:0';
+		swatch.addClass('wewrite-swatch-btn-sm');
 		swatch.title = `${title}（${t('color_picker.title')}）`;
 		const block = swatch.createDiv();
-		block.style.cssText = 'width:100%;height:100%;border-radius:2px';
+		block.addClass('wewrite-swatch-fill');
 		const refresh = (v: string): void => { block.style.backgroundColor = isCssColor(v) ? v : 'transparent'; };
 		refresh(value);
 		text.addEventListener('change', () => apply(text.value));
@@ -2025,15 +2017,15 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const box = section.createDiv();
-		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		box.createDiv({ text: t('deco_ui.mermaid_deco_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		box.addClass('wewrite-theme-box');
+		box.createDiv({ text: t('deco_ui.mermaid_deco_desc'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
-		label.style.minWidth = '70px';
+		label.addClass('wewrite-theme-label');
 		const select = row.createEl('select');
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 		const current = this.mermaidConfig.decoration || 'none';
 		select.createEl('option', { text: t('deco_ui.no_decoration'), value: 'none' });
 		for (const d of [...getMermaidDecorationLibrary(), ...this.mermaidDecorations]) {
@@ -2065,13 +2057,13 @@ export class WeWriteThemeView extends ItemView {
 		if (!decoration) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '70px';
+			label.addClass('wewrite-theme-label');
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
 					const trimmed = value.trim();
@@ -2112,15 +2104,15 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const box = section.createDiv();
-		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		box.createDiv({ text: t('deco_ui.legacy_path_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		box.addClass('wewrite-theme-box');
+		box.createDiv({ text: t('deco_ui.legacy_path_desc'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
-		label.style.minWidth = '70px';
+		label.addClass('wewrite-theme-label');
 		const select = row.createEl('select');
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 		const current = this.imageConfig.decoration || 'none';
 		select.createEl('option', { text: t('deco_ui.no_decoration'), value: 'none' });
 		for (const d of [...getImageDecorationLibrary(), ...this.imageDecorations]) {
@@ -2151,13 +2143,13 @@ export class WeWriteThemeView extends ItemView {
 		if (!decoration) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '70px';
+			label.addClass('wewrite-theme-label');
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
 					const trimmed = value.trim();
@@ -2198,15 +2190,15 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const box = section.createDiv();
-		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		box.createDiv({ text: t('deco_ui.math_deco_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		box.addClass('wewrite-theme-box');
+		box.createDiv({ text: t('deco_ui.math_deco_desc'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
-		label.style.minWidth = '70px';
+		label.addClass('wewrite-theme-label');
 		const select = row.createEl('select');
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 		const current = this.mathConfig.decoration || 'none';
 		select.createEl('option', { text: t('deco_ui.no_decoration'), value: 'none' });
 		for (const d of [...getMathDecorationLibrary(), ...this.mathDecorations]) {
@@ -2237,13 +2229,13 @@ export class WeWriteThemeView extends ItemView {
 		if (!decoration) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '70px';
+			label.addClass('wewrite-theme-label');
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
 					const trimmed = value.trim();
@@ -2284,15 +2276,15 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const box = section.createDiv();
-		box.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		box.createDiv({ text: t('deco_ui.keep_obsidian_desc'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		box.addClass('wewrite-theme-box');
+		box.createDiv({ text: t('deco_ui.keep_obsidian_desc'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
-		label.style.minWidth = '70px';
+		label.addClass('wewrite-theme-label');
 		const select = row.createEl('select');
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 		const current = this.excalidrawConfig.decoration || 'none';
 		select.createEl('option', { text: t('deco_ui.no_decoration'), value: 'none' });
 		for (const d of [...getExcalidrawDecorationLibrary(), ...this.excalidrawDecorations]) {
@@ -2323,13 +2315,13 @@ export class WeWriteThemeView extends ItemView {
 		if (!decoration) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '70px';
+			label.addClass('wewrite-theme-label');
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
 					const trimmed = value.trim();
@@ -2372,19 +2364,19 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: edit the selected one or fork it into a copy.
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
+		toolsRow.addClass('wewrite-theme-tools-row', 'wewrite-theme-wraprow');
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
-		editBtn.style.fontSize = '12px';
+		editBtn.addClass('wewrite-theme-text-sm');
 		editBtn.addEventListener('click', () => this.openTableDecorationEditor());
 		const pasteBtn = toolsRow.createEl('button', { text: t('deco_ui.extract_from_html') });
-		pasteBtn.style.fontSize = '12px';
+		pasteBtn.addClass('wewrite-theme-text-sm');
 		pasteBtn.addEventListener('click', () => this.openTablePasteHtml());
 
 		// Delete the selected decoration when it is user-defined.
 		const currentDecoId = this.tableConfig.decoration || 'none';
 		if (this.tableDecorations.some(d => d.id === currentDecoId)) {
 			const deleteBtn = toolsRow.createEl('button', { text: t('deco_ui.delete_decoration') });
-			deleteBtn.style.fontSize = '12px';
+			deleteBtn.addClass('wewrite-theme-text-sm');
 			deleteBtn.addEventListener('click', () => {
 				if (deleteBtn.getAttribute('data-armed') === '1') {
 					this.deleteTableDecoration(currentDecoId);
@@ -2401,8 +2393,8 @@ export class WeWriteThemeView extends ItemView {
 
 		// Global table decoration
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.addClass('wewrite-theme-box');
+		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 
 		this.renderTableDecorationRow(globalBox);
 		this.tableParamsContainer = globalBox.createDiv();
@@ -2468,11 +2460,11 @@ export class WeWriteThemeView extends ItemView {
 
 	private renderTableDecorationRow(box: HTMLElement): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
-		label.style.minWidth = '70px';
+		label.addClass('wewrite-theme-label');
 		const select = this.createTableDecorationSelect(row);
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 	}
 
 	private createTableDecorationSelect(container: HTMLElement): HTMLSelectElement {
@@ -2505,13 +2497,13 @@ export class WeWriteThemeView extends ItemView {
 		if (Object.keys(decoration.params).length === 0) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '70px';
+			label.addClass('wewrite-theme-label');
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
 					const trimmed = value.trim();
@@ -2544,19 +2536,19 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: edit the selected one or extract from pasted HTML.
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
+		toolsRow.addClass('wewrite-theme-tools-row', 'wewrite-theme-wraprow');
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
-		editBtn.style.fontSize = '12px';
+		editBtn.addClass('wewrite-theme-text-sm');
 		editBtn.addEventListener('click', () => this.openDividerDecorationEditor());
 		const pasteBtn = toolsRow.createEl('button', { text: t('deco_ui.extract_from_html') });
-		pasteBtn.style.fontSize = '12px';
+		pasteBtn.addClass('wewrite-theme-text-sm');
 		pasteBtn.addEventListener('click', () => this.openDividerPasteHtml());
 
 		// Delete the selected decoration when it is user-defined.
 		const currentDecoId = this.dividerConfig.decoration || 'none';
 		if (this.dividerDecorations.some(d => d.id === currentDecoId)) {
 			const deleteBtn = toolsRow.createEl('button', { text: t('deco_ui.delete_decoration') });
-			deleteBtn.style.fontSize = '12px';
+			deleteBtn.addClass('wewrite-theme-text-sm');
 			deleteBtn.addEventListener('click', () => {
 				if (deleteBtn.getAttribute('data-armed') === '1') {
 					this.deleteDividerDecoration(currentDecoId);
@@ -2573,8 +2565,8 @@ export class WeWriteThemeView extends ItemView {
 
 		// Global divider decoration
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.addClass('wewrite-theme-box');
+		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 
 		this.renderDividerDecorationRow(globalBox);
 		this.dividerParamsContainer = globalBox.createDiv();
@@ -2640,11 +2632,11 @@ export class WeWriteThemeView extends ItemView {
 
 	private renderDividerDecorationRow(box: HTMLElement): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
-		label.style.minWidth = '70px';
+		label.addClass('wewrite-theme-label');
 		const select = this.createDividerDecorationSelect(row);
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 	}
 
 	private createDividerDecorationSelect(container: HTMLElement): HTMLSelectElement {
@@ -2677,13 +2669,13 @@ export class WeWriteThemeView extends ItemView {
 		if (Object.keys(decoration.params).length === 0) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '70px';
+			label.addClass('wewrite-theme-label');
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
 					const trimmed = value.trim();
@@ -2781,12 +2773,12 @@ export class WeWriteThemeView extends ItemView {
 
 		// Decoration tools: edit the selected one (+ t('deco_ui.extract_from_html') for ol/ul).
 		const toolsRow = section.createDiv();
-		toolsRow.style.cssText = 'display:flex;gap:8px;margin-bottom:var(--ww-theme-row-gap,8px);flex-wrap:wrap';
+		toolsRow.addClass('wewrite-theme-tools-row', 'wewrite-theme-wraprow');
 		const editBtn = toolsRow.createEl('button', { text: t('deco_ui.edit_decoration') });
-		editBtn.style.fontSize = '12px';
+		editBtn.addClass('wewrite-theme-text-sm');
 		editBtn.addEventListener('click', () => this.openListKindEditor(kind));
 		const pasteBtn = toolsRow.createEl('button', { text: t('deco_ui.extract_from_html') });
-		pasteBtn.style.fontSize = '12px';
+		pasteBtn.addClass('wewrite-theme-text-sm');
 		pasteBtn.addEventListener('click', () => this.openListKindPaste(kind));
 
 		// Delete the selected decoration when it is user-defined.
@@ -2794,7 +2786,7 @@ export class WeWriteThemeView extends ItemView {
 		const currentDecoId = cfg.decoration || 'none';
 		if (this.listKindDecorations(kind).some(d => d.id === currentDecoId)) {
 			const deleteBtn = toolsRow.createEl('button', { text: t('deco_ui.delete_decoration') });
-			deleteBtn.style.fontSize = '12px';
+			deleteBtn.addClass('wewrite-theme-text-sm');
 			deleteBtn.addEventListener('click', () => {
 				if (deleteBtn.getAttribute('data-armed') === '1') {
 					this.deleteListKindDecoration(kind, currentDecoId);
@@ -2810,8 +2802,8 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const globalBox = section.createDiv();
-		globalBox.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
-		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+		globalBox.addClass('wewrite-theme-box');
+		globalBox.createDiv({ text: t('deco_ui.decoration_label'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
 
 		this.renderListKindDecorationRow(globalBox, kind);
 		this.setListKindParamsContainer(kind, globalBox.createDiv());
@@ -2887,11 +2879,11 @@ export class WeWriteThemeView extends ItemView {
 
 	private renderListKindDecorationRow(box: HTMLElement, kind: ListKind): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: t('deco_ui.decoration_label') });
-		label.style.minWidth = '70px';
+		label.addClass('wewrite-theme-label');
 		const select = this.createListKindDecorationSelect(row, kind);
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 	}
 
 	private createListKindDecorationSelect(container: HTMLElement, kind: ListKind): HTMLSelectElement {
@@ -2920,13 +2912,13 @@ export class WeWriteThemeView extends ItemView {
 		if (Object.keys(decoration.params).length === 0) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '70px';
+			label.addClass('wewrite-theme-label');
 			this.renderBlockquoteParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
 					const trimmed = value.trim();
@@ -2977,16 +2969,16 @@ export class WeWriteThemeView extends ItemView {
 
 	private headingFieldRow(container: HTMLElement, label: string): HTMLElement {
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const span = row.createSpan({ text: label });
-		span.style.minWidth = '70px';
+		span.addClass('wewrite-theme-label');
 		return row;
 	}
 
 	private renderHeadingDecorationRow(box: HTMLElement, path: string): void {
 		const row = this.headingFieldRow(box, t('deco_ui.decoration_label'));
 		const select = this.createHeadingDecorationSelect(row, path);
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 	}
 
 	private createHeadingDecorationSelect(container: HTMLElement, path: string): HTMLSelectElement {
@@ -3019,13 +3011,13 @@ export class WeWriteThemeView extends ItemView {
 		if (Object.keys(decoration.params).length === 0) return;
 
 		const title = el.createDiv({ text: t('deco_ui.deco_params'), cls: 'setting-item-description' });
-		title.style.cssText = 'font-size:10px;text-transform:uppercase;margin:6px 0 2px;color:var(--text-faint)';
+		title.addClass('wewrite-theme-eyebrow-title');
 
 		for (const [key, param] of Object.entries(decoration.params)) {
 			const row = el.createDiv();
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 			const label = row.createSpan({ text: param.label });
-			label.style.minWidth = '70px';
+			label.addClass('wewrite-theme-label');
 			this.renderHeadingParamInput(row, key, param, params[key], (value, noUndo) => {
 				this.onConfigChanged(() => {
 					const g = (this.headingConfig.shared = this.headingConfig.shared || {});
@@ -3055,11 +3047,11 @@ export class WeWriteThemeView extends ItemView {
 	private renderHeadingNumberingRow(box: HTMLElement, path: string): void {
 		const row = this.headingFieldRow(box, t('modifier.heading.numbering_label'));
 		const select = this.createHeadingNumberingSelect(row, path);
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 
 		if (path === 'heading') {
 			const padInput = row.createEl('input', { type: 'number', placeholder: t('deco_ui.digits') });
-			padInput.style.cssText = 'width:52px;font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
+			padInput.addClass('wewrite-theme-pad-input');
 			const pad = this.headingConfig.shared?.numberingPad;
 			if (pad !== undefined) padInput.value = String(pad);
 			padInput.title = t('deco_ui.decimal_pad_desc');
@@ -3103,7 +3095,7 @@ export class WeWriteThemeView extends ItemView {
 		// Font
 		const fontRow = this.headingFieldRow(box, t('deco_ui.font_label'));
 		const fontSelect = fontRow.createEl('select');
-		fontSelect.style.flex = '1';
+		fontSelect.addClass('wewrite-theme-grow');
 		const fontCurrent = cfg.font || 'inherit';
 		const fontOptions = [{ id: 'inherit', name: t('modifier.heading.font.inherit') }, ...FONT_FAMILY_OPTIONS.map(f => ({ id: f.id, name: f.name }))];
 		for (const f of fontOptions) {
@@ -3118,12 +3110,12 @@ export class WeWriteThemeView extends ItemView {
 		// Color
 		const colorRow = this.headingFieldRow(box, t('modifier.heading.color_label'));
 		const colorSelect = this.createHeadingColorSelect(colorRow, path);
-		colorSelect.style.flex = '1';
+		colorSelect.addClass('wewrite-theme-grow');
 
 		// Background color
 		const bgRow = this.headingFieldRow(box, t('deco_ui.background_label'));
 		const bgInput = bgRow.createEl('input', { type: 'text', value: cfg.bgColor || '', placeholder: 'transparent' });
-		bgInput.style.cssText = 'flex:1;font-family:var(--font-monospace);font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
+		bgInput.addClass('wewrite-theme-hex-input');
 		bgInput.addEventListener('change', () => {
 			const value = bgInput.value.trim();
 			if (value === '' || value === 'transparent') {
@@ -3136,7 +3128,7 @@ export class WeWriteThemeView extends ItemView {
 		// Align
 		const alignRow = this.headingFieldRow(box, t('modifier.heading.align_label'));
 		const alignSelect = alignRow.createEl('select');
-		alignSelect.style.flex = '1';
+		alignSelect.addClass('wewrite-theme-grow');
 		const alignCurrent = cfg.align || 'left';
 		const aligns: Array<[HeadingAlign, string]> = [['left', t('modifier.align.left')], ['center', t('modifier.align.center')], ['right', t('modifier.align.right')]];
 		for (const [id, label] of aligns) {
@@ -3189,7 +3181,7 @@ export class WeWriteThemeView extends ItemView {
 		const cfg = this.headingConfigFor(path).config;
 		const current = cfg[key];
 		const input = container.createEl('input', { type: 'number', placeholder: t('deco_ui.auto') });
-		input.style.cssText = 'flex:1;min-width:52px;font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
+		input.addClass('wewrite-theme-grow-input');
 		if (typeof current === 'number') input.value = String(current);
 		input.addEventListener('change', () => {
 			const value = input.value.trim();
@@ -3207,7 +3199,7 @@ export class WeWriteThemeView extends ItemView {
 		const cfg = this.headingConfigFor(path).config as Record<string, unknown>;
 		const current = cfg[key];
 		const input = container.createEl('input', { type: 'number', placeholder });
-		input.style.cssText = 'flex:1;min-width:52px;font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
+		input.addClass('wewrite-theme-grow-input');
 		if (typeof current === 'number') input.value = String(current);
 		input.addEventListener('change', () => {
 			const value = input.value.trim();
@@ -3224,19 +3216,19 @@ export class WeWriteThemeView extends ItemView {
 	/** One compact override row per level: decoration + numbering + color + align + size + weight. */
 	private renderHeadingLevelRow(box: HTMLElement, path: string): void {
 		const row = box.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0;flex-wrap:wrap';
+		row.addClass('wewrite-theme-scope-row', 'wewrite-theme-wraprow');
 
 		const deco = this.createHeadingDecorationSelect(row, path);
-		deco.style.cssText = 'flex:1.4;min-width:110px';
+		deco.addClass('wewrite-theme-deco-cell');
 
 		const numbering = this.createHeadingNumberingSelect(row, path);
-		numbering.style.cssText = 'flex:0.9;min-width:86px';
+		numbering.addClass('wewrite-theme-numbering-cell');
 
 		const color = this.createHeadingColorSelect(row, path);
-		color.style.cssText = 'flex:0.7;min-width:70px';
+		color.addClass('wewrite-theme-color-cell');
 
 		const align = row.createEl('select');
-		align.style.cssText = 'flex:0.6;min-width:56px';
+		align.addClass('wewrite-theme-align-cell');
 		const alignCurrent = this.headingConfigFor(path).config.align || 'left';
 		for (const [id, label] of [['left', t('theme_editor.align_short_left')], ['center', t('theme_editor.align_short_center')], ['right', t('theme_editor.align_short_right')]] as Array<[HeadingAlign, string]>) {
 			const opt = align.createEl('option', { text: label });
@@ -3248,15 +3240,15 @@ export class WeWriteThemeView extends ItemView {
 		});
 
 		const size = this.createHeadingAutoNumberInput(row, path, 'size');
-		size.style.cssText = 'width:48px;font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
+		size.addClass('wewrite-theme-size-input');
 		const weight = this.createHeadingAutoNumberInput(row, path, 'weight');
-		weight.style.cssText = 'width:48px;font-size:var(--ww-theme-input-font,11px);padding:1px 4px';
+		weight.addClass('wewrite-theme-size-input');
 	}
 
 	/** Column header for the per-level override rows (H1–H6). */
 	private renderHeadingLevelHeader(container: HTMLElement): void {
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-faint);padding:var(--ww-theme-row-pad,2px) 0;flex-wrap:wrap';
+		row.addClass('wewrite-theme-scope-legend', 'wewrite-theme-wraprow');
 		const col = (text: string, style: string): void => {
 			const el = row.createSpan({ text, cls: 'setting-item-description' });
 			el.style.cssText = style;
@@ -3292,13 +3284,13 @@ export class WeWriteThemeView extends ItemView {
 
 			// Render each slot
 			const slotContainer = section.createDiv();
-			slotContainer.style.cssText = 'margin-bottom:var(--ww-theme-row-gap,8px);padding:var(--ww-theme-box-pad,4px);border:var(--ww-theme-box-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-box-radius,4px)';
+			slotContainer.addClass('wewrite-theme-box');
 
 			// Element path label (only show sub-paths like h1, h2)
 			const parts = path.split('.');
 			const labelText = parts.length > 1 ? parts.slice(1).join('.') : path;
 			const pathLabel = slotContainer.createDiv({ text: labelText, cls: 'setting-item-description' });
-			pathLabel.style.cssText = 'font-size:10px;text-transform:uppercase;margin-bottom:2px;color:var(--text-faint)';
+			pathLabel.addClass('wewrite-theme-eyebrow');
 
 			// Slot dropdowns
 			for (const [slotId, slot] of Object.entries(slots)) {
@@ -3330,16 +3322,16 @@ export class WeWriteThemeView extends ItemView {
 		const currentValue = this.modifierConfig[elementPath]?.[slotId] || slot.defaultValue;
 
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 
 		const label = row.createSpan({ text: slot.name });
-		label.style.minWidth = '50px';
+		label.addClass('wewrite-theme-label-sm');
 
 		// Build options
 		const allValues = [...slot.values];
 
 		const select = row.createEl('select');
-		select.style.flex = '1';
+		select.addClass('wewrite-theme-grow');
 		const hasCurrent = allValues.some((sv) => sv.id === currentValue);
 		if (!hasCurrent && currentValue !== slot.defaultValue) {
 			// Unknown/legacy value stored in the theme — show it instead of
@@ -3362,10 +3354,10 @@ export class WeWriteThemeView extends ItemView {
 		// persist, re-register on reload and resolve in both previews.
 		if (slot.customColor) {
 			const colorWrap = row.createDiv();
-			colorWrap.style.cssText = 'display:flex;align-items:center;gap:4px';
+			colorWrap.addClass('wewrite-theme-color-group', 'wewrite-theme-wraprow');
 
 			const hexInput = colorWrap.createEl('input', { type: 'text', placeholder: '#RRGGBB' });
-			hexInput.style.cssText = 'width:78px;font-size:11px;font-family:var(--font-monospace);padding:1px 4px';
+			hexInput.addClass('wewrite-theme-hex-input-sm');
 
 			const currentHex = currentValue.startsWith('hex-') ? currentValue.slice(4) : '';
 			if (currentHex) {
@@ -3397,7 +3389,7 @@ export class WeWriteThemeView extends ItemView {
 		if (slot.codeEditor) {
 			const codeEditor = slot.codeEditor;
 			const codeBtn = row.createEl('button', { text: t('deco_ui.edit_code') });
-			codeBtn.style.cssText = 'font-size:11px;padding:2px 8px;flex-shrink:0';
+			codeBtn.addClass('wewrite-theme-code-btn');
 			codeBtn.addEventListener('click', () => {
 				void (async () => {
 					const currentCss = slot.values.find((v) => v.id === currentValue)?.css || '';
@@ -3446,17 +3438,17 @@ export class WeWriteThemeView extends ItemView {
 		const currentValue = this.modifierConfig[elementPath]?.[slot.id] || slot.defaultValue;
 
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
+		row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: slot.name });
-		label.style.minWidth = '50px';
+		label.addClass('wewrite-theme-label-sm');
 
 		const grid = container.createDiv();
-		grid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:4px 0 2px';
+		grid.addClass('wewrite-theme-swatch-grid');
 
 		const renderGroup = (groupLabel: string, values: SlotValue[]): void => {
 			if (values.length === 0) return;
 			const groupEl = grid.createDiv();
-			groupEl.style.cssText = 'grid-column:1/-1;font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.4px;margin-top:2px';
+			groupEl.addClass('wewrite-theme-swatch-group');
 			groupEl.setText(groupLabel);
 			for (const value of values) {
 				this.renderCodeThemeCard(grid, elementPath, slot, value, currentValue);
@@ -3472,7 +3464,7 @@ export class WeWriteThemeView extends ItemView {
 
 		// Custom background color (auto-contrast foreground + neutral tokens)
 		const customRow = container.createDiv();
-		customRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:11px;padding:var(--ww-theme-row-pad,2px) 0';
+		customRow.addClass('wewrite-theme-custom-row', 'wewrite-theme-wraprow');
 		customRow.createSpan({ text: t('modifier.code.custom_color') });
 		const currentHex = currentValue.startsWith('hex-') ? currentValue.slice(4) : '';
 		this.renderColorSwatch(customRow, currentHex || '#000000', {
@@ -3492,11 +3484,9 @@ export class WeWriteThemeView extends ItemView {
 	): void {
 		const theme = getCodeThemeById(value.id);
 		const card = grid.createDiv();
-		card.style.cssText =
-			`border:1px solid ${theme.bg};border-radius:6px;overflow:hidden;cursor:pointer;text-align:left;`
-			+ (value.id === currentValue
-				? 'outline:2px solid var(--interactive-accent);outline-offset:1px'
-				: '');
+		card.addClass('wewrite-theme-code-card');
+		card.style.borderColor = theme.bg;
+		card.classList.toggle('is-selected', value.id === currentValue);
 		card.setAttribute('data-code-theme-id', value.id);
 
 		const swatch = card.createDiv();
@@ -3508,7 +3498,7 @@ export class WeWriteThemeView extends ItemView {
 		}
 
 		const name = card.createDiv();
-		name.style.cssText = 'font-size:10px;padding:2px 4px;background:var(--background-secondary);color:var(--text-normal);white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+		name.addClass('wewrite-theme-code-name');
 		name.setText(value.name);
 		card.addEventListener('click', () => this.setSlotValue(elementPath, slot.id, value.id));
 	}
@@ -3519,11 +3509,9 @@ export class WeWriteThemeView extends ItemView {
 		container.querySelectorAll<HTMLElement>('[data-code-theme-id]').forEach((card) => {
 			const id = card.getAttribute('data-code-theme-id') || '';
 			if (id === current) {
-				card.style.outline = '2px solid var(--interactive-accent)';
-				card.style.outlineOffset = '1px';
+				card.addClass('is-selected');
 			} else {
-				card.style.outline = '';
-				card.style.outlineOffset = '';
+				card.removeClass('is-selected');
 			}
 		});
 	}
@@ -3572,13 +3560,13 @@ export class WeWriteThemeView extends ItemView {
 		const current = this.articleSliderNumber(slotId, currentValue, fallback);
 
 		const row = container.createDiv();
-		row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0;margin:8px 0 12px';
+		row.addClass('wewrite-theme-slider-line', 'wewrite-theme-wraprow');
 		const label = row.createSpan({ text: slot.name });
-		label.style.minWidth = '50px';
+		label.addClass('wewrite-theme-label-sm');
 		const readout = row.createSpan({ text: `${current}${opts.unit}` });
-		readout.style.cssText = 'min-width:42px;text-align:right;font-variant-numeric:tabular-nums';
+		readout.addClass('wewrite-theme-readout');
 		const slider = row.createEl('input', { type: 'range' });
-		slider.style.flex = '1';
+		slider.addClass('wewrite-theme-grow');
 		slider.min = String(opts.min);
 		slider.max = String(opts.max);
 		slider.step = String(opts.step);
@@ -3619,13 +3607,13 @@ export class WeWriteThemeView extends ItemView {
 
 		// Width slider row
 		const wRow = container.createDiv();
-		wRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0;margin:8px 0 12px';
+		wRow.addClass('wewrite-theme-slider-line', 'wewrite-theme-wraprow');
 		const wLabel = wRow.createSpan({ text: slot.name });
-		wLabel.style.minWidth = '50px';
+		wLabel.addClass('wewrite-theme-label-sm');
 		const wReadout = wRow.createSpan({ text: `${width}px` });
-		wReadout.style.cssText = 'min-width:42px;text-align:right;font-variant-numeric:tabular-nums';
+		wReadout.addClass('wewrite-theme-readout');
 		const widthSlider = wRow.createEl('input', { type: 'range' });
-		widthSlider.style.flex = '1';
+		widthSlider.addClass('wewrite-theme-grow');
 		widthSlider.min = '0';
 		widthSlider.max = '8';
 		widthSlider.step = '1';
@@ -3639,10 +3627,10 @@ export class WeWriteThemeView extends ItemView {
 		// Color row (unified color editor: wheel + hex input)
 		let currentHex = hex;
 		const cRow = container.createDiv();
-		cRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;padding:var(--ww-theme-row-pad,2px) 0';
-		cRow.createSpan({ text: t('deco_ui.border_color') }).style.minWidth = '50px';
+		cRow.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
+		cRow.createSpan({ text: t('deco_ui.border_color') }).addClass('wewrite-theme-label-sm');
 		const hexInput = cRow.createEl('input', { type: 'text', placeholder: '#RRGGBB' });
-		hexInput.style.cssText = 'width:78px;font-size:11px;font-family:var(--font-monospace);padding:1px 4px';
+		hexInput.addClass('wewrite-theme-hex-input-sm');
 		hexInput.value = hex.toUpperCase();
 
 		this.renderColorSwatch(cRow, hex, {
@@ -3832,7 +3820,6 @@ export class WeWriteThemeView extends ItemView {
 		// the transform (scrollHeight is layout-based, unaffected by scale).
 		const contentH = scaled.scrollHeight;
 		scaled.style.transform = s >= 1 ? '' : `scale(${s})`;
-		scaled.style.transformOrigin = 'top left';
 		zoom.style.width = s >= 1 ? '100%' : `${Math.round(layoutW * s)}px`;
 		zoom.style.height = s >= 1 ? '' : `${Math.round(contentH * s)}px`;
 	}
@@ -3891,14 +3878,13 @@ export class WeWriteThemeView extends ItemView {
 			cancelAnimationFrame(this._repaintRaf);
 			this._repaintRaf = 0;
 		}
-		const prevVisibility = c.style.visibility;
-		c.style.visibility = 'hidden';
+		c.addClass('wewrite-theme-force-repaint');
 		// Reading offsetHeight forces a synchronous reflow while the new
 		// visibility is applied, so the invalidation actually happens.
 		void c.offsetHeight;
 		this._repaintRaf = window.requestAnimationFrame(() => {
 			this._repaintRaf = 0;
-			c.style.visibility = prevVisibility;
+			c.removeClass('wewrite-theme-force-repaint');
 		});
 	}
 
@@ -3913,13 +3899,12 @@ export class WeWriteThemeView extends ItemView {
 	private repaintFocusedInput(): void {
 		const active = this.contentEl.querySelector<HTMLElement>('input:focus, textarea:focus, select:focus');
 		if (!active) return;
-		const prev = active.style.opacity;
-		active.style.opacity = '0.999';
+		active.addClass('wewrite-theme-force-paint');
 		// Reading offsetWidth forces a synchronous reflow while the new
 		// opacity is applied, so the paint invalidation actually happens.
 		void active.offsetWidth;
 		window.requestAnimationFrame(() => {
-			active.style.opacity = prev;
+			active.removeClass('wewrite-theme-force-paint');
 		});
 	}
 
@@ -3961,20 +3946,14 @@ export class WeWriteThemeView extends ItemView {
 		if (!el) return;
 
 		// Flash highlight
-		const prevOutline = el.style.outline;
-		const prevOutlineOffset = el.style.outlineOffset;
-		el.style.outline = '2px solid var(--interactive-accent)';
-		el.style.outlineOffset = '2px';
-		el.style.transition = 'outline 0.3s ease-out 1s, outline-offset 0.3s ease-out 1s';
+		el.addClass('wewrite-theme-flash');
 
 		// Scroll into view
 		el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
 		// Remove highlight after animation
 		window.setTimeout(() => {
-			el.style.outline = prevOutline;
-			el.style.outlineOffset = prevOutlineOffset;
-			el.style.transition = '';
+			el.removeClass('wewrite-theme-flash');
 		}, 1500);
 	}
 
@@ -4377,19 +4356,19 @@ export class WeWriteThemeView extends ItemView {
 			const rect = split.getBoundingClientRect();
 			const editorW = Math.min(Math.max(e.clientX - rect.left, 240), Math.max(rect.width - 320, 240));
 			this.editorPanel.style.flex = `0 0 ${editorW}px`;
-			this.editorPanel.style.minWidth = '0';
+			this.editorPanel.addClass('is-resizing');
 			this.applyThemePreviewZoom();
 		};
 		const onEnd = (e: PointerEvent): void => {
 			if (!dragging) return;
 			dragging = false;
-			splitter.style.background = 'var(--background-modifier-border)';
+			splitter.removeClass('is-dragging');
 			try { splitter.releasePointerCapture(e.pointerId); } catch { /* noop */ }
 		};
 		splitter.addEventListener('pointerdown', (e) => {
 			if (window.innerWidth < 760) return;
 			dragging = true;
-			splitter.style.background = 'var(--interactive-accent)';
+			splitter.addClass('is-dragging');
 			try { splitter.setPointerCapture(e.pointerId); } catch { /* noop */ }
 			e.preventDefault();
 		});
@@ -4489,15 +4468,14 @@ export class WeWriteThemeView extends ItemView {
 		const sectionKey = title;
 		const section = container.createDiv({ cls: 'wewrite-theme-section' });
 		section.setAttribute('data-section-key', sectionKey);
-		section.style.cssText = 'margin-bottom:var(--ww-theme-section-mb,10px);padding:var(--ww-theme-section-pad,8px 10px);border:var(--ww-theme-section-border,1px solid var(--background-modifier-border));border-radius:var(--ww-theme-section-radius,8px)';
 		const header = section.createDiv({ cls: 'wewrite-theme-section-header' });
-		header.style.cssText = 'display:flex;align-items:center;gap:6px;margin:var(--ww-theme-section-header-margin,-8px -10px 8px);padding:var(--ww-theme-section-header-pad,8px 10px);min-height:var(--ww-theme-section-header-minh,0);font-size:13px;font-weight:600;cursor:pointer;user-select:none;border-bottom:1px solid var(--background-modifier-border)';
+		header.addClass('wewrite-theme-wraprow');
 		const titleEl = header.createSpan({ text: title });
-		titleEl.style.cssText = 'flex:1;min-width:0';
+		titleEl.addClass('wewrite-theme-section-title');
 		// Collapse chevron sits at the right edge (chevron_right / chevron_down),
 		// matching the collapse affordance used everywhere else in wewrite.
 		const chevron = header.createSpan({ cls: 'wewrite-theme-chevron' });
-		chevron.style.cssText = 'display:flex;align-items:center;justify-content:center;width:20px;height:20px;color:var(--text-muted);flex-shrink:0';
+		chevron.addClass('wewrite-theme-wraprow');
 		header.addEventListener('click', () => {
 			if (this.expandedByUser.has(sectionKey)) {
 				this.expandedByUser.delete(sectionKey);
