@@ -3,6 +3,7 @@
 import type { App } from 'obsidian';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { ensureUniqueName } from './dump-naming';
+import { ensureFolderExists } from './vault-helpers';
 
 function localTimestamp(): string {
   const d = new Date();
@@ -30,10 +31,7 @@ export async function writeAICallLog(
   log: AICallLog,
 ): Promise<void> {
   const dumpDir = getWeWriteSubPath(wewriteFolder, WEWRITE_SUBDIRS.debug);
-
-  if (!(await app.vault.adapter.exists(dumpDir))) {
-    await app.vault.createFolder(dumpDir);
-  }
+  await ensureFolderExists(app, dumpDir);
 
   const ts = localTimestamp();
   const zoneSuffix = log.zoneKey ? `-${log.zoneKey}` : '';
@@ -119,9 +117,10 @@ export class AIImageGenLogger {
 
   async init(): Promise<void> {
     const dumpDir = getWeWriteSubPath(this.wewriteFolder, WEWRITE_SUBDIRS.debug);
-    if (!(await this.app.vault.adapter.exists(dumpDir))) {
-      await this.app.vault.createFolder(dumpDir);
-    }
+    // `{wewriteFolder}/debug` is nested, and a single `createFolder` on a
+    // nested path has a known mobile quirk — same reason the cache dir is
+    // built level by level.
+    await ensureFolderExists(this.app, dumpDir);
 
     const ts = localTimestamp();
     const baseName = `ai-call-image-gen-${this.zoneKey}-${ts}`;

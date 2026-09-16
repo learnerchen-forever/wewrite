@@ -5,6 +5,7 @@ import type { ImageEditModalConfig, ImageEditResult } from '../core/interfaces';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { canvasToBlobSafe } from '../media/diagram-renderer';
 import { compressToTarget } from '../media/cover-processor';
+import { mediaWriteTarget } from '../media/media-registry';
 import { t } from '../i18n';
 import { createLogger } from '../utils/logger';
 import { resolveCacheStorageDir } from '../utils/vault-helpers';
@@ -622,13 +623,8 @@ export class ImageEditModal {
     const cacheDir = getWeWriteSubPath(this.config.wewriteFolder, WEWRITE_SUBDIRS.cache);
     const targetDir = resolveCacheStorageDir(cacheDir);
 
-    // Ensure cache directory exists
-    const dirNorm = targetDir.replace(/\/$/, '');
-    const exists = await this.config.app.vault.adapter.exists(dirNorm);
-    if (!exists) {
-      await this.config.app.vault.createFolder(dirNorm);
-    }
-
+    // The cache folder is guaranteed by `mediaWriteTarget` below — it used to
+    // be created here, which is exactly how these call sites drifted apart.
     let croppedImagePath: string;
     try {
       croppedImagePath = await this.config.mediaRegistry.ingestImage(
@@ -637,10 +633,7 @@ export class ImageEditModal {
         'crop',
         'png',
         targetDir,
-        {
-          createBinary: (p: string, d: ArrayBuffer) =>
-            this.config.app.vault.createBinary(p, d).then(() => undefined),
-        },
+        mediaWriteTarget(this.config.app),
       );
     } catch (err) {
       log.error('save cropped image failed', { err: String(err) });

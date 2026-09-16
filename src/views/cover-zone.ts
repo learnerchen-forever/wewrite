@@ -5,7 +5,7 @@ import { Menu, Modal, Notice, requestUrl, type TFile } from 'obsidian';
 import { createLogger } from '../utils/logger';
 import { t } from '../i18n';
 import { isSupportedFormat, convertToSupported, compressToTarget } from '../media/cover-processor';
-import type { MediaRegistry } from '../media/media-registry';
+import { mediaWriteTarget, type MediaRegistry } from '../media/media-registry';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { globalSpinner } from '../utils/global-spinner';
 
@@ -542,7 +542,7 @@ export class CoverZone {
       `cover_${this.config.zoneId}`,
       ext,
       targetDir,
-      { createBinary: (p, d) => this.app.vault.createBinary(p, d).then(() => undefined) },
+      mediaWriteTarget(this.app),
       extra,
     );
 

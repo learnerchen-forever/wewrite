@@ -10,6 +10,26 @@ import { setTrustedHtml } from '../utils/trusted-html';
 
 const log = createLogger('Views:AIImageGenModal');
 
+/**
+ * Resolve the WeWrite cache directory this modal writes into, creating it (and
+ * any missing parents) first.
+ *
+ * `vault.createBinary` never creates parent folders: desktop surfaces a missing
+ * parent as ENOENT, mobile (Capacitor FS) as "Parent folder doesn't exist". The
+ * cache dir is otherwise only created as a side effect of other flows
+ * (prescanImages → ensureCacheDir when the WeWrite 图文 view renders,
+ * image-edit-modal, theme download, …), but the "AI 文生图 → 插入" command runs
+ * inside a plain note and may be the first WeWrite action after a fresh install
+ * / on a new device — so the guarantee has to live here, level by level
+ * (mobile-safe). Exported so the ordering is covered by a unit test.
+ */
+export async function prepareCacheDir(app: App, wewriteFolder: string): Promise<string> {
+  const storagePath = getWeWriteSubPath(wewriteFolder, WEWRITE_SUBDIRS.cache);
+  const { resolveCacheStorageDir, ensureFolderExists } = await import('../utils/vault-helpers');
+  await ensureFolderExists(app, storagePath);
+  return resolveCacheStorageDir(storagePath);
+}
+
 export class AIImageGenerateModal {
   private modalEl: HTMLElement;
   private promptEl: HTMLTextAreaElement;
@@ -69,7 +89,17 @@ export class AIImageGenerateModal {
         this.app, this.wewriteFolder, 'inline', 'Inline Insert',
         this.account.model, this.account.baseUrl, rawSize, prompt, startTime,
       );
-      await this.imageLogger.init();
+      try {
+        await this.imageLogger.init();
+      } catch (err) {
+        // The AI-call log is diagnostic only, so a failure to prepare it must
+        // not abort the generation. Dropping the logger also keeps
+        // generateImage() from flushing records into a folder that isn't
+        // there. Without this guard the rejection escaped generate() entirely:
+        // the button stayed on "生成中…" and no Notice was ever shown.
+        log.warn('AI image log init failed, continuing without log', { err: String(err) });
+        this.imageLogger = null;
+      }
     }
 
     try {
@@ -103,9 +133,7 @@ export class AIImageGenerateModal {
       const ct = resp.headers['content-type'] || 'image/png';
       const ext = ct.split('/')[1]?.split(';')[0] || 'png';
 
-      const storagePath = getWeWriteSubPath(this.wewriteFolder, WEWRITE_SUBDIRS.cache);
-      const { resolveCacheStorageDir } = await import('../utils/vault-helpers');
-      const targetDir = resolveCacheStorageDir(storagePath);
+      const targetDir = await prepareCacheDir(this.app, this.wewriteFolder);
 
       const timestamp = Date.now();
       const baseName = `wewrite_ai_gen_${timestamp}`;

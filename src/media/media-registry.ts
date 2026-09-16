@@ -23,13 +23,42 @@ import {
   computeTextFingerprint,
   sizeKey,
 } from '../utils/fingerprint';
-import { generateTimestampFilename } from '../utils/vault-helpers';
+import { generateTimestampFilename, ensureFolderExists } from '../utils/vault-helpers';
 import type { MediaRecord, MediaRecordsData } from '../core/interfaces';
 import { createLogger } from '../utils/logger';
+import type { App } from 'obsidian';
 
 const log = createLogger('MediaRegistry');
 
 const SCHEMA_VERSION = 1;
+
+/**
+ * Where `ingestImage()` puts bytes.
+ *
+ * `ensureFolder` is part of the seam on purpose. `vault.createBinary` never
+ * creates parent folders — desktop surfaces a missing parent as `ENOENT`,
+ * mobile (Capacitor FS) as `Parent folder doesn't exist` — and this registry
+ * cannot know whether some *other* flow happened to create the cache dir
+ * first. Call sites used to inline `{ createBinary: (p, d) => … }`, which
+ * quietly encoded the assumption "the folder is already there"; making the
+ * guarantee part of the type means no new call site can forget it.
+ */
+export interface MediaWriteTarget {
+  createBinary(path: string, data: ArrayBuffer): Promise<void>;
+  /** Guarantee `folderPath` and every missing ancestor exists. */
+  ensureFolder(folderPath: string): Promise<void>;
+}
+
+/**
+ * Build the write seam from an App. This is the only supported way to get a
+ * `MediaWriteTarget`, because it is what wires the folder guarantee in.
+ */
+export function mediaWriteTarget(app: App): MediaWriteTarget {
+  return {
+    createBinary: (p, d) => app.vault.createBinary(p, d).then(() => undefined),
+    ensureFolder: (folderPath) => ensureFolderExists(app, folderPath),
+  };
+}
 
 export class MediaRegistry {
   private records: MediaRecord[] = [];
@@ -267,7 +296,7 @@ export class MediaRegistry {
     baseName: string,
     extension: string,
     targetDir: string,
-    vault: { createBinary(path: string, data: ArrayBuffer): Promise<void> },
+    target: MediaWriteTarget,
     extra?: {
       mediaId?: string;
       wechatUrl?: string;
@@ -304,7 +333,10 @@ export class MediaRegistry {
     const filename = generateTimestampFilename(baseName, extension);
     const path = targetDir + filename;
 
-    await vault.createBinary(path, buffer);
+    // The folder guarantee lives here, not at the call sites: this runs after
+    // the fingerprint-hit early return above, so a dedup hit costs no mkdir.
+    await target.ensureFolder(targetDir);
+    await target.createBinary(path, buffer);
 
     const acct = extra?.accountId || '';
     this.register({

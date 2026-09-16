@@ -128,6 +128,18 @@ describe('MediaRegistry — unified fingerprint DB', () => {
 
   // ── ingestImage ──
 
+  /** Minimal MediaWriteTarget double that records the order of its calls. */
+  function createTarget() {
+    const calls: string[] = [];
+    return {
+      calls,
+      target: {
+        ensureFolder: jest.fn(async (p: string) => { calls.push(`ensure:${p}`); }),
+        createBinary: jest.fn(async (p: string) => { calls.push(`write:${p}`); }),
+      },
+    };
+  }
+
   test('ingestImage returns existing path on fingerprint hit', async () => {
     const testData = new Uint8Array([1, 2, 3]).buffer;
     const fingerprint = registry.computeFingerprint('image/png', testData);
@@ -140,38 +152,46 @@ describe('MediaRegistry — unified fingerprint DB', () => {
       accountUrls: {},
     });
 
-    const fakeVault = {
-      createBinary: jest.fn().mockResolvedValue(undefined),
-    };
+    const { target } = createTarget();
 
     const path = await registry.ingestImage(
-      testData, 'image/png', 'cover_a', 'png', 'covers/',
-      fakeVault as unknown as { createBinary(p: string, d: ArrayBuffer): Promise<void> },
+      testData, 'image/png', 'cover_a', 'png', 'covers/', target,
     );
 
     expect(path).toBe('vault/existing.png');
-    expect(fakeVault.createBinary).not.toHaveBeenCalled();
+    expect(target.createBinary).not.toHaveBeenCalled();
+    // A dedup hit writes nothing, so it must not pay for a mkdir either.
+    expect(target.ensureFolder).not.toHaveBeenCalled();
   });
 
   test('ingestImage saves new image on fingerprint miss', async () => {
-    const fakeVault = {
-      createBinary: jest.fn().mockResolvedValue(undefined),
-    };
+    const { target } = createTarget();
 
     const testData = new Uint8Array([4, 5, 6]).buffer;
     const path = await registry.ingestImage(
-      testData, 'image/png', 'cover_a', 'png', 'covers/',
-      fakeVault as unknown as { createBinary(p: string, d: ArrayBuffer): Promise<void> },
+      testData, 'image/png', 'cover_a', 'png', 'covers/', target,
       { mediaId: 'new-media', wechatUrl: 'https://cdn.example.com/img.jpg', accountId: 'acct-I2' },
     );
 
     expect(path).toMatch(/^covers\/cover_a_.*\.png$/);
-    expect(fakeVault.createBinary).toHaveBeenCalledTimes(1);
+    expect(target.createBinary).toHaveBeenCalledTimes(1);
 
     const record = registry.lookupByPath(path);
     expect(record).not.toBeNull();
     expect(record!.accountMediaIds).toEqual({ 'acct-I2': 'new-media' });
     expect(record!.accountUrls).toEqual({ 'acct-I2': 'https://cdn.example.com/img.jpg' });
+  });
+
+  test('ingestImage guarantees the target folder before writing', async () => {
+    const { target, calls } = createTarget();
+
+    const path = await registry.ingestImage(
+      new Uint8Array([7, 8, 9]).buffer, 'image/png', 'cover_a', 'png', 'wechat/cache/', target,
+    );
+
+    // `createBinary` never creates parent folders (desktop: ENOENT, mobile:
+    // "Parent folder doesn't exist"), so the ensure has to come first.
+    expect(calls).toEqual([`ensure:wechat/cache/`, `write:${path}`]);
   });
 
   // ── updatePath ──

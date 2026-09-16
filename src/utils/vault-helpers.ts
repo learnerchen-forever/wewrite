@@ -145,13 +145,28 @@ export function isMarkdownFile(file: TFile | null | undefined): file is TFile {
  * Node fs — so it is safe on iOS/Android.
  */
 export async function ensureFolderExists(app: App, folderPath: string): Promise<void> {
+  return ensureFolderExistsInVault(app.vault, folderPath);
+}
+
+/**
+ * `ensureFolderExists` for callers that hold a Vault but not a full App —
+ * e.g. `MediaRegistry.ingestImage()`, whose write seam is built from a Vault.
+ * Identical behaviour; keep the two in sync.
+ */
+export async function ensureFolderExistsInVault(
+  vault: {
+    adapter: { exists(path: string): Promise<boolean> };
+    createFolder(path: string): Promise<unknown>;
+  },
+  folderPath: string,
+): Promise<void> {
   if (!folderPath) return;
   const parts = folderPath.split('/').filter(Boolean);
   let current = '';
   for (const part of parts) {
     current += (current ? '/' : '') + part;
-    if (!(await app.vault.adapter.exists(current))) {
-      await app.vault.createFolder(current);
+    if (!(await vault.adapter.exists(current))) {
+      await vault.createFolder(current);
     }
   }
 }

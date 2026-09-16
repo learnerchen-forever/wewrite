@@ -34,7 +34,7 @@ import { processMathToSvg } from '../utils/math-processor';
 import { deferImgSrcs, restoreDeferredImgSrcs, hydrateWechatCdnImages } from '../utils/wechat-image-display';
 import { CoverComposer, type CoverComposerState } from './cover-composer';
 import type { CoverZone } from './cover-zone';
-import type { MediaRegistry } from '../media/media-registry';
+import { mediaWriteTarget, type MediaRegistry } from '../media/media-registry';
 import { eventBus } from '../core/event-bus';
 import { ImageValidator, type ValidationTarget, type ConversionResult, type ValidationReport, MIN_COVER_WIDTH, MIN_COVER_HEIGHT } from '../media/image-validator';
 import { resolveLocalImagePath, readLocalImage } from '../media/local-image-resolver';
@@ -723,7 +723,7 @@ export class WeChatNewsView extends ItemView {
                 `wewrite_ai_cover_${zoneCategory}`,
                 ext,
                 targetDir,
-                { createBinary: (p, d) => this.plugin.app.vault.createBinary(p, d).then(() => undefined) },
+                mediaWriteTarget(this.plugin.app),
               );
 
               this.coverComposer.setFullState({
@@ -2005,10 +2005,7 @@ export class WeChatNewsView extends ItemView {
           `wewrite_material_${zone}`,
           ext,
           targetDir,
-          {
-            createBinary: (p: string, d: ArrayBuffer) =>
-              this.plugin.app.vault.createBinary(p, d).then(() => undefined),
-          },
+          mediaWriteTarget(this.plugin.app),
           { mediaId, wechatUrl: url, accountId: appId },
         );
 
@@ -3135,7 +3132,7 @@ class PublishProgressModal {
                   const targetDir = resolveCacheStorageDir(storagePath);
                   const localPath = await this.plugin.mediaRegistry.ingestImage(
                     resp.arrayBuffer, mime, 'wewrite_cover_reupload', ext, targetDir,
-                    { createBinary: (p, d) => this.plugin.app.vault.createBinary(p, d).then(() => undefined) },
+                    mediaWriteTarget(this.plugin.app),
                   );
                   const result = await this.uploadMedia(localPath);
                   this.uploadedMediaIds.set('cover', result.mediaId);

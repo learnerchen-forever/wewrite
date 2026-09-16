@@ -4,7 +4,7 @@ import type { App } from 'obsidian';
 import { Notice, requestUrl, setIcon } from 'obsidian';
 import { CoverZone, type CoverZoneState, type CoverZoneConfig } from './cover-zone';
 import { composeFromZones, compressToTarget, type ZoneRenderState } from '../media/cover-processor';
-import type { MediaRegistry } from '../media/media-registry';
+import { mediaWriteTarget, type MediaRegistry } from '../media/media-registry';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { createLogger } from '../utils/logger';
 import { t } from '../i18n';
@@ -231,7 +231,7 @@ export class CoverComposer {
       const targetDir = resolveCacheStorageDir(cacheDir);
       const path = await this.registry.ingestImage(
         arrayBuf, 'image/png', 'wewrite_cover_composite', 'png', targetDir,
-        { createBinary: (p, d) => this.app.vault.createBinary(p, d).then(() => undefined) },
+        mediaWriteTarget(this.app),
       );
 
       this.zones.c.setState({ imagePath: path });
