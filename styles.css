@@ -369,33 +369,62 @@ body .wewrite-folder-row .setting-item-control button {
      .wewrite-test-row        label + description + a single icon button
      .wewrite-account-actions 右对齐的 设为启用 / 删除 按钮，没有 label
 
-   Obsidian 1.13 wraps every setting row in a size container (the settings
-   modal's `.vertical-tab-content`) and ships an
-   `@container (max-width: 340px)` rule that turns ANY `.setting-item` into a
-   vertical stack with a full-width, left-aligned `.setting-item-control`:
+   Obsidian wraps every setting row in a size container (the settings modal's
+   `.vertical-tab-content`, measure = its content box) and ships these rules
+   that turn ANY `.setting-item` into a vertical stack with a full-width,
+   left-aligned `.setting-item-control`:
 
-       .setting-item:not(:is(.mod-toggle, .mod-navigable, .mod-action,
-                             .setting-item-heading))            { flex-direction: column; }
-       ... .setting-item-control                                 { width: 100%;
-                                                                   justify-content: flex-start; }
-       ... .setting-item-control button:not(.clickable-icon)     { width: 100%;
-                                                                   max-width: 100%; }
+       @container (max-width: 340px)          // .vertical-tab-content has
+         .setting-item:not(.mod-toggle):not(.setting-item-heading) { flex-direction: column; }
+         ... .setting-item-control                                 { width: 100%;
+                                                                     justify-content: flex-start; }
+         ... .setting-item-control button:not(.clickable-icon)     { width: 100%;
+                                                                     max-width: 100%; }
+
+       .is-phone .modal .setting-item:not(:is(.mod-toggle, .setting-item-heading))
+                                                                   { flex-direction: column;
+                                                                     align-items: flex-start; }
+       .is-phone .modal ... .setting-item-control                 { width: 100%; }
+       .is-phone .modal .setting-item-control button:not(.clickable-icon)
+                                                                  { width: 100%; }
 
    That is why the layout collapsed on Android tablets and phones: `flex-wrap:
-   nowrap` cannot fix a *column* flex direction, and the container-query
-   selectors outrank the plain class selectors these rows used before.
-   `!important` is kept on the direction/width properties so the rule also
-   survives Obsidian versions that ship the same behaviour with different
-   specificity or from a `body.is-mobile` media query. These rows must ALWAYS
-   stay one line, right-aligned, with natural button widths — exactly like the
-   desktop layout. */
+   nowrap` cannot fix a *column* flex direction, and those selectors outrank
+   the plain `body .wewrite-auto-expand .wewrite-test-row …` class selectors
+   these rows used before. Maximum strengths (a,b,c) to beat, from the app.css
+   shipped with Obsidian 1.12.7:
 
-/* Action row (设为启用 / 删除): no label, buttons in a right-aligned row */
+       0,3,0  row            — the @container rule above
+       0,4,0  row            — the phone rule above
+       0,4,0  .setting-item-control { width: 100%; justify-content: flex-start; }
+       0,5,0  .setting-item-control { width: 100%; }                (phone)
+       0,5,1  button:not(.clickable-icon) { width: 100%; max-width: 100%; }
+
+   Two ways to beat them; this file uses the second one everywhere:
+
+   1. Force flags (`!` + `important`) — what these rules used to do. The
+      community-plugin review flags every such declaration in styles.css, so it
+      is reserved for cases where specificity cannot win.
+   2. Mirrored specificity — repeat the app's OWN qualifying classes on our
+      selector: `.setting-item.wewrite-…:not(.mod-toggle):not(.setting-item-heading)
+      .setting-item-control button`. The `:not()`s are true for these rows
+      (that is exactly why the app rule hits them) and are pure specificity
+      ballast — no force flag needed, and no app rule can outrank 0,6,x.
+
+   Any edit here MUST re-derive those numbers from the shipped app.css: the
+   app CSS uses no force flags of its own, so specificity is the whole game.
+   These rows must ALWAYS stay one line, right-aligned, with natural button
+   widths — exactly like the desktop layout. */
+
+/* Action row (设为启用 / 删除): no label, buttons in a right-aligned row.
+   The `body.is-mobile` half of the selector is what out-specifies the app's
+   phone rule (0,4,1 vs 0,4,0); on desktop the plain half already beats the
+   0,3,0 @container rule. */
 body .wewrite-auto-expand .setting-item.wewrite-account-actions,
 body.is-mobile .wewrite-auto-expand .setting-item.wewrite-account-actions {
   display: flex;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
@@ -406,23 +435,28 @@ body .wewrite-auto-expand .wewrite-account-actions .setting-item-info {
   display: none;
 }
 
-/* Buttons keep their natural width and are pushed to the right edge of the card */
-body .wewrite-auto-expand .wewrite-account-actions button,
-body.is-mobile .wewrite-auto-expand .wewrite-account-actions button {
-  flex: 0 0 auto !important;
-  width: auto !important;
-  min-width: 0 !important;
-  max-width: none !important;
+/* Buttons keep their natural width and are pushed to the right edge of the card.
+   `Setting.addButton()` always appends to `.setting-item-control`, so naming it
+   in the selector only adds the specificity we need to beat the app's
+   `… .setting-item-control button:not(.clickable-icon) { width: 100% }`
+   (0,5,1) — the buttons here are plain `<button>`s without `.clickable-icon`. */
+body .wewrite-auto-expand .setting-item.wewrite-account-actions:not(.mod-toggle):not(.setting-item-heading) .setting-item-control button {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
   white-space: nowrap;
   margin: 0;
 }
 
 /* `margin-inline-start: auto` on the FIRST button right-aligns the pair even
-   when the control block is stretched to full width (Obsidian's <400px
-   container query does exactly that). Never put it on every button — the auto
-   margins would then split the free space and centre the pair. */
-body .wewrite-auto-expand .wewrite-account-actions button:first-child,
-body.is-mobile .wewrite-auto-expand .wewrite-account-actions button:first-child {
+   when the control block is stretched to full width and the app's
+   `justify-content: flex-start` applies to it (the @container / phone rules do
+   exactly that). Never put it on every button — the auto margins would then
+   split the free space and centre the pair. This selector must stay more
+   specific than the `margin: 0` above (0,6,2), hence the extra `:first-child`
+   on the same mirrored shape (0,7,2). */
+body .wewrite-auto-expand .setting-item.wewrite-account-actions:not(.mod-toggle):not(.setting-item-heading) .setting-item-control button:first-child {
   margin-inline-start: auto;
 }
 
@@ -430,49 +464,55 @@ body.is-mobile .wewrite-auto-expand .wewrite-account-actions button:first-child 
 body .wewrite-auto-expand .setting-item.wewrite-test-row,
 body.is-mobile .wewrite-auto-expand .setting-item.wewrite-test-row {
   display: flex;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
 }
 
 body .wewrite-auto-expand .wewrite-test-row .setting-item-info {
-  flex: 1 1 auto !important;
+  flex: 1 1 auto;
   min-width: 0;
   max-width: none;
 }
 
-body .wewrite-auto-expand .wewrite-test-row .setting-item-control {
+/* Mirrored specificity (0,6,1): must beat both the base `.setting-item-control
+   { width: 100%; justify-content: flex-start }` (0,4,0, @container ≤340px) and
+   the phone one (0,5,0) that pushed the icon button to the middle of the row
+   on Android tablets in portrait. */
+body .wewrite-auto-expand .setting-item.wewrite-test-row:not(.mod-toggle):not(.setting-item-heading) .setting-item-control {
   display: flex;
-  flex: 0 0 auto !important;
-  width: auto !important;
+  flex: 0 0 auto;
+  width: auto;
   align-items: center;
-  /* !important: Obsidian's @container (max-width: 340px) rule sets
-     justify-content: flex-start with a 0,4,0 selector, which outranks this
-     0,3,1 rule and pushed the icon button to the middle of the row on
-     Android tablets in portrait. */
-  justify-content: flex-end !important;
+  justify-content: flex-end;
   margin-inline-start: 12px;
 }
 
-body .wewrite-auto-expand .wewrite-test-row .setting-item-control button {
+/* The icon is an ExtraButtonComponent: a `.clickable-icon` DIV in current
+   Obsidian and a `button.clickable-icon` in older versions — the app's
+   `button:not(.clickable-icon)` rules never hit either, so this only guards
+   the old shape. */
+body .wewrite-auto-expand .setting-item.wewrite-test-row:not(.mod-toggle):not(.setting-item-heading) .setting-item-control button {
   flex: 0 0 auto;
-  width: auto !important;
+  width: auto;
   min-width: 0;
-  max-width: none !important;
+  max-width: none;
   margin: 0;
 }
 
 /* From 501px up the card keeps the same split as every other row in the card
    (label column ≈ 38%, capped at 320px, control column 62%). Below that (phone)
    the label and its control still share ONE line: full-width info + auto control
-   means the icon button stays flush with the right edge of the card. */
+   means the icon button stays flush with the right edge of the card.
+   The control selector is mirrored so it still outranks the base rule above
+   (both 0,6,1 — but this block comes later in the file). */
 @media (min-width: 501px) {
   body .wewrite-auto-expand .wewrite-test-row .setting-item-info {
-    flex: 1 1 38% !important;
+    flex: 1 1 38%;
     max-width: 320px;
   }
-  body .wewrite-auto-expand .wewrite-test-row .setting-item-control {
-    flex: 1 1 62% !important;
+  body .wewrite-auto-expand .setting-item.wewrite-test-row:not(.mod-toggle):not(.setting-item-heading) .setting-item-control {
+    flex: 1 1 62%;
   }
 }
 
@@ -603,14 +643,15 @@ body .wewrite-auto-expand .wewrite-test-row .setting-item-control button {
 
   /* Undo the ≥501px viewport split inside a narrow panel: the label/input
      columns collapse back to the phone layout — info takes what it needs,
-     control keeps its natural width (icon button flush right). */
+     control keeps its natural width (icon button flush right). Same mirrored
+     selector as the base rule, so being later in the file it wins on ties. */
   body .wewrite-auto-expand .wewrite-test-row .setting-item-info {
-    flex: 1 1 auto !important;
+    flex: 1 1 auto;
     max-width: none;
   }
-  body .wewrite-auto-expand .wewrite-test-row .setting-item-control {
-    flex: 0 0 auto !important;
-    width: auto !important;
+  body .wewrite-auto-expand .setting-item.wewrite-test-row:not(.mod-toggle):not(.setting-item-heading) .setting-item-control {
+    flex: 0 0 auto;
+    width: auto;
   }
   .wewrite-account-row .setting-item-info,
   .wewrite-folder-row .setting-item-info {
