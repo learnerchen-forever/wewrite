@@ -7,7 +7,24 @@ const log = createLogger('CoverProcessor');
 
 const MAX_COVER_BYTES = 10 * 1024 * 1024; // 10MB WeChat limit
 const COMPOSE_FORMAT = 'image/png';
+
+/** Lower bound of the composite height. 383 = ceil(900 / 2.35), i.e. WeChat's
+ *  recommended 2.35:1 cover (900x383). Also the 2.35:1 crop of the composite:
+ *  0.7015 * 1283 = 900. */
 const MIN_COMPOSE_HEIGHT = 383;
+
+/** Upper bound of the composite height.
+ *
+ *  Without it the height is driven by the *source* resolution
+ *  (min(imageW, imageH) for the square B zone), so any ordinary 12MP photo pair
+ *  produced a ~10130x3024 composite: 30.6 Mpx / 117MB RGBA in a single canvas,
+ *  46MB of PNG, plus a 10MB-gate re-encode — seconds of blocking work on mobile,
+ *  and past iOS Safari's 4096/side and 16.7 Mpx canvas limits.
+ *
+ *  720 keeps the 2.35:1 crop at 1692x720 (1.9x WeChat's recommended 900x383 —
+ *  more than any phone displays) while keeping the PNG near 3MB. Images whose
+ *  visible height is already below the bound are untouched. */
+const MAX_COMPOSE_HEIGHT = 720;
 
 export interface ComposeResult {
   blob: Blob;
@@ -80,88 +97,45 @@ function calcVisibleSourceRect(
   return { sx, sy, sw, sh };
 }
 
+/** Layout of the 3.35:1 composite: sizes plus the WeChat crop params. */
+export interface ComposeLayout {
+  /** Composite height in pixels, clamped to [MIN_COMPOSE_HEIGHT, MAX_COMPOSE_HEIGHT] */
+  height: number;
+  /** Left (A) slot width — 2.35:1 at `height` */
+  a2W: number;
+  /** Right (B) slot width — 1:1 at `height` */
+  b2W: number;
+  totalW: number;
+  picCrop2351: string;
+  picCrop11: string;
+}
+
 /**
- * Compose A and B zone visible content into a 3.35:1 composite for WeChat publishing.
+ * Size the composite and derive the crop params, independently of any canvas.
  *
- * Flow:
- * 1. Extract visible source rects from A and B zones
- * 2. Scale both to a common height S = max(A_visible_h, B_visible_h, 383)
- * 3. Stitch A (left) + B (right) into 3.35:1 composite
- * 4. Calculate pic_crop_235_1 and pic_crop_1_1 params
+ * Both slots share one height S = max(A_visible_h, B_visible_h), bounded by
+ * MIN_COMPOSE_HEIGHT below and MAX_COMPOSE_HEIGHT above.
  */
-export async function composeFromZones(
-  imageA: HTMLImageElement,
-  stateA: ZoneRenderState,
-  imageB: HTMLImageElement | null,
-  stateB: ZoneRenderState | null,
-): Promise<ComposeResult> {
-  const rectA = calcVisibleSourceRect(stateA);
+export function planComposeLayout(
+  visibleA: { sw: number; sh: number },
+  visibleB: { sw: number; sh: number } | null,
+): ComposeLayout {
+  const a1H = Math.round(visibleA.sh);
+  const b1H = visibleB ? Math.round(visibleB.sh) : 0;
+  const hasB = visibleB !== null;
 
-
-  // Render A1: draw visible source rect to a canvas at source resolution
-  const a1W = Math.round(rectA.sw);
-  const a1H = Math.round(rectA.sh);
-  const canvasA1 = createEl('canvas');
-  canvasA1.width = a1W;
-  canvasA1.height = a1H;
-  const ctxA1 = canvasA1.getContext('2d')!;
-  ctxA1.drawImage(imageA, rectA.sx, rectA.sy, rectA.sw, rectA.sh, 0, 0, a1W, a1H);
-
-  // Render B1 (if B has an image)
-  let b1W = 0;
-  let b1H = 0;
-  let canvasB1: HTMLCanvasElement | null = null;
-
-  if (imageB && stateB) {
-    const rectB = calcVisibleSourceRect(stateB);
-
-
-    b1W = Math.round(rectB.sw);
-    b1H = Math.round(rectB.sh);
-    canvasB1 = createEl('canvas');
-    canvasB1.width = b1W;
-    canvasB1.height = b1H;
-    const ctxB1 = canvasB1.getContext('2d')!;
-    ctxB1.drawImage(imageB, rectB.sx, rectB.sy, rectB.sw, rectB.sh, 0, 0, b1W, b1H);
-  }
-
-  // Target height S = max(A1.h, B1.h, MIN_COMPOSE_HEIGHT)
-  const targetHeight = Math.max(a1H, b1H, MIN_COMPOSE_HEIGHT);
-
-  // Scale A1 → A2 (maintain 2.35:1 aspect ratio at height S)
-  const a2W = Math.round(targetHeight * 2.35);
-  const canvasA2 = createEl('canvas');
-  canvasA2.width = a2W;
-  canvasA2.height = targetHeight;
-  const ctxA2 = canvasA2.getContext('2d')!;
-  ctxA2.drawImage(canvasA1, 0, 0, a1W, a1H, 0, 0, a2W, targetHeight);
-
-
-  // Scale B1 → B2 (maintain 1:1 aspect ratio at height S), or create blank B2
-  const b2W = Math.round(targetHeight * 1.0);
-  const hasB = canvasB1 !== null;
-
-  // Build composite canvas
+  const height = Math.min(
+    Math.max(a1H, b1H, MIN_COMPOSE_HEIGHT),
+    MAX_COMPOSE_HEIGHT,
+  );
+  const a2W = Math.round(height * 2.35);
+  const b2W = Math.round(height * 1.0);
   const totalW = hasB ? a2W + b2W : a2W;
-  const composite = createEl('canvas');
-  composite.width = totalW;
-  composite.height = targetHeight;
-  const ctxC = composite.getContext('2d')!;
 
-  // Draw A2 on the left
-  ctxC.drawImage(canvasA2, 0, 0);
-
-  // Draw B2 on the right (or blank white fill)
-  if (hasB) {
-    const canvasB2 = createEl('canvas');
-    canvasB2.width = b2W;
-    canvasB2.height = targetHeight;
-    const ctxB2 = canvasB2.getContext('2d')!;
-    ctxB2.drawImage(canvasB1!, 0, 0, b1W, b1H, 0, 0, b2W, targetHeight);
-    ctxC.drawImage(canvasB2, a2W, 0);
-  }
-
-  // Calculate crop params
+  // Crop params are *fractions* of the composite, so they do not depend on the
+  // resolution we render at: a2W / totalW stays within 1.2e-5 of the exact
+  // 2.35/3.35 split (0.701493 at S = 720, 0.701481 at S = 3024 — the difference
+  // is integer rounding of a2W, worth 0.03px on a 2412px composite).
   // pic_crop_235_1: left 2.35/3.35 portion when B is present, else full image
   // pic_crop_1_1: right 1/3.35 portion (or square from A when no B)
   let picCrop2351: string;
@@ -175,20 +149,62 @@ export async function composeFromZones(
     // No B: 2.35:1 crop covers the entire image
     picCrop2351 = '0.000000_0.000000_1.000000_1.000000';
     // 1:1 crop: take left square portion of A
-    const sqRight = targetHeight / totalW;
+    const sqRight = height / totalW;
     picCrop11 = `0.000000_0.000000_${sqRight.toFixed(6)}_1.000000`;
   }
 
+  return { height, a2W, b2W, totalW, picCrop2351, picCrop11 };
+}
+
+/**
+ * Compose A and B zone visible content into a 3.35:1 composite for WeChat publishing.
+ *
+ * Flow:
+ * 1. Extract visible source rects from A and B zones
+ * 2. Size the output via planComposeLayout (shared height, clamped)
+ * 3. Draw both visible rects straight into the composite — one canvas, one
+ *    resample per zone (the previous version cropped at source resolution into
+ *    A1/B1, rescaled those into A2/B2, then stitched, which allocated five
+ *    canvases and resampled twice)
+ * 4. Encode the composite as PNG
+ */
+export async function composeFromZones(
+  imageA: HTMLImageElement,
+  stateA: ZoneRenderState,
+  imageB: HTMLImageElement | null,
+  stateB: ZoneRenderState | null,
+): Promise<ComposeResult> {
+  const rectA = calcVisibleSourceRect(stateA);
+  const rectB = imageB && stateB ? calcVisibleSourceRect(stateB) : null;
+
+  const { height, a2W, b2W, totalW, picCrop2351, picCrop11 } =
+    planComposeLayout(rectA, rectB);
+
+  const composite = createEl('canvas');
+  composite.width = totalW;
+  composite.height = height;
+  const ctxC = composite.getContext('2d')!;
+  // Both slots are usually much larger than the source region: a 12MP photo is
+  // drawn at ~1/4 scale into the 720px composite, and Chrome's default bilinear
+  // filter skips source pixels at that ratio.
+  ctxC.imageSmoothingEnabled = true;
+  ctxC.imageSmoothingQuality = 'high';
+
+  ctxC.drawImage(imageA, rectA.sx, rectA.sy, rectA.sw, rectA.sh, 0, 0, a2W, height);
+  if (rectB && imageB) {
+    ctxC.drawImage(imageB, rectB.sx, rectB.sy, rectB.sw, rectB.sh, a2W, 0, b2W, height);
+  }
 
   const blob = await canvasToBlob(composite, COMPOSE_FORMAT);
 
   log.debug('composeFromZones done', {
-    totalW, targetHeight,
+    totalW, targetHeight: height,
+    sourceHeight: Math.max(Math.round(rectA.sh), rectB ? Math.round(rectB.sh) : 0),
     blobSize: blob.size,
-    hasB,
+    hasB: rectB !== null,
   });
 
-  return { blob, picCrop2351, picCrop11, width: totalW, height: targetHeight };
+  return { blob, picCrop2351, picCrop11, width: totalW, height };
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, format: string): Promise<Blob> {
