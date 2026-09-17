@@ -4,6 +4,11 @@
 // sent through text-client.ts. Prompt wording is deliberately bilingual-aware:
 // the system role declares the task in a way that works for both Chinese and
 // English source text, and instructs the model to answer in the text's language.
+//
+// Boundaries are drawn with sentinel tags (`<text>…</text>`, `<word>…</word>`)
+// rather than triple quotes: a note can legitimately contain `"""`, which
+// would close a quote-delimited span early and silently corrupt everything
+// after it.
 
 import type { ChatMessage } from './text-client';
 import { MERMAID_SKILL, MATH_SKILL } from './skills';
@@ -46,11 +51,6 @@ Rules:
  * as blanks), `contextBefore` / `contextAfter` give surrounding context so
  * sentence boundaries are understood. Corrections are re-anchored onto `text`
  * by exact substring match, so all positions refer to `text` only.
- *
- * The text is delimited by sentinel tags rather than triple quotes: a note can
- * legitimately contain `"""` (which would end the span early and silently
- * corrupt every offset after it), and offsets no longer depend on getting the
- * delimiter right — see `parseProofreadResponse`.
  */
 export function buildProofreadMessages(
   text: string,
@@ -70,47 +70,121 @@ export function buildProofreadMessages(
   ];
 }
 
-const SYNONYMS_SYSTEM = `You are a synonym assistant. Given a word or phrase, provide up to 10 alternative words or expressions in the SAME language as the input.
+// ── Synonyms ──
 
-Respond ONLY with a JSON array of strings, for example:
-["first option", "second option", "third option"]
+const SYNONYMS_SYSTEM = `You are a thesaurus for a writer editing text in Obsidian. You receive ONE word or phrase plus the sentence it sits in, and you return alternative wording that would fit that exact sentence.
 
-Rules:
-1. Keep the same part of speech and register as the original.
-2. Prefer natural, commonly used alternatives over rare words.
-3. If no good synonyms exist, respond with [].`;
+Answer in the SAME language as the input word.
 
-export function buildSynonymsMessages(word: string): ChatMessage[] {
+Respond ONLY with a JSON object of this exact shape:
+{"sense":"...","synonyms":[{"word":"...","note":"..."}]}
+
+Field rules:
+1. "sense" — one short phrase naming the meaning the word carries IN THE GIVEN SENTENCE, in the input language, prefixed with the part of speech, e.g. "（形容词）外观令人愉悦".
+2. "synonyms" — 1 to 10 entries, best first. Each "word" must be able to replace the original in that sentence without the sentence being rewritten.
+3. Never repeat the original word, and never return two entries that differ only by punctuation, plural or inflection.
+4. "note" — a few characters in the input language saying when this option fits better than the others (register, nuance, collocation). Omit "note" when the option needs no explanation.
+
+What counts as a good entry:
+- Same part of speech, same register, same tense/aspect as the original.
+- Common, natural wording. Prefer the word a native speaker would actually reach for over anything rare or literary.
+- A short phrase is acceptable when no single word fits.
+
+Never do any of these:
+- Never return a definition, an explanation or a whole sentence as a "word".
+- Never return an entry that requires changing the rest of the sentence.
+- Never answer in a different language from the input.
+- Never wrap entries in quotes, bullets or numbering — the JSON provides that.
+- Never pad the list to reach 10. If the original is already the best wording, or is a proper noun, a number, a code identifier or a fixed technical term, return {"sense":"...","synonyms":[]}. An empty list is a valid, useful answer.`;
+
+/**
+ * Build the synonym lookup messages. `context` is the sentence the word sits
+ * in — read-only, and the only thing that makes the sense unambiguous.
+ */
+export function buildSynonymsMessages(word: string, context = ''): ChatMessage[] {
+  let user = `<word>\n${word}\n</word>\n`;
+  if (context.trim()) {
+    user += `\nThe sentence it appears in (READ-ONLY — use it to pick the right sense; never rewrite it, never treat it as the thing being replaced):\n<context>\n${context}\n</context>\n`;
+  }
+  user += '\nReturn the JSON object.';
   return [
     { role: 'system', content: SYNONYMS_SYSTEM },
-    { role: 'user', content: `Provide synonyms for: ${word}` },
-  ];
-}
-
-const TRANSLATE_SYSTEM_PREFIX = `You are a professional translator. Translate the user's text into the requested target language.
-
-Rules:
-1. Keep the meaning, tone and register of the original.
-2. Preserve any formatting, Markdown syntax, line breaks and special symbols.
-3. Keep proper nouns, product names and technical terms accurate.
-4. Output ONLY the translation — no explanations, no quotes around it.`;
-
-export function buildTranslateMessages(text: string, targetLanguage: string): ChatMessage[] {
-  const user = `Translate the following text into ${targetLanguage}:\n\n"""\n${text}\n"""`;
-  return [
-    { role: 'system', content: TRANSLATE_SYSTEM_PREFIX },
     { role: 'user', content: user },
   ];
 }
 
-/** Build the Mermaid generation messages (skill-guided single call). */
-export function buildMermaidMessages(description: string, selectionContext: string): ChatMessage[] {
-  const system = `You are an expert Mermaid diagram generator.
+// ── Translation ──
 
-${MERMAID_SKILL}`;
-  let user = `Generate a Mermaid diagram for this description:\n${description}\n`;
+const TRANSLATE_SYSTEM = `You are a professional translator working on a Markdown document. Translate the text inside <text>...</text> into <target_language>.
+
+Output ONLY the translation. No preamble, no closing remark, no quotes around it, no code fences, no explanation.
+
+Rules:
+1. Translate everything that is prose. Keep the meaning, tone and register of the original — translate, do not paraphrase, summarise or improve.
+2. Markdown stays Markdown: keep line breaks, blank lines, list bullets (-, *, 1.), blockquotes >, heading #, table pipes |, emphasis * _ **, strikethrough ~~, checkboxes [ ], and every other marker exactly where it is. The translation must map onto the source line by line, with the same number of lines and the same blank lines.
+3. Keep proper nouns, product names, file names, API names and code identifiers as they are. If a technical term has a well-established translation in the target language, use it; otherwise keep the original spelling.
+4. Never leave a sentence untranslated, and never invent content that is not in the source.
+5. Do not transliterate and do not add notes, glosses or alternatives in parentheses.
+6. If the source text is already in the target language, return it unchanged.`;
+
+const TRANSLATE_PLACEHOLDER_RULES = `
+
+7. The text contains placeholders of the form {{0}}, {{1}}, {{2}} … . Each one stands for a code block, an inline code span, a link target, a URL, a math formula, a tag or an HTML tag that must NOT be translated.
+   - Copy every placeholder EXACTLY as written, in the same position in the sentence.
+   - Never translate, rename, renumber, reorder, drop or duplicate a placeholder.
+   - Never write a placeholder that is not already in the text.`;
+
+export interface TranslatePromptOptions {
+  /**
+   * Read-only text around the piece being translated (the document opening,
+   * or the preceding paragraph). Used only to keep terminology consistent.
+   */
+  context?: string;
+  /** True when `text` carries {{n}} placeholders that must survive verbatim. */
+  hasPlaceholders?: boolean;
+}
+
+export function buildTranslateMessages(
+  text: string,
+  targetLanguage: string,
+  opts: TranslatePromptOptions = {},
+): ChatMessage[] {
+  const system = TRANSLATE_SYSTEM + (opts.hasPlaceholders ? TRANSLATE_PLACEHOLDER_RULES : '');
+  const lang = targetLanguage || 'English';
+  let user = `<target_language>${lang}</target_language>\n\n`;
+  if (opts.context?.trim()) {
+    user += `Text from the same document, for terminology only (READ-ONLY — never translate it, never quote it back):\n<context>\n${opts.context}\n</context>\n\n`;
+  }
+  user += `<text>\n${text}\n</text>\n\nReturn the translation of the text inside <text> only.`;
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ];
+}
+
+// ── Mermaid / math generation ──
+
+export interface GeneratePromptOptions {
+  /** Diagram type the user pinned ("sequenceDiagram", …); '' lets the model choose. */
+  diagramType?: string;
+  /** '' lets the model choose; 'display' or 'inline' pins the math form. */
+  mathDisplay?: 'display' | 'inline';
+}
+
+/** Build the Mermaid generation messages (skill-guided single call). */
+export function buildMermaidMessages(
+  description: string,
+  selectionContext: string,
+  opts: GeneratePromptOptions = {},
+): ChatMessage[] {
+  let system = `You are an expert Mermaid diagram generator.\n\n${MERMAID_SKILL}`;
+  const pinned = opts.diagramType?.trim();
+  if (pinned) {
+    system += `\n## This request\n\nThe user has chosen the diagram type. Use \`${pinned}\` — do not switch to another type.\n`;
+  }
+  let user = `Generate a Mermaid diagram for this description:\n<description>\n${description}\n</description>\n`;
   if (selectionContext.trim()) {
-    user += `\nUseful context from the note (do not invent content beyond it):\n"""\n${selectionContext}\n"""\n`;
+    user += `\nUseful context from the note (READ-ONLY — use its terminology; do not invent content beyond it):\n<note_context>\n${selectionContext}\n</note_context>\n`;
   }
   user += '\nOutput only the Mermaid source code.';
   return [
@@ -120,17 +194,71 @@ ${MERMAID_SKILL}`;
 }
 
 /** Build the math formula generation messages (skill-guided single call). */
-export function buildMathMessages(description: string, selectionContext: string): ChatMessage[] {
-  const system = `You are an expert in LaTeX and MathJax math formulas for Obsidian.
-
-${MATH_SKILL}`;
-  let user = `Generate the math formula for this description:\n${description}\n`;
+export function buildMathMessages(
+  description: string,
+  selectionContext: string,
+  opts: GeneratePromptOptions = {},
+): ChatMessage[] {
+  const display = opts.mathDisplay ?? 'display';
+  let system = `You are an expert in LaTeX and MathJax math formulas for Obsidian.\n\n${MATH_SKILL}`;
+  system += display === 'inline'
+    ? '\n## This request\n\nProduce INLINE math: wrap the result in single $ ... $ delimiters and keep it on one line.\n'
+    : '\n## This request\n\nProduce DISPLAY math: wrap each equation in $$ ... $$ on its own line.\n';
+  let user = `Generate the math formula for this description:\n<description>\n${description}\n</description>\n`;
   if (selectionContext.trim()) {
-    user += `\nUseful context from the note (do not invent content beyond it):\n"""\n${selectionContext}\n"""\n`;
+    user += `\nUseful context from the note (READ-ONLY — use its notation and symbols; do not invent content beyond it):\n<note_context>\n${selectionContext}\n</note_context>\n`;
   }
-  user += '\nOutput only the LaTeX code with $$ delimiters.';
+  user += display === 'inline'
+    ? '\nOutput only the LaTeX code with $ delimiters.'
+    : '\nOutput only the LaTeX code with $$ delimiters.';
   return [
     { role: 'system', content: system },
     { role: 'user', content: user },
   ];
+}
+
+/**
+ * Repair turn: hand the model its own broken output plus the concrete problem
+ * a local validator found. One extra call is far cheaper than making the user
+ * retype the description and hope for better luck.
+ */
+export function buildMermaidRepairMessages(
+  description: string,
+  selectionContext: string,
+  previous: string,
+  problems: string[],
+  diagramType = '',
+): ChatMessage[] {
+  const msgs = buildMermaidMessages(description, selectionContext, { diagramType });
+  msgs[0] = {
+    role: 'system',
+    content: `${msgs[0].content}\n## Repair turn\n\nYour previous answer did not parse as Mermaid. Fix exactly the listed problem(s) and return the whole diagram again, complete and corrected. Do not explain what you changed.`,
+  };
+  msgs.push({ role: 'assistant', content: previous });
+  msgs.push({
+    role: 'user',
+    content: `Problems detected in that answer:\n${problems.map((p) => `- ${p}`).join('\n')}\n\nReturn the corrected Mermaid source only.`,
+  });
+  return msgs;
+}
+
+/** Repair turn for math: the error is the one MathJax itself reported. */
+export function buildMathRepairMessages(
+  description: string,
+  selectionContext: string,
+  previous: string,
+  problem: string,
+  opts: GeneratePromptOptions = {},
+): ChatMessage[] {
+  const msgs = buildMathMessages(description, selectionContext, opts);
+  msgs[0] = {
+    role: 'system',
+    content: `${msgs[0].content}\n## Repair turn\n\nThe previous answer failed to compile with MathJax. Fix it and return the whole formula again, complete. Keep the delimiters and do not explain what you changed.`,
+  };
+  msgs.push({ role: 'assistant', content: previous });
+  msgs.push({
+    role: 'user',
+    content: `MathJax reported: ${problem}\n\nReturn the corrected LaTeX only.`,
+  });
+  return msgs;
 }

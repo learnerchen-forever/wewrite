@@ -53,10 +53,10 @@ Entry points: **Command palette** + editor right-click **"WeWrite" submenu** + t
 | Feature | Description |
 |---------|-------------|
 | Proofread | Spelling / grammar / punctuation checks for Chinese and English; Word-style review (Accept / Ignore / Previous / Next) with automatic scroll-and-highlight of each error. Runs on the selection, or on the whole note when nothing is selected |
-| Synonyms | One click lists alternative expressions for the selected word; press Enter to replace |
-| Translate | 10 target languages; replace the selection or copy the result |
-| Generate Mermaid | Description → Obsidian-compatible diagram, inserted at the cursor |
-| Generate Formula | Description → LaTeX formula, inserted at the cursor |
+| Synonyms | Alternatives for the selected word, chosen against the sentence it sits in — the sense and a usage note are shown for each option, and the list can be re-rolled in place |
+| Translate | 10 target languages; code, links, math and tags are protected from translation, and a result that lost one is flagged before it replaces your text |
+| Generate Mermaid | Description → Obsidian-compatible diagram. Pick the diagram type instead of letting the model guess; the source is syntax-checked (and repaired once when it fails) before insertion |
+| Generate Formula | Description → LaTeX, block or inline, compiled with Obsidian's own MathJax before insertion |
 | Generate Image | Text description → AI illustration, inserted at the cursor |
 | Generate Summary | WeChat-compliant summaries generated in the article view |
 

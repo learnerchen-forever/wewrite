@@ -10,7 +10,7 @@ if (typeof (window as unknown as { Buffer?: unknown }).Buffer === 'undefined') {
   };
 }
 
-import { Plugin, MarkdownView, Notice, requestUrl, Platform, TFile, Menu, MenuItem, type Editor, type MarkdownFileInfo } from 'obsidian';
+import { Plugin, MarkdownView, Notice, requestUrl, Platform, TFile, Menu, MenuItem, type Editor, type EditorPosition, type MarkdownFileInfo } from 'obsidian';
 import { SettingsManager } from './core/settings-manager';
 import { eventBus } from './core/event-bus';
 import { registerWewriteIcons } from './core/icon-registry';
@@ -35,11 +35,12 @@ import { ProofreadModal } from './views/proofread-modal';
 import { pickImageFromSystem, pickImageFromVault, savePickedImageToVault } from './views/image-picker';
 import { SynonymsModal } from './views/synonyms-modal';
 import { TranslateModal } from './views/translate-modal';
-import { AIGenerateModal } from './views/ai-generate-modal';
+import { AIGenerateModal, type GenerateRequest } from './views/ai-generate-modal';
 import { proofreadDocument } from './ai/proofread-engine';
-import { getSynonyms } from './ai/synonyms-engine';
+import { getSynonyms, type SynonymsResult } from './ai/synonyms-engine';
 import { translateText } from './ai/translate-engine';
 import { generateMermaid, generateMath } from './ai/generate-engine';
+import { ensureMathMarkdown } from './ai/math-output';
 import type { TextCallRecord } from './ai/text-client';
 import { globalSpinner } from './utils/global-spinner';
 import type { WeWriteSettings, AITextAccount } from './core/interfaces';
@@ -60,6 +61,15 @@ const log = createLogger('Main');
  * a second or two; showing release notes on top of that reads as noise.
  */
 const WHATS_NEW_DELAY_MS = 1200;
+
+/**
+ * Longest CJK run the synonym lookup will accept from the cursor position.
+ *
+ * Chinese has no spaces, so a "word" under the cursor can only be guessed at:
+ * runs up to a few characters are usually real words or set phrases, longer
+ * ones are clauses that merely happen to sit between two punctuation marks.
+ */
+const MAX_CJK_CURSOR_WORD = 4;
 
 /**
  * Whether an editor-menu entry starts a new group, and therefore gets a
@@ -1064,35 +1074,43 @@ export default class WeWritePlugin extends Plugin {
     const account = this.getAITextAccount();
     if (!account) return;
 
-    let word = editor.getSelection().trim();
-    if (!word) {
-      const atCursor = this.wordAtCursor(editor);
-      if (!atCursor) {
-        new Notice(t('notice.ai_requires_selection'));
-        return;
-      }
-      editor.setSelection(atCursor.from, atCursor.to);
-      word = editor.getSelection().trim();
-    }
-    if (!word) {
+    const span = this.synonymSpan(editor);
+    if (!span) {
       new Notice(t('notice.ai_requires_selection'));
       return;
     }
+    // Normalise the selection to the token itself before asking: the picker
+    // replaces the selection, so leading/trailing whitespace captured by a
+    // sloppy drag would be deleted along with the word.
+    editor.setSelection(span.from, span.to);
+    const word = editor.getSelection();
+    const context = this.lineContext(editor, span.from);
 
     globalSpinner.show(t('notice.ai_synonyms_lookup'));
-    void getSynonyms(account, word, {
+    const lookup = (): Promise<SynonymsResult> => getSynonyms(account, word, {
+      context,
       onCall: (call) => this.logTextCall(account, call, 'synonyms', 'Synonyms'),
-    })
-      .then((synonyms) => {
+    });
+    void lookup()
+      .then((result) => {
         globalSpinner.hide();
-        if (synonyms.length === 0) {
+        if (result.suggestions.length === 0) {
           new Notice(t('modal.synonyms.empty'));
           return;
         }
-        new SynonymsModal(this.app, synonyms, (synonym) => {
+        new SynonymsModal(this.app, word, result, (synonym) => {
           if (synonym) {
             editor.replaceSelection(synonym);
             new Notice(t('notice.ai_replaced'));
+          }
+        }, async () => {
+          // Re-roll from inside the dialog: the editor has moved on behind it,
+          // so the replacement is applied to the selection recorded above.
+          globalSpinner.show(t('notice.ai_synonyms_lookup'));
+          try {
+            return await lookup();
+          } finally {
+            globalSpinner.hide();
           }
         }).open();
       })
@@ -1100,6 +1118,45 @@ export default class WeWritePlugin extends Plugin {
         globalSpinner.hide();
         this.showAICallError(err);
       });
+  }
+
+  /**
+   * The word or phrase the synonym lookup should run on.
+   *
+   * An explicit selection wins. Otherwise the token under the cursor is used —
+   * but only when it is a plausible word: a CJK run is bounded by punctuation
+   * rather than by spaces, so "这个方案很好" is *one* run and auto-selecting it
+   * would offer "synonyms" for a whole clause. Refusing and saying so is
+   * better than replacing the wrong span.
+   */
+  private synonymSpan(editor: Editor): { from: EditorPosition; to: EditorPosition } | null {
+    const selection = editor.getSelection();
+    if (selection.trim()) {
+      // A multi-line selection is taken verbatim: shifting positions within a
+      // line cannot express it.
+      if (selection.includes('\n')) {
+        return { from: editor.getCursor('from'), to: editor.getCursor('to') };
+      }
+      const start = selection.search(/\S/);
+      const end = selection.replace(/\s+$/, '').length;
+      const from = this.offsetInEditor(editor, editor.getCursor('from'), start);
+      const to = this.offsetInEditor(editor, editor.getCursor('from'), end);
+      return { from, to };
+    }
+    return this.wordAtCursor(editor);
+  }
+
+  /** Advance a position by `chars` within its line. */
+  private offsetInEditor(editor: Editor, from: EditorPosition, chars: number): EditorPosition {
+    if (chars === 0) return from;
+    const line = editor.getLine(from.line) ?? '';
+    return { line: from.line, ch: Math.min(line.length, from.ch + chars) };
+  }
+
+  /** The line the word sits on, capped — the context that fixes its sense. */
+  private lineContext(editor: Editor, at: EditorPosition): string {
+    const line = (editor.getLine(at.line) ?? '').trim();
+    return line.length > 300 ? `${line.slice(0, 300)}…` : line;
   }
 
   /** Translate the selection into a chosen language; replace or copy. */
@@ -1115,10 +1172,15 @@ export default class WeWritePlugin extends Plugin {
       return;
     }
 
+    // Everything to the left of the selection, as a terminology anchor.
+    const cursor = editor.getCursor('from');
+    const before = (editor.getLine(cursor.line) ?? '').slice(0, cursor.ch);
+
     new TranslateModal(
       this.app,
       selection,
       (target: string) => translateText(account, selection, target, {
+        context: before,
         onCall: (call) => this.logTextCall(account, call, 'translate', 'Translate'),
       }),
       (translation: string) => {
@@ -1141,12 +1203,14 @@ export default class WeWritePlugin extends Plugin {
       'mermaid',
       selection,
       selection.trim().length > 0,
-      (description: string) => generateMermaid(account, description, {
+      (description: string, request: GenerateRequest) => generateMermaid(account, description, {
         selection,
+        diagramType: request.diagramType,
         onCall: (call) => this.logTextCall(account, call, 'mermaid', 'Mermaid'),
       }),
       (code: string) => {
-        const block = `\`\`\`mermaid\n${code.trim()}\n\`\`\``;
+        // The dialog hands back bare Mermaid source; the fence is ours.
+        const block = `\`\`\`mermaid\n${code.replace(/^```[^\n]*\n?/, '').replace(/\n?```$/, '').trim()}\n\`\`\``;
         editor.replaceSelection(block);
         new Notice(t('notice.ai_inserted'));
       },
@@ -1166,30 +1230,46 @@ export default class WeWritePlugin extends Plugin {
       'math',
       selection,
       selection.trim().length > 0,
-      (description: string) => generateMath(account, description, {
+      (description: string, request: GenerateRequest) => generateMath(account, description, {
         selection,
+        mathDisplay: request.mathDisplay,
         onCall: (call) => this.logTextCall(account, call, 'math', 'Math'),
       }),
       (code: string) => {
-        const trimmed = code.trim();
-        const block = /^\$\$[\s\S]*\$\$$/.test(trimmed) ? trimmed : `$$\n${trimmed}\n$$`;
-        editor.replaceSelection(block);
+        // The engine already returns the LaTeX with its delimiters (and can
+        // return several blocks); only an unstyled answer needs wrapping, and
+        // wrapping an already-delimited one is what used to produce `$$ $x$ $$`.
+        editor.replaceSelection(ensureMathMarkdown(code));
         new Notice(t('notice.ai_inserted'));
       },
     ).open();
   }
 
-  /** Extract the word (Chinese/English token) under the cursor, or null. */
-  private wordAtCursor(editor: Editor): { from: import('obsidian').EditorPosition; to: import('obsidian').EditorPosition } | null {
+  /**
+   * Extract the word under the cursor, or null.
+   *
+   * Latin words have boundaries, so the whole run is the word. CJK does not:
+   * the run is delimited by punctuation, which makes "这个方案很好" a single
+   * token. A short run is a word or a set phrase and is safe to take; a longer
+   * one is not a word at all, so the lookup declines rather than offering to
+   * replace a whole clause.
+   */
+  private wordAtCursor(editor: Editor): { from: EditorPosition; to: EditorPosition } | null {
     const cursor = editor.getCursor();
     const line = editor.getLine(cursor.line);
     if (!line) return null;
-    const tokenPattern = /[\w\u4e00-\u9fff]+/g;
+    const tokenPattern = /[\w\u3400-\u9fff]+/g;
     let match = tokenPattern.exec(line);
     while (match) {
       const start = match.index;
       const end = start + match[0].length;
       if (cursor.ch >= start && cursor.ch <= end) {
+        const token = match[0];
+        const cjkOnly = !/[A-Za-z0-9_]/.test(token);
+        if (cjkOnly && token.length > MAX_CJK_CURSOR_WORD) {
+          new Notice(t('notice.ai_synonyms_select_cjk'));
+          return null;
+        }
         return { from: { line: cursor.line, ch: start }, to: { line: cursor.line, ch: end } };
       }
       match = tokenPattern.exec(line);
