@@ -350,7 +350,12 @@ export class ThemeLoader {
   /** Inject the image + caption decoration config + custom decorations onto a preset. */
   private applyImageConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
     const { config, customDecorations } = parseImageFrontmatter(fm);
-    if (config.decoration || config.decorationParams) {
+    // `marginY` / `slider` are theme-level image settings, so they matter even
+    // when the theme selected no decoration at all.
+    if (
+      config.decoration || config.decorationParams
+      || config.marginY !== undefined || config.slider !== undefined
+    ) {
       preset.imageConfig = config;
     }
     if (customDecorations.length > 0) {

@@ -99,9 +99,21 @@ export interface APICallEntry {
   error?: string;
 }
 
+/**
+ * 生成期间的 flush 合并窗口。
+ *
+ * 轮询每 1.5–4 秒就来一次，如果每次都把「全部历史 entry」重新拼成整份 Markdown
+ * 再覆盖写盘，就等于把诊断代码放进了请求关键路径：一次生成要写 30+ 次文件，
+ * 每次 `await`，还会顺带触发宿主文件监听与同步引擎；移动端慢 FS 上尤其明显。
+ */
+const FLUSH_DEBOUNCE_MS = 600;
+
 export class AIImageGenLogger {
   private entries: APICallEntry[] = [];
   private filePath!: string;
+  private timer: number | null = null;
+  /** 写入串行链：合并窗口触发与终态落盘不会互相覆盖。 */
+  private writeChain: Promise<void> = Promise.resolve();
 
   constructor(
     private app: App,
@@ -126,14 +138,56 @@ export class AIImageGenLogger {
     const baseName = `ai-call-image-gen-${this.zoneKey}-${ts}`;
     this.filePath = await ensureUniqueName(this.app, dumpDir, `${baseName}.md`);
 
-    await this.flush();
+    // 首屏必须真的落盘（用户可能就是来看这份新建的日志），所以走强制通道。
+    await this.flushFinal();
   }
 
   addEntry(entry: APICallEntry): void {
     this.entries.push(entry);
   }
 
-  async flush(): Promise<void> {
+  /**
+   * 排一次落盘并**立刻返回** —— 调用方（HTTP 层）可以照旧 `await`，代价为零。
+   * 短时间内的多次调用合并成一次写入。
+   */
+  flush(): Promise<void> {
+    if (this.timer === null) {
+      this.timer = window.setTimeout(() => {
+        this.timer = null;
+        void this.writeNow();
+      }, FLUSH_DEBOUNCE_MS);
+    }
+    return Promise.resolve();
+  }
+
+  /** 终态落盘：取消待执行的合并窗口，写完再返回（生成成功/失败时调用）。 */
+  async flushFinal(): Promise<void> {
+    if (this.timer !== null) {
+      window.clearTimeout(this.timer);
+      this.timer = null;
+    }
+    await this.writeNow();
+  }
+
+  private async writeNow(): Promise<void> {
+    if (!this.filePath) return;
+    // 先把当前快照渲染出来，再排进串行链；并发触发时后者覆盖前者，正是所需语义。
+    const content = this.buildContent();
+    const path = this.filePath;
+    this.writeChain = this.writeChain.then(async () => {
+      try {
+        const exists = await this.app.vault.adapter.exists(path);
+        if (exists) {
+          await this.app.vault.adapter.write(path, content);
+        } else {
+          await this.app.vault.create(path, content);
+        }
+      } catch { /* best-effort */ }
+    });
+    await this.writeChain;
+  }
+
+  private buildContent(): string {
     const elapsed = Date.now() - this.startTime;
     const lines: string[] = [];
 
@@ -214,13 +268,6 @@ export class AIImageGenLogger {
     }
     lines.push('');
 
-    try {
-      const exists = await this.app.vault.adapter.exists(this.filePath);
-      if (exists) {
-        await this.app.vault.adapter.write(this.filePath, lines.join('\n'));
-      } else {
-        await this.app.vault.create(this.filePath, lines.join('\n'));
-      }
-    } catch { /* best-effort */ }
+    return lines.join('\n');
   }
 }

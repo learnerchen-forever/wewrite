@@ -1,11 +1,13 @@
 // command-catalog.ts — every WeWrite command, as the surfaces outside the
 // plugin's own views see it.
 //
-// A single command reaches four places: the command palette, the editor
-// context menu, the file-explorer context menu, and — on mobile — the editor
-// toolbar. Keeping the metadata in one table is what makes those four agree:
-// the editor menu is built from the same entries the commands are registered
-// from, so an action can no longer exist in a menu without a matching command.
+// A single command reaches five places: the command palette, the editor
+// context menu, the note's "⋮" (More options) menu, the file-explorer context
+// menu, and — on mobile — the editor toolbar. Keeping the metadata in one table
+// is what makes those surfaces agree: the menus are built from the same entries
+// the commands are registered from, so an action can no longer exist in a menu
+// without a matching command, and every command can be pinned to the mobile
+// toolbar.
 //
 // `icon` is mandatory. Obsidian's mobile editor toolbar renders
 // `Command.icon` and falls back to a "?" placeholder for a command that has
@@ -29,13 +31,27 @@ export interface WeWriteCommandEntry {
 }
 
 /**
- * The note-editing actions, in the order the editor menu's "WeWrite AI"
- * submenu lists them. Registered with `editorCallback` — the same shape
- * Obsidian's own editor commands (bold, insert link, …) use — so they appear
- * in the palette and on the mobile toolbar only while a markdown editor is
- * focused.
+ * The note-editing actions, in the order the editor menu's "WeWrite" submenu
+ * lists them. Registered with `editorCallback` — the same shape Obsidian's own
+ * editor commands (bold, insert link, …) use — so they appear in the palette,
+ * the mobile toolbar and both menus only while a markdown note is open.
+ *
+ * The entries are grouped for display; {@link EDITOR_MENU_GROUP_HEADS} marks
+ * the first entry of each group.
  */
-export const AI_EDITOR_MENU_COMMANDS = [
+export const EDITOR_MENU_COMMANDS = [
+  {
+    id: 'wewrite-insert-image-vault',
+    nameKey: 'command.insert_image_vault',
+    icon: 'wewrite-image-vault',
+    menuKey: 'contextMenu.insert_image_vault',
+  },
+  {
+    id: 'wewrite-insert-image-system',
+    nameKey: 'command.insert_image_system',
+    icon: 'wewrite-image-system',
+    menuKey: 'contextMenu.insert_image_system',
+  },
   {
     id: 'wewrite-ai-proofread',
     nameKey: 'command.ai_proofread',
@@ -75,7 +91,21 @@ export const AI_EDITOR_MENU_COMMANDS = [
 ] as const satisfies readonly WeWriteCommandEntry[];
 
 /** Ids of the editor-menu actions; also the keys of the runner table. */
-export type AIEditorCommandId = (typeof AI_EDITOR_MENU_COMMANDS)[number]['id'];
+export type EditorMenuCommandId = (typeof EDITOR_MENU_COMMANDS)[number]['id'];
+
+/**
+ * The entries the editor menu draws a separator above — the first entry of
+ * each group: image insertion, the AI text tools, then the AI generators.
+ *
+ * Listed by id rather than flagged on the entry itself: the catalogue tuples
+ * are `as const`, so a per-entry flag would make the entry type a union whose
+ * members do not all carry the property, and reading it would stop compiling.
+ */
+export const EDITOR_MENU_GROUP_HEADS: readonly EditorMenuCommandId[] = [
+  'wewrite-insert-image-vault',
+  'wewrite-ai-proofread',
+  'generate-image-by-ai',
+];
 
 /**
  * Note-scoped actions shared by the file-explorer menu and the editor menu.
@@ -150,7 +180,7 @@ export const SYNC_MENU_COMMANDS = [
 export const WEWRITE_COMMANDS: readonly WeWriteCommandEntry[] = [
   ...NOTE_MENU_COMMANDS,
   ...VIEW_MENU_COMMANDS,
-  ...AI_EDITOR_MENU_COMMANDS,
+  ...EDITOR_MENU_COMMANDS,
   ...SYNC_MENU_COMMANDS,
 ];
 

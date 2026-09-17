@@ -2881,10 +2881,101 @@ button.wewrite-btn-icon.spinning svg {
   align-self: center;
 }
 
+/* Severity per correction type. Painted once here as `--wewrite-pf` and reused
+   by the badge, the list stripe and the type heading, so a "wording" note is
+   never dressed up in the same red as a misspelling. Values come from
+   Obsidian's own palette, so both light and dark themes stay legible. */
+.wewrite-proofread-modal {
+  --wewrite-pf-strong: var(--color-red, #e93147);
+  --wewrite-pf-medium: var(--color-orange, #ec7500);
+  --wewrite-pf-soft: var(--color-blue, #086ddd);
+}
+
+.wewrite-proofread-modal .is-spelling { --wewrite-pf: var(--wewrite-pf-strong); }
+.wewrite-proofread-modal .is-punctuation { --wewrite-pf: var(--wewrite-pf-strong); }
+.wewrite-proofread-modal .is-grammar { --wewrite-pf: var(--wewrite-pf-medium); }
+.wewrite-proofread-modal .is-wording { --wewrite-pf: var(--wewrite-pf-soft); }
+.wewrite-proofread-modal .is-other { --wewrite-pf: var(--text-muted); }
+
+.wewrite-proofread-modal .wewrite-proofread-head {
+  margin: 4px 0 8px;
+}
+
 .wewrite-proofread-modal .wewrite-proofread-progress {
   font-weight: 600;
-  margin: 4px 0 8px;
   color: var(--text-muted);
+}
+
+.wewrite-proofread-modal .wewrite-proofread-stats {
+  font-weight: 400;
+}
+
+/* The correction list — the overview a one-at-a-time wizard cannot give. */
+.wewrite-proofread-modal .wewrite-proofread-list {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-list > summary {
+  cursor: pointer;
+  padding: 6px 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+  user-select: none;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-list-body {
+  max-height: 200px;
+  overflow-y: auto;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.wewrite-proofread-modal .wewrite-proofread-list-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 10px 5px 7px;
+  cursor: pointer;
+  border-left: 3px solid var(--wewrite-pf, transparent);
+  font-size: 13px;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-list-item:hover,
+.wewrite-proofread-modal .wewrite-proofread-list-item.is-current {
+  background: var(--background-modifier-hover);
+}
+
+.wewrite-proofread-modal .wewrite-proofread-list-item.is-current {
+  font-weight: 600;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-badge {
+  flex: 0 0 auto;
+  border: 1px solid currentColor;
+  border-radius: 9px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--wewrite-pf);
+}
+
+.wewrite-proofread-modal .wewrite-proofread-entry {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-entry-old {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-entry-arrow {
+  color: var(--text-faint);
+  margin: 0 6px;
 }
 
 .wewrite-proofread-modal .wewrite-proofread-body {
@@ -2893,7 +2984,7 @@ button.wewrite-btn-icon.spinning svg {
 
 .wewrite-proofread-modal .wewrite-proofread-type {
   font-weight: 600;
-  color: var(--text-error);
+  color: var(--wewrite-pf, var(--text-error));
   margin-bottom: 4px;
 }
 
@@ -2923,32 +3014,106 @@ button.wewrite-btn-icon.spinning svg {
   font-weight: 600;
 }
 
-.wewrite-proofread-modal .wewrite-proofread-original-text {
-  text-decoration: line-through;
-  color: var(--text-error);
-  background: rgba(255, 0, 0, 0.06);
-  padding: 0 4px;
-  border-radius: 3px;
+.wewrite-proofread-modal .wewrite-proofread-field {
+  margin-bottom: 8px;
   word-break: break-all;
 }
 
+.wewrite-proofread-modal .wewrite-proofread-original-text {
+  color: var(--text-normal);
+}
+
+/* Only the characters that actually changed are marked, so the fix is visible
+   at a glance instead of a strike-through over the whole sentence. */
+.wewrite-proofread-modal .wewrite-proofread-original-text .is-changed {
+  text-decoration: line-through;
+  color: var(--text-error);
+  font-weight: 600;
+}
+
 .wewrite-proofread-modal .wewrite-proofread-suggestion-text {
+  color: var(--text-normal);
+}
+
+.wewrite-proofread-modal .wewrite-proofread-suggestion-text .is-changed {
   color: var(--color-green, #4caf50);
   font-weight: 600;
-  word-break: break-all;
+}
+
+/* Clicking the preview turns it into a textarea (see beginEdit), so it has to
+   look like something that can be clicked. */
+.wewrite-proofread-modal .wewrite-proofread-suggestion-text.is-editable {
+  cursor: text;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin-left: -4px;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-suggestion-text.is-editable:hover {
+  border-color: var(--background-modifier-border);
+  background: var(--background-secondary);
 }
 
 .wewrite-proofread-modal .wewrite-proofread-label {
   color: var(--text-muted);
+  font-weight: 400;
   margin-right: 6px;
 }
 
+.wewrite-proofread-modal .wewrite-proofread-editable {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-suggestion-input {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  /* Grows with its content where supported; the fixed rows are the fallback. */
+  field-sizing: content;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-hint {
+  margin-top: 10px;
+  color: var(--text-faint);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-summary-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-summary {
+  color: var(--text-normal);
+}
+
 .wewrite-proofread-modal .wewrite-proofread-buttons {
+  margin-top: 16px;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-buttons-row {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
-  margin-top: 16px;
+  align-items: center;
   flex-wrap: wrap;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-buttons-row.is-bulk {
+  margin-top: 8px;
+}
+
+.wewrite-proofread-modal .wewrite-proofread-btn.is-bulk {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.wewrite-proofread-modal .wewrite-proofread-spacer {
+  flex: 1 1 auto;
 }
 
 /* On phones the standard modal is full-screen and hides the note. Show the

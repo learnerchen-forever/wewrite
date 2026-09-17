@@ -37,13 +37,22 @@ PDF embeds rendered as images: PDF++ region screenshots (`![[file.pdf#page=N&rec
 
 Dataview queries (`dataview` / `dataviewjs` code blocks and inline `$= ...`) are evaluated through the Dataview plugin and rendered as theme-styled text, consistent with handwritten Markdown.
 
-### AI Writing Assistant
+### Note Editing & AI Writing Assistant
 
-Entry points: **Command palette** + editor right-click **"WeWrite AI" submenu** (shared with image generation) + the **mobile editor toolbar** — all offer the same features.
+Entry points: **Command palette** + editor right-click **"WeWrite" submenu** + the note header's **"⋮" menu** + the **mobile editor toolbar** — all offer the same actions.
+
+**Inserting images**
+
+| Action | Description |
+|--------|-------------|
+| Insert Image from Vault | A thumbnail grid of every image in the vault, with a folder dropdown and a filename filter — unlike Obsidian's own attachment picker, which lists bare file names |
+| Insert Image from System | The device's own photo picker, i.e. the camera roll on a phone. The image is copied into the vault first — into the folder your *Default location for new attachments* setting names — and converted to PNG when its format is one Obsidian cannot display |
+
+**AI writing tools**
 
 | Feature | Description |
 |---------|-------------|
-| Proofread | Spelling / grammar / punctuation checks for Chinese and English; Word-style review (Accept / Ignore / Previous / Next) with automatic scroll-and-highlight of each error |
+| Proofread | Spelling / grammar / punctuation checks for Chinese and English; Word-style review (Accept / Ignore / Previous / Next) with automatic scroll-and-highlight of each error. Runs on the selection, or on the whole note when nothing is selected |
 | Synonyms | One click lists alternative expressions for the selected word; press Enter to replace |
 | Translate | 10 target languages; replace the selection or copy the result |
 | Generate Mermaid | Description → Obsidian-compatible diagram, inserted at the cursor |

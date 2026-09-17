@@ -1,13 +1,14 @@
 // CoverZone — reusable image zone with drag/drop and ImageEditModal integration
 
 import type { App } from 'obsidian';
-import { Menu, Modal, Notice, requestUrl, type TFile } from 'obsidian';
+import { Menu, Notice, requestUrl } from 'obsidian';
 import { createLogger } from '../utils/logger';
 import { t } from '../i18n';
 import { isSupportedFormat, convertToSupported, compressToTarget } from '../media/cover-processor';
 import { mediaWriteTarget, type MediaRegistry } from '../media/media-registry';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { globalSpinner } from '../utils/global-spinner';
+import { ensureImageMimeType, pickImageFromSystem, pickImageFromVault } from './image-picker';
 
 const log = createLogger('CoverZone');
 
@@ -317,135 +318,13 @@ export class CoverZone {
   // ── Image source pickers ──
 
   private openFilePicker(): void {
-    const input = createEl('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.addClass('wewrite-file-input-hidden');
-    document.body.appendChild(input);
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      input.remove();
-      if (file) await this.importFile(file);
-    };
-    window.setTimeout(() => input.click(), 0);
+    pickImageFromSystem((file) => { void this.importFile(file); });
   }
 
   private openVaultPicker(): void {
-    const allowedExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
-    const imageFiles = this.app.vault.getFiles()
-      .filter((f) => allowedExts.has(f.extension.toLowerCase()));
-
-    // Extract unique folder paths for the folder dropdown
-    const folderSet = new Set<string>();
-    for (const f of imageFiles) {
-      const folder = f.path.substring(0, f.path.lastIndexOf('/'));
-      if (folder) folderSet.add(folder);
-    }
-    const folderList = ['(all folders)', ...Array.from(folderSet).sort()];
-    const pageSize = 30;
-
-    class VaultImageModal extends Modal {
-      private visible: TFile[] = [];
-      private shown = 0;
-      private folderEl!: HTMLSelectElement;
-      private nameEl!: HTMLInputElement;
-      private gridEl!: HTMLElement;
-
-      constructor(app: App, private onSelect: (path: string) => void) {
-        super(app);
-      }
-
-      onOpen() {
-        const { contentEl } = this;
-        contentEl.addClass('wewrite-vault-image-modal');
-        this.titleEl.textContent = t('modal.select_image_title');
-        this.titleEl.addClass('wewrite-vault-image-title');
-
-        // Folder dropdown
-        this.folderEl = contentEl.createEl('select', { cls: 'dropdown wewrite-vault-folder-select' });
-        for (const folder of folderList) {
-          const opt = createEl('option');
-          opt.value = folder;
-          opt.text = folder === '(all folders)' ? t('modal.select_image_all_folders') : folder;
-          this.folderEl.appendChild(opt);
-        }
-
-        // Filename filter input
-        this.nameEl = contentEl.createEl('input', {
-          cls: 'wewrite-vault-image-search',
-          attr: { type: 'text', placeholder: t('modal.select_image_filter') },
-        });
-
-        // Scroll area + thumbnail grid
-        const scrollDiv = contentEl.createDiv({ cls: 'wewrite-vault-image-scroll' });
-        this.gridEl = scrollDiv.createDiv({ cls: 'wewrite-vault-image-grid' });
-        scrollDiv.createDiv({ cls: 'wewrite-vault-image-more', text: t('modal.select_image_show_more') })
-          .addEventListener('click', () => this.showMore());
-
-        // Debounced filter: reset and re-render on folder/filename change
-        const resetAndShow = () => {
-          this.shown = 0;
-          this.visible = [];
-          this.gridEl.empty();
-          this.showMore();
-        };
-        this.folderEl.addEventListener('change', resetAndShow);
-        this.nameEl.addEventListener('input', resetAndShow);
-        resetAndShow();
-
-        window.setTimeout(() => this.nameEl.focus(), 50);
-      }
-
-      private getFiltered(): TFile[] {
-        const selFolder = this.folderEl.value;
-        const query = this.nameEl.value.toLowerCase();
-        let result = imageFiles;
-        if (selFolder && selFolder !== '(all folders)') {
-          result = result.filter((f) => f.path.startsWith(selFolder + '/'));
-        }
-        if (query) {
-          result = result.filter((f) => f.name.toLowerCase().includes(query));
-        }
-        return result;
-      }
-
-      private showMore() {
-        if (this.visible.length === 0) {
-          this.visible = this.getFiltered();
-        }
-        const batch = this.visible.slice(this.shown, this.shown + pageSize);
-        for (const file of batch) {
-          const card = this.gridEl.createDiv({ cls: 'wewrite-vault-image-card' });
-          const img = card.createEl('img', {
-            cls: 'wewrite-vault-image-thumb',
-            attr: { src: this.app.vault.adapter.getResourcePath(file.path) },
-          });
-          img.referrerPolicy = 'no-referrer';
-          img.loading = 'lazy';
-          card.addEventListener('click', () => {
-            this.onSelect(file.path);
-            this.close();
-          });
-        }
-        this.shown += batch.length;
-
-        const moreEl: HTMLElement | null = this.contentEl.querySelector('.wewrite-vault-image-more');
-        if (moreEl) {
-          moreEl.toggleClass('is-hidden', this.shown >= this.visible.length);
-        }
-        if (this.shown === 0 && batch.length === 0) {
-          this.gridEl.createDiv({ cls: 'wewrite-vault-image-empty', text: t('modal.select_image_empty') });
-        }
-      }
-
-      onClose() {
-        this.contentEl.empty();
-      }
-    }
-
-    new VaultImageModal(this.app, (path) => {
-      void this.setImageFromPath(path);
-    }).open();
+    pickImageFromVault(this.app, {
+      onSelect: (file) => { void this.setImageFromPath(file.path); },
+    });
   }
 
   private showContextMenu(e: MouseEvent): void {
@@ -487,25 +366,12 @@ export class CoverZone {
 
   // ── Image import / save ──
 
-  /** Derive MIME type from file extension when browser can't detect it (Android webp). */
-  private ensureMimeType(file: File): File {
-    if (file.type && file.type.startsWith('image/') && file.type !== 'application/octet-stream') return file;
-    const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    const mimeMap: Record<string, string> = {
-      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-      gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp',
-    };
-    const mime = mimeMap[ext];
-    if (mime) return new File([file], file.name, { type: mime });
-    return file;
-  }
-
   private async importFile(file: File, extra?: { mediaId?: string; wechatUrl?: string; accountId?: string }): Promise<void> {
     const fileName = file.name || 'image';
     globalSpinner.show(t('cover.importing', { file: fileName }));
     try {
       // On Android, browser may not detect webp MIME — derive from extension
-      file = this.ensureMimeType(file);
+      file = ensureImageMimeType(file);
 
       if (!isSupportedFormat(file.type)) {
         globalSpinner.updateText(t('cover.converting', { file: fileName }));

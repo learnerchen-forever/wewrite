@@ -73,6 +73,7 @@ import {
 	customImageDecorationsToFrontmatter,
 	isImageVarKey,
 	resolveImageDecoration,
+	DEFAULT_IMAGE_MARGIN_Y,
 } from '../core/image-config';
 import type { ImageConfig } from '../core/image-config';
 import type { ImageDecoration } from '../core/image-decoration-types';
@@ -2126,6 +2127,41 @@ export class WeWriteThemeView extends ItemView {
 			this.renderImageParamsRows();
 		});
 
+		// Image spacing — one value drives both the top and the bottom margin.
+		// It is a theme-level value rather than a decoration param, so it also
+		// covers themes that selected no decoration (v3 slot / preset path).
+		const marginRow = box.createDiv();
+		marginRow.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
+		marginRow.createSpan({ text: t('deco_param.vertical-margin') }).addClass('wewrite-theme-label');
+		this.renderBlockquoteParamInput(
+			marginRow,
+			'marginY',
+			{ type: 'text', label: t('deco_param.vertical-margin'), default: DEFAULT_IMAGE_MARGIN_Y },
+			this.imageConfig.marginY || DEFAULT_IMAGE_MARGIN_Y,
+			(value, noUndo) => {
+				const trimmed = value.trim();
+				this.setImageField(
+					'marginY',
+					trimmed === '' ? DEFAULT_IMAGE_MARGIN_Y : trimmed,
+					trimmed === '' || trimmed === DEFAULT_IMAGE_MARGIN_Y,
+					noUndo,
+				);
+			},
+		);
+
+		// Image window — consecutive images that no blank line separates become
+		// one horizontally scrollable row instead of a stack of full-width pics.
+		const sliderRow = box.createDiv();
+		sliderRow.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
+		sliderRow.createSpan({ text: t('deco_ui.image_slider_label') }).addClass('wewrite-theme-label');
+		const sliderInput = sliderRow.createEl('input', { type: 'checkbox' });
+		sliderInput.checked = this.imageConfig.slider === true;
+		sliderInput.addEventListener('change', () => {
+			this.setImageField('slider', sliderInput.checked, !sliderInput.checked);
+		});
+		box.createDiv({ text: t('deco_ui.image_slider_desc'), cls: 'setting-item-description' }).addClass('wewrite-theme-eyebrow');
+
+		// Decoration params last: they belong to the decoration above.
 		this.imageParamsContainer = box.createDiv();
 		this.renderImageParamsRows();
 	}
@@ -2167,14 +2203,14 @@ export class WeWriteThemeView extends ItemView {
 		}
 	}
 
-	private setImageField(key: string, value: unknown, isDefault: boolean): void {
+	private setImageField(key: string, value: unknown, isDefault: boolean, noUndo = false): void {
 		this.onConfigChanged(() => {
 			if (isDefault) {
 				delete (this.imageConfig as Record<string, unknown>)[key];
 			} else {
 				(this.imageConfig as Record<string, unknown>)[key] = value;
 			}
-		});
+		}, noUndo);
 	}
 
 	// ── Math variables (new decoration system) ──

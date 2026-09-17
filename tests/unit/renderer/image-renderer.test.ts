@@ -12,6 +12,7 @@ import {
 	buildFigureStyle,
 	buildCaptionStyle,
 } from '../../../src/renderer/image-renderer';
+import { DEFAULT_IMAGE_MARGIN_Y } from '../../../src/core/image-config';
 import type { ThemePreset } from '../../../src/core/interfaces';
 
 describe('image decoration style builders', () => {
@@ -24,8 +25,6 @@ describe('image decoration style builders', () => {
 		align: 'center',
 		display: 'block',
 		verticalAlign: 'bottom',
-		marginTop: '0.1em',
-		marginBottom: '0.5em',
 		maxWidth: '100%',
 		bg: 'transparent',
 		figurePadding: '0',
@@ -45,7 +44,13 @@ describe('image decoration style builders', () => {
 		expect(style).toContain('border-radius:8px');
 		expect(style).toContain('box-shadow:0 4px 8px rgba(0,0,0,0.1)');
 		expect(style).toContain('display:block');
-		expect(style).toContain('margin:0.1em auto 0.5em');
+		// One value drives both sides; the default is the theme-level 0.5rem.
+		expect(style).toContain(`margin:${DEFAULT_IMAGE_MARGIN_Y} auto ${DEFAULT_IMAGE_MARGIN_Y}`);
+	});
+
+	it('applies the theme margin to both sides', () => {
+		const style = buildImageStyle(params, { marginY: '12px' });
+		expect(style).toContain('margin:12px auto 12px');
 	});
 
 	it('supports per-image width/height/align overrides', () => {
@@ -53,14 +58,19 @@ describe('image decoration style builders', () => {
 		expect(style).toContain('width:400px');
 		expect(style).toContain('height:300px');
 		expect(style).not.toContain('height:auto');
-		expect(style).toContain('margin:0.1em auto 0.5em 0');
+		expect(style).toContain(`margin:${DEFAULT_IMAGE_MARGIN_Y} auto ${DEFAULT_IMAGE_MARGIN_Y} 0`);
 	});
 
-	it('inline display adds vertical-align and no block margins', () => {
+	it('inline display adds vertical-align and no horizontal margins', () => {
 		const style = buildImageStyle({ ...params, display: 'inline' });
 		expect(style).toContain('display:inline-block');
 		expect(style).toContain('vertical-align:bottom');
-		expect(style).toContain('margin:0.1em 0 0.5em');
+		expect(style).toContain(`margin:${DEFAULT_IMAGE_MARGIN_Y} 0 ${DEFAULT_IMAGE_MARGIN_Y}`);
+	});
+
+	it('keeps margins declared by a family that shares the builder (Excalidraw)', () => {
+		const style = buildImageStyle({ ...params, marginTop: '16px', marginBottom: '16px' }, { marginY: '0.5rem' });
+		expect(style).toContain('margin:16px auto 16px');
 	});
 
 	it('applies a border when borderWidth/style are set', () => {
@@ -102,12 +112,25 @@ describe('image decoration through the WeChat pipeline', () => {
 		);
 		expect(html).toContain('border-radius:8px');
 		expect(html).toContain('box-shadow:0 4px 8px rgba(0,0,0,0.1)');
-		expect(html).toContain('margin:0.1em auto 0.5em');
+		expect(html).toContain(`margin:${DEFAULT_IMAGE_MARGIN_Y} auto ${DEFAULT_IMAGE_MARGIN_Y}`);
 		expect(html).toContain('<figcaption');
 		expect(html).toContain('color:#8a919f');
 		expect(html).toContain('font-size:0.9em');
 		expect(html).toContain('text-align:center');
 		expect(html).toContain('主图：一张可检查的阅读地图。');
+	});
+
+	it('applies the theme margin on the v3 path (no decoration selected)', () => {
+		// Without a decoration the image used to carry no margin at all, which
+		// is what left consecutive images flush against the text.
+		const html = renderImage({ imageConfig: { marginY: '10px' } });
+		expect(html).toContain('display:inline-block');
+		expect(html).toContain('margin:10px 0');
+	});
+
+	it('honours a theme margin override when a decoration is selected', () => {
+		const html = renderImage({ imageConfig: { decoration: 'lightShadow', marginY: '14px' } });
+		expect(html).toContain('margin:14px auto 14px');
 	});
 
 	it('captionPaper reproduces the example caption style', () => {

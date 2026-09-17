@@ -10,7 +10,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
-  AI_EDITOR_MENU_COMMANDS,
+  EDITOR_MENU_COMMANDS,
+  EDITOR_MENU_GROUP_HEADS,
   WEWRITE_COMMANDS,
   getCommandEntry,
 } from '../../../src/core/command-catalog';
@@ -22,7 +23,7 @@ const CONTEXT_MENU_IDS: readonly string[] = [
   'wewrite-edit-theme',
   'open-wechat-news-view',
   'open-wechat-newspic-view',
-  ...AI_EDITOR_MENU_COMMANDS.map((entry) => entry.id),
+  ...EDITOR_MENU_COMMANDS.map((entry) => entry.id),
 ];
 
 const MAIN_TS = join(__dirname, '..', '..', '..', 'src', 'main.ts');
@@ -59,21 +60,38 @@ describe('WeWrite command catalog', () => {
 
   it('registers every catalogued command in main.ts', () => {
     const source = readFileSync(MAIN_TS, 'utf8');
-    const aiIds = new Set<string>(AI_EDITOR_MENU_COMMANDS.map((entry) => entry.id));
+    const editorIds = new Set<string>(EDITOR_MENU_COMMANDS.map((entry) => entry.id));
 
-    // Non-AI commands are registered one by one through the catalog helper.
+    // Non-editor commands are registered one by one through the catalog helper.
     const unregistered = WEWRITE_COMMANDS
-      .filter((entry) => !aiIds.has(entry.id))
+      .filter((entry) => !editorIds.has(entry.id))
       .filter((entry) => !source.includes(`commandMeta('${entry.id}')`))
       .map((entry) => entry.id);
     expect(unregistered).toEqual([]);
 
-    // AI commands are registered by looping the catalog, so what has to exist
-    // per id is its entry in the runner table.
-    const withoutRunner = AI_EDITOR_MENU_COMMANDS
+    // Editor commands are registered by looping the catalog, so what has to
+    // exist per id is its entry in the runner table.
+    const withoutRunner = EDITOR_MENU_COMMANDS
       .filter((entry) => !source.includes(`'${entry.id}':`))
       .map((entry) => entry.id);
     expect(withoutRunner).toEqual([]);
+  });
+
+  it('groups the editor menu with image insertion first', () => {
+    const ids = EDITOR_MENU_COMMANDS.map((entry) => entry.id);
+
+    // Every group head is one of the entries …
+    for (const head of EDITOR_MENU_GROUP_HEADS) expect(ids).toContain(head);
+    // … the list opens with a group (no leading separator) …
+    expect(EDITOR_MENU_GROUP_HEADS[0]).toBe(ids[0]);
+    // … and the group heads follow the entry order, so the menu reads
+    // top-to-bottom the way the catalog does.
+    const positions = EDITOR_MENU_GROUP_HEADS.map((head) => ids.indexOf(head));
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+
+    // The two image-insertion commands are the menu's first group: they are
+    // what the mobile toolbar is meant to reach in one tap.
+    expect(ids.slice(0, 2)).toEqual(['wewrite-insert-image-vault', 'wewrite-insert-image-system']);
   });
 
   it('routes every addCommand() call through the catalog helper', () => {

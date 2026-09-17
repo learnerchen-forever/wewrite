@@ -20,7 +20,10 @@ import wewriteDevice from '../resources/icons/wewrite-device.svg';
 import wewriteDigest from '../resources/icons/wewrite-digest.svg';
 import wewriteDraft from '../resources/icons/wewrite-draft.svg';
 import wewriteGallery from '../resources/icons/wewrite-gallery.svg';
+import wewriteImageSystem from '../resources/icons/wewrite-image-system.svg';
+import wewriteImageVault from '../resources/icons/wewrite-image-vault.svg';
 import wewriteLink from '../resources/icons/wewrite-link.svg';
+import wewriteMark from '../resources/icons/wewrite-mark.svg';
 import wewriteMath from '../resources/icons/wewrite-math.svg';
 import wewriteMaterial from '../resources/icons/wewrite-material.svg';
 import wewriteMermaid from '../resources/icons/wewrite-mermaid.svg';
@@ -57,7 +60,10 @@ const WEWRITE_ICONS: Record<string, string> = {
 	'wewrite-digest': wewriteDigest,
 	'wewrite-draft': wewriteDraft,
 	'wewrite-gallery': wewriteGallery,
+	'wewrite-image-system': wewriteImageSystem,
+	'wewrite-image-vault': wewriteImageVault,
 	'wewrite-link': wewriteLink,
+	'wewrite-mark': wewriteMark,
 	'wewrite-math': wewriteMath,
 	'wewrite-material': wewriteMaterial,
 	'wewrite-mermaid': wewriteMermaid,

@@ -1,0 +1,12 @@
+<!-- WeWrite 从系统插入图片图标（F2 · 手机 + 照片：从设备相册取图）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 手机机身 -->
+  <rect x="5.5" y="2.5" width="13" height="19" rx="2.5"/>
+  <!-- 屏幕内：太阳（左上） -->
+  <circle cx="9.8" cy="9.4" r="1.2"/>
+  <!-- 屏幕内：山（两段起伏，与太阳分离，左右留出机身内侧空隙） -->
+  <path d="m8 15.6 2.6-2.6 1.9 1.9 2.5-2.4"/>
+  <!-- 底部横条 -->
+  <path d="M10.6 18.6h2.8"/>
+</svg>

@@ -22,12 +22,21 @@ describe('getImageDecorationLibrary', () => {
 		expect(d.params.radius.default).toBe('8px');
 		expect(d.params.shadow.default).toBe('0 4px 8px rgba(0,0,0,0.1)');
 		expect(d.params.align.default).toBe('center');
-		expect(d.params.marginTop.default).toBe('0.1em');
-		expect(d.params.marginBottom.default).toBe('0.5em');
 		expect(d.params.maxWidth.default).toBe('100%');
 		expect(d.params.captionColor.default).toBe('#8a919f');
 		expect(d.params.captionFontSize.default).toBe('0.9em');
 		expect(d.params.captionAlign.default).toBe('center');
+	});
+
+	it('declares no margins of its own — image spacing belongs to the theme', () => {
+		// `media.image.marginY` is a theme-level value, so no decoration may
+		// bring its own top/bottom margin (that is what made spacing drift
+		// between themes). Excalidraw keeps its own pair, this family must not.
+		for (const d of library) {
+			expect(d.params.marginTop).toBeUndefined();
+			expect(d.params.marginBottom).toBeUndefined();
+			expect(d.params.marginY).toBeUndefined();
+		}
 	});
 
 	it('inkFrame / subtleGlow carry their example-specific values', () => {

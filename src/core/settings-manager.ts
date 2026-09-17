@@ -42,8 +42,9 @@ function migrateLegacyImageAccount(account: AIImageGenAccount): AIImageGenAccoun
       ...account,
       baseUrl: ALI_MAAS_BASE_URL_TEMPLATE,
       model: account.model === LEGACY_WANX_2_1_MODEL ? WAN_2_6_MODEL : account.model,
-      // 旧 wanx 默认尺寸（如 1440*613）可能不在万相 2.6 的合法集内，统一重置为文档示例尺寸。
-      defaultSize: '1024*1024',
+      // 旧 wanx 默认尺寸（如 1440*613）在万相 2.6 下非法，统一重置为 2.6 的官方
+      // 默认值 1280*1280（总像素下限，见 ai-image-client.ts 的 SIZE_RULES）。
+      defaultSize: '1280*1280',
     };
   }
   return account;

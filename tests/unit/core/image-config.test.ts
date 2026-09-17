@@ -4,6 +4,7 @@ import {
 	imageConfigToFrontmatter,
 	customImageDecorationsToFrontmatter,
 	isImageVarKey,
+	DEFAULT_IMAGE_MARGIN_Y,
 } from '../../../src/core/image-config';
 import type { ImageDecoration } from '../../../src/core/image-decoration-types';
 
@@ -34,6 +35,25 @@ describe('parseImageFrontmatter', () => {
 			'media.image.captionAlign': 'left',
 		});
 		expect(config.decoration).toBeUndefined();
+	});
+
+	it('parses the theme-level margin and image-window switch', () => {
+		const { config } = parseImageFrontmatter({
+			'media.image.marginY': '12px',
+			'media.image.slider': true,
+		});
+		expect(config.marginY).toBe('12px');
+		expect(config.slider).toBe(true);
+
+		// A theme that never mentions them leaves both unset: the renderer then
+		// falls back to the default margin and to separate images.
+		const empty = parseImageFrontmatter({});
+		expect(empty.config.marginY).toBeUndefined();
+		expect(empty.config.slider).toBeUndefined();
+
+		expect(parseImageFrontmatter({ 'media.image.slider': false }).config.slider).toBe(false);
+		expect(parseImageFrontmatter({ 'media.image.slider': 'on' }).config.slider).toBe(true);
+		expect(parseImageFrontmatter({ 'media.image.slider': 'off' }).config.slider).toBe(false);
 	});
 
 	it('parses custom decorations from custom_values.media.image.decoration', () => {
@@ -111,7 +131,22 @@ describe('serialization', () => {
 		expect(isImageVarKey('media.image.decoration')).toBe(true);
 		expect(isImageVarKey('media.image.decorationParams')).toBe(true);
 		expect(isImageVarKey('media.image.decorationParams.radius')).toBe(true);
+		expect(isImageVarKey('media.image.marginY')).toBe(true);
+		expect(isImageVarKey('media.image.slider')).toBe(true);
 		expect(isImageVarKey('media.image.frame')).toBe(false);
 		expect(isImageVarKey('media.image.captionAlign')).toBe(false);
+	});
+
+	it('round-trips the margin and the switch, leaving the default margin out', () => {
+		expect(imageConfigToFrontmatter({ marginY: DEFAULT_IMAGE_MARGIN_Y })).toEqual({});
+		expect(imageConfigToFrontmatter({ marginY: '12px', slider: true })).toEqual({
+			'media.image.marginY': '12px',
+			'media.image.slider': true,
+		});
+		expect(imageConfigToFrontmatter({ slider: false })).toEqual({ 'media.image.slider': false });
+
+		const fm = imageConfigToFrontmatter({ decoration: 'inkFrame', marginY: '1rem', slider: true });
+		const { config } = parseImageFrontmatter(fm);
+		expect(config).toEqual({ decoration: 'inkFrame', marginY: '1rem', slider: true });
 	});
 });

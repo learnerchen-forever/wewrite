@@ -11,35 +11,59 @@ import { MERMAID_SKILL, MATH_SKILL } from './skills';
 const PROOFREAD_SYSTEM = `You are a precise proofreading assistant for Obsidian notes. You find spelling, grammar, punctuation and wording issues in both Chinese and English text.
 
 For every issue you find, return a correction entry. Respond ONLY with a JSON object of this exact shape:
-{"corrections":[{"type":"spelling|grammar|punctuation|wording","start":0,"end":5,"original":"...","description":"...","suggestion":"..."}]}
+{"corrections":[{"type":"spelling|grammar|punctuation|wording","original":"...","context":"...","description":"...","suggestion":"..."}]}
+
+Field rules:
+1. "original" must be the EXACT substring copied from the text. Never paraphrase it, never re-type it from memory.
+2. "context" is the 10–20 characters immediately BEFORE "original", copied verbatim ("" when the issue starts the text). It is only used to locate the issue — never correct it, never include it in "suggestion".
+3. "suggestion" replaces "original" only. Keep it as close to the original as possible. Never return an entry whose suggestion equals the original.
+4. "type" must be one of: spelling, grammar, punctuation, wording.
+5. "description" is one short sentence in the same language as the text.
+
+What to flag:
+- Misspellings and wrong characters (Chinese look-alikes: 的/地/得, 在/再, 做/作, 已/以, 即/既, 其他/其它).
+- Grammar and collocation errors, duplicated words, broken sentence structure.
+- Punctuation: full-width vs half-width misuse, mixed Chinese/English punctuation, unpaired brackets or quotes, missing or duplicated punctuation.
+- Bad word choices: wrong collocations, redundancy, colloquial words in formal prose.
+
+What NOT to flag:
+- Style and tone. Do not make the text "more elegant" unless a collocation is actually wrong.
+- Proper nouns, product names, people, organisations, abbreviations, technical terms, code identifiers.
+- Intentional repetition, dialect, and wording inside quotations.
+- Markdown syntax itself: heading #, list -/1., link [](), inline \`code\`, fenced code blocks, table pipes, quote >, callout syntax, #tags, math $...$, HTML tags, URLs.
+- Text that has already been blanked out with spaces — that is code or Markdown structure, removed from the proofreading range. Ignore it.
+- Sentences cut off at the start or end because the note was split into chunks.
 
 Rules:
-1. "start" and "end" are character offsets (0-based; start inclusive, end exclusive) into the text you are given.
-2. "original" must be the exact substring between start and end.
-3. Flag genuine errors only. If the text is already correct, return {"corrections":[]}.
-4. Proofreading only — do not rewrite style, do not add or remove content.
-5. "suggestion" is the corrected replacement text; keep it as close to the original as possible.
-6. "type" must be one of: spelling, grammar, punctuation, wording.
-7. Describe each issue briefly in the same language as the text.
-8. Respond in the same language as the text.`;
+1. Flag genuine errors only. If the text is already correct, return {"corrections":[]}.
+2. Proofreading only — do not add or remove content, do not restructure sentences.
+3. Do not miss issues, and do not emit two overlapping suggestions for the same spot.
+4. Respond in the same language as the text.`;
 
 /**
- * Build the proofread messages. `text` is the submitted span; `contextBefore`
- * and `contextAfter` (optional) give the model surrounding context so sentence
- * boundaries are understood. They are NOT offset-relevant — offsets are
- * relative to `text` only.
+ * Build the proofread messages. `text` is the submitted span (already masked by
+ * {@link maskMarkdown} — code fences, frontmatter, links and math arrive here
+ * as blanks), `contextBefore` / `contextAfter` give surrounding context so
+ * sentence boundaries are understood. Corrections are re-anchored onto `text`
+ * by exact substring match, so all positions refer to `text` only.
+ *
+ * The text is delimited by sentinel tags rather than triple quotes: a note can
+ * legitimately contain `"""` (which would end the span early and silently
+ * corrupt every offset after it), and offsets no longer depend on getting the
+ * delimiter right — see `parseProofreadResponse`.
  */
 export function buildProofreadMessages(
   text: string,
   contextBefore = '',
   contextAfter = '',
 ): ChatMessage[] {
-  let user = `Proofread the following text and return the corrections JSON:\n\n"""\n${text}\n"""\n`;
+  let user = `Proofread the text inside <text>...</text> and return the corrections JSON.\n\n<text>\n${text}\n</text>\n`;
   if (contextBefore || contextAfter) {
-    user += '\nContext before:\n"""\n' + (contextBefore || '(none)') + '\n"""\n';
-    user += '\nContext after:\n"""\n' + (contextAfter || '(none)') + '\n"""\n';
+    user += '\nSurrounding context — read-only, never correct it, never quote it as "original":\n';
+    user += `<context_before>\n${contextBefore || '(none)'}\n</context_before>\n`;
+    user += `<context_after>\n${contextAfter || '(none)'}\n</context_after>\n`;
   }
-  user += '\nRemember: character offsets are relative to the text between the first set of triple quotes.';
+  user += '\nRemember: "original" and "context" must be copied verbatim from inside <text>.';
   return [
     { role: 'system', content: PROOFREAD_SYSTEM },
     { role: 'user', content: user },

@@ -14,7 +14,7 @@ import { Plugin, MarkdownView, Notice, requestUrl, Platform, TFile, Menu, MenuIt
 import { SettingsManager } from './core/settings-manager';
 import { eventBus } from './core/event-bus';
 import { registerWewriteIcons } from './core/icon-registry';
-import { AI_EDITOR_MENU_COMMANDS, commandLabelKey, getCommandEntry, type AIEditorCommandId } from './core/command-catalog';
+import { EDITOR_MENU_COMMANDS, EDITOR_MENU_GROUP_HEADS, commandLabelKey, getCommandEntry, type EditorMenuCommandId } from './core/command-catalog';
 import { detectLegacySettings, migrateLegacyToV2, cleanupLegacyData } from './utils/migration';
 import { ThemeLoader } from './styles/theme-loader';
 import { ThemeDownloader } from './styles/theme-downloader';
@@ -32,10 +32,11 @@ import { WeWriteThemeView, VIEW_TYPE_WEWRITE_THEME } from './views/wewrite-theme
 import { AIImageGenerateModal } from './views/ai-image-generate-modal';
 import { resolveBaseUrl, testWanConnection, type AIImageAccountLike } from './publisher/ai-image-client';
 import { ProofreadModal } from './views/proofread-modal';
+import { pickImageFromSystem, pickImageFromVault, savePickedImageToVault } from './views/image-picker';
 import { SynonymsModal } from './views/synonyms-modal';
 import { TranslateModal } from './views/translate-modal';
 import { AIGenerateModal } from './views/ai-generate-modal';
-import { proofreadCorrections } from './ai/proofread-engine';
+import { proofreadDocument } from './ai/proofread-engine';
 import { getSynonyms } from './ai/synonyms-engine';
 import { translateText } from './ai/translate-engine';
 import { generateMermaid, generateMath } from './ai/generate-engine';
@@ -61,14 +62,28 @@ const log = createLogger('Main');
 const WHATS_NEW_DELAY_MS = 1200;
 
 /**
- * Whether an AI editor command opens the second group of the "WeWrite AI"
- * submenu (the generators) rather than continuing the text-tool group.
+ * Whether an editor-menu entry starts a new group, and therefore gets a
+ * separator drawn above it.
  *
  * A separate function on purpose: an inline `entry.id === '…'` comparison makes
  * TypeScript narrow `entry` through the loop, which collapses its type.
  */
-function startsAIGeneratorGroup(id: AIEditorCommandId): boolean {
-  return id === 'generate-image-by-ai';
+function startsEditorMenuGroup(id: EditorMenuCommandId): boolean {
+  return EDITOR_MENU_GROUP_HEADS.includes(id);
+}
+
+/**
+ * A note the editor commands can act on: the editor to write through, and the
+ * path of the note it belongs to.
+ *
+ * Carried together because they must agree. The "⋮" menu is built by an event
+ * that has no editor in scope, so the pair is resolved from the leaf that
+ * actually displays the note — and a link written relative to the wrong note
+ * would embed the image into a different folder than the one the user picked.
+ */
+interface NoteTarget {
+  readonly editor: Editor;
+  readonly path: string;
 }
 
 /** Live view of the plugin's sync settings for the sync engine. */
@@ -107,21 +122,32 @@ export default class WeWritePlugin extends Plugin {
   private syncRibbonEl?: HTMLElement;
 
   /**
-   * Executors for {@link AI_EDITOR_MENU_COMMANDS}, keyed by command id.
+   * Menus that already carry the "WeWrite" group.
    *
-   * One table feeds three surfaces: the `editorCallback` registration (command
-   * palette + mobile toolbar) and the editor menu's "WeWrite AI" submenu. The
-   * `Record` keyed by the catalog's id union makes a missing or misspelled
-   * entry a compile error, so an action cannot reach one surface but not the
-   * other.
+   * Some Obsidian builds fire both `file-menu` and `editor-menu` for the same
+   * open — the note's "⋮" menu is the one that varies between builds — and the
+   * group must appear exactly once.
    */
-  private readonly aiEditorRunners: Record<AIEditorCommandId, (editor: Editor) => void> = {
-    'wewrite-ai-proofread': (editor) => this.runProofread(editor),
-    'wewrite-ai-synonyms': (editor) => this.runSynonyms(editor),
-    'wewrite-ai-translate': (editor) => this.runTranslate(editor),
-    'generate-image-by-ai': (editor) => this.generateImageByAI(editor),
-    'wewrite-ai-generate-mermaid': (editor) => this.runGenerateMermaid(editor),
-    'wewrite-ai-generate-math': (editor) => this.runGenerateMath(editor),
+  private readonly menusWithWeWriteGroup = new WeakSet<Menu>();
+
+  /**
+   * Executors for {@link EDITOR_MENU_COMMANDS}, keyed by command id.
+   *
+   * One table feeds every surface: the `editorCallback` registration (command
+   * palette + mobile toolbar) and the "WeWrite" submenu shared by the editor
+   * context menu and the note's "⋮" menu. The `Record` keyed by the catalog's
+   * id union makes a missing or misspelled entry a compile error, so an action
+   * cannot reach one surface but not the others.
+   */
+  private readonly editorMenuRunners: Record<EditorMenuCommandId, (target: NoteTarget) => void> = {
+    'wewrite-insert-image-vault': (target) => this.insertImageFromVault(target),
+    'wewrite-insert-image-system': (target) => { void this.insertImageFromSystem(target); },
+    'wewrite-ai-proofread': (target) => this.runProofread(target.editor),
+    'wewrite-ai-synonyms': (target) => this.runSynonyms(target.editor),
+    'wewrite-ai-translate': (target) => this.runTranslate(target.editor),
+    'generate-image-by-ai': (target) => this.generateImageByAI(target.editor),
+    'wewrite-ai-generate-mermaid': (target) => this.runGenerateMermaid(target.editor),
+    'wewrite-ai-generate-math': (target) => this.runGenerateMath(target.editor),
   };
 
   async onload(): Promise<void> {
@@ -552,15 +578,15 @@ export default class WeWritePlugin extends Plugin {
       callback: () => this.openWhatsNew(),
     });
 
-    // ── AI writing tools ──
+    // ── Note-editing commands (image insertion + AI writing tools) ──
     // Registered as `editorCallback` — the shape Obsidian's own editing
     // commands use — so the palette and the mobile toolbar offer them exactly
-    // while a markdown editor is focused. The editor menu runs the same
-    // `aiEditorRunners` entry, so all three surfaces behave identically.
-    for (const entry of AI_EDITOR_MENU_COMMANDS) {
+    // while a markdown editor is focused. The "WeWrite" menus run the same
+    // `editorMenuRunners` entry, so every surface behaves identically.
+    for (const entry of EDITOR_MENU_COMMANDS) {
       this.addCommand({
         ...this.commandMeta(entry.id),
-        editorCallback: (editor: Editor) => this.aiEditorRunners[entry.id](editor),
+        editorCallback: (editor: Editor) => this.editorMenuRunners[entry.id](this.targetForEditor(editor)),
       });
     }
 
@@ -634,24 +660,35 @@ export default class WeWritePlugin extends Plugin {
   }
 
   /**
-   * The file-explorer and editor context menus.
+   * The note's "⋮" (More options) menu, the file-explorer context menu and the
+   * editor context menu.
    *
    * These are thin wrappers over registered commands: anything offered here is
    * also reachable from the command palette and can therefore be pinned to the
    * mobile editing toolbar.
    */
   private registerContextMenus(): void {
-    // File explorer menu (event not in Obsidian's public typings)
+    // The note header's "⋮" menu and the file explorer's context menu (event
+    // not in Obsidian's public typings). The "WeWrite" group edits the note, so
+    // it is offered only for a note that is open in an editor — right-clicking
+    // a file in the explorer must not insert an image into whichever note
+    // happens to be behind it, and the "⋮" menu would have nothing to edit.
     this.registerEvent(
       this.app.workspace.on('file-menu', (...data: unknown[]) => {
         const menu = data[0] as Menu;
         const file = data[1];
         if (!(file instanceof TFile) || file.extension !== 'md') return;
         this.addNoteMenuItems(menu, file);
+        const target = this.findTargetFor(file);
+        // This event carries no editor: the "⋮" menu is built before any of its
+        // entries is clicked, so the target is resolved here — from the leaf
+        // that displays the note — and used when one of them is.
+        if (target) this.addWeWriteSubmenu(menu, () => target);
       }),
     );
 
-    // Editor menu (event not in Obsidian's public typings)
+    // Editor context menu (event not in Obsidian's public typings): the same
+    // note entries plus the "WeWrite" group, bound to the editor it opened on.
     this.registerEvent(
       this.app.workspace.on('editor-menu', (...data: unknown[]) => {
         const menu = data[0] as Menu;
@@ -660,7 +697,7 @@ export default class WeWritePlugin extends Plugin {
         const file = info?.file ?? this.getActiveMarkdownFile();
         if (!file) return;
         this.addNoteMenuItems(menu, file);
-        this.addAIEditorSubmenu(menu, editor);
+        this.addWeWriteSubmenu(menu, () => ({ editor, path: file.path }));
       }),
     );
   }
@@ -686,30 +723,48 @@ export default class WeWritePlugin extends Plugin {
   }
 
   /**
-   * The editor menu's "WeWrite AI" submenu.
+   * The "WeWrite" submenu — image insertion, then the AI text tools, then the
+   * AI generators, with a separator between the groups.
    *
-   * Built from the command catalog and dispatched through `aiEditorRunners`,
+   * Built from the command catalog and dispatched through `editorMenuRunners`,
    * the same table the palette and the mobile toolbar invoke. Uses Obsidian's
    * native setSubmenu() (runtime API, typed in src/types) so the item gets the
    * standard chevron-right indicator and Obsidian's own hover / tap
    * positioning. Falls back to a manual popup only on builds without
    * setSubmenu().
+   *
+   * `getTarget` — rather than a target — because the two menu events know
+   * different things: `editor-menu` is handed the editor, while `file-menu`
+   * has only the note and must find the leaf that displays it. Each caller
+   * resolves the pair its own way; both answers are captured when the menu
+   * opens (as Obsidian does for its own editor commands) and read when an
+   * entry is clicked.
    */
-  private addAIEditorSubmenu(menu: Menu, editor: Editor): void {
+  private addWeWriteSubmenu(menu: Menu, getTarget: () => NoteTarget | null): void {
+    // A build that fires both menu events for one open would otherwise stack
+    // two identical groups into the same menu.
+    if (this.menusWithWeWriteGroup.has(menu)) return;
+    this.menusWithWeWriteGroup.add(menu);
+
     menu.addItem((item: MenuItem) => {
-      item.setTitle(t('contextMenu.wewrite_ai'));
-      item.setIcon('wewrite-ai-generate');
+      item.setTitle(t('contextMenu.wewrite'));
+      item.setIcon('wewrite-mark');
 
       const buildSubmenu = (submenu: Menu): void => {
-        for (const entry of AI_EDITOR_MENU_COMMANDS) {
-          // Image generation opens the second group: text tools above,
-          // generators below.
-          if (startsAIGeneratorGroup(entry.id)) submenu.addSeparator();
-          const run = this.aiEditorRunners[entry.id];
+        let isFirstEntry = true;
+        for (const entry of EDITOR_MENU_COMMANDS) {
+          // No leading separator: the first group has nothing above it.
+          if (!isFirstEntry && startsEditorMenuGroup(entry.id)) submenu.addSeparator();
+          isFirstEntry = false;
           submenu.addItem((i: MenuItem) => {
             i.setTitle(t(commandLabelKey(entry)));
             i.setIcon(entry.icon);
-            i.onClick(() => run(editor));
+            i.onClick(() => {
+              // Read here, not at build time, so a caller may resolve the target
+              // as late as it likes; null is a caller that found nothing.
+              const target = getTarget();
+              if (target) this.editorMenuRunners[entry.id](target);
+            });
           });
         }
       };
@@ -809,6 +864,57 @@ export default class WeWritePlugin extends Plugin {
     ).open();
   }
 
+  // ── Inserting images ──
+
+  /**
+   * Insert an image picked from the vault, as an embed at the cursor.
+   *
+   * Shares the picker with the cover zones (see views/image-picker.ts): a
+   * thumbnail grid with a folder filter, which Obsidian's own attachment
+   * picker — a list of bare file names — does not offer.
+   */
+  private insertImageFromVault(target: NoteTarget): void {
+    pickImageFromVault(this.app, {
+      onSelect: (file) => this.insertImageEmbed(target, file),
+    });
+  }
+
+  /**
+   * Insert an image picked from the OS — the photo library, on phones, which
+   * is the only way to reach the camera roll from inside Obsidian's sandboxed
+   * WebView.
+   *
+   * The file is copied into the vault first: a note can only embed a file the
+   * vault knows about.
+   */
+  private async insertImageFromSystem(target: NoteTarget): Promise<void> {
+    pickImageFromSystem((file) => {
+      globalSpinner.show(t('notice.image_saving', { file: file.name }));
+      void savePickedImageToVault(this.app, file, target.path)
+        .then((created) => this.insertImageEmbed(target, created))
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          log.warn('insert image from system failed', { err: message });
+          new Notice(t('notice.image_save_failed', { error: message }));
+        })
+        .finally(() => globalSpinner.hide());
+    });
+  }
+
+  /**
+   * Write the embed for `file` at the cursor.
+   *
+   * The link comes from Obsidian's file manager, so it honours the user's
+   * settings — wiki links or Markdown links — and carries the right relative
+   * path. Whether the returned string already starts with `!` varies between
+   * builds, hence the check.
+   */
+  private insertImageEmbed(target: NoteTarget, file: TFile): void {
+    const link = this.app.fileManager.generateMarkdownLink(file, target.path);
+    target.editor.replaceSelection(link.startsWith('!') ? link : `!${link}`);
+    new Notice(t('notice.image_inserted'));
+  }
+
   // ── AI Writing Tools (proofread / synonyms / translate / mermaid / math) ──
 
   /** Active markdown editor, or null (with a notice) when unavailable. */
@@ -819,6 +925,43 @@ export default class WeWritePlugin extends Plugin {
       return null;
     }
     return view.editor;
+  }
+
+  /**
+   * An editor showing `file`, or null when the note is not open in one.
+   *
+   * Not `getActiveViewOfType`: the note header's "⋮" menu can be opened on a
+   * note whose leaf is not the active one, and the group has to edit *that*
+   * note. Keeps the last match, which is the most recently opened leaf.
+   */
+  private findTargetFor(file: TFile): NoteTarget | null {
+    let found: NoteTarget | null = null;
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const view = leaf.view;
+      if (view instanceof MarkdownView && view.file?.path === file.path && view.editor) {
+        found = { editor: view.editor, path: file.path };
+      }
+    });
+    return found;
+  }
+
+  /**
+   * The note an editor belongs to, for relative-link and attachment resolution.
+   *
+   * Matched by editor identity rather than by active view: the "⋮" menu can act
+   * on a note that is not the active one, and a link written relative to the
+   * wrong folder embeds the image somewhere else than the user expects. Falls
+   * back to the active note, which is what the palette path always is.
+   */
+  private targetForEditor(editor: Editor): NoteTarget {
+    let path = '';
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const view = leaf.view;
+      if (view instanceof MarkdownView && view.editor === editor && view.file) {
+        path = view.file.path;
+      }
+    });
+    return { editor, path: path || this.getActiveMarkdownFile()?.path || '' };
   }
 
   /** Active AI text account, or null (with a notice) when unavailable. */
@@ -867,17 +1010,10 @@ export default class WeWritePlugin extends Plugin {
     const selection = editor.getSelection();
     const fullText = editor.getValue();
     const useSelection = selection.trim().length > 0;
-    let text = useSelection ? selection : fullText;
+    const text = useSelection ? selection : fullText;
     if (!text.trim()) {
       new Notice(t('notice.ai_no_text'));
       return;
-    }
-
-    // Guard against oversized submissions — proofread the first chunk only.
-    const MAX_PROOFREAD_CHARS = 6000;
-    if (text.length > MAX_PROOFREAD_CHARS) {
-      text = text.slice(0, MAX_PROOFREAD_CHARS);
-      new Notice(t('notice.ai_truncated', { count: String(MAX_PROOFREAD_CHARS) }));
     }
 
     const baseOffset = useSelection ? editor.posToOffset(editor.getCursor('from')) : 0;
@@ -889,17 +1025,31 @@ export default class WeWritePlugin extends Plugin {
       : {};
 
     globalSpinner.show(t('notice.ai_proofreading'));
-    void proofreadCorrections(account, text, {
+    // Long text is proofread in several requests rather than truncated, so a
+    // whole-note run really covers the whole note; the spinner reports where
+    // it is.
+    void proofreadDocument(account, text, {
       ...context,
+      onProgress: (current, total) => {
+        if (total > 1) {
+          globalSpinner.updateText(t('notice.ai_proofreading_progress', {
+            current: String(current),
+            total: String(total),
+          }));
+        }
+      },
       onCall: (call) => this.logTextCall(account, call, 'proofread', 'Proofread'),
     })
-      .then((corrections) => {
+      .then((result) => {
         globalSpinner.hide();
-        if (corrections.length === 0) {
+        if (result.calls < result.needed) {
+          new Notice(t('notice.ai_truncated', { count: String(result.covered) }));
+        }
+        if (result.corrections.length === 0) {
           new Notice(t('notice.ai_no_corrections'));
           return;
         }
-        new ProofreadModal(this.app, editor, corrections, baseOffset).open();
+        new ProofreadModal(this.app, editor, result.corrections, baseOffset).open();
       })
       .catch((err: unknown) => {
         globalSpinner.hide();

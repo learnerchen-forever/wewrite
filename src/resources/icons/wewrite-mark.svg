@@ -1,0 +1,6 @@
+<!-- WeWrite 插件菜单组图标（F3 · 品牌字标 W：上下文菜单 / 三点菜单的 WeWrite 菜单组）
+     规范：24 网格 · 2px 圆头线稿 · currentColor · 无填充 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 字标 W（四笔折线，两处谷底到底线，便于 16px 下辨认） -->
+  <path d="M3 5.5 7 18.5 12 8.5 17 18.5 21 5.5"/>
+</svg>

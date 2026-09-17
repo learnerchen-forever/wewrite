@@ -15,7 +15,7 @@ interface PresetDef {
 	/** New callout decoration config (replaces legacy blocks.callout.* slots). */
 	callout?: { decoration?: string; decorationParams?: Record<string, string> };
 	/** New image + caption decoration config (replaces legacy media.image.* slots). */
-	image?: { decoration?: string; decorationParams?: Record<string, string> };
+	image?: { decoration?: string; decorationParams?: Record<string, string>; slider?: boolean };
 	/** New blockquote decoration config (replaces legacy blocks.blockquote.* slots). */
 	blockquote?: { decoration?: string; decorationParams?: Record<string, string> };
 }
@@ -93,6 +93,9 @@ const BLOCKQUOTE_CARD_PARAMS: Record<string, string> = {
 
 export const BUILTIN_PRESETS: Record<string, ThemePreset> = {};
 
+// `image.slider` — the horizontal image window (图片滑动窗). Half of the presets
+// ship with it on and half with it off, so both behaviours stay visible among
+// the built-ins; a theme that omits the key renders images independently.
 const PRESET_DEFS: PresetDef[] = [
 	{
 		id: 'github', nameKey: 'preset.github',
@@ -103,6 +106,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'inline.code': { style: 'lightGray' },
 		},
 		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
+		image: { slider: true },
 	},
 	{
 		id: 'wechat', nameKey: 'preset.wechat',
@@ -114,6 +118,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'blocks.table': { headerStyle: 'gray' },
 		},
 		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
+		image: { slider: false },
 	},
 	{
 		id: 'serif', nameKey: 'preset.serif',
@@ -130,7 +135,7 @@ const PRESET_DEFS: PresetDef[] = [
 			decoration: 'classicBar',
 			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, barWidth: '0', fontStyle: 'italic' },
 		},
-		image: { decoration: 'lightShadow' },
+		image: { decoration: 'lightShadow', slider: true },
 	},
 	{
 		id: 'paper', nameKey: 'preset.paper',
@@ -151,7 +156,7 @@ const PRESET_DEFS: PresetDef[] = [
 			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, radius: '4' },
 		},
 		callout: { decorationParams: { radius: '4px' } },
-		image: { decoration: 'lightShadow', decorationParams: { radius: '4px' } },
+		image: { decoration: 'lightShadow', decorationParams: { radius: '4px' }, slider: false },
 	},
 	{
 		id: 'grid', nameKey: 'preset.grid',
@@ -164,7 +169,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'blocks.table': { headerStyle: 'accent', borderStyle: 'all' },
 		},
 		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
-		image: { decoration: 'lightShadow', decorationParams: { shadow: '0 4px 10px rgba(0,0,0,0.05)' } },
+		image: { decoration: 'lightShadow', decorationParams: { shadow: '0 4px 10px rgba(0,0,0,0.05)' }, slider: true },
 	},
 	{
 		id: 'typo', nameKey: 'preset.typo',
@@ -182,6 +187,7 @@ const PRESET_DEFS: PresetDef[] = [
 			decoration: 'classicBar',
 			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, barWidth: '6', radius: '0' },
 		},
+		image: { slider: false },
 	},
 	{
 		id: 'media', nameKey: 'preset.media',
@@ -194,7 +200,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'inline.strong': { style: 'accentBg' },
 		},
 		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
-		image: { decoration: 'lightShadow', decorationParams: { radius: '8px', shadow: '0 4px 10px rgba(0,0,0,0.05)' } },
+		image: { decoration: 'lightShadow', decorationParams: { radius: '8px', shadow: '0 4px 10px rgba(0,0,0,0.05)' }, slider: true },
 	},
 	{
 		id: 'colorful', nameKey: 'preset.colorful',
@@ -219,7 +225,7 @@ const PRESET_DEFS: PresetDef[] = [
 				barTo: '${accentBorder}',
 			},
 		},
-		image: { decoration: 'lightShadow', decorationParams: { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8', radius: '8px' } },
+		image: { decoration: 'lightShadow', decorationParams: { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8', radius: '8px' }, slider: false },
 		callout: {
 			decoration: 'accentGlow',
 			decorationParams: { radius: '8px', shadow: '0 2px 8px rgba(0,0,0,0.06)' },
@@ -242,7 +248,7 @@ const PRESET_DEFS: PresetDef[] = [
 			decoration: 'classicBar',
 			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, barWidth: '0' },
 		},
-		image: { decoration: 'lightShadow', decorationParams: { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8', radius: '4px' } },
+		image: { decoration: 'lightShadow', decorationParams: { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8', radius: '4px' }, slider: true },
 	},
 	{
 		id: 'dark', nameKey: 'preset.dark',
@@ -261,7 +267,7 @@ const PRESET_DEFS: PresetDef[] = [
 		// `accentBg` is translucent, so the card is a tint over the dark page and
 		// `${text}` resolves to the light body color.
 		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
-		image: { decoration: 'lightShadow', decorationParams: { radius: '4px' } },
+		image: { decoration: 'lightShadow', decorationParams: { radius: '4px' }, slider: false },
 		callout: {
 			decoration: 'accentGlow',
 			decorationParams: { radius: '8px', shadow: '0 2px 8px rgba(0,0,0,0.06)' },
@@ -337,7 +343,9 @@ console.log(greeting + " World");
 
 ---
 
-![图片示例](https://via.placeholder.com/400x200/009688/ffffff?text=WeWrite)
+![图片示例 1](https://placehold.co/400x300/009688/ffffff.png?text=WeWrite+1)
+![图片示例 2](https://placehold.co/400x300/0366d6/ffffff.png?text=WeWrite+2)
+![图片示例 3](https://placehold.co/400x300/d97706/ffffff.png?text=WeWrite+3)
 
 \`\`\`mermaid
 graph TD

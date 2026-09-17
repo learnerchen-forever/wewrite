@@ -6,7 +6,7 @@
 // the v3 slot + preset path is untouched. Whether a caption exists is still
 // decided by the news view's imageCaptions config.
 
-import { resolveImageDecoration } from '../core/image-config';
+import { resolveImageDecoration, DEFAULT_IMAGE_MARGIN_Y } from '../core/image-config';
 import type { ImageDecoration } from '../core/image-decoration-types';
 import type { TokenVars } from '../core/slot-types';
 import { ThemeResolver } from './theme-resolver';
@@ -16,7 +16,14 @@ export interface ImageExtraStyle {
 	width?: number;
 	height?: number;
 	align?: string;
+	/** Image top+bottom margin (already resolved from the theme). */
+	marginY?: string;
 }
+
+/** Slide width inside the horizontal image window, % of the article width. */
+export const IMAGE_SLIDER_SLIDE_WIDTH = 78;
+/** Gap between two slides, px. */
+export const IMAGE_SLIDER_GAP = 6;
 
 
 
@@ -40,6 +47,53 @@ export function hasImageConfig(r: ThemeResolver): boolean {
 	return Boolean(ic.decoration || (ic.decorationParams && Object.keys(ic.decorationParams).length > 0));
 }
 
+/**
+ * The theme's image top+bottom margin. It is a theme-level value (not a
+ * decoration param) so it also covers themes that selected no decoration and
+ * therefore render through the v3 slot / preset path.
+ */
+export function resolveImageMarginY(r: ThemeResolver): string {
+	return r.getPreset().imageConfig?.marginY || DEFAULT_IMAGE_MARGIN_Y;
+}
+
+/** Whether consecutive images are grouped into a horizontal image window. */
+export function isImageSliderEnabled(r: ThemeResolver): boolean {
+	return r.getPreset().imageConfig?.slider === true;
+}
+
+/** Container style of the horizontal image window. */
+export function buildImageSliderStyle(marginY: string): string {
+	return [
+		'overflow-x:auto',
+		'-webkit-overflow-scrolling:touch',
+		'white-space:nowrap',
+		'max-width:100%',
+		// Slides sit flush against each other; the gap is each slide's own
+		// right margin, so the inline-block whitespace must not add to it.
+		'font-size:0',
+		'text-align:left',
+		`margin:${marginY} 0`,
+	].join(';');
+}
+
+/**
+ * Turn a styled <img> into one slide of the image window: a fixed share of the
+ * article width keeps every slide the same size whatever its aspect ratio, and
+ * the vertical margin is what separates the window from the surrounding text.
+ */
+export function toImageSliderSlide(style: string, marginY: string, gapAfter: boolean): string {
+	const gap = gapAfter ? `${IMAGE_SLIDER_GAP}px` : '0';
+	const slide = [
+		'display:inline-block',
+		`width:${IMAGE_SLIDER_SLIDE_WIDTH}%`,
+		`max-width:${IMAGE_SLIDER_SLIDE_WIDTH}%`,
+		'height:auto',
+		'vertical-align:top',
+		`margin:${marginY} ${gap} ${marginY} 0`,
+	].join(';');
+	return style ? `${style};${slide}` : slide;
+}
+
 /** Resolve the active decoration + effective params (sparse overrides merged). */
 export function resolveImageDecorationStyle(
 	r: ThemeResolver,
@@ -52,6 +106,12 @@ export function resolveImageDecorationStyle(
 /** Build the <img> style string from decoration params + per-image overrides. */
 export function buildImageStyle(params: Record<string, string>, extra: ImageExtraStyle = {}): string {
 	const parts: string[] = [];
+	// Image spacing is a theme value (`extra.marginY`): the image decoration
+	// family deliberately carries no margins of its own, so one parameter drives
+	// both sides. The Excalidraw family shares this builder and does carry its
+	// own margins, so those still win where they exist.
+	const marginTop = params.marginTop || extra.marginY || DEFAULT_IMAGE_MARGIN_Y;
+	const marginBottom = params.marginBottom || extra.marginY || DEFAULT_IMAGE_MARGIN_Y;
 	if (params.maxWidth) parts.push(`max-width:${params.maxWidth}`);
 	if (extra.width) parts.push(`width:${extra.width}px`);
 	if (extra.height) {
@@ -68,18 +128,16 @@ export function buildImageStyle(params: Record<string, string>, extra: ImageExtr
 	}
 
 	const display = params.display === 'inline' ? 'inline' : 'block';
-	const mt = params.marginTop || '0';
-	const mb = params.marginBottom || '0';
 	if (display === 'inline') {
 		parts.push('display:inline-block');
 		if (params.verticalAlign) parts.push(`vertical-align:${params.verticalAlign}`);
-		parts.push(`margin:${mt} 0 ${mb}`);
+		parts.push(`margin:${marginTop} 0 ${marginBottom}`);
 	} else {
 		parts.push('display:block');
 		const align = extra.align || params.align || 'center';
-		if (align === 'left') parts.push(`margin:${mt} auto ${mb} 0`);
-		else if (align === 'right') parts.push(`margin:${mt} 0 ${mb} auto`);
-		else parts.push(`margin:${mt} auto ${mb}`);
+		if (align === 'left') parts.push(`margin:${marginTop} auto ${marginBottom} 0`);
+		else if (align === 'right') parts.push(`margin:${marginTop} 0 ${marginBottom} auto`);
+		else parts.push(`margin:${marginTop} auto ${marginBottom}`);
 	}
 	return parts.join(';');
 }

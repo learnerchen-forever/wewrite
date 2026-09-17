@@ -15,7 +15,7 @@ import { PublishLogBuilder } from '../utils/publish-logger';
 import { writeAICallLog, AIImageGenLogger } from '../utils/ai-logger';
 import { createLogger } from '../utils/logger';
 import { buildMultipartBody } from '../publisher/api-manager';
-import { generateImage, normalizeImageSize, AIImageSizeError, sizeHintExample, type AIImageAccountLike } from '../publisher/ai-image-client';
+import { generateImage, normalizeImageSize, AIImageSizeError, sizeHintExample, legalSizeOptions, type AIImageAccountLike } from '../publisher/ai-image-client';
 import { guessMimeType, extractMimeType } from '../media/image-validator';
 import { compactBlockWhitespace } from '../renderer/wechat-cleaner';
 import { waitForCalloutPlugins, processCalloutsAndAdmonitions } from '../utils/callout-processor';
@@ -667,10 +667,11 @@ export class WeChatNewsView extends ItemView {
     // Default sizes per zone category (both dimensions 512–1440). These raw
     // values are only valid for the old wanx2.1 constraint — normalize them
     // through the unified size pipeline so the dialog pre-fills a size that
-    // is ALWAYS legal for the ACTIVE provider (e.g. qwen-image only accepts
-    // its standard presets; seedream requires ≥2560×1440 total pixels &
-    // 64-aligned). The user can still edit the size; generateImage re-runs
-    // the same normalization before sending.
+    // is ALWAYS legal for the ACTIVE provider (e.g. wan2.6 requires a total
+    // pixel count of 1280×1280–1440×1440; qwen-image only accepts its standard
+    // presets; seedream requires ≥2560×1440 total pixels & 64-aligned). The
+    // user can still edit the size; generateImage re-runs the same
+    // normalization before sending.
     const DEFAULT_SIZES: Record<string, string> = {
       a: '1203*512',
       b: '512*512',
@@ -679,7 +680,7 @@ export class WeChatNewsView extends ItemView {
     };
     let defaultSize = DEFAULT_SIZES[zoneCategory] || '900*383';
     try {
-      defaultSize = normalizeImageSize(defaultSize, imgAcct.provider, imgAcct.baseUrl).size;
+      defaultSize = normalizeImageSize(defaultSize, imgAcct.provider, imgAcct.baseUrl, imgAcct.model).size;
     } catch {
       // Keep the raw default — generateImage will surface a readable error.
     }
@@ -707,6 +708,10 @@ export class WeChatNewsView extends ItemView {
       (imageUrl) => {
         void (async () => {
           if (imageUrl) {
+            // 出图之后还要下载 + 指纹入库，这几秒里对话框已经关了；没有提示的话
+            // 用户只会觉得「点了没反应」。
+            const zoneLabel = zoneCategory.toUpperCase();
+            globalSpinner.show(t('notice.cover_saving', { label: zoneLabel }));
             try {
               const resp = await requestUrl({ url: imageUrl });
               const ct = resp.headers['content-type'] || 'image/png';
@@ -729,10 +734,14 @@ export class WeChatNewsView extends ItemView {
               this.coverComposer.setFullState({
                 [zoneId]: { imagePath: path, mediaId: '' }
               });
-              const zoneLabel = zoneCategory.toUpperCase();
               new Notice(t('notice.cover_set_success', { label: zoneLabel }));
             } catch (err) {
+              // 以前这里只有 log.warn —— 下载/入库失败时用户看不到任何反馈，
+              // 图片静默地没被设上。
               log.warn('AI cover save failed', { err: String(err) });
+              new Notice(t('notice.cover_download_failed', { error: String(err) }), 0);
+            } finally {
+              globalSpinner.hide();
             }
           }
         })();
@@ -3446,6 +3455,8 @@ class ImageGenerateDialog {
     const meta = ZONE_META[zoneCategory] || { label: zoneCategory.toUpperCase(), aspectLabel: '?' };
     const promptVal = savedPrompt || defaultPrompt || t('modal.image_generate_placeholder');
     const sizeVal = savedSize || defaultSize;
+    const example = sizeHintExample(this.account.provider, this.account.baseUrl, this.account.model);
+    const sizeOptions = legalSizeOptions(this.account.provider, this.account.baseUrl, this.account.model);
 
     this.modalEl = createDiv();
     this.modalEl.addClass('wewrite-publish-modal');
@@ -3457,10 +3468,11 @@ class ImageGenerateDialog {
         <textarea style="width:100%;height:200px;margin-bottom:12px" placeholder="${t('modal.image_generate_placeholder')}"></textarea>
         <div style="margin-bottom:8px">${t('modal.image_generate_size_label')}</div>
         <div style="display:flex;gap:8px;margin-bottom:4px;align-items:center">
-          <input type="text" style="flex:1" class="wewrite-input" placeholder="${defaultSize}">
+          <input type="text" list="wewrite-ai-size-options-cover" style="flex:1" class="wewrite-input" placeholder="${defaultSize}">
           <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">${meta.aspectLabel}</span>
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">${t('modal.image_generate_size_hint', { example: sizeHintExample(this.account.provider, this.account.baseUrl) })}</div>
+        <datalist id="wewrite-ai-size-options-cover">${sizeOptions.map((s) => `<option value="${s}"></option>`).join('')}</datalist>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">${t('modal.image_generate_size_hint', { example, options: sizeOptions.join('、') })}</div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="wewrite-publish-cancel">${t('misc.cancel')}</button>
           <button class="wewrite-publish-cancel mod-cta">${t('modal.image_generate_button')}</button>
@@ -3501,6 +3513,9 @@ class ImageGenerateDialog {
 
     try {
       const result = await generateImage(this.account, prompt, rawSize, this.imageLogger);
+      // 尺寸被自动调整过就明确告诉用户 —— 否则他填 1203*512、拿到一张别的尺寸的
+      // 图，全程没有任何提示。
+      if (result.note) new Notice(result.note, 6000);
       if (result.url) { this.callback(result.url); }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -3512,13 +3527,13 @@ class ImageGenerateDialog {
         durationMs: Date.now() - startTime,
         error: msg,
       });
-      await this.imageLogger?.flush();
       if (err instanceof AIImageSizeError) {
         new Notice(t('notice.image_size_invalid', { error: msg }), 0);
       } else {
         new Notice(t('notice.image_gen_failed', { error: msg }), 0);
       }
     }
+    await this.imageLogger?.flushFinal();
     this.close();
   }
 

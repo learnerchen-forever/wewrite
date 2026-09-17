@@ -4,7 +4,7 @@ import { Notice, requestUrl, type App } from 'obsidian';
 import { getWeWriteSubPath, WEWRITE_SUBDIRS } from '../core/interfaces';
 import { createLogger } from '../utils/logger';
 import { AIImageGenLogger } from '../utils/ai-logger';
-import { generateImage, AIImageSizeError, sizeHintExample, type AIImageAccountLike } from '../publisher/ai-image-client';
+import { generateImage, AIImageSizeError, sizeHintExample, legalSizeOptions, normalizeImageSize, type AIImageAccountLike } from '../publisher/ai-image-client';
 import { t } from '../i18n';
 import { setTrustedHtml } from '../utils/trusted-html';
 
@@ -30,6 +30,21 @@ export async function prepareCacheDir(app: App, wewriteFolder: string): Promise<
   return resolveCacheStorageDir(storagePath);
 }
 
+/**
+ * The size to pre-fill: the account's `defaultSize` when set, otherwise the
+ * provider example — either way normalized to something the active model
+ * actually accepts, so the dialog never opens on a value that would 400.
+ * Exported for the unit test.
+ */
+export function normalizedOrDefault(account: AIImageAccountLike, fallback: string): string {
+  const raw = (account.defaultSize || '').trim() || fallback;
+  try {
+    return normalizeImageSize(raw, account.provider, account.baseUrl, account.model).size;
+  } catch {
+    return fallback;
+  }
+}
+
 export class AIImageGenerateModal {
   private modalEl: HTMLElement;
   private promptEl: HTMLTextAreaElement;
@@ -46,6 +61,8 @@ export class AIImageGenerateModal {
   ) {
     this.modalEl = createDiv();
     this.modalEl.addClass('wewrite-publish-modal');
+    const example = sizeHintExample(this.account.provider, this.account.baseUrl, this.account.model);
+    const sizeOptions = legalSizeOptions(this.account.provider, this.account.baseUrl, this.account.model);
     setTrustedHtml(this.modalEl, `
       <div class="wewrite-publish-overlay" style="background:rgba(0,0,0,0.4)"></div>
       <div class="wewrite-publish-dialog" style="max-width:480px">
@@ -54,9 +71,10 @@ export class AIImageGenerateModal {
         <textarea style="width:100%;height:200px;margin-bottom:12px" placeholder="${t('modal.ai_image_generate_placeholder')}"></textarea>
         <div style="margin-bottom:8px">${t('modal.image_generate_size_label')}</div>
         <div style="display:flex;gap:8px;margin-bottom:4px;align-items:center">
-          <input type="text" style="flex:1" class="wewrite-input" placeholder="${sizeHintExample(this.account.provider, this.account.baseUrl)}">
+          <input type="text" list="wewrite-ai-size-options-inline" style="flex:1" class="wewrite-input" placeholder="${example}">
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">${t('modal.image_generate_size_hint', { example: sizeHintExample(this.account.provider, this.account.baseUrl) })}</div>
+        <datalist id="wewrite-ai-size-options-inline">${sizeOptions.map((s) => `<option value="${s}"></option>`).join('')}</datalist>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">${t('modal.image_generate_size_hint', { example, options: sizeOptions.join('、') })}</div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="wewrite-publish-cancel">${t('misc.cancel')}</button>
           <button class="wewrite-publish-cancel mod-cta">${t('modal.image_generate_button')}</button>
@@ -65,8 +83,9 @@ export class AIImageGenerateModal {
     document.body.appendChild(this.modalEl);
     this.promptEl = this.modalEl.querySelector('textarea')!;
     this.sizeEl = this.modalEl.querySelector('input[type="text"]')!;
-    // Account-level defaultSize (when configured) wins over the provider example.
-    this.sizeEl.value = this.account.defaultSize || sizeHintExample(this.account.provider, this.account.baseUrl);
+    // 账号默认尺寸优先于 provider 示例，但两者都先过一遍规范化 —— 预填的必须是
+    // 对当前模型**已经合法**的值（账号里可能留着旧模型时代的尺寸）。
+    this.sizeEl.value = normalizedOrDefault(this.account, example);
     this.generateBtn = this.modalEl.querySelector('.mod-cta')!;
     this.modalEl.querySelector('.wewrite-publish-overlay')!.addEventListener('click', (e: Event) => { e.stopPropagation(); });
     this.modalEl.querySelector('.wewrite-publish-cancel:not(.mod-cta)')!.addEventListener('click', () => this.close());
@@ -104,10 +123,14 @@ export class AIImageGenerateModal {
 
     try {
       const result = await generateImage(this.account, prompt, rawSize, this.imageLogger);
+      // 尺寸被自动调整过就明确告诉用户 —— 否则他输入 1203x512、拿到一张别的
+      // 尺寸的图，全程不会有任何提示。
+      if (result.note) new Notice(result.note, 6000);
       if (result.url) {
         const vaultPath = await this.downloadAndSave(result.url);
         if (vaultPath) {
           this.onSuccess(vaultPath);
+          await this.imageLogger?.flushFinal();
           this.close();
           return;
         }
@@ -124,6 +147,7 @@ export class AIImageGenerateModal {
         new Notice(t('notice.image_gen_failed', { error: msg }), 0);
       }
     }
+    await this.imageLogger?.flushFinal();
     this.close();
   }
 
