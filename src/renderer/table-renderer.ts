@@ -29,27 +29,111 @@ function appendStyle(el: Element, css: string): void {
 	el.setAttribute('style', current ? current + ';' + css : css);
 }
 
+// ── Responsive table layout policy ──
+//
+// Tables used to be pinned to `min-width:100%`, which made every table exactly
+// as wide as the article: a narrow table stretched with a sea of empty space
+// inside it, and a wide one compressed its columns until Latin words folded
+// mid-word ("Cal/lou/t"). Both came from the same mistake — sizing the table by
+// the container instead of by its content.
+//
+// The policy is now content-driven, in two halves:
+
 /**
- * Responsive-table cell wrap policy, applied to every <th>/<td> in ALL table
- * decorations so it cannot be re-broken by a decoration or the environment.
+ * Table box sizing: `width:fit-content` + auto margins.
  *
- * Why these three declarations:
+ * Under `fit-content` a table's width is `min(max-content, available)`, so the
+ * two failure modes resolve themselves:
+ *  - content narrower than the article → the table shrinks to its natural
+ *    width and `margin-left/right:auto` centres it;
+ *  - content wider than the article → the table cannot shrink below its
+ *    minimum width (see `applyCellPolicy`: nowrap headers, plus words that
+ *    never break), so it overflows and the `overflow-x:auto` wrapper adds a
+ *    scrollbar instead of squeezing the columns.
+ *
+ * `width:auto` cannot do this: CSS 2.1 §17.5.2 sizes an auto-width table at
+ * the greater of the containing block width, CAPMIN and MIN, i.e. it always
+ * stretches to 100% — which is exactly why the old `min-width:100%` could
+ * never centre anything. Engines that reject `fit-content` fall back to
+ * `width:auto`, i.e. the previous behaviour, so this degrades safely.
+ */
+const TABLE_WIDTH_CSS = 'width:fit-content;margin-left:auto;margin-right:auto';
+
+/**
+ * Cell wrap policy, applied to every <th>/<td> in ALL tables (decorated or
+ * not) so it cannot be re-broken by a decoration or the environment.
+ *
  *  - word-break:normal      CJK wraps between characters; Latin words break only
  *                           at spaces/hyphens, so single English words like
  *                           "Callout" are never chopped mid-word.
  *  - overflow-wrap:normal   Overrides the article wrapper's inherited
  *                           `word-wrap:break-word`, which is what split "Callout"
- *                           into "Cal/lou/t" when a {width:100%} table was
- *                           squeezed to fit the article width.
- *  - white-space:normal     Reverts any `white-space:nowrap` (e.g. some built-in
- *                           headers) so long content wraps instead of forcing the
- *                           table/column onto one line.
- *
- * The table itself is sized with `min-width:100%` (not `width:100%`) so it can
- * grow past the article and scroll horizontally inside its overflow-x wrapper
- * instead of compressing its columns and folding words.
+ *                           into "Cal/lou/t" when a table was squeezed to fit
+ *                           the article width.
+ *  - white-space            nowrap on a short header / first-column cell so the
+ *                           column takes its natural width and the cell does not
+ *                           fold; normal everywhere else so long content still
+ *                           wraps instead of forcing the table onto one line.
  */
-const CELL_WRAP_CSS = 'word-break:normal;overflow-wrap:normal;white-space:normal;';
+const CELL_BREAK_CSS = 'word-break:normal;overflow-wrap:normal;';
+const CELL_WRAP_CSS = `${CELL_BREAK_CSS}white-space:normal;`;
+const CELL_NOWRAP_CSS = `${CELL_BREAK_CSS}white-space:nowrap;`;
+
+/**
+ * Widest header text still kept on one line, in em (≈ CJK characters, since a
+ * CJK glyph is one em wide and a Latin glyph about half of one).
+ *
+ * This is the "basic rule" that decides whether a cell is allowed to define its
+ * column width: a short label ("序号", "特性", "Callout") is a fixed point that
+ * the table can be laid out around, while a long sentence must wrap or it would
+ * drag the whole table (and the reader's scrollbar) with it. 8em ≈ 8 CJK
+ * characters ≈ 16 Latin characters at the table's default 14–16px font.
+ */
+const NOWRAP_MAX_EM = 8;
+
+const CJK_RE = /[\u2E80-\u303F\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6]/;
+
+/** Rough display width of a string in em — CJK counts 1, whitespace 0.3, rest 0.5. */
+function estimateEm(text: string): number {
+	let em = 0;
+	for (const ch of text) {
+		if (CJK_RE.test(ch)) em += 1;
+		else if (/\s/.test(ch)) em += 0.3;
+		else em += 0.5;
+	}
+	return em;
+}
+
+/** True when a cell's text is short enough to keep on a single line. */
+function isShortLabel(cell: Element): boolean {
+	const text = (cell.textContent || '').replace(/\s+/g, ' ').trim();
+	if (!text) return false;
+	return estimateEm(text) <= NOWRAP_MAX_EM;
+}
+
+/**
+ * Apply the width policy to every table in the document: box sizing, plus the
+ * per-cell wrap/nowrap decision. Runs for the decoration pipeline AND for the
+ * v3 slot fallback, so the two paths lay out identically.
+ */
+export function applyTableLayout(doc: Document): void {
+	for (const el of Array.from(doc.querySelectorAll('table'))) {
+		appendStyle(el, TABLE_WIDTH_CSS);
+
+		// First cell of each row — the row header / label column. Header cells
+		// (<th>) are columns headers/row headers, so both may pin their column.
+		const pinning = new Set<Element>();
+		for (const cell of Array.from(el.querySelectorAll('th'))) pinning.add(cell);
+		for (const row of Array.from(el.querySelectorAll('tr'))) {
+			const first = row.querySelector('th, td');
+			if (first) pinning.add(first);
+		}
+
+		el.querySelectorAll('th, td').forEach((cell) => {
+			appendStyle(cell, pinning.has(cell) && isShortLabel(cell) ? CELL_NOWRAP_CSS : CELL_WRAP_CSS);
+		});
+	}
+}
 
 function expandFragment(
 	fragment: string | undefined,
@@ -80,10 +164,9 @@ function renderTableElement(
 ): void {
 	const tableEl = el as HTMLElement;
 	const parts = decoration.parts || {};
-	// `min-width:100%` (not `width:100%`) lets a table wider than the article
-	// grow out of the column box and trigger the overflow-x scrollbar in its
-	// wrapper, instead of squeezing columns and folding words to fit 100%.
-	appendStyle(tableEl, 'border-collapse:collapse;min-width:100%');
+	// Box sizing / cell wrapping belong to the shared layout policy in
+	// applyTableLayout() — a decoration only paints.
+	appendStyle(tableEl, 'border-collapse:collapse');
 	appendStyle(tableEl, expandFragment(parts.table, params, tokens));
 
 	const thCss = expandFragment(parts.th, params, tokens);
@@ -128,11 +211,6 @@ function renderTableElement(
 			row.querySelectorAll('th, td').forEach((cell) => appendStyle(cell, zebraCss));
 		});
 	}
-
-	// Final pass: enforce the responsive wrap policy on every cell (header AND
-	// body, including firstCol/zebra cells). Appended LAST so it overrides any
-	// word-break / white-space a decoration or a custom theme may have set.
-	el.querySelectorAll('th, td').forEach((cell) => appendStyle(cell, CELL_WRAP_CSS));
 }
 
 /** Whether the preset carries a meaningful new table config. */
@@ -187,5 +265,6 @@ export function renderTablePreview(
 	const r = new ThemeResolver(previewPreset);
 	const doc = new DOMParser().parseFromString(`<body>${sampleHtml}</body>`, 'text/html');
 	renderTables(doc, r);
+	applyTableLayout(doc);
 	return doc.body.innerHTML;
 }

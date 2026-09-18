@@ -7,7 +7,7 @@ globalThis.document = dom.window.document;
 globalThis.Node = dom.window.Node;
 
 import { ThemeResolver, DEFAULT_PRESET } from '../../../src/renderer/theme-resolver';
-import { renderTables, hasTableConfig, renderTablePreview } from '../../../src/renderer/table-renderer';
+import { renderTables, hasTableConfig, renderTablePreview, applyTableLayout } from '../../../src/renderer/table-renderer';
 import { parseTableFrontmatter } from '../../../src/core/table-config';
 import { parseFlatFrontmatter } from '../../../src/core/frontmatter-parser';
 
@@ -188,6 +188,79 @@ describe('custom table decoration', () => {
 		expect(styleOf(doc.querySelector('th'))).toContain('background:#e74c3c');
 		expect(styleOf(doc.querySelector('tbody td'))).toContain('color:#e67e22');
 		expect(styleOf(doc.querySelectorAll('tbody tr')[1].querySelector('td'))).toContain('background:#fdf2e9');
+	});
+});
+
+// ── Responsive layout policy (width + cell wrapping) ──
+
+/** Render a table through the decoration pipeline AND the layout policy. */
+function renderLaidOut(html: string, fm: Record<string, unknown> = {}): Document {
+	const doc = renderHtml(html, fm);
+	applyTableLayout(doc);
+	return doc;
+}
+
+function cellStyle(doc: Document, selector: string): string {
+	return styleOf(doc.querySelector(selector));
+}
+
+describe('applyTableLayout — table box', () => {
+	it('sizes the table to its content and centres it (no min-width:100%)', () => {
+		const doc = renderLaidOut(TABLE_HTML, { 'blocks.table.decoration': 'gray' });
+		const table = styleOf(doc.querySelector('table'));
+		expect(table).toContain('width:fit-content');
+		expect(table).toContain('margin-left:auto');
+		expect(table).toContain('margin-right:auto');
+		expect(table).not.toContain('min-width:100%');
+	});
+
+	it('applies the same box policy without any table decoration (v3 path)', () => {
+		const doc = renderLaidOut('<table><tbody><tr><td>a</td></tr></tbody></table>');
+		expect(styleOf(doc.querySelector('table'))).toContain('width:fit-content');
+	});
+});
+
+describe('applyTableLayout — cell wrapping', () => {
+	it('keeps short header labels on one line', () => {
+		const doc = renderLaidOut(TABLE_HTML, { 'blocks.table.decoration': 'gray' });
+		const th = cellStyle(doc, 'th');
+		expect(th).toContain('white-space:nowrap');
+		// A Latin header must not be chopped mid-word either.
+		expect(th).toContain('word-break:normal');
+		expect(th).toContain('overflow-wrap:normal');
+	});
+
+	it('lets a long header wrap instead of widening the table without bound', () => {
+		const doc = renderLaidOut(
+			'<table><thead><tr><th>这是一个相当长的表头标题用来验证换行规则</th></tr></thead>' +
+			'<tbody><tr><td>内容</td></tr></tbody></table>',
+			{ 'blocks.table.decoration': 'gray' },
+		);
+		expect(cellStyle(doc, 'th')).toContain('white-space:normal');
+	});
+
+	it('pins short first-column labels but wraps long body cells', () => {
+		const doc = renderLaidOut(
+			'<table><tbody><tr><td>序号</td><td>这是一段较长的正文说明文字，应当允许自动换行</td></tr></tbody></table>',
+			{ 'blocks.table.decoration': 'gray' },
+		);
+		const cells = doc.querySelectorAll('td');
+		expect(styleOf(cells[0])).toContain('white-space:nowrap');
+		expect(styleOf(cells[1])).toContain('white-space:normal');
+	});
+
+	it('applies the wrap policy to every cell, overriding a decoration', () => {
+		const doc = renderLaidOut(TABLE_HTML, {
+			'blocks.table.decoration': 'myTable',
+			custom_values: {
+				'table.decoration': [
+					{ id: 'myTable', name: '自定义', parts: { th: 'white-space:nowrap;word-break:break-all' }, params: {} },
+				],
+			},
+		});
+		const th = styleOf(doc.querySelector('th'));
+		// The policy is appended last, so its declarations win.
+		expect(th.trimEnd().endsWith('word-break:normal;overflow-wrap:normal;white-space:nowrap;')).toBe(true);
 	});
 });
 

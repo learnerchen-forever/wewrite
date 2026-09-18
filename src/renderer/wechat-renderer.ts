@@ -20,7 +20,7 @@ import {
 } from './image-renderer';
 import { collectImageSliderRuns, wrapImageSlider, type ImageSliderSlide } from './image-slider';
 import { renderInlineElements } from './inline-renderer';
-import { renderTables } from './table-renderer';
+import { applyTableLayout, renderTables } from './table-renderer';
 import { renderDividers } from './divider-renderer';
 import { renderTaskLists, renderOrderedLists, renderUnorderedLists } from './list-renderer';
 import { parseEmbedParams } from './extensions/embed';
@@ -38,6 +38,7 @@ import {
 } from './excalidraw-renderer';
 import { setTrustedHtml } from '../utils/trusted-html';
 import { ARTICLE_INLINE_STYLE } from './article-inline-styles';
+import { blockMarginY, resolveBlockMarginY, DEFAULT_BLOCK_MARGIN_Y } from '../core/block-spacing';
 
 // ── Mermaid SVG style inlining ──
 // Mermaid generates SVGs with <style> blocks that define visual properties
@@ -139,6 +140,17 @@ function formatHeadingNumber(n: number, style: string): string {
     }
     default: return `${n}.`;
   }
+}
+
+/**
+ * True when an image has its container to itself, so it can claim the full
+ * reading width. Several images in one paragraph are a row rather than a stack,
+ * and stretching them all to 100% would turn that row into a column.
+ */
+function isLoneImage(img: HTMLImageElement): boolean {
+  const parent = img.parentElement;
+  if (!parent) return true;
+  return parent.children.length === 1;
 }
 
 /** Keep list-item inline content from being re-wrapped by WeChat.
@@ -349,9 +361,11 @@ export class WechatRenderer {
       // Mermaid diagrams are not code blocks: Obsidian wraps the SVG in
       // <pre class="mermaid">. Keep them transparent and unwrapped so the
       // diagram colors come from the Mermaid themer, not the code theme.
+      // The theme's `media.mermaid.marginY` supplies their vertical spacing.
       const isMermaidPre = (el.classList?.contains('mermaid') ?? false) || el.querySelector('svg') !== null;
       if (isMermaidPre) {
-        el.setAttribute('style', ARTICLE_INLINE_STYLE.mermaidPre);
+        el.setAttribute('style', ARTICLE_INLINE_STYLE.mermaidPre +
+          `;margin:${resolveBlockMarginY(r.getPreset(), 'mermaid', DEFAULT_BLOCK_MARGIN_Y)} 0`);
         return;
       }
       const section = createEl('section');
@@ -485,6 +499,11 @@ export class WechatRenderer {
         imgStyle = `max-width:100%;height:auto;border-radius:${borderRadius}px;vertical-align:middle;display:inline-block;margin:${marginY} 0`;
         if (params.width) {
           imgStyle += `;width:${params.width}px`;
+        } else if (isLoneImage(img)) {
+          // No size asked for → fill the reading column (same rule as the
+          // decoration path above). Only when the image has the container to
+          // itself: several images in one paragraph are a row, not a stack.
+          imgStyle += ';width:100%';
         }
         if (params.height) {
           imgStyle += `;height:${params.height}px`;
@@ -591,11 +610,20 @@ export class WechatRenderer {
       }
     }
 
+    // Tables — responsive width + cell wrap policy. Runs for BOTH paths above
+    // and is applied last so a decoration cannot re-break the layout: the table
+    // is sized to its content (narrow tables centre, wide ones scroll) and only
+    // short headers / first-column labels are kept on one line.
+    applyTableLayout(doc);
+
     // Block math — new decoration pipeline when mathConfig is present; inline
     // math belongs to the inline decoration system (legacy media.math slots
     // were removed). MathJax SVG uses currentColor + ex units, so the wrapper's
     // color / font-size / background / borders scale and style the formula.
     const mathDeco = hasMathConfig(r) ? resolveMathDecorationStyle(r) : null;
+    // Vertical spacing: one theme-level value (`media.math.marginY`) drives both
+    // sides. Without it the math decoration's own marginY stands.
+    const mathMarginY = blockMarginY(r.getPreset(), 'math');
     doc.querySelectorAll('svg.wewrite-math').forEach((svg) => {
       // Block math is wrapped in a <section> by math-processor; inline math is
       // wrapped in a <span>. `closest('section')` is WRONG here — callouts are
@@ -612,14 +640,18 @@ export class WechatRenderer {
       if (mathDeco?.decoration) {
         parent.setAttribute('style', buildMathStyle(expandMathTokens(mathDeco.params, r.getTokens())));
       }
+      if (mathMarginY) appendStyleDecl(parent, `margin-top:${mathMarginY};margin-bottom:${mathMarginY}`);
     });
 
     // Excalidraw inline containers (editor preview / plugin SVG output).
     if (hasExcalidrawConfig(r)) {
       const excalDeco = resolveExcalidrawDecorationStyle(r);
       const excalParams = expandExcalidrawTokens(excalDeco.params, r.getTokens());
+      // Theme-level spacing wins over the decoration's own marginTop when set.
+      const excalMarginY = blockMarginY(r.getPreset(), 'excalidraw');
       doc.querySelectorAll('.excalidraw, [class*="excalidraw"]').forEach((el) => {
         (el as HTMLElement).setAttribute('style', buildExcalidrawContainerStyle(excalParams));
+        if (excalMarginY) appendStyleDecl(el, `margin-top:${excalMarginY};margin-bottom:${excalMarginY}`);
       });
     }
 

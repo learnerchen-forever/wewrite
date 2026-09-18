@@ -22,6 +22,7 @@ import type { ListKindConfig } from './list-config';
 import type { ListDecoration } from './list-decoration-types';
 import type { InlineConfig } from './inline-config';
 import type { InlineDecoration } from './inline-decoration-types';
+import type { BlockSpacingConfig } from './block-spacing';
 
 // ── WeChat Account ──
 export interface WeChatAccount {
@@ -375,6 +376,12 @@ export interface ThemePreset {
   customMermaidDecorations?: MermaidDecoration[];
   /** New image + caption decoration system config (docs/design/image-caption-decoration-redesign.md). */
   imageConfig?: ImageConfig;
+  /**
+   * Theme-level vertical margins for the block elements (callout / quote /
+   * table / code / math / mermaid / excalidraw). One value drives both margins,
+   * exactly like `imageConfig.marginY`. See core/block-spacing.ts.
+   */
+  blockSpacing?: BlockSpacingConfig;
   /** User-defined image decorations (custom_values.media.image.decoration). */
   customImageDecorations?: ImageDecoration[];
   /** New block-math decoration system config (docs/design/math-excalidraw-decoration-redesign.md). */

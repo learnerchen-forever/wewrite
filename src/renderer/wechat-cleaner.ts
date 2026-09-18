@@ -20,7 +20,19 @@ export function fixMathJaxTags(html: string): string {
   result = result.replace(/<mjx-container[\s\S]*?<\/mjx-container>/g, '');
 
   // Add max-width to SVGs for mobile responsiveness.
-  result = result.replace(/<svg (?!style\b)/g, '<svg style="max-width:100%;height:auto" ');
+  //
+  // Anchored to a tag boundary (`>` or the start) on purpose. This runs on the
+  // *serialized* document, and serialization re-escapes only `&` and `"` in
+  // attribute values — a literal `<` survives. A decoration that embeds an SVG
+  // as a CSS data URI (`blockquote.starBorder`'s `border-image:url('data:image/
+  // svg+xml;utf8,<svg …')`) therefore puts a literal `<svg ` inside a style
+  // attribute, and an unanchored match injected `style="…"` *there*. Those raw
+  // quotes closed the enclosing attribute early: the quote lost its radius,
+  // padding, background and colour, and the SVG's attributes leaked into the
+  // markup. Real SVG elements are always built as `<wrapper><svg …>`, so
+  // requiring a preceding `>` — allowing indentation after it — leaves every
+  // element covered and every in-attribute occurrence alone.
+  result = result.replace(/(^|>)(\s*)<svg (?!style\b)/g, '$1$2<svg style="max-width:100%;height:auto" ');
 
   return result;
 }

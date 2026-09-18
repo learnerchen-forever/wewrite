@@ -19,6 +19,7 @@
 import { resolveBlockquoteDecoration } from '../core/blockquote-config';
 import type { BlockquoteDecoration } from '../core/blockquote-decoration-types';
 import { BLOCKQUOTE_PATTERN_CSS, BLOCKQUOTE_PLAIN_PADDING_LEFT_PX } from '../core/blockquote-decoration-library';
+import { blockMarginY } from '../core/block-spacing';
 import { ThemeResolver } from './theme-resolver';
 import type { TokenVars } from '../core/slot-types';
 import type { ThemePreset } from '../core/interfaces';
@@ -121,16 +122,20 @@ function replaceTextPlaceholder(carrier: Element, contentNodes: Node[], doc: Doc
 function renderPlainQuote(
 	el: Element,
 	iconText: string | null,
+	marginY: string | undefined,
 	lineHeightPx: number,
 	tokens: TokenVars,
 ): void {
 	const htmlEl = el as HTMLElement;
+	// Vertical spacing: the theme-level `blocks.blockquote.marginY` wins; a
+	// theme that sets none keeps the historical one-body-line-height margin.
+	const m = marginY || `${lineHeightPx}px`;
 	// `padding-left` is the gap between the host's quote rule (WeChat paints one
 	// on a bare <blockquote>) and the text — the decorated path gets it from the
 	// template's `padX`, an undecorated quote needs the default.
 	appendStyle(
 		htmlEl,
-		`margin:${lineHeightPx}px 0;padding-left:${BLOCKQUOTE_PLAIN_PADDING_LEFT_PX}px;color:${String(tokens.text)}`,
+		`margin:${m} 0;padding-left:${BLOCKQUOTE_PLAIN_PADDING_LEFT_PX}px;color:${String(tokens.text)}`,
 	);
 	if (iconText) {
 		const iconSpan = createSpan();
@@ -147,11 +152,12 @@ function renderBlockquoteElement(
 	doc: Document,
 	tokens: TokenVars,
 	iconText: string | null,
+	marginY: string | undefined,
 	lineHeightPx: number,
 ): void {
 	// No decoration — style the quote directly.
 	if (!decoration.template) {
-		renderPlainQuote(el, iconText, lineHeightPx, tokens);
+		renderPlainQuote(el, iconText, marginY, lineHeightPx, tokens);
 		return;
 	}
 
@@ -159,14 +165,14 @@ function renderBlockquoteElement(
 	const container = parseTrustedHtml(expanded);
 	let root = container.firstElementChild;
 	if (!root) {
-		renderPlainQuote(el, iconText, lineHeightPx, tokens);
+		renderPlainQuote(el, iconText, marginY, lineHeightPx, tokens);
 		return;
 	}
 
 	let carrier = findPlaceholderElement(container, '{text}');
 	if (!carrier) {
 		// Invalid template (no {text}) — degrade to a plain quote.
-		renderPlainQuote(el, iconText, lineHeightPx, tokens);
+		renderPlainQuote(el, iconText, marginY, lineHeightPx, tokens);
 		return;
 	}
 	if (carrier === container) carrier = root;
@@ -186,8 +192,13 @@ function renderBlockquoteElement(
 		}
 	}
 
-	// Default vertical margin: at least one body line-height.
-	if (!hasStyleProp(root, 'margin-top') && !hasStyleProp(root, 'margin')) {
+	// Vertical margin: the theme-level `blocks.blockquote.marginY` wins outright,
+	// so one value drives the rhythm of every quote. A theme that sets none keeps
+	// the historical "at least one body line-height" default, and a template that
+	// carries its own margins still keeps them.
+	if (marginY) {
+		appendStyle(root, `margin-top:${marginY};margin-bottom:${marginY}`);
+	} else if (!hasStyleProp(root, 'margin-top') && !hasStyleProp(root, 'margin')) {
 		appendStyle(root, `margin-top:${lineHeightPx}px;margin-bottom:${lineHeightPx}px`);
 	}
 
@@ -239,6 +250,9 @@ export function renderBlockquotes(doc: Document, r: ThemeResolver): boolean {
 	// the decoration template itself ({icon} expands to nothing).
 	const iconText: string | null = null;
 	const lineHeightPx = quoteLineHeightPx(preset);
+	// Theme-level vertical spacing (blocks.blockquote.marginY); undefined when the
+	// theme is silent, in which case each quote keeps its historical margin.
+	const marginY = blockMarginY(preset, 'blockquote');
 	const tokens = r.getTokens();
 
 	// Innermost first: rendering a quote replaces it with the decorated root and
@@ -247,7 +261,7 @@ export function renderBlockquotes(doc: Document, r: ThemeResolver): boolean {
 	// cloned the *unrendered* inner quote into the new tree and threw the inner
 	// element (and its rendered result) away with the replaced subtree.
 	for (const el of Array.from(doc.querySelectorAll('blockquote')).reverse()) {
-		renderBlockquoteElement(el, decoration, params, doc, tokens, iconText, lineHeightPx);
+		renderBlockquoteElement(el, decoration, params, doc, tokens, iconText, marginY, lineHeightPx);
 	}
 	return true;
 }

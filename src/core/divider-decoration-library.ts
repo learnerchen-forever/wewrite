@@ -110,7 +110,11 @@ export function getDividerDecorationLibrary(): DividerDecoration[] {
 			params: {
 				color: p('color', t('deco_param.color'), 'rgb(255, 215, 0)'),
 				height: p('px', t('deco_param.thickness'), '2', { min: 1, max: 12 }),
-				width: p('text', t('deco_param.width'), '677px'),
+				// `100%`, not a pixel count: the rule has to span whatever width the
+				// reader's screen gives the article. This default used to be `677px`
+				// (the editor width of the sample it was traced from), which pushed
+				// a horizontal scrollbar onto every phone.
+				width: p('text', t('deco_param.width'), '100%'),
 				margin: p('text', t('deco_param.margin'), '20px 0'),
 			},
 			family: 'line',

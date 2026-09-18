@@ -79,6 +79,14 @@ import type { ImageConfig } from '../core/image-config';
 import type { ImageDecoration } from '../core/image-decoration-types';
 import { getImageDecorationLibrary } from '../core/image-decoration-library';
 import {
+	parseBlockSpacing,
+	blockSpacingToFrontmatter,
+	isBlockSpacingKey,
+	BLOCK_SPACING_FAMILIES,
+	DEFAULT_BLOCK_MARGIN_Y,
+} from '../core/block-spacing';
+import type { BlockSpacingConfig } from '../core/block-spacing';
+import {
 	parseMathFrontmatter,
 	mathConfigToFrontmatter,
 	customMathDecorationsToFrontmatter,
@@ -199,6 +207,7 @@ interface ThemeSnapshot {
 	mermaidDecorations: MermaidDecoration[];
 	imageConfig: ImageConfig;
 	imageDecorations: ImageDecoration[];
+	blockSpacing: BlockSpacingConfig;
 	mathConfig: MathConfig;
 	mathDecorations: MathDecoration[];
 	excalidrawConfig: ExcalidrawConfig;
@@ -345,6 +354,8 @@ export class WeWriteThemeView extends ItemView {
 	private imageConfig: ImageConfig = {};
 	private imageDecorations: ImageDecoration[] = [];
 	private imageParamsContainer: HTMLElement | null = null;
+	/** Theme-level vertical margins of the block elements (see core/block-spacing). */
+	private blockSpacing: BlockSpacingConfig = {};
 	private mathConfig: MathConfig = {};
 	private mathDecorations: MathDecoration[] = [];
 	private mathParamsContainer: HTMLElement | null = null;
@@ -657,6 +668,7 @@ export class WeWriteThemeView extends ItemView {
 				this.mermaidDecorations = [];
 				this.imageConfig = {};
 				this.imageDecorations = [];
+				this.blockSpacing = {};
 				this.mathConfig = {};
 				this.mathDecorations = [];
 				this.excalidrawConfig = {};
@@ -731,6 +743,9 @@ export class WeWriteThemeView extends ItemView {
 				const tableParsed = parseTableFrontmatter(fm);
 				this.tableConfig = tableParsed.config;
 				this.tableDecorations = tableParsed.customDecorations;
+
+				// Theme-level vertical margins of the block elements
+				this.blockSpacing = parseBlockSpacing(fm);
 
 				// New divider decoration system (docs/design/divider-decoration-redesign.md)
 				const dividerParsed = parseDividerFrontmatter(fm);
@@ -810,6 +825,10 @@ export class WeWriteThemeView extends ItemView {
 			if (this.imageDecorations.length > 0) {
 				preset.customImageDecorations = this.imageDecorations;
 			}
+			// Theme-level vertical margins of the block elements
+			if (Object.keys(this.blockSpacing).length > 0) {
+				preset.blockSpacing = this.blockSpacing;
+			}
 			// New block-math decoration system — drives the math renderer
 			preset.mathConfig = this.mathConfig;
 			if (this.mathDecorations.length > 0) {
@@ -883,6 +902,7 @@ export class WeWriteThemeView extends ItemView {
 		this.buildUnorderedVarsSection(this.editorPanel);  // 9. 无序列表
 		this.buildTaskVarsSection(this.editorPanel);       // 10. 任务列表
 		this.buildImageVarsSection(this.editorPanel);      // 11. 图片
+		this.buildBlockSpacingSection(this.editorPanel);   // 11b. 块级元素间距
 		this.buildTableVarsSection(this.editorPanel);      // 12. 表格
 		this.buildMathVarsSection(this.editorPanel);       // 13. 公式
 		this.buildDividerVarsSection(this.editorPanel);    // 14. 分割线
@@ -2211,6 +2231,50 @@ export class WeWriteThemeView extends ItemView {
 				(this.imageConfig as Record<string, unknown>)[key] = value;
 			}
 		}, noUndo);
+	}
+
+	// ── Block spacing (theme-level vertical margins) ──
+
+	/**
+	 * One `marginY` per block family — the same mechanism the image section has
+	 * always had (`media.image.marginY`), extended to the other block elements so
+	 * an article's vertical rhythm can be set in one place. See
+	 * core/block-spacing.ts for the keys and the precedence.
+	 */
+	private buildBlockSpacingSection(container: HTMLElement): void {
+		const section = this.createSection(container, t('theme.section.block_spacing'));
+		this.renderBlockSpacingControls(section);
+	}
+
+	private renderBlockSpacingControls(section: HTMLElement): void {
+		for (let i = section.children.length - 1; i >= 1; i--) {
+			section.children[i].remove();
+		}
+
+		const box = section.createDiv();
+		box.addClass('wewrite-theme-box');
+		box.createDiv({ text: t('theme_editor.block_spacing_desc'), cls: 'setting-item-description' })
+			.addClass('wewrite-theme-eyebrow');
+
+		for (const family of BLOCK_SPACING_FAMILIES) {
+			const row = box.createDiv();
+			row.addClass('wewrite-theme-row', 'wewrite-theme-wraprow');
+			row.createSpan({ text: t(`theme_editor.block_spacing_${family}`) }).addClass('wewrite-theme-label');
+			this.renderBlockquoteParamInput(
+				row,
+				'blockSpacing',
+				{ type: 'text', label: t('deco_param.vertical-margin'), default: DEFAULT_BLOCK_MARGIN_Y },
+				this.blockSpacing[family] || DEFAULT_BLOCK_MARGIN_Y,
+				(value, noUndo) => {
+					const trimmed = value.trim();
+					this.onConfigChanged(() => {
+						// Empty means "use this family's built-in spacing".
+						if (trimmed === '') delete this.blockSpacing[family];
+						else this.blockSpacing[family] = trimmed;
+					}, noUndo);
+				},
+			);
+		}
 	}
 
 	// ── Math variables (new decoration system) ──
@@ -4057,6 +4121,7 @@ export class WeWriteThemeView extends ItemView {
 			mermaidDecorations: deepClone(this.mermaidDecorations),
 			imageConfig: deepClone(this.imageConfig),
 			imageDecorations: deepClone(this.imageDecorations),
+			blockSpacing: deepClone(this.blockSpacing),
 			mathConfig: deepClone(this.mathConfig),
 			mathDecorations: deepClone(this.mathDecorations),
 			excalidrawConfig: deepClone(this.excalidrawConfig),
@@ -4094,6 +4159,7 @@ export class WeWriteThemeView extends ItemView {
 		this.mermaidDecorations = s.mermaidDecorations;
 		this.imageConfig = s.imageConfig;
 		this.imageDecorations = s.imageDecorations;
+		this.blockSpacing = s.blockSpacing;
 		this.mathConfig = s.mathConfig;
 		this.mathDecorations = s.mathDecorations;
 		this.excalidrawConfig = s.excalidrawConfig;
@@ -4223,6 +4289,16 @@ export class WeWriteThemeView extends ItemView {
 		}
 		for (const key of Object.keys(fm)) {
 			if (isImageVarKey(key) && !(key in imageKeys)) delete fm[key];
+		}
+
+		// Theme-level block spacing — flat keys of its own (blocks.* / media.*),
+		// so it is written and cleaned independently of the decoration families.
+		const spacingKeys = blockSpacingToFrontmatter(this.blockSpacing);
+		for (const [key, value] of Object.entries(spacingKeys)) {
+			fm[key] = value;
+		}
+		for (const key of Object.keys(fm)) {
+			if (isBlockSpacingKey(key) && !(key in spacingKeys)) delete fm[key];
 		}
 
 		// New block-math decoration system — flat keys; drop stale keys.

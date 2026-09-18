@@ -22,6 +22,31 @@ describe('fixMathJaxTags', () => {
     const result = fixMathJaxTags(html);
     expect(result).toContain('max-width:100%');
   });
+
+  it('adds max-width to an SVG nested in its wrapper, indentation and all', () => {
+    expect(fixMathJaxTags('<span style="color:red"><svg viewBox="0 0 24 24"><path d="M1 1"/></svg></span>'))
+      .toContain('<svg style="max-width:100%;height:auto" viewBox="0 0 24 24">');
+    expect(fixMathJaxTags('<section>\n  <svg viewBox="0 0 24 24"></svg>\n</section>'))
+      .toContain('<svg style="max-width:100%;height:auto" viewBox="0 0 24 24">');
+  });
+
+  it('leaves an <svg that is only data-URI text alone', () => {
+    // `blockquote.starBorder` embeds its border pattern as an SVG data URI, and
+    // serialization leaves the `<` literal inside the style attribute. Injecting
+    // `style="…"` there used to close the attribute early — the quote lost its
+    // radius / padding / background / colour and the SVG's own attributes leaked
+    // into the markup as junk attributes.
+    const blockquote =
+      '<blockquote style="border:3px solid #1da5fb;' +
+      "border-image:url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\"><polygon points=\"12,2 14.6,8.2\"/></svg>') 24 repeat;" +
+      'border-radius:23px;padding:16px 20px;color:#e2e8f0"></blockquote>';
+
+    const result = fixMathJaxTags(blockquote);
+
+    expect(result).toBe(blockquote);
+    // Specifically: the declaration that used to be swallowed must survive.
+    expect(result).toContain('border-radius:23px;padding:16px 20px;color:#e2e8f0');
+  });
 });
 
 describe('sanitizeHtml', () => {

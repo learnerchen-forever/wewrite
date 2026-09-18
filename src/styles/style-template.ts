@@ -1,83 +1,35 @@
-// Built-in theme presets (WeWrite Theme v3 — slot-based)
-// Each preset is a partial ThemePreset with palette + typography + slot config.
+// Built-in theme presets (WeWrite Theme v3 — decoration-driven)
+//
+// A built-in preset and a packaged theme note (`themes/*.md`) are now the same
+// kind of thing: a flat v3 frontmatter map run through the same parser chain.
+// `buildPreset` below does what `ThemeLoader.buildDescriptor` does — palette →
+// slot config → every decoration family — so the ten shipped presets exercise
+// the whole theme language (heading / quote / callout / table / divider / list
+// / inline / image / math / mermaid / excalidraw decorations, plus the
+// theme-level block spacing) instead of only the legacy slot system.
+//
+// Two rules the set keeps, both asserted by tests:
+//   * every preset names a blockquote decoration that resolves (the quote is
+//     the one element whose decoration the presets have always declared);
+//   * exactly five presets turn the image window on and five leave it off, so
+//     both behaviours stay visible without opening the theme editor.
+//
+// Ids are user-visible state: they are what a saved `newsTheme` points at, so
+// they never change. Only the content behind them does.
 
 import type { ThemePreset } from '../core/interfaces';
-import { FONT_FAMILIES } from '../core/interfaces';
 import { t } from '../i18n';
+import { frontmatterToThemePreset } from '../renderer/theme-resolver';
+import { parseFlatFrontmatter } from '../core/frontmatter-parser';
+import { applyThemeFamilies } from '../core/theme-config-apply';
 
 interface PresetDef {
 	id: string;
 	/** i18n key for the display name (resolved lazily at render). */
 	nameKey: string;
-	palette: { accent: string };
-	typography: { family?: string; baseSize?: number; lineHeight?: number; letterSpacing?: number; paragraphGap?: number };
-	slots: Record<string, Record<string, string>>;
-	/** New callout decoration config (replaces legacy blocks.callout.* slots). */
-	callout?: { decoration?: string; decorationParams?: Record<string, string> };
-	/** New image + caption decoration config (replaces legacy media.image.* slots). */
-	image?: { decoration?: string; decorationParams?: Record<string, string>; slider?: boolean };
-	/** New blockquote decoration config (replaces legacy blocks.blockquote.* slots). */
-	blockquote?: { decoration?: string; decorationParams?: Record<string, string> };
+	/** v3 theme frontmatter — the same keys a packaged theme note carries. */
+	frontmatter: Record<string, unknown>;
 }
-
-function buildPreset(def: PresetDef): ThemePreset {
-	const slots = { ...def.slots };
-
-	return {
-		name: t(def.nameKey),
-		nameKey: def.nameKey,
-		margin: 16,
-		background: '#ffffff',
-		sectionBg: '#ffffff',
-		// Default to 'inherit' (platform font) unless the style explicitly needs
-		// a specific family — keeps the built-in themes faithful to WeChat's
-		// default font instead of forcing sans-serif.
-		fontFamily: def.typography.family ? FONT_FAMILIES[def.typography.family] || def.typography.family : 'inherit',
-		fontSize: def.typography.baseSize || 16,
-		lineHeight: def.typography.lineHeight || 1.8,
-		letterSpacing: def.typography.letterSpacing || 1,
-		textColor: '#3f3f3f',
-		mutedTextColor: '#888888',
-		linkColor: def.palette.accent,
-		linkDecoration: 'none',
-		accentColor: def.palette.accent,
-		accentColorDeep: '#004795',
-		accentColorPreset: 'blue',
-		coloredHeader: false,
-		paragraphGap: def.typography.paragraphGap || 14,
-		headings: {
-			// Small-screen WeChat: heading sizes hug the body size and the
-			// hierarchy comes from weight + decoration, not size. Shallow,
-			// near-body gradient (17/16/16/15.5/15/14.5), weights decreasing
-			// per level (700/650/600/550/500/450).
-			h1: { fontSize: 17, fontWeight: 700, color: '#3f3f3f', marginBottom: 16 },
-			h2: { fontSize: 16, fontWeight: 650, color: '#3f3f3f', marginBottom: 12 },
-			h3: { fontSize: 16, fontWeight: 600, color: '#3f3f3f', marginBottom: 10 },
-			h4: { fontSize: 15.5, fontWeight: 550, color: '#3f3f3f', marginBottom: 8 },
-			h5: { fontSize: 15, fontWeight: 500, color: '#3f3f3f', marginBottom: 6 },
-			h6: { fontSize: 14.5, fontWeight: 450, color: '#888888', marginBottom: 4 },
-		},
-		headingDecorations: { h1: 'none', h2: 'none', h3: 'none', h4: 'none', h5: 'none', h6: 'none' },
-		blockquoteStyle: 'soft',
-		blockquote: { borderColor: '#d0d7de', borderWidth: 4, color: '#555555', backgroundColor: '#f6f8fa', paddingTop: 8, paddingBottom: 8 },
-		code: { fontSize: 14, color: '#abb2bf', backgroundColor: '#282c34', paddingTop: 10, paddingBottom: 10 },
-		codeLineNumbers: false,
-		codeMacStyle: false,
-		table: { fontSize: 14, borderColor: '#e8eaed', headerBg: '#f6f8fa', cellPadding: 10 },
-		image: { borderRadius: 4, figureBorderColor: '#e8eaed', figurePadding: 8 },
-		list: { indent: 24, gap: 4, bullet: 'disc', bulletSpacing: 8, taskUnchecked: '⬜', taskChecked: '✅' },
-		footnote: { fontSize: 12, color: '#888888' },
-		caption: { fontSize: 13, color: '#888888', textAlign: 'center', letterSpacing: 0, marginTop: 4, showTriangle: false },
-		dividerColor: 'rgba(0,0,0,0.08)',
-		dividerMargin: 40,
-		modifierConfig: slots,
-		...(def.callout ? { calloutConfig: def.callout } : {}),
-		...(def.image ? { imageConfig: def.image } : {}),
-		...(def.blockquote ? { blockquoteConfig: def.blockquote } : {}),
-	};
-}
-
-// ── 10 built-in presets ──
 
 /**
  * Shared params for a preset's quote card. The decoration library's `classicBar`
@@ -91,186 +43,416 @@ const BLOCKQUOTE_CARD_PARAMS: Record<string, string> = {
 	barColor: '${accent}',
 };
 
+/**
+ * The one nested style the frontmatter cannot express. `theme-resolver` falls
+ * back to 10px for both code paddings when a theme says nothing, but
+ * `DEFAULT_PRESET` pins 16px, so the built-ins state it explicitly and keep the
+ * tighter block they have always had.
+ */
+const BUILTIN_CODE_STYLE: ThemePreset['code'] = {
+	fontSize: 14,
+	color: '#abb2bf',
+	backgroundColor: '#282c34',
+	paddingTop: 10,
+	paddingBottom: 10,
+};
+
+function buildPreset(def: PresetDef): ThemePreset {
+	const fm: Record<string, unknown> = { wewrite_theme: true, ...def.frontmatter };
+
+	// Palette / typography / article background, exactly as a vault theme gets it.
+	const preset = frontmatterToThemePreset(fm)!;
+
+	// Legacy slot config — `article.*` (background pattern, page margin, radius,
+	// frame) and `blocks.code.*` (theme, title bar, corner) have no decoration
+	// family yet, so they ride the slot system in both authoring paths.
+	const { config: modifierConfig } = parseFlatFrontmatter(fm);
+	if (Object.keys(modifierConfig).length > 0) preset.modifierConfig = modifierConfig;
+
+	// Every decoration family + the theme-level block spacing.
+	applyThemeFamilies(preset, fm);
+
+	preset.code = { ...BUILTIN_CODE_STYLE };
+	preset.nameKey = def.nameKey;
+	preset.name = t(def.nameKey);
+	return preset;
+}
+
 export const BUILTIN_PRESETS: Record<string, ThemePreset> = {};
 
-// `image.slider` — the horizontal image window (图片滑动窗). Half of the presets
-// ship with it on and half with it off, so both behaviours stay visible among
-// the built-ins; a theme that omits the key renders images independently.
+// ── The ten built-in presets ──
+//
+// Ordered as they appear in the picker: the three quiet defaults first
+// (platform-native, GitHub-technical, long-form serif), then the structured
+// ones, then the loud one and the dark one.
 const PRESET_DEFS: PresetDef[] = [
 	{
 		id: 'github', nameKey: 'preset.github',
-		palette: { accent: '#0366d6' },
-		typography: { baseSize: 16, lineHeight: 1.82 },
-		slots: {
-			'blocks.code': { theme: 'githubLight', titleBar: 'lightDots' },
-			'inline.code': { style: 'lightGray' },
+		frontmatter: {
+			'palette.accent': '#0366d6',
+			'typography.baseSize': 16,
+			'typography.lineHeight': 1.82,
+			'article.pageMargin': 'standard',
+			'blocks.code.theme': 'githubLight',
+			'blocks.code.titleBar': 'lightDots',
+			// A code-heavy theme wants the least possible chrome everywhere else:
+			// bare headings, hairline rules, gray table grid.
+			'heading.decoration': 'none',
+			'heading.color': 'text',
+			'blockquote.decoration': 'classicBar',
+			'blockquote.decorationParams': { ...BLOCKQUOTE_CARD_PARAMS },
+			'callout.decoration': 'paperTint',
+			'blocks.table.decoration': 'gray',
+			'blocks.hr.decoration': 'hairline',
+			'blocks.ol.decoration': 'classicOrder',
+			'blocks.ul.decoration': 'plainBullet',
+			'blocks.task.decoration': 'taskList',
+			'inline.bold.decoration': 'moyan',
+			'inline.code.decoration': 'sujian',
+			'inline.link.decoration': 'danqing',
+			'media.image.decoration': 'lightShadow',
+			'media.image.slider': true,
+			'media.math.decoration': 'flowFormula',
+			'media.mermaid.decoration': 'inkCeladon',
+			'media.excalidraw.decoration': 'plainCanvas',
 		},
-		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
-		image: { slider: true },
 	},
 	{
 		id: 'wechat', nameKey: 'preset.wechat',
-		palette: { accent: '#07c160' },
-		typography: { baseSize: 16, lineHeight: 1.8 },
-		slots: {
-			'heading': { border: 'none', color: 'text' },
-			'blocks.code': { theme: 'oneDark', titleBar: 'darkDots' },
-			'blocks.table': { headerStyle: 'gray' },
+		frontmatter: {
+			'palette.accent': '#07c160',
+			'typography.baseSize': 16,
+			'typography.lineHeight': 1.8,
+			'article.pageMargin': 'standard',
+			'blocks.code.theme': 'oneDark',
+			'blocks.code.titleBar': 'darkDots',
+			// The platform-native look: no heading ornament, no divider, plain
+			// bullets. Deliberately the plainest preset in the set.
+			'heading.decoration': 'none',
+			'heading.color': 'text',
+			'blockquote.decoration': 'classicBar',
+			'blockquote.decorationParams': { ...BLOCKQUOTE_CARD_PARAMS },
+			'callout.decoration': 'paperTint',
+			'blocks.table.decoration': 'clean',
+			'blocks.hr.decoration': 'none',
+			'blocks.ol.decoration': 'plainOrder',
+			'blocks.ul.decoration': 'plainBullet',
+			'blocks.task.decoration': 'taskList',
+			'inline.bold.decoration': 'danqing',
+			'inline.code.decoration': 'qingquan',
+			'inline.link.decoration': 'danqing',
+			'media.image.decoration': 'lightShadow',
+			'media.image.slider': false,
 		},
-		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
-		image: { slider: false },
 	},
 	{
 		id: 'serif', nameKey: 'preset.serif',
-		palette: { accent: '#e83e8c' },
-		typography: { family: 'serif', baseSize: 17, lineHeight: 1.9, letterSpacing: 1 },
-		slots: {
-			'heading': { border: 'leftBar', color: 'accentDeep' },
-			'heading.h1': { border: 'none', background: 'none' },
-			'blocks.code': { theme: 'warmPaper', titleBar: 'none' },
-			'inline.strong': { style: 'accentColor' },
+		frontmatter: {
+			'palette.accent': '#b03060',
+			'typography.family': 'serif',
+			'typography.baseSize': 17,
+			'typography.lineHeight': 1.9,
+			'typography.letterSpacing': 1,
+			'typography.paragraphGap': 18,
+			'article.background': 'warm',
+			'article.pageMargin': 'comfortable',
+			'blocks.code.theme': 'warmPaper',
+			'blocks.code.titleBar': 'none',
+			// Serif long-form: a centred opening heading, a tinted block for the
+			// rest, and a quote set as a pull quote.
+			'heading.decoration': 'lightBg',
+			'heading.h1.decoration': 'centerBlock',
+			'heading.color': 'accentDeep',
+			'blockquote.decoration': 'bigQuote',
+			'callout.decoration': 'paperTint',
+			'blocks.table.decoration': 'paper',
+			'blocks.hr.decoration': 'inkGroove',
+			'blocks.ol.decoration': 'badgeOrder',
+			'blocks.ul.decoration': 'classicList',
+			'blocks.task.decoration': 'taskList',
+			'inline.bold.decoration': 'zhupi',
+			'inline.italic.decoration': 'hupo',
+			'inline.code.decoration': 'sujian',
+			'inline.link.decoration': 'zhupi',
+			'media.image.decoration': 'captionPaper',
+			'media.image.slider': true,
+			'media.math.decoration': 'paperFormula',
+			'media.mermaid.decoration': 'plainBrush',
+			'media.excalidraw.decoration': 'inkBoard',
+			// Long-form wants air between blocks; the 0.5rem default reads tight
+			// at 1.9 line-height.
+			'blocks.blockquote.marginY': '1em',
+			'blocks.callout.marginY': '1em',
+			'blocks.table.marginY': '1em',
+			'blocks.code.marginY': '1em',
+			'media.math.marginY': '1em',
+			'media.mermaid.marginY': '1em',
+			'media.excalidraw.marginY': '1em',
 		},
-		// Tinted card with no rule, italic — the quote is set in the body serif.
-		blockquote: {
-			decoration: 'classicBar',
-			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, barWidth: '0', fontStyle: 'italic' },
-		},
-		image: { decoration: 'lightShadow', slider: true },
 	},
 	{
 		id: 'paper', nameKey: 'preset.paper',
-		palette: { accent: '#d97706' },
-		typography: { family: 'serif', baseSize: 17, lineHeight: 1.92, letterSpacing: 0.5 },
-		slots: {
-			'article': { background: 'warm' },
-			'heading': { border: 'none', color: 'text' },
-			'heading.h1': { border: 'none' },
-			'heading.h2': { border: 'leftBar' },
-			'blocks.code': { theme: 'warmPaper', titleBar: 'none' },
-			'blocks.table': { headerStyle: 'gray', borderStyle: 'horizontal' },
-			'inline.link': { style: 'subtle' },
-			'inline.strong': { style: 'boldOnly' },
+		frontmatter: {
+			'palette.accent': '#d97706',
+			'typography.family': 'serif',
+			'typography.baseSize': 17,
+			'typography.lineHeight': 1.92,
+			'typography.letterSpacing': 0.5,
+			'typography.paragraphGap': 18,
+			'article.background': 'warm',
+			'article.backgroundPattern': 'paper',
+			'article.pageMargin': 'comfortable',
+			'blocks.code.theme': 'warmPaper',
+			'blocks.code.titleBar': 'none',
+			// Ruled-paper essay: shadowed section headings, a framed quote, a
+			// twin-line divider.
+			'heading.decoration': 'none',
+			'heading.h2.decoration': 'shadowBlock',
+			'heading.color': 'text',
+			'blockquote.decoration': 'nestedFrame',
+			'callout.decoration': 'paperTint',
+			'blocks.table.decoration': 'paper',
+			'blocks.hr.decoration': 'twinLineText',
+			'blocks.ol.decoration': 'circleOrder',
+			'blocks.ul.decoration': 'hairlineGap',
+			'blocks.task.decoration': 'taskList',
+			'inline.bold.decoration': 'hupo',
+			'inline.code.decoration': 'sujian',
+			'inline.link.decoration': 'hupo',
+			'media.image.decoration': 'inkFrame',
+			'media.image.slider': false,
+			'media.math.decoration': 'rulerFormula',
+			'media.mermaid.decoration': 'plainBrush',
+			'media.excalidraw.decoration': 'inkBoard',
+			'blocks.blockquote.marginY': '1em',
+			'blocks.callout.marginY': '1em',
+			'blocks.table.marginY': '1em',
+			'blocks.code.marginY': '1em',
+			'media.math.marginY': '1em',
+			'media.mermaid.marginY': '1em',
+			'media.excalidraw.marginY': '1em',
 		},
-		blockquote: {
-			decoration: 'classicBar',
-			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, radius: '4' },
-		},
-		callout: { decorationParams: { radius: '4px' } },
-		image: { decoration: 'lightShadow', decorationParams: { radius: '4px' }, slider: false },
 	},
 	{
 		id: 'grid', nameKey: 'preset.grid',
-		palette: { accent: '#14b8a6' },
-		typography: { baseSize: 16, lineHeight: 1.8 },
-		slots: {
-			'article': { background: 'grid' },
-			'heading': { border: 'bottomLine', color: 'accentDeep' },
-			'blocks.code': { theme: 'githubLight', titleBar: 'lightDots' },
-			'blocks.table': { headerStyle: 'accent', borderStyle: 'all' },
+		frontmatter: {
+			'palette.accent': '#14b8a6',
+			'typography.baseSize': 16,
+			'typography.lineHeight': 1.8,
+			'article.background': 'white',
+			'article.backgroundPattern': 'grid',
+			'article.pageMargin': 'standard',
+			'blocks.code.theme': 'githubLight',
+			'blocks.code.titleBar': 'lightDots',
+			// Product documentation: numbered, underlined headings; jade list
+			// cards; a scrollable teal table.
+			'heading.decoration': 'underlineBlock',
+			'heading.color': 'accentDeep',
+			'heading.numbering': 'decimal',
+			'blockquote.decoration': 'gradientEdge',
+			'callout.decoration': 'rainMountain',
+			'blocks.table.decoration': 'teal',
+			'blocks.hr.decoration': 'cyanEdge',
+			'blocks.ol.decoration': 'circleOrder',
+			'blocks.ul.decoration': 'jadeCard',
+			'blocks.task.decoration': 'taskList',
+			'inline.bold.decoration': 'qingquan',
+			'inline.code.decoration': 'sujian',
+			'inline.link.decoration': 'qingquan',
+			'media.image.decoration': 'silhouetteGlow',
+			'media.image.slider': true,
+			'media.math.decoration': 'paperFormula',
+			'media.mermaid.decoration': 'celadonGlaze',
+			'media.excalidraw.decoration': 'softFrame',
 		},
-		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
-		image: { decoration: 'lightShadow', decorationParams: { shadow: '0 4px 10px rgba(0,0,0,0.05)' }, slider: true },
 	},
 	{
 		id: 'typo', nameKey: 'preset.typo',
-		palette: { accent: '#6c757d' },
-		typography: { baseSize: 16, lineHeight: 1.9, letterSpacing: 1.5, paragraphGap: 18 },
-		slots: {
-			'heading': { border: 'none', color: 'text', prefix: 'decimal' },
-			'blocks.code': { theme: 'slateDark', titleBar: 'darkDots' },
-			'blocks.table': { headerStyle: 'gray', borderStyle: 'minimal' },
-			'blocks.list': { bullet: 'dash' },
-			'inline.link': { style: 'underlined' },
+		frontmatter: {
+			'palette.accent': '#6c757d',
+			'typography.baseSize': 16,
+			'typography.lineHeight': 1.9,
+			'typography.letterSpacing': 1.5,
+			'typography.paragraphGap': 18,
+			'article.pageMargin': 'comfortable',
+			'blocks.code.theme': 'slateDark',
+			'blocks.code.titleBar': 'darkDots',
+			// Editorial column: the numbering *is* the heading ornament, the
+			// quote is a square-cornered rule, everything else is stripped back.
+			'heading.decoration': 'ghostNumber',
+			'heading.color': 'text',
+			'heading.numbering': 'decimal',
+			'blockquote.decoration': 'classicBar',
+			'blockquote.decorationParams': { ...BLOCKQUOTE_CARD_PARAMS, barWidth: '6', radius: '0' },
+			'callout.decoration': 'paperTint',
+			'blocks.table.decoration': 'clean',
+			'blocks.hr.decoration': 'hairline',
+			'blocks.ol.decoration': 'plainOrder',
+			'blocks.ul.decoration': 'plainBullet',
+			'blocks.task.decoration': 'taskList',
+			'inline.bold.decoration': 'sujian',
+			'inline.italic.decoration': 'sujian',
+			'inline.code.decoration': 'sujian',
+			'inline.link.decoration': 'sujian',
+			'media.image.decoration': 'subtleGlow',
+			'media.image.slider': false,
+			'media.math.decoration': 'flowFormula',
+			'media.mermaid.decoration': 'plainBrush',
+			'blocks.blockquote.marginY': '1.25em',
+			'blocks.callout.marginY': '1.25em',
+			'blocks.table.marginY': '1.25em',
+			'blocks.code.marginY': '1.25em',
+			'media.math.marginY': '1.25em',
+			'media.mermaid.marginY': '1.25em',
+			'media.excalidraw.marginY': '1.25em',
 		},
-		// Thick rule, square corners: the quote reads as an editorial sidebar.
-		blockquote: {
-			decoration: 'classicBar',
-			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, barWidth: '6', radius: '0' },
-		},
-		image: { slider: false },
 	},
 	{
 		id: 'media', nameKey: 'preset.media',
-		palette: { accent: '#0ea5e9' },
-		typography: { baseSize: 16, lineHeight: 1.8 },
-		slots: {
-			'heading': { border: 'bottomLine', color: 'accentDeep' },
-			'blocks.code': { theme: 'slateDark', titleBar: 'darkDots', corner: 'small' },
-			'blocks.table': { headerStyle: 'accent', striped: 'striped' },
-			'inline.strong': { style: 'accentBg' },
+		frontmatter: {
+			'palette.accent': '#0ea5e9',
+			'typography.baseSize': 16,
+			'typography.lineHeight': 1.8,
+			'article.background': 'cool',
+			'article.pageMargin': 'standard',
+			'blocks.code.theme': 'githubLight',
+			'blocks.code.titleBar': 'lightDots',
+			// Image-led posts: centred image cards, icon lists, a frosted quote.
+			'heading.decoration': 'underlineBlock',
+			'heading.color': 'accentDeep',
+			'blockquote.decoration': 'glassCard',
+			'callout.decoration': 'paperTint',
+			'blocks.table.decoration': 'sky',
+			'blocks.hr.decoration': 'aquaSky',
+			'blocks.ol.decoration': 'plainOrder',
+			'blocks.ul.decoration': 'iconList',
+			'blocks.task.decoration': 'taskList',
+			'inline.bold.decoration': 'dianqing',
+			'inline.code.decoration': 'dianqing',
+			'inline.link.decoration': 'dianqing',
+			'media.image.decoration': 'lightShadow',
+			'media.image.decorationParams': { radius: '8px', shadow: '0 4px 10px rgba(0,0,0,0.05)' },
+			'media.image.slider': true,
+			'media.math.decoration': 'paperFormula',
+			'media.mermaid.decoration': 'celadonGlaze',
+			'media.excalidraw.decoration': 'softFrame',
 		},
-		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
-		image: { decoration: 'lightShadow', decorationParams: { radius: '8px', shadow: '0 4px 10px rgba(0,0,0,0.05)' }, slider: true },
 	},
 	{
 		id: 'colorful', nameKey: 'preset.colorful',
-		palette: { accent: '#8b5cf6' },
-		typography: { baseSize: 16, lineHeight: 1.8 },
-		slots: {
-			'heading': { border: 'bottomLine', background: 'accentFill', color: 'accent' },
-			'heading.h1': { background: 'gradient' },
-			'blocks.code': { theme: 'oneDark', titleBar: 'darkDots', corner: 'medium' },
-			'inline.strong': { style: 'accentBg' },
-			'inline.code': { style: 'accentColor' },
-		},
-		blockquote: {
-			decoration: 'gradientEdge',
-			decorationParams: {
-				bgFrom: '${accentBg}',
-				bgTo: 'transparent',
-				barFrom: '${accent}',
-				// `${accentDeep}` is not used: every built-in preset pins
-				// `accentColorDeep` to the shared deep blue, so it is not this
-				// preset's own shade. Fade the rule to its own translucent accent.
-				barTo: '${accentBorder}',
-			},
-		},
-		image: { decoration: 'lightShadow', decorationParams: { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8', radius: '8px' }, slider: false },
-		callout: {
-			decoration: 'accentGlow',
-			decorationParams: { radius: '8px', shadow: '0 2px 8px rgba(0,0,0,0.06)' },
+		frontmatter: {
+			'palette.accent': '#8b5cf6',
+			'typography.baseSize': 16,
+			'typography.lineHeight': 1.8,
+			'article.background': 'white',
+			'article.backgroundPattern': 'dotGrid',
+			'article.pageMargin': 'standard',
+			'blocks.code.theme': 'oneDark',
+			'blocks.code.titleBar': 'darkDots',
+			// Campaign posts: coloured pills, a gradient banner for h1, an aurora
+			// divider and a gradient table. The loud end of the set.
+			'heading.decoration': 'pill',
+			'heading.h1.decoration': 'gradientBlock',
+			'heading.color': 'accent',
+			'blockquote.decoration': 'gradientEdge',
+			'callout.decoration': 'accentGlow',
+			'blocks.table.decoration': 'gradient',
+			'blocks.hr.decoration': 'aurora',
+			'blocks.ol.decoration': 'badgeOrder',
+			'blocks.ul.decoration': 'dotBullet',
+			'blocks.task.decoration': 'taskList',
+			'inline.bold.decoration': 'liucai',
+			'inline.code.decoration': 'dianqing',
+			'inline.link.decoration': 'liucai',
+			'media.image.decoration': 'silhouetteGlow',
+			'media.image.decorationParams': { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8' },
+			'media.image.slider': false,
+			'media.math.decoration': 'accentFormula',
+			'media.mermaid.decoration': 'inkCeladon',
+			'media.excalidraw.decoration': 'cloudShadow',
 		},
 	},
 	{
 		id: 'warm', nameKey: 'preset.warm',
-		palette: { accent: '#f97316' },
-		typography: { family: 'serif', baseSize: 16, lineHeight: 1.85 },
-		slots: {
-			'article': { background: 'warm' },
-			'heading': { border: 'none', color: 'text' },
-			'heading.h2': { border: 'bottomLine' },
-			'blocks.code': { theme: 'warmPaper', titleBar: 'none' },
-			'blocks.table': { headerStyle: 'gray' },
-			'inline.strong': { style: 'accentColor' },
+		frontmatter: {
+			'palette.accent': '#f97316',
+			'typography.family': 'serif',
+			'typography.baseSize': 16,
+			'typography.lineHeight': 1.85,
+			'article.background': 'warm',
+			'article.pageMargin': 'comfortable',
+			'blocks.code.theme': 'warmPaper',
+			'blocks.code.titleBar': 'none',
+			// Lifestyle writing: a curtain heading for h2, pull quotes, amber
+			// accents, captioned photos.
+			'heading.decoration': 'none',
+			'heading.h2.decoration': 'curtain',
+			'heading.color': 'text',
+			'blockquote.decoration': 'bigQuote',
+			'callout.decoration': 'paperTint',
+			'blocks.table.decoration': 'orange',
+			'blocks.hr.decoration': 'goldEdge',
+			'blocks.ol.decoration': 'badgeOrder',
+			'blocks.ul.decoration': 'dashBullet',
+			'blocks.task.decoration': 'taskList',
+			'inline.bold.decoration': 'zhupi',
+			'inline.italic.decoration': 'hupo',
+			'inline.code.decoration': 'sujian',
+			'inline.link.decoration': 'zhupi',
+			'media.image.decoration': 'captionPaper',
+			'media.image.slider': true,
+			'media.math.decoration': 'accentFormula',
+			'media.mermaid.decoration': 'sunsetWarm',
+			'media.excalidraw.decoration': 'cloudShadow',
+			'blocks.blockquote.marginY': '1em',
+			'blocks.callout.marginY': '1em',
+			'blocks.table.marginY': '1em',
+			'blocks.code.marginY': '1em',
+			'media.math.marginY': '1em',
+			'media.mermaid.marginY': '1em',
+			'media.excalidraw.marginY': '1em',
 		},
-		// Soft tinted card with no rule.
-		blockquote: {
-			decoration: 'classicBar',
-			decorationParams: { ...BLOCKQUOTE_CARD_PARAMS, barWidth: '0' },
-		},
-		image: { decoration: 'lightShadow', decorationParams: { borderWidth: '1', borderStyle: 'solid', borderColor: '${accentBorder}', figurePadding: '8', radius: '4px' }, slider: true },
 	},
 	{
 		id: 'dark', nameKey: 'preset.dark',
-		palette: { accent: '#58a6ff' },
-		typography: { baseSize: 16, lineHeight: 1.8 },
-		slots: {
-			'article': { background: 'dark' },
-			'heading': { color: 'accent' },
-			'heading.h1': { border: 'bottomLine' },
-			'heading.h2': { border: 'leftBar' },
-			'blocks.code': { theme: 'slateDark', titleBar: 'darkDots' },
-			'blocks.table': { headerStyle: 'accent' },
-			'inline.link': { style: 'colored' },
-			'inline.strong': { style: 'accentColor' },
-		},
-		// `accentBg` is translucent, so the card is a tint over the dark page and
-		// `${text}` resolves to the light body color.
-		blockquote: { decoration: 'classicBar', decorationParams: BLOCKQUOTE_CARD_PARAMS },
-		image: { decoration: 'lightShadow', decorationParams: { radius: '4px' }, slider: false },
-		callout: {
-			decoration: 'accentGlow',
-			decorationParams: { radius: '8px', shadow: '0 2px 8px rgba(0,0,0,0.06)' },
+		frontmatter: {
+			'palette.accent': '#58a6ff',
+			'typography.baseSize': 16,
+			'typography.lineHeight': 1.8,
+			'article.background': 'dark',
+			'article.pageMargin': 'standard',
+			'blocks.code.theme': 'slateDark',
+			'blocks.code.titleBar': 'darkDots',
+			// Night reading. `article.background: dark` is what flips the body
+			// text light (see ThemeResolver.isDarkArticle), so the decoration
+			// palettes only have to supply the contrast for their own accents.
+			'heading.decoration': 'none',
+			'heading.h1.decoration': 'gradientBlock',
+			'heading.h2.decoration': 'roundGradient',
+			'heading.color': 'accent',
+			'blockquote.decoration': 'darkCard',
+			'callout.decoration': 'starGlow',
+			'blocks.table.decoration': 'dark',
+			'blocks.hr.decoration': 'aurora',
+			'blocks.ol.decoration': 'plainOrder',
+			'blocks.ul.decoration': 'dashBullet',
+			// The list decorations pin a light-theme text colour (#3f3f3f) as
+			// their default; on a dark article that is 1.4:1 — invisible. Point
+			// them at the resolved body text colour instead: `${text}` is what
+			// the resolver already uses for paragraphs and headings, so the
+			// lists flip to #e2e8f0 along with everything else.
+			'blocks.ol.decorationParams': { color: '${text}' },
+			'blocks.ul.decorationParams': { color: '${text}' },
+			'blocks.task.decoration': 'taskList',
+			'inline.bold.decoration': 'xingjian',
+			'inline.italic.decoration': 'dailan',
+			'inline.code.decoration': 'dailan',
+			'inline.link.decoration': 'xingjian',
+			'media.image.decoration': 'silhouetteGlow',
+			'media.image.slider': false,
+			'media.math.decoration': 'nightFormula',
+			'media.mermaid.decoration': 'starVoyage',
+			'media.excalidraw.decoration': 'nightBoard',
 		},
 	},
 ];

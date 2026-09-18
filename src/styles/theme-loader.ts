@@ -5,21 +5,7 @@ import { type Vault, TFile, type MetadataCache } from 'obsidian';
 import type { ThemePreset } from '../core/interfaces';
 import { frontmatterToThemePreset } from '../renderer/theme-resolver';
 import { parseFlatFrontmatter, registerCustomValues } from '../core/frontmatter-parser';
-import { parseHeadingFrontmatter } from '../core/heading-config';
-import { parseBlockquoteFrontmatter } from '../core/blockquote-config';
-import { parseCalloutFrontmatter } from '../core/callout-config';
-import { parseMermaidFrontmatter } from '../core/mermaid-config';
-import { parseImageFrontmatter } from '../core/image-config';
-import { parseMathFrontmatter } from '../core/math-config';
-import { parseExcalidrawFrontmatter } from '../core/excalidraw-config';
-import { parseTableFrontmatter } from '../core/table-config';
-import { parseDividerFrontmatter } from '../core/divider-config';
-import {
-  parseOrderedFrontmatter,
-  parseUnorderedFrontmatter,
-  parseTaskFrontmatter,
-} from '../core/list-config';
-import { parseInlineFrontmatter } from '../core/inline-config';
+import { applyThemeFamilies } from '../core/theme-config-apply';
 import { BUILTIN_PRESETS } from './style-template';
 import { createLogger } from '../utils/logger';
 import { eventBus } from '../core/event-bus';
@@ -185,19 +171,11 @@ export class ThemeLoader {
       preset.modifierConfig = modifierConfig;
       log.info('buildDescriptor: injected modifier config', { path: file.path, modifierKeys: Object.keys(modifierConfig).length });
     }
-    this.applyHeadingConfig(preset, fm);
-    this.applyBlockquoteConfig(preset, fm);
-    this.applyCalloutConfig(preset, fm);
-    this.applyMermaidConfig(preset, fm);
-    this.applyImageConfig(preset, fm);
-    this.applyMathConfig(preset, fm);
-    this.applyExcalidrawConfig(preset, fm);
-    this.applyTableConfig(preset, fm);
-    this.applyDividerConfig(preset, fm);
-    this.applyOrderedListConfig(preset, fm);
-    this.applyUnorderedListConfig(preset, fm);
-    this.applyTaskListConfig(preset, fm);
-    this.applyInlineConfig(preset, fm);
+    // Every decoration family (heading / quote / callout / mermaid / image /
+    // math / excalidraw / table / divider / the three list kinds / inline) plus
+    // the theme-level block spacing. Shared with the built-in presets so both
+    // authoring paths produce the same preset shape.
+    applyThemeFamilies(preset, fm);
 
     const name = (fm.wewrite_theme_name as string) || preset.name || file.basename;
     const description = (fm.wewrite_theme_description as string) || '';
@@ -307,136 +285,6 @@ export class ThemeLoader {
 
   destroy(): void {
     this.cache.clear();
-  }
-
-  /** Inject the new heading variable config + custom decorations onto a preset. */
-  private applyHeadingConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseHeadingFrontmatter(fm);
-    preset.headingConfig = config;
-    if (customDecorations.length > 0) {
-      preset.customHeadingDecorations = customDecorations;
-    }
-  }
-
-  /** Inject the new blockquote decoration config + custom decorations onto a preset. */
-  private applyBlockquoteConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseBlockquoteFrontmatter(fm);
-    preset.blockquoteConfig = config;
-    if (customDecorations.length > 0) {
-      preset.customBlockquoteDecorations = customDecorations;
-    }
-  }
-
-  /** Inject the new callout decoration config + custom decorations onto a preset. */
-  private applyCalloutConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseCalloutFrontmatter(fm);
-    preset.calloutConfig = config;
-    if (customDecorations.length > 0) {
-      preset.customCalloutDecorations = customDecorations;
-    }
-  }
-
-  /** Inject the Mermaid decoration config + custom decorations onto a preset. */
-  private applyMermaidConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseMermaidFrontmatter(fm);
-    if (config.decoration || config.decorationParams) {
-      preset.mermaidConfig = config;
-    }
-    if (customDecorations.length > 0) {
-      preset.customMermaidDecorations = customDecorations;
-    }
-  }
-
-  /** Inject the image + caption decoration config + custom decorations onto a preset. */
-  private applyImageConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseImageFrontmatter(fm);
-    // `marginY` / `slider` are theme-level image settings, so they matter even
-    // when the theme selected no decoration at all.
-    if (
-      config.decoration || config.decorationParams
-      || config.marginY !== undefined || config.slider !== undefined
-    ) {
-      preset.imageConfig = config;
-    }
-    if (customDecorations.length > 0) {
-      preset.customImageDecorations = customDecorations;
-    }
-  }
-
-  /** Inject the block-math decoration config + custom decorations onto a preset. */
-  private applyMathConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseMathFrontmatter(fm);
-    if (config.decoration || config.decorationParams) {
-      preset.mathConfig = config;
-    }
-    if (customDecorations.length > 0) {
-      preset.customMathDecorations = customDecorations;
-    }
-  }
-
-  /** Inject the Excalidraw decoration config + custom decorations onto a preset. */
-  private applyExcalidrawConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseExcalidrawFrontmatter(fm);
-    if (config.decoration || config.decorationParams) {
-      preset.excalidrawConfig = config;
-    }
-    if (customDecorations.length > 0) {
-      preset.customExcalidrawDecorations = customDecorations;
-    }
-  }
-
-  /** Inject the new table decoration config + custom decorations onto a preset. */
-  private applyTableConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseTableFrontmatter(fm);
-    preset.tableConfig = config;
-    if (customDecorations.length > 0) {
-      preset.customTableDecorations = customDecorations;
-    }
-  }
-
-  /** Inject the new divider decoration config + custom decorations onto a preset. */
-  private applyDividerConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseDividerFrontmatter(fm);
-    preset.dividerConfig = config;
-    if (customDecorations.length > 0) {
-      preset.customDividerDecorations = customDecorations;
-    }
-  }
-
-  /** Inject the three independent list decoration configs (+ legacy migration). */
-  private applyOrderedListConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseOrderedFrontmatter(fm);
-    preset.orderedListConfig = config.decoration
-      ? config
-      : { decoration: 'classicOrder' };
-    if (customDecorations.length > 0) preset.customOrderedDecorations = customDecorations;
-  }
-
-  private applyUnorderedListConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseUnorderedFrontmatter(fm);
-    preset.unorderedListConfig = config.decoration
-      ? config
-      : { decoration: 'classicList' };
-    if (customDecorations.length > 0) preset.customUnorderedDecorations = customDecorations;
-  }
-
-  private applyTaskListConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseTaskFrontmatter(fm);
-    preset.taskListConfig = config.decoration
-      ? config
-      : { decoration: 'taskList' };
-    if (customDecorations.length > 0) preset.customTaskDecorations = customDecorations;
-  }
-
-  /** Inject the new inline-element decoration config + custom decorations. */
-  private applyInlineConfig(preset: ThemePreset, fm: Record<string, unknown>): void {
-    const { config, customDecorations } = parseInlineFrontmatter(fm);
-    if (Object.keys(config.types || {}).length > 0) {
-      preset.inlineConfig = config;
-    }
-    if (customDecorations.length > 0) {
-      preset.customInlineDecorations = customDecorations;
-    }
   }
 
   private addBuiltins(): void {

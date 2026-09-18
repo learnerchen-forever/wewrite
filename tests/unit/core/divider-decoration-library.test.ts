@@ -98,7 +98,10 @@ describe('Divider decoration library', () => {
 
     // 例 8 — 鎏金眉线.
     expect(byId['goldEdge'].params.color.default).toBe('rgb(255, 215, 0)');
-    expect(byId['goldEdge'].params.width.default).toBe('677px');
+    // 宽度刻意是 100% 而不是描摹时量到的 677px —— 677px 是那篇样例文章的栏宽
+    // （手机预览框的宽度），不是这条眉线本身的属性。把它写成定值会让 677px 的线
+    // 落进 375px 的文章里，撑出横向滚动条；线宽应当跟随栏宽。
+    expect(byId['goldEdge'].params.width.default).toBe('100%');
 
     // 例 9 — 双线衔珠.
     expect(byId['twinLineText'].params.text.default).toBe('NEXOM AI');

@@ -8,6 +8,7 @@
 
 import { resolveImageDecoration, DEFAULT_IMAGE_MARGIN_Y } from '../core/image-config';
 import type { ImageDecoration } from '../core/image-decoration-types';
+import { resolveBlockMarginY } from '../core/block-spacing';
 import type { TokenVars } from '../core/slot-types';
 import { ThemeResolver } from './theme-resolver';
 import { buildTokenMap } from './shared';
@@ -53,7 +54,7 @@ export function hasImageConfig(r: ThemeResolver): boolean {
  * therefore render through the v3 slot / preset path.
  */
 export function resolveImageMarginY(r: ThemeResolver): string {
-	return r.getPreset().imageConfig?.marginY || DEFAULT_IMAGE_MARGIN_Y;
+	return resolveBlockMarginY(r.getPreset(), 'image', DEFAULT_IMAGE_MARGIN_Y);
 }
 
 /** Whether consecutive images are grouped into a horizontal image window. */
@@ -112,8 +113,20 @@ export function buildImageStyle(params: Record<string, string>, extra: ImageExtr
 	// own margins, so those still win where they exist.
 	const marginTop = params.marginTop || extra.marginY || DEFAULT_IMAGE_MARGIN_Y;
 	const marginBottom = params.marginBottom || extra.marginY || DEFAULT_IMAGE_MARGIN_Y;
+	const display = params.display === 'inline' ? 'inline' : 'block';
 	if (params.maxWidth) parts.push(`max-width:${params.maxWidth}`);
-	if (extra.width) parts.push(`width:${extra.width}px`);
+	if (extra.width) {
+		parts.push(`width:${extra.width}px`);
+	} else if (display === 'block') {
+		// No size asked for → fill the reading column. `width:100%` (rather than
+		// leaving the width to `max-width:100%` alone) is what guarantees a
+		// full-width image whatever the picture's aspect ratio: with only a
+		// max-width, the used width is the image's own pixel width, so a small
+		// or unusually proportioned picture stays narrower than the column.
+		// `height:auto` below keeps the pixel ratio, and a theme that wants a
+		// narrower image caps it with the `maxWidth` param (see captionPaper).
+		parts.push('width:100%');
+	}
 	if (extra.height) {
 		parts.push(`height:${extra.height}px`);
 	} else {
@@ -127,7 +140,6 @@ export function buildImageStyle(params: Record<string, string>, extra: ImageExtr
 		parts.push(`border:${bw}px ${bs} ${params.borderColor || 'transparent'}`);
 	}
 
-	const display = params.display === 'inline' ? 'inline' : 'block';
 	if (display === 'inline') {
 		parts.push('display:inline-block');
 		if (params.verticalAlign) parts.push(`vertical-align:${params.verticalAlign}`);

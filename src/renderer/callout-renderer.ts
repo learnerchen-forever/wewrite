@@ -15,6 +15,7 @@
 // enforced); legacy blocks.callout.* themes are migrated by the theme loader.
 
 import { resolveCalloutDecoration } from '../core/callout-config';
+import { blockMarginY } from '../core/block-spacing';
 import {
 	CALLOUT_TYPES,
 	type CalloutDecoration,
@@ -207,22 +208,38 @@ export function hasCalloutConfig(r: ThemeResolver): boolean {
 /** Render all callout sections with the new pipeline (margins always enforced). */
 export function renderCallouts(doc: Document, r: ThemeResolver): boolean {
 	const preset = r.getPreset();
-	const lineHeightPx = calloutLineHeightPx(preset);
 	const sections = Array.from(doc.querySelectorAll('section[data-wewrite-callout]'));
-	sections.forEach((section) => ensureVerticalMargin(section, lineHeightPx));
-	if (!hasCalloutConfig(r)) return false;
 
-	const cc = preset.calloutConfig || {};
-	const customDecorations = preset.customCalloutDecorations || [];
-	const { decoration, params, types } = resolveCalloutDecoration(
-		cc.decoration || 'none',
-		cc.decorationParams,
-		cc.decorationTypes,
-		customDecorations,
-	);
-	const tokens = r.getTokens();
-	sections.forEach((section) => renderCalloutElement(section, decoration, params, types, tokens));
-	return true;
+	// Historical floor: at least one body line-height of vertical space on every
+	// callout, decorated or not, so callouts never stick to the text around them.
+	const lineHeightPx = calloutLineHeightPx(preset);
+	sections.forEach((section) => ensureVerticalMargin(section, lineHeightPx));
+
+	const decorated = hasCalloutConfig(r);
+	if (decorated) {
+		const cc = preset.calloutConfig || {};
+		const customDecorations = preset.customCalloutDecorations || [];
+		const { decoration, params, types } = resolveCalloutDecoration(
+			cc.decoration || 'none',
+			cc.decorationParams,
+			cc.decorationTypes,
+			customDecorations,
+		);
+		const tokens = r.getTokens();
+		sections.forEach((section) => renderCalloutElement(section, decoration, params, types, tokens));
+	}
+
+	// Theme-level spacing (blocks.callout.marginY) is applied last so it wins
+	// over both the floor above and the decoration's own `marginY` param — one
+	// value drives the vertical rhythm of every callout in the article. Only
+	// top/bottom are set, so a decoration's horizontal marginX survives.
+	const themeMarginY = blockMarginY(preset, 'callout');
+	if (themeMarginY) {
+		sections.forEach((section) =>
+			appendStyle(section, `margin-top:${themeMarginY};margin-bottom:${themeMarginY}`),
+		);
+	}
+	return decorated;
 }
 
 const CALLOUT_PREVIEW_SAMPLE =

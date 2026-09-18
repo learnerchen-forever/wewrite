@@ -13,6 +13,7 @@ import { toPrimitiveString } from '../utils/stringify';
 import { BLOCKQUOTE_PLAIN_PADDING_LEFT_PX } from '../core/blockquote-decoration-library';
 import type { MermaidColors } from '../core/mermaid-decoration-types';
 import { generatePalette } from '../core/palette-engine';
+import { blockMarginY, resolveBlockMarginY, DEFAULT_BLOCK_MARGIN_Y } from '../core/block-spacing';
 import {
 	getCodeThemeById,
 	type CodeTheme,
@@ -373,7 +374,7 @@ export class ThemeResolver {
 
 	/**
 	 * Code-block outer box: a zero-padding container that owns the background,
-	 * corner radius, shadow and bottom spacing. Padding lives on the <pre> (see
+	 * corner radius, shadow and vertical spacing. Padding lives on the <pre> (see
 	 * getCodeBlockPreStyle), so a title bar can sit flush against the box's
 	 * top/left/right edges instead of being inset by the code padding.
 	 */
@@ -383,11 +384,16 @@ export class ThemeResolver {
 		const pgap = p.paragraphGap || 14;
 		const radius = this.resolveCornerRadius();
 		const shadowCss = this.resolveCodeShadow() === 'auto' ? `box-shadow: ${theme.shadow}` : '';
+		// Vertical spacing: one theme-level value drives both sides
+		// (`blocks.code.marginY`). A theme that sets none keeps the historical
+		// paragraph-gap bottom margin and no top margin.
+		const spacing = blockMarginY(p, 'code');
+		const marginCss = spacing ? `margin: ${spacing} 0` : `margin-bottom: ${pgap}px`;
 		return joinStyles(
 			`background: ${theme.bg}`,
 			`color: ${theme.fg}`,
 			`border-radius: ${radius}px`,
-			`margin-bottom: ${pgap}px`,
+			marginCss,
 			'overflow: hidden',
 			shadowCss,
 		);
@@ -595,30 +601,33 @@ export class ThemeResolver {
 			case 'table-wrapper': {
 				// Scroll container only — table slot CSS is scoped to the table
 				// / th / td elements so the wrapper is never tinted. The table is
-				// sized min-width:100%, so when it grows past the article width
-				// this section scrolls horizontally instead of compressing columns.
-				return 'overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;';
+				// sized to its content (see applyTableLayout), so when it grows
+				// past the article width this section scrolls horizontally
+				// instead of compressing columns. Vertical spacing comes from the
+				// theme-level `blocks.table.marginY` (default 0.5rem).
+				const tableMargin = resolveBlockMarginY(p, 'table', DEFAULT_BLOCK_MARGIN_Y);
+				return `overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; margin: ${tableMargin} 0;`;
 			}
 
 			case 'table': {
 				// Outer border + row size belong on the table; header styles
 				// and zebra are scoped to th / zebra rows respectively.
-				// `min-width:100%` (not `width:100%`) lets a wide table grow past
-				// the article and scroll in its overflow-x wrapper rather than
-				// compressing columns and folding words to fit 100%.
+				// Width and cell wrapping are owned by applyTableLayout(), which
+				// runs for this path too (width:fit-content + auto margins).
 				const slotCss = this.resolveSlotCSS('blocks.table', ['headerStyle', 'striped']);
 				const tbl = p.table;
 				return joinStyles(
-					`font-size: ${tbl?.fontSize || 14}px; border-collapse: collapse; min-width: 100%;`,
+					`font-size: ${tbl?.fontSize || 14}px; border-collapse: collapse;`,
 					slotCss,
 				);
 			}
 
 			case 'th': {
 				const tbl = p.table;
-				// Header styling belongs to th cells only.
+				// Header styling belongs to th cells only. `white-space` is left
+				// to applyTableLayout(), which decides per cell.
 				const slotCss = this.resolveSlotCSS('blocks.table', ['striped']);
-				const base = `background: ${tbl?.headerBg || '#f6f8fa'}; color: ${this.bodyTextColor()}; padding: ${tbl?.cellPadding || 10}px; border: 1px solid ${tbl?.borderColor || '#e8eaed'}; font-weight: 600; text-align: left; word-break: normal; overflow-wrap: normal; white-space: normal;`;
+				const base = `background: ${tbl?.headerBg || '#f6f8fa'}; color: ${this.bodyTextColor()}; padding: ${tbl?.cellPadding || 10}px; border: 1px solid ${tbl?.borderColor || '#e8eaed'}; font-weight: 600; text-align: left;`;
 				return joinStyles(base, slotCss);
 			}
 
@@ -626,7 +635,7 @@ export class ThemeResolver {
 				const tbl = p.table;
 				// Body cells must NOT inherit headerStyle (background/color).
 				const slotCss = this.resolveSlotCSS('blocks.table', ['headerStyle', 'striped']);
-				const base = `padding: ${tbl?.cellPadding || 10}px; border: 1px solid ${tbl?.borderColor || '#e8eaed'}; word-break: normal; overflow-wrap: normal; white-space: normal;`;
+				const base = `padding: ${tbl?.cellPadding || 10}px; border: 1px solid ${tbl?.borderColor || '#e8eaed'};`;
 				return joinStyles(base, slotCss);
 			}
 
