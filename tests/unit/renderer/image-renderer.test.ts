@@ -88,13 +88,80 @@ describe('image decoration style builders', () => {
 	});
 });
 
-function renderImage(fm: Partial<ThemePreset>, captions?: { imageKey: string; text: string }[]): string {
+function renderImage(
+	fm: Partial<ThemePreset>,
+	captions?: { imageKey: string; text: string }[],
+	dimensions?: { imageKey: string; width?: number; height?: number }[],
+): string {
 	const renderer = new WechatRenderer({ ...DEFAULT_PRESET, ...fm });
 	const { html } = renderer.processPreRenderedHtml('<p><img src="a.png" alt=""></p>', '', {
 		imageCaptions: captions,
+		imageDimensions: dimensions,
 	});
 	return html;
 }
+
+/**
+ * Decision A (2026-09-18, signed off by the user): an explicit `|宽x高|` is a
+ * request for exactly that pixel box. `max-width:100%` is always emitted, so on
+ * a column narrower than the request the width is clamped while the height stays
+ * as asked — a `|1200x800|` on a 343px column renders at ratio 0.43 and looks
+ * like a vertical bar. That is the documented behaviour of
+ * `docs/superpowers/specs/2026-06-22-embed-image-params-design.md`, kept because
+ * the alternative (`height:auto` whenever a height is given) would make a
+ * deliberate `|200x200|` square impossible.
+ *
+ * These assertions exist to stop a later, well-meaning "fix" from changing the
+ * `|宽x高|` contract without a decision. If you are here because they fail,
+ * read the note above before touching the expectation.
+ */
+describe('explicit |宽x高| keeps the requested pixel box (decision A)', () => {
+	const decoParams = { maxWidth: '100%', display: 'block', align: 'center', radius: '8px' };
+
+	it('emits both px values and still caps the width at the column', () => {
+		const style = buildImageStyle(decoParams, { width: 1200, height: 800 });
+		expect(style).toContain('width:1200px');
+		expect(style).toContain('height:800px');
+		// The cap is what protects narrow screens from a horizontal overflow.
+		expect(style).toContain('max-width:100%');
+		expect(style).not.toContain('height:auto');
+	});
+
+	it('keeps the deliberate square a |200x200| asks for', () => {
+		// The capability decision A protects: this is *meant* to be a square even
+		// though the source picture is not.
+		const style = buildImageStyle(decoParams, { width: 200, height: 200 });
+		expect(style).toContain('width:200px');
+		expect(style).toContain('height:200px');
+	});
+
+	it('keeps the pixel box through the pipeline (decoration path)', () => {
+		const html = renderImage({ imageConfig: { decoration: 'lightShadow' } }, undefined, [
+			{ imageKey: 'a.png', width: 1200, height: 800 },
+		]);
+		expect(html).toContain('width:1200px');
+		expect(html).toContain('height:800px');
+		expect(html).toContain('max-width:100%');
+	});
+
+	it('keeps the pixel box through the pipeline (v3 path)', () => {
+		const html = renderImage({}, undefined, [{ imageKey: 'a.png', width: 1200, height: 800 }]);
+		expect(html).toContain('width:1200px');
+		expect(html).toContain('height:800px');
+		expect(html).toContain('max-width:100%');
+		// The v3 branch swaps its default `height:auto` out for the asked height.
+		expect(html).not.toContain('height:auto');
+	});
+
+	it('fills the column with the source ratio when no size is asked for', () => {
+		// The path the original request actually cared about, asserted next to the
+		// old one so the difference is explicit: no size → full width, ratio kept.
+		const html = renderImage({ imageConfig: { decoration: 'lightShadow' } });
+		expect(html).toContain('width:100%');
+		expect(html).toContain('height:auto');
+		expect(html).not.toContain('width:1200px');
+	});
+});
 
 describe('image decoration through the WeChat pipeline', () => {
 	it('keeps the v3 path when no imageConfig is present', () => {
