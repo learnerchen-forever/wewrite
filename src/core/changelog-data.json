@@ -3,6 +3,120 @@
   "repository": "https://github.com/learnerchen-forever/wewrite",
   "entries": [
     {
+      "version": "2.0.21",
+      "date": "2026-09-18",
+      "url": "https://github.com/learnerchen-forever/wewrite/releases/tag/2.0.21",
+      "sections": [
+        {
+          "type": "feat",
+          "items": [
+            {
+              "text": "Generated diagrams and formulas are now checked before you insert them, and a broken answer is sent back to the model once with the exact problem: - Mermaid: the source is checked for a missing diagram type, an unbalanced label quote, a `subgraph`/`alt` without its `end`, a stray code fence and `end` used as a node name. You can also **choose the diagram type** instead of letting the model guess, which removes the most common reason a \"sequence diagram\" comes back as a flowchart. - Math: the formula is compiled with the same MathJax build Obsidian renders with, so \"will this display?\" is answered while the dialog is still open. You can pick **display** or **inline** form, and an answer that is not a formula at all (an apology, say) is reported instead of being inserted. The result box is editable, and both **Copy** and **Insert** use what is in it.",
+              "scope": "ai"
+            },
+            {
+              "text": "Images get a single **vertical margin** parameter (`media.image.marginY`, 0.5rem by default) that spaces them from the text above and below — so images no longer sit flush against their neighbours when the note has no blank line around them. It lives in the theme editor's **Image** group and replaces the separate top/bottom margins the image decorations used to carry. The same group gains an **Image Window** switch: with it on, all images that no blank line separates merge into one swipeable horizontal row, which shortens image-heavy articles; a blank line still starts a new row (or a standalone image). The switch ships on for half of the built-in presets and half of the packaged themes, and defaults to off for a theme that does not set it.",
+              "scope": "theme"
+            },
+            {
+              "text": "**Insert Image from System** picks an image from the device's own photo library and copies it into the vault before embedding it — the one route that reaches a phone's camera roll from inside Obsidian, and the reason browsing the filesystem from the app found nothing on Huawei HarmonyOS. Formats Obsidian cannot display are converted to PNG on the way in; a file the browser itself cannot decode (some HEIC variants) now says so instead of quietly embedding a broken image.",
+              "scope": "editor"
+            },
+            {
+              "text": "Inserting an image into a note has its own command and menu entry: **Insert Image from Vault** opens the same thumbnail grid the cover picker uses — with a folder dropdown and a filename filter — instead of Obsidian's list of bare file names, which stops being readable once a vault holds more than a few dozen photos.",
+              "scope": "editor"
+            },
+            {
+              "text": "The proofreading review is now a list you can scan before deciding anything: every correction with its type colour-coded by severity (spelling and punctuation red, grammar orange, wording blue), click to jump, only the changed characters marked in the original, and a suggestion you can rewrite before accepting. Corrections can be accepted or ignored a type at a time, and the review ends with a count of what was applied.",
+              "scope": "ai"
+            },
+            {
+              "text": "The synonym dialog now shows the sense the word carries in its sentence, and a short usage note next to each option — \"为什么是这几个词\" was the one thing a flat word list could not answer, because the same word in two sentences legitimately has two disjoint sets of alternatives. Options can be picked with `1`–`9`, and **Look up again** re-rolls the list without closing the dialog. The lookup also respects word boundaries now: with nothing selected, a CJK run longer than a few characters is no longer taken as \"the word under the cursor\" (Chinese has no spaces, so that run was a whole clause) — the lookup asks you to select the word instead of offering to replace a sentence.",
+              "scope": "ai"
+            },
+            {
+              "text": "The note menu group is now simply **WeWrite** (it was \"WeWrite AI\"), it opens with the two image-insertion actions, and it is offered in the note header's \"⋮\" menu as well as the right-click menu — so every WeWrite action, including the new ones, can be pinned to Obsidian's mobile editing toolbar.",
+              "scope": "editor"
+            },
+            {
+              "text": "Quotes, callouts, tables, code blocks, formulas, Mermaid diagrams and Excalidraw frames can now be given a vertical rhythm from the theme (one value drives both the top and the bottom margin, the same way image spacing already worked) — so a dense technical note no longer depends on each block's built-in spacing. A theme that sets nothing keeps the existing spacing.",
+              "scope": "themes"
+            },
+            {
+              "text": "The plugin's 38 icons were redrawn as one set, so a WeWrite action looks the same wherever it appears — command palette, note menu, settings pane and mobile toolbar: - Every icon is drawn on the same 24 grid with a 2px round-cap stroke, so the set reads as part of Obsidian's own icons rather than as a second family bolted on beside them. - Icons that were misread at toolbar size were given a different subject: the account picker shows two chat bubbles (WeChat's own vocabulary) instead of a pair of people, proofreading is a magnifier with a check instead of two lines with one (the check alone read as a \"download\" arrow), and **Compose for Sync** no longer looks like **Sync now**. - Six places that borrowed an Obsidian icon to mean a WeWrite action now use the WeWrite icon for it: **Test connection** in the sync settings, the settings pane's **What's New** shortcut, and the cover menu's *load from vault* / *load from system* / *remove* and the image menu's *crop*. Reaching one action by two routes no longer shows two different symbols.",
+              "scope": "ui"
+            },
+            {
+              "text": "The ten built-in themes and the ten downloadable themes were rebuilt on the same theme system, so a built-in theme now dresses every element — headings, quotes, callouts, tables, dividers, lists, inline marks, images, formulas, Mermaid and Excalidraw — instead of only the handful the old built-in presets knew about. The themes were rewritten to differ from each other in accent, background, type and silhouette rather than in name only; the ten built-in ids are unchanged, so a theme you already selected stays selected.",
+              "scope": "themes"
+            }
+          ]
+        },
+        {
+          "type": "fix",
+          "items": [
+            {
+              "text": "Inserting an AI text-to-image result into a note no longer fails with \"Parent folder doesn't exist\" when the WeWrite cache folder has not been created yet (Android / fresh vault). Every image written to that folder now creates it first — AI-generated covers, cropped images and the AI call log under `debug/` are covered by the same guarantee.",
+              "scope": "media"
+            },
+            {
+              "text": "AI image sizes are now fitted to what the selected model actually accepts, so a size the provider would reject no longer fails the call. Each family (wan2.6, wanx, qwen-image, Seedream, DALL·E) is checked against its own limits, the closest legal size is used instead, and the size box suggests sizes the chosen model accepts.",
+              "scope": "media"
+            },
+            {
+              "text": "Editing fixes across the AI text tools: - Inserting a generated formula can no longer produce `$$ $x$ $$` — an answer that already carried its own delimiters used to be wrapped a second time, which renders as a literal dollar sign. - Prose a model writes around the code (\"Here is the diagram: …Hope it helps.\") is stripped instead of being inserted along with a broken code fence. - A synonym list that arrives as prose bullets no longer offers the sentence \"Here are the synonyms for …\" as a replacement, and a word identical to the one being replaced is never suggested. - Generated diagrams and formulas are no longer cut off mid-code for long requests: the output budget is sized to the request instead of falling back to the account default.",
+              "scope": "ai"
+            },
+            {
+              "text": "Proofreading no longer touches code or Markdown structure. Fenced code blocks, inline code, frontmatter, wiki links, embeds, URLs and `$math$` are withheld from the model, so variable names and frontmatter keys stop coming back as \"corrections\" — and a suggestion can never be applied inside them.",
+              "scope": "ai"
+            },
+            {
+              "text": "Proofreading with no text selected now corrects the **whole note** instead of stopping after the first 6,000 characters. A long note is sent in several requests with a progress indicator, and every correction found is listed in the review dialog.",
+              "scope": "ai"
+            },
+            {
+              "text": "Translation no longer quietly damages the text around a selection: - Code blocks, inline code, math, wiki links, link targets, URLs, tags and `{{template}}` tokens are now hidden from the model behind placeholders and spliced back verbatim, so they can no longer end up translated. - If the model still drops or repeats a protected span, the dialog says so before you replace anything, instead of inserting the result silently. - Long selections are translated paragraph by paragraph instead of being cut off at the model's output limit mid-sentence. - A result that is far shorter than its source is flagged as possibly truncated or summarised. The translation is editable before you apply it, can be re-run with **Translate again**, and the target language you picked is remembered for the rest of the session.",
+              "scope": "ai"
+            },
+            {
+              "text": "List text in the dark themes is readable again: the list decorations carried a light-theme grey that left bullet and numbered items at 1.4:1 contrast against the dark background, so a list looked empty. Lists now follow the same dark-aware body colour as paragraphs and headings.",
+              "scope": "themes"
+            },
+            {
+              "text": "A quote decorated with a star or dot border lost almost all of its styling — its corner radius, padding, background and text colour were dropped and the pattern never drew — because the border is delivered as an inline SVG and the SVG pass could not tell it apart from a real `<svg>` element in the document. Borders and text of those quotes now survive to the preview and the published draft.",
+              "scope": "render"
+            },
+            {
+              "text": "Selecting the gold-edge divider in the theme editor no longer puts a horizontal scrollbar under the article. The rule's default width was the width of the sample article it was traced from (677px) rather than a property of the rule itself, so it stuck out of a phone-width article; it now follows the column. Any decoration whose built-in size cannot fit a phone is now caught by a test.",
+              "scope": "themes"
+            },
+            {
+              "text": "An image you embed without a size now fills the reading column at its own pixel ratio instead of staying at whatever width it happens to have, so a wide screenshot is readable on a phone without you resizing it by hand. Images you sized yourself (`![[photo.png|200x150]]`) are untouched, and an image that shares its paragraph with another image is left as a row rather than blown up to full width.",
+              "scope": "themes"
+            },
+            {
+              "text": "Tables now size to their content instead of being stretched to the article width: a narrow table sits centred instead of hugging the left edge, a wide one scrolls sideways inside the article rather than squeezing its columns and folding English words in half, and short headers no longer break onto three lines.",
+              "scope": "themes"
+            }
+          ]
+        },
+        {
+          "type": "perf",
+          "items": [
+            {
+              "text": "Text-to-image generation stops re-finding its own settings on every run: the endpoint and parameters that last worked are remembered, a rate-limit reply is retried instead of being mistaken for the wrong endpoint, and **Test connection** confirms the credentials without generating an image. Saving a generated cover now shows an indicator instead of looking stuck.",
+              "scope": "media"
+            },
+            {
+              "text": "Composing a cover from the A and B zones no longer stalls the editor: the composite is rendered in one pass at cover resolution instead of at source resolution, so a pair of 12MP photos goes from over 2 s to under 0.3 s and yields a 3 MB PNG instead of 48 MB. The 2.35:1 and 1:1 crops sent to WeChat are unchanged.",
+              "scope": "media"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "2.0.20",
       "date": "2026-09-15",
       "url": "https://github.com/learnerchen-forever/wewrite/releases/tag/2.0.20",
