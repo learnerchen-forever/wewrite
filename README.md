@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-blue" alt="platforms">
-  <img src="https://img.shields.io/badge/Obsidian-%E2%89%A51.5.0-blueviolet" alt="obsidian version">
+  <img src="https://img.shields.io/badge/Obsidian-%E2%89%A51.6.6-blueviolet" alt="obsidian version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
 </p>
 
@@ -20,7 +20,7 @@
 - **Themes are notes.** Create a Markdown note with `wewrite_theme: true` to design an entire layout. Built-in templates are one click away, and the theme editor previews changes in real time.
 - **100+ element decorations.** Headings, blockquotes, code blocks (12 color themes), tables, lists, dividers, links, math, diagrams… each customizable individually.
 - **Fingerprint dedup saves 90%+ time on republishing.** FNV1a-64 content fingerprint database. Renamed or moved images are still matched to previously uploaded assets and automatically skipped.
-- **Three-zone cover editor.** 2.35:1 landscape + 1:1 square → auto-composite the multi-ratio covers WeChat requires. AI can generate covers too.
+- **Three-zone cover editor.** A single cover at whatever ratio you pick, plus an optional **2.35:1 landscape + 1:1 square** pair that one **Compose** click merges into the multi-ratio crops WeChat asks for. Pinch-to-zoom, drag and crop frames on all three, and AI can generate any of them.
 - **Built-in AI writing assistant.** Proofreading, synonyms, translation, Mermaid/formula generation, image generation, and summaries — all inside Obsidian.
 
 ---
@@ -31,11 +31,13 @@
 
 Basic formatting (H1–H6, bold, italic, strikethrough, inline code), code blocks (dark/light color themes, line numbers, macOS traffic-light decorations), ordered/unordered lists, task lists, tables, blockquotes, callouts, horizontal rules, footnotes, external links.
 
-LaTeX math (MathJax SVG), Mermaid diagrams, Excalidraw sketches, wiki-link note embeds, Obsidian / Iconize / Remix icons, Obsidian Charts.
+LaTeX math (MathJax SVG), Mermaid diagrams, Excalidraw sketches, wiki-link note embeds, and the inline icons Obsidian, Iconize and Remix inject into a note.
 
 PDF embeds rendered as images: PDF++ region screenshots (`![[file.pdf#page=N&rect=x1,y1,x2,y2|caption]]`) and whole-page embeds (`![[file.pdf#page=N]]`) are automatically rendered and cached as PNGs at publish time — powered by Obsidian's built-in PDF.js, with no extra dependencies.
 
 Dataview queries (`dataview` / `dataviewjs` code blocks and inline `$= ...`) are evaluated through the Dataview plugin and rendered as theme-styled text, consistent with handwritten Markdown.
+
+An image embedded without a size fills the reading column at its own pixel ratio, so a wide screenshot stays readable on a phone without you resizing it by hand — an image you sized yourself (`![[photo.png|200x150]]`) keeps the size you gave it. Tables size to their content: a narrow table is centred instead of hugging the left edge, and a wide one scrolls sideways inside the article rather than squeezing its columns and folding English words in half.
 
 ### Note Editing & AI Writing Assistant
 
@@ -52,7 +54,7 @@ Entry points: **Command palette** + editor right-click **"WeWrite" submenu** + t
 
 | Feature | Description |
 |---------|-------------|
-| Proofread | Spelling / grammar / punctuation checks for Chinese and English; Word-style review (Accept / Ignore / Previous / Next) with automatic scroll-and-highlight of each error. Runs on the selection, or on the whole note when nothing is selected |
+| Proofread | Spelling / grammar / punctuation checks for Chinese and English. The result is a list you scan before deciding anything: every correction colour-coded by severity (spelling and punctuation red, grammar orange, wording blue), click to jump to it, only the changed characters marked in your text, and a suggestion you can rewrite before accepting. Accept or ignore one at a time, or all the remaining ones of a single type; `←`/`→` navigate and `Enter` accepts. Runs on the selection, or on the whole note when nothing is selected — code, frontmatter, links and `$math$` are withheld from the model, so they never come back as "corrections" |
 | Synonyms | Alternatives for the selected word, chosen against the sentence it sits in — the sense and a usage note are shown for each option, and the list can be re-rolled in place |
 | Translate | 10 target languages; code, links, math and tags are protected from translation, and a result that lost one is flagged before it replaces your text |
 | Generate Mermaid | Description → Obsidian-compatible diagram. Pick the diagram type instead of letting the model guess; the source is syntax-checked (and repaired once when it fails) before insertion |
@@ -78,7 +80,12 @@ Images / article drafts / image drafts in separate tabs. Sync, delete, download 
 
 ### Theme System
 
-A theme is a Markdown note with `wewrite_theme: true` (stored in `wewrite/themes/`). Built-in Minimal / Classic / Elegant presets, one-click template downloads, a theme wizard for quick creation, and a visual theme editor for 100+ decoration options.
+A theme is a Markdown note with `wewrite_theme: true` (stored in `wewrite/themes/`). Ten built-in presets — Minimal GitHub, Classic WeChat, Elegant Serif, Paper Long-form, Grid Document, Typography Aesthetic, Clean Media, Colorful Accents, Warm Daily and Dark Tech — are authored on the same theme system as the ten downloadable ones, so a built-in theme now dresses **every** element (headings, quotes, callouts, tables, dividers, lists, inline marks, images, formulas, Mermaid, Excalidraw) instead of only the handful the old presets knew about. A wizard creates a theme in one dialog, and the visual editor covers the 100+ decorations and their parameters.
+
+Two settings are **theme-level** rather than per-decoration, so one value reaches every element of that kind:
+
+- **Vertical spacing** — one margin per block family (quotes, callouts, tables, code blocks, formulas, Mermaid diagrams and Excalidraw frames, plus images), so a dense technical note gets a rhythm of its own instead of inheriting each block's built-in spacing.
+- **Image window** — with it on, images that no blank line separates merge into one swipeable horizontal row, which shortens an image-heavy article; a blank line still starts a new row. Off by default, and on for half of the built-in and half of the downloadable themes.
 
 ### Multi-Device Sync (Experimental)
 
@@ -138,6 +145,8 @@ Or install manually:
 
 Complete rewrite: mobile-first architecture, Obsidian native rendering + zero-CSS inline styling pipeline, theme-note system with 100+ decorations, AI writing assistant (proofread / synonyms / translate / Mermaid / formulas / image / summary), unified FNV1a-64 asset fingerprint database, three-zone cover editor, image post support, WebDAV multi-device sync, encrypted API key storage, settings import/export, automatic v1.x migration.
 
+- 2026.09.18 — Release 2.0.21: the 38 icons are redrawn as one family on the same 24 grid and stroke as Obsidian's own, and six places that borrowed an Obsidian icon to mean a WeWrite action now use the WeWrite one; the ten built-in themes are rebuilt on the same theme system as the downloadable ones; themes gain one **vertical spacing** value per block family and an **Image Window** switch; images fill the reading column and tables size to their content; proofreading is a severity-coloured list that covers the whole note and skips code, frontmatter and links; translation and diagram/formula generation are checked before they replace anything; AI image sizes are fitted to what each model really accepts; images can be inserted from the vault or from the device photo picker; composing a cover is ~20× faster and yields a 3 MB PNG instead of 48 MB.
+- 2026.09.15 — Release 2.0.20: deleting an account asks for confirmation first; the plugin loads again on Obsidian 1.6.6–1.8.6; the settings pane switches to the compact phone layout in a narrow or portrait pane and keeps its scroll position; rendering and publishing no longer re-read and re-hash the same images.
 - 2026.09.13 — Release 2.0.19: every command now carries an icon, so WeWrite actions work from the mobile editor toolbar; quote styling follows each theme's own accent colour again, with nested and undecorated quotes fixed; the theme wizard's quote presets now use the current decoration schema; merged external PR [#28](https://github.com/learnerchen-forever/wewrite/pull/28) (Synology `app://` image paths, inline math inside lists, images uploaded before copying to WeChat); added the **What's New** dialog; release notes are now generated from `CHANGELOG.md`.
 - 2026.09.07 — Release 2.0.18.
 - 2026.09.04 — Release 2.0.17.

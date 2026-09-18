@@ -28,6 +28,8 @@ icon-redesign/
     └── contact.mjs     核对用的密排对照页（仅自用）
 ```
 
+`_src/data.json` 是 `build.mjs` 的产物（38 枚的新旧 SVG + 逐枚理由），被仓库 `.gitignore` 的 `data.json` 规则一并排除了。它可以从 `part-a..f.mjs` 完整推导出来，不入库不丢东西——但想重新出对比页，得先跑一次 `build.mjs`。
+
 ## 采纳情况（2.0.21）
 
 38 枚已全部覆盖到 `src/resources/icons/`，id 与文件名一一对应，`src/core/icon-registry.ts` 只补了一段母题说明，注册表本身未改。`eslint.config.mjs` 已把 `icon-redesign/` 列入 ignores —— 它不属于发布产物，也不在任何 tsconfig 里，否则 `eslint .` 会因为拿不到类型信息而报解析错。
