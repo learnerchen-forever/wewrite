@@ -34,6 +34,13 @@ export default defineConfig([
       // would report a parser error instead of findings.
       ".workbuddy/",
 
+      // The icon redesign workspace: the generator scripts, the per-icon
+      // rationale and the old/new comparison page that produced the 2.0.21
+      // icon set. Kept as the written spec for the icons in
+      // `src/resources/icons/`, but not shipped and not covered by any
+      // tsconfig — the same reasoning as `tools/` below.
+      "icon-redesign/",
+
       // Not part of the shipped plugin, and not covered by `tsconfig.json`
       // (which only includes `src/**/*.ts`). Type-aware linting requires
       // files to belong to a TypeScript project, so linting these would

@@ -331,12 +331,12 @@ export class CoverZone {
     const menu = new Menu();
     menu.addItem((item) => {
       item.setTitle(t('contextMenu.load_from_vault'))
-        .setIcon('folder-search')
+        .setIcon('wewrite-image-vault')
         .onClick(() => { this.openVaultPicker(); });
     });
     menu.addItem((item) => {
       item.setTitle(t('contextMenu.load_from_system'))
-        .setIcon('image-file')
+        .setIcon('wewrite-image-system')
         .onClick(() => { this.openFilePicker(); });
     });
     if (this.config.onAiGenerate) {
@@ -350,7 +350,7 @@ export class CoverZone {
       menu.addSeparator();
       menu.addItem((item) => {
         item.setTitle(t('contextMenu.remove'))
-          .setIcon('trash')
+          .setIcon('wewrite-trash')
           .onClick(() => {
             this.imagePath = '';
             this.mediaId = '';

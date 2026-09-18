@@ -304,7 +304,7 @@ export class WeChatNewsPicView extends ItemView {
       const menu = new Menu();
       menu.addItem((item) => {
         item.setTitle(t('contextMenu.crop_43'))
-          .setIcon('scissors')
+          .setIcon('wewrite-crop')
           .onClick(() => { void this.openImageCrop(imageKey); });
       });
       menu.showAtMouseEvent(event);

@@ -5,6 +5,18 @@
 // The SVG sources live in src/resources/icons/ (bundled as text by esbuild,
 // loader: { '.svg': 'text' }). Icon ids are the file names without the
 // extension, e.g. 'wewrite-news' — usable directly in setIcon()/getIcon().
+//
+// Motif: "pen and line". Obsidian's own text cursor and a pen nib are the same
+// shape — a 2px round-cap vertical — so "writing" is carried by the LINE, not
+// by drawing a second pen: every icon that shows text shares one typeface
+// (left edges aligned, last line cut short) and the accent stroke only appears
+// where it means something. Each file opens with its own rationale comment.
+//
+// WeWrite therefore owns its whole vocabulary: a built-in icon id (e.g.
+// 'scissors', 'megaphone', 'plug-zap') at a WeWrite call site means this table
+// is missing an entry, not that the built-in was the better choice. The only
+// deliberate exceptions are the spinner ('loader-2', whose rotation Obsidian
+// animates by class) and 'text'/'ruler', which have no WeWrite equivalent.
 
 import { addIcon } from 'obsidian';
 

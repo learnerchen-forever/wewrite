@@ -434,7 +434,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
       )
       .addExtraButton((btn) =>
         btn
-          .setIcon('megaphone')
+          .setIcon('wewrite-digest')
           .setTooltip(t('settings.whats_new_view'))
           .onClick(() => this.plugin.openWhatsNew()),
       );
@@ -542,13 +542,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
         .setName(t('settings.test_connection'))
         .setDesc(t('settings.test_wechat_desc'))
         .addExtraButton((btn) => {
-          btn.setIcon('plug-zap')
+          btn.setIcon('wewrite-link')
             .setTooltip(t('settings.test_wechat_tooltip'))
             .onClick(async () => {
               btn.setIcon('loader-2');
               const name = account.name;
               const result = await this.plugin.testWeChatAccount(account.appId, account.appSecret);
-              btn.setIcon('plug-zap');
+              btn.setIcon('wewrite-link');
               if (result.success) {
                 new Notice(t('notice.test_wechat_success', { name, message: result.message }));
               } else {
@@ -646,13 +646,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
         .setName(t('settings.test_connection'))
         .setDesc(t('settings.test_ai_text_desc'))
         .addExtraButton((btn) => {
-          btn.setIcon('plug-zap')
+          btn.setIcon('wewrite-link')
             .setTooltip(t('settings.test_ai_text_tooltip'))
             .onClick(async () => {
               btn.setIcon('loader-2');
               const name = account.name;
               const result = await this.plugin.testAITextAccount(account.baseUrl, account.apiKey);
-              btn.setIcon('plug-zap');
+              btn.setIcon('wewrite-link');
               if (result.success) {
                 new Notice(t('notice.test_ai_text_success', { name, message: result.message }));
               } else {
@@ -780,13 +780,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
         .setName(t('settings.test_connection'))
         .setDesc(t('settings.test_ai_image_desc'))
         .addExtraButton((btn) => {
-          btn.setIcon('plug-zap')
+          btn.setIcon('wewrite-link')
             .setTooltip(t('settings.test_ai_image_tooltip'))
             .onClick(async () => {
               btn.setIcon('loader-2');
               const name = account.name;
               const result = await this.plugin.testAIImageAccount(account);
-              btn.setIcon('plug-zap');
+              btn.setIcon('wewrite-link');
               if (result.success) {
                 new Notice(t('notice.test_ai_image_success', { name, message: result.message }));
               } else {
@@ -2056,7 +2056,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
             )
             .addExtraButton((btn) =>
               btn
-                .setIcon('megaphone')
+                .setIcon('wewrite-digest')
                 .setTooltip(t('settings.whats_new_view'))
                 .onClick(() => this.plugin.openWhatsNew()),
             );
@@ -2340,13 +2340,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
         render: (setting) => {
           setting.settingEl.addClass('wewrite-test-row');
           setting.addExtraButton((btn) => {
-            btn.setIcon('plug-zap')
+            btn.setIcon('wewrite-link')
               .setTooltip(t('settings.test_wechat_tooltip'))
               .onClick(async () => {
                 btn.setIcon('loader-2');
                 const name = account.name;
                 const result = await this.plugin.testWeChatAccount(account.appId, account.appSecret);
-                btn.setIcon('plug-zap');
+                btn.setIcon('wewrite-link');
                 if (result.success) {
                   new Notice(t('notice.test_wechat_success', { name, message: result.message }));
                 } else {
@@ -2476,13 +2476,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
         render: (setting) => {
           setting.settingEl.addClass('wewrite-test-row');
           setting.addExtraButton((btn) => {
-            btn.setIcon('plug-zap')
+            btn.setIcon('wewrite-link')
               .setTooltip(t('settings.test_ai_text_tooltip'))
               .onClick(async () => {
                 btn.setIcon('loader-2');
                 const name = account.name;
                 const result = await this.plugin.testAITextAccount(account.baseUrl, account.apiKey);
-                btn.setIcon('plug-zap');
+                btn.setIcon('wewrite-link');
                 if (result.success) {
                   new Notice(t('notice.test_ai_text_success', { name, message: result.message }));
                 } else {
@@ -2632,13 +2632,13 @@ export class WeWriteSettingTab extends PluginSettingTab {
         render: (setting) => {
           setting.settingEl.addClass('wewrite-test-row');
           setting.addExtraButton((btn) => {
-            btn.setIcon('plug-zap')
+            btn.setIcon('wewrite-link')
               .setTooltip(t('settings.test_ai_image_tooltip'))
               .onClick(async () => {
                 btn.setIcon('loader-2');
                 const name = account.name;
                 const result = await this.plugin.testAIImageAccount(account);
-                btn.setIcon('plug-zap');
+                btn.setIcon('wewrite-link');
                 if (result.success) {
                   new Notice(t('notice.test_ai_image_success', { name, message: result.message }));
                 } else {
