@@ -1456,6 +1456,30 @@ body .wewrite-auto-expand .setting-item.wewrite-test-row:not(.mod-toggle):not(.s
   word-break: break-word;
 }
 
+/* ── Image carousel: a slim scrollbar, not a hidden one ──
+   The carousel is a snap-scrolling section (it carries `scroll-snap-type` in
+   its inline style — the only hook available, since the published article gets
+   inline styles only and WeChat strips class/data attributes). Measured in
+   Chromium: a touch drag and a horizontal wheel move it, a plain mouse wheel
+   does NOT. So the scrollbar is the remaining affordance on a desktop, and
+   hiding it (as this rule used to) made the carousel read as one static
+   picture. The article itself now keeps whatever bar the platform draws; here
+   it is only slimmed down, so the phone-frame preview stays close to what a
+   phone shows while still being draggable. Tables are deliberately NOT covered:
+   there the bar is drawn at its default weight, as the same kind of hint. */
+.wewrite-preview [style*="scroll-snap-type"]::-webkit-scrollbar {
+  height: 4px;
+}
+
+.wewrite-preview [style*="scroll-snap-type"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wewrite-preview [style*="scroll-snap-type"]::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 2px;
+}
+
 /* ── Migration Confirm Dialog ── */
 
 

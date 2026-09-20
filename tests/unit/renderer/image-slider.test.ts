@@ -14,7 +14,6 @@ import {
 } from '../../../src/renderer/image-slider';
 import {
 	IMAGE_SLIDER_SLIDE_WIDTH,
-	IMAGE_SLIDER_GAP,
 	buildImageSliderStyle,
 } from '../../../src/renderer/image-renderer';
 import type { ThemePreset } from '../../../src/core/interfaces';
@@ -88,6 +87,25 @@ describe('collectImageSliderRuns', () => {
 		// The paragraph that held nothing but the run is gone.
 		expect(doc.body.querySelector('p')).toBeNull();
 	});
+
+	it('puts the hint right after the section, never inside it', () => {
+		// Inside, the line would be one more slide to scroll past — and on the
+		// last page it would sit in the middle of the frame.
+		const doc = docOf('<p><img src="a.png" alt=""><img src="b.png" alt=""></p><p>下一段</p>');
+		const run = collectImageSliderRuns(doc.body)[0];
+		wrapImageSlider(run, buildImageSliderStyle('0.5rem'), {
+			style: 'text-align:center',
+			text: '共 2 张 · 左右滑动查看',
+		});
+
+		const children = Array.from(doc.body.children);
+		const carousel = children.findIndex((el) => (el.getAttribute('style') || '').includes('overflow-x:auto'));
+		const hint = children.findIndex((el) => (el.textContent || '').includes('左右滑动'));
+		expect(carousel).toBeGreaterThanOrEqual(0);
+		expect(hint).toBe(carousel + 1);
+		expect(doc.body.querySelector('section[style*="overflow-x:auto"] section')).toBeNull();
+		expect(children[hint].querySelector('img')).toBeNull();
+	});
 });
 
 describe('image window through the WeChat pipeline', () => {
@@ -98,7 +116,7 @@ describe('image window through the WeChat pipeline', () => {
 		expect(render(run, { slider: false })).not.toContain('overflow-x:auto');
 	});
 
-	it('merges the run into one image window when the theme asks for it', () => {
+	it('merges the run into one image carousel when the theme asks for it', () => {
 		const html = render(run, { slider: true });
 		const doc = docOf(html);
 		const sections = Array.from(doc.querySelectorAll('section')).filter(
@@ -106,22 +124,79 @@ describe('image window through the WeChat pipeline', () => {
 		);
 		expect(sections).toHaveLength(1);
 		expect(sections[0].querySelectorAll('img')).toHaveLength(3);
-		// Container: one row that scrolls, with the theme margin around it.
+		// Container: one snap-scrolling row, with the theme margin around it.
 		const containerStyle = sections[0].getAttribute('style') || '';
 		expect(containerStyle).toContain('white-space:nowrap');
+		expect(containerStyle).toContain('scroll-snap-type:x mandatory');
 		expect(containerStyle).toContain(`margin:${DEFAULT_IMAGE_MARGIN_Y} 0`);
-		// Slides: one width for every image, top aligned.
+		// Slides: one full article width for every image, centred in the window,
+		// each a snap target of its own — that is what makes a swipe a page turn.
 		for (const img of Array.from(sections[0].querySelectorAll('img'))) {
 			const style = img.getAttribute('style') || '';
 			expect(style).toContain('display:inline-block');
 			expect(style).toContain(`width:${IMAGE_SLIDER_SLIDE_WIDTH}%`);
 			expect(style).toContain(`max-width:${IMAGE_SLIDER_SLIDE_WIDTH}%`);
-			expect(style).toContain('vertical-align:top');
+			expect(style).toContain('vertical-align:middle');
+			expect(style).toContain('scroll-snap-align:center');
+			// No horizontal gap: the slides must tile edge to edge, or the
+			// snap offsets drift by the gap on every page.
+			expect(style).toContain(`margin:${DEFAULT_IMAGE_MARGIN_Y} 0`);
 		}
-		// The gap is the slide's own right margin, and the last slide has none.
-		const styles = Array.from(sections[0].querySelectorAll('img')).map((img) => img.getAttribute('style') || '');
-		expect(styles[0]).toContain(`margin:${DEFAULT_IMAGE_MARGIN_Y} ${IMAGE_SLIDER_GAP}px ${DEFAULT_IMAGE_MARGIN_Y} 0`);
-		expect(styles[2]).toContain(`margin:${DEFAULT_IMAGE_MARGIN_Y} 0 ${DEFAULT_IMAGE_MARGIN_Y} 0`);
+	});
+
+	it('gives every slide the whole frame, so one picture is what you see', () => {
+		// The invariant behind "carousel": whatever the run length, a slide is
+		// never narrower than the viewport, i.e. it never lets the next picture
+		// peek in.
+		expect(IMAGE_SLIDER_SLIDE_WIDTH).toBe(100);
+		const html = render(run, { slider: true });
+		const doc = docOf(html);
+		const slides = Array.from(
+			doc.querySelectorAll('section[style*="overflow-x:auto"] img'),
+		);
+		expect(slides).toHaveLength(3);
+		for (const img of slides) {
+			const style = img.getAttribute('style') || '';
+			expect(style).toContain('width:100%');
+			expect(style).toContain('max-width:100%');
+		}
+	});
+
+	it('keeps the platform scrollbar on the carousel', () => {
+		// Measured in Chromium: a touch drag and a horizontal wheel advance the
+		// carousel, a plain mouse wheel does NOT. Suppressing the bar therefore
+		// leaves a desktop reader with a row that looks like one frozen picture
+		// and no way to find out otherwise.
+		const html = render(run, { slider: true });
+		const style = docOf(html)
+			.querySelector('section[style*="overflow-x:auto"]')!
+			.getAttribute('style') || '';
+		expect(style).not.toContain('scrollbar-width');
+		expect(style).toContain('overflow-x:auto');
+	});
+
+	it('prints how many pictures the carousel holds, under it', () => {
+		const html = render(run, { slider: true });
+		const doc = docOf(html);
+		const carousel = Array.from(doc.querySelectorAll('section')).find(
+			(el) => (el.getAttribute('style') || '').includes('overflow-x:auto'),
+		)!;
+		const hint = carousel.nextElementSibling!;
+		// A live "3 / 5" is impossible (WeChat runs no script); the count and the
+		// gesture are what can be stated truthfully.
+		expect(hint.textContent).toBe('共 3 张 · 左右滑动查看');
+		const style = hint.getAttribute('style') || '';
+		expect(style).toContain('text-align:center');
+		expect(style).toContain('font-size:12px');
+		// Muted, and derived from the theme rather than hard-coded — the article
+		// background may be dark.
+		expect(style).toContain('color:#888888');
+		expect(hint.querySelector('img')).toBeNull();
+	});
+
+	it('drops the hint with the carousel when the switch is off', () => {
+		const html = render(run, { slider: false });
+		expect(html).not.toContain('左右滑动');
 	});
 
 	it('leaves a blank-line separated image out of the window', () => {
@@ -136,13 +211,15 @@ describe('image window through the WeChat pipeline', () => {
 		const standalone = Array.from(doc.querySelectorAll('img')).find(
 			(img) => (img.getAttribute('src') || '') === 'c.png',
 		)!;
-		expect(standalone.getAttribute('style')).not.toContain('vertical-align:top');
+		expect(standalone.getAttribute('style')).not.toContain('scroll-snap-align');
 	});
 
 	it('uses the theme margin inside the window too', () => {
 		const html = render(run, { slider: true, marginY: '16px' });
+		// Both the container and every slide carry it, and no slide adds a
+		// horizontal offset of its own.
 		expect(html).toContain('margin:16px 0');
-		expect(html).toContain(`margin:16px ${IMAGE_SLIDER_GAP}px 16px 0`);
+		expect(html).not.toMatch(/margin:16px \d+px/);
 	});
 
 	it('streams images through a paragraph that also holds text', () => {

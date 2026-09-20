@@ -9,6 +9,7 @@ import { renderCallouts } from './callout-renderer';
 import {
 	buildCaptionStyle,
 	buildFigureStyle,
+	buildImageSliderHint,
 	buildImageSliderStyle,
 	buildImageStyle,
 	expandImageTokens,
@@ -403,19 +404,19 @@ export class WechatRenderer {
 
     // Images → figure only when a caption is present, otherwise inline
     //
-    // Image window (图片滑动窗): with the theme switch on, a run of images that
+    // Image window (图片轮播): with the theme switch on, a run of images that
     // no blank line separates (one paragraph, whitespace / <br> in between)
-    // becomes one horizontally scrollable section. Captioned images never join
-    // a run — a scroller would strand their <figcaption>.
+    // becomes one swipeable carousel — a snap-scrolling section whose slides are
+    // one article width each, so a swipe moves from one picture to the next.
+    // Captioned images never join a run — the carousel would strand their
+    // <figcaption>.
     const marginY = resolveImageMarginY(r);
     const sliderRuns: ImageSliderSlide[][] = isImageSliderEnabled(r)
       ? collectImageSliderRuns(doc.body ?? doc.documentElement, (img) => !this.findCaptionEntry(img.getAttribute('src') || ''))
       : [];
     const sliderSlides = new Set<HTMLImageElement>();
-    const sliderLastSlides = new Set<HTMLImageElement>();
     for (const run of sliderRuns) {
       for (const slide of run) sliderSlides.add(slide.img);
-      sliderLastSlides.add(run[run.length - 1].img);
     }
 
     doc.querySelectorAll('img').forEach((img) => {
@@ -560,19 +561,23 @@ export class WechatRenderer {
         (img as HTMLElement).setAttribute('style', imgStyle);
       }
 
-      // A slide overrides the standalone layout: fixed share of the article
-      // width, top aligned, and the gap to the next slide on its right.
+      // A slide overrides the standalone layout: the full article width, so the
+      // picture owns the frame and the container's scroll-snap can settle on it.
       if (sliderSlides.has(img)) {
         (img as HTMLElement).setAttribute(
           'style',
-          toImageSliderSlide(imgStyle, marginY, !sliderLastSlides.has(img)),
+          toImageSliderSlide(imgStyle, marginY),
         );
       }
     });
 
     // Wrap the runs collected above now that every slide carries its style.
+    // Each carousel gets a one-line hint under it: WeChat runs no script, so a
+    // live position read-out is impossible, but the count and the gesture can be
+    // stated — and on a desktop that line is the only thing that announces the
+    // row continues (a mouse wheel does not advance it).
     for (const run of sliderRuns) {
-      wrapImageSlider(run, buildImageSliderStyle(marginY));
+      wrapImageSlider(run, buildImageSliderStyle(marginY), buildImageSliderHint(r.getTokens().textMuted, run.length));
     }
 
     // Tables — wrap in scrollable section for overflow when wider than article

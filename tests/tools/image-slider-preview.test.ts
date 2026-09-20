@@ -75,10 +75,12 @@ describe('image slider preview', () => {
 
 		// 基本自检：开关确实改变了输出
 		expect(on).toContain('overflow-x:auto');
+		expect(on).toContain('scroll-snap-type:x mandatory');
+		expect(on).toContain('共 3 张 · 左右滑动查看');
 		expect(off).not.toContain('overflow-x:auto');
 
 		const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
-<title>WeWrite · 图片滑动窗 / 上下边距 预览</title>
+<title>WeWrite · 图片轮播 / 上下边距 预览</title>
 <style>
 	:root { color-scheme: light; }
 	body { margin:0; padding:24px; background:#eef1f5; font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; color:#1f2933; }
@@ -89,17 +91,26 @@ describe('image slider preview', () => {
 	figcaption { display:flex; flex-direction:column; gap:2px; margin-bottom:8px; font-size:13px; }
 	figcaption span { color:#5b6570; font-size:12px; }
 	.phone { width:375px; background:#fff; border-radius:6px; box-shadow:0 2px 14px rgba(15,23,42,.13); overflow:hidden; }
-	.hint { font-size:12px; color:#5b6570; background:#fff; border-left:3px solid #0ea5e9; padding:8px 12px; margin:0 0 34px; max-width:760px; }
+	/* 与插件 styles.css 里的同一条规则一致：轮播留一条很细的滚动条
+	   （鼠标滚轮推不动它，这条细条是桌面端唯一的可见提示） */
+	.phone [style*="scroll-snap-type"]::-webkit-scrollbar { height: 4px; }
+	.phone [style*="scroll-snap-type"]::-webkit-scrollbar-thumb { background: rgba(0,0,0,.22); border-radius: 2px; }
+	.hint { font-size:12px; color:#5b6570; background:#fff; border-left:3px solid #0ea5e9; padding:8px 12px; margin:0 0 34px; max-width:820px; line-height:1.7; }
+	.hint code { background:#f2f4f7; padding:0 3px; border-radius:3px; }
 </style></head><body>
-<h1>WeWrite · 图片滑动窗 / 图片上下边距</h1>
-<p class="lead">用真实渲染管线输出，模拟公众号正文宽度 375px。左右滑动图片窗即为最终效果。</p>
+<h1>WeWrite · 图片轮播 / 图片上下边距</h1>
+<p class="lead">用真实渲染管线输出，模拟公众号正文宽度 375px。在图片上按住左右拖动，即为发布后的翻页效果。</p>
 
-<p class="hint">全文图片之间都<b>没有空行</b>的 A / B / C 三张会被合并进一个图片窗（开关关闭时各自占一行）；
-D 与 E 各自是独立段落，不参与合并。所有图片上下边距由同一个参数 <code>media.image.marginY</code> 控制。</p>
+<p class="hint">全文图片之间都<b>没有空行</b>的 A / B / C 三张会被合并成一个轮播窗
+（开关关闭时各自占一行）；D 与 E 各自是独立段落，不参与合并。每张图独占一屏，
+拖动后停在下一张（<code>scroll-snap-type:x mandatory</code>，纯 CSS，因为公众号不执行脚本）。
+轮播下方那一行小字是计数与手势提示：公众号不执行脚本，所以做不了实时的「3 / 5」，
+能如实说的是「共几张」和「怎么翻」。所有图片上下边距由同一个参数
+<code>media.image.marginY</code> 控制。</p>
 
 <div class="row">
 	${phone('开关 OFF', '每张图独立成行', off)}
-	${phone('开关 ON', 'A/B/C 合并为左右滑动窗', on)}
+	${phone('开关 ON', 'A/B/C 合并为一屏一张的轮播', on)}
 </div>
 
 <div class="row">

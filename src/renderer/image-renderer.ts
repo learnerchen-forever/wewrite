@@ -21,10 +21,15 @@ export interface ImageExtraStyle {
 	marginY?: string;
 }
 
-/** Slide width inside the horizontal image window, % of the article width. */
-export const IMAGE_SLIDER_SLIDE_WIDTH = 78;
-/** Gap between two slides, px. */
-export const IMAGE_SLIDER_GAP = 6;
+/**
+ * Slide width inside the image window, % of the article width.
+ *
+ * 100 — one picture per view. A narrower slide leaves the next one peeking,
+ * which reads as "there is a strip of images to scroll through"; the window is
+ * meant to be a carousel instead, where the current picture owns the frame and
+ * a swipe replaces it.
+ */
+export const IMAGE_SLIDER_SLIDE_WIDTH = 100;
 
 
 
@@ -62,15 +67,37 @@ export function isImageSliderEnabled(r: ThemeResolver): boolean {
 	return r.getPreset().imageConfig?.slider === true;
 }
 
-/** Container style of the horizontal image window. */
+/**
+ * Container style of the image window ("图片轮播").
+ *
+ * WeChat runs no JavaScript in an article, so the carousel is built out of
+ * `scroll-snap` — the one mechanism that gives swipe-to-next-picture with no
+ * script at all:
+ *
+ *  - every slide is 100% of the container (see `toImageSliderSlide`), so the
+ *    current picture owns the frame;
+ *  - `scroll-snap-type:x mandatory` makes the scroller settle on a slide
+ *    boundary instead of stopping between two pictures;
+ *  - `overflow-x:auto` is what makes the whole thing scrollable at all, and is
+ *    also the graceful degradation: if an editor drops `scroll-snap-*` the
+ *    window is still one-picture-per-view, just without the magnet.
+ *
+ * The scrollbar is deliberately NOT suppressed: measured in Chromium, a swipe
+ * and a horizontal wheel advance the carousel, but a plain mouse wheel does
+ * not — so on a desktop the bar is the only thing that says "there is more to
+ * the right", and without it the window reads as a single static picture. On a
+ * phone the platforms draw a bar that fades when idle, which is the same
+ * promise with less ink. The preview stylesheet only makes it slim.
+ */
 export function buildImageSliderStyle(marginY: string): string {
 	return [
 		'overflow-x:auto',
 		'-webkit-overflow-scrolling:touch',
+		'scroll-snap-type:x mandatory',
 		'white-space:nowrap',
 		'max-width:100%',
-		// Slides sit flush against each other; the gap is each slide's own
-		// right margin, so the inline-block whitespace must not add to it.
+		// Slides sit flush against each other, so the inline-block whitespace
+		// must not add a gap between two full-width slides.
 		'font-size:0',
 		'text-align:left',
 		`margin:${marginY} 0`,
@@ -78,19 +105,52 @@ export function buildImageSliderStyle(marginY: string): string {
 }
 
 /**
- * Turn a styled <img> into one slide of the image window: a fixed share of the
+ * The line under a carousel: how many pictures there are, and that they are
+ * swiped rather than listed.
+ *
+ * A real position read-out ("3 / 5") is impossible — WeChat runs no script, so
+ * nothing can know which slide is showing. Counting them is the part that is
+ * true for the whole life of the article, and it is also the only affordance a
+ * desktop reader gets: measured in Chromium, a mouse wheel does not advance the
+ * carousel (only a touch drag or a horizontal wheel does), so without a line of
+ * text the row looks like one picture that simply refuses to move.
+ */
+export function buildImageSliderHint(textMuted: string, count: number): { style: string; text: string } {
+	return {
+		style: [
+			'text-align:center',
+			'font-size:12px',
+			'line-height:1.6',
+			`color:${textMuted}`,
+			'margin:0.25rem 0 0',
+		].join(';'),
+		text: `共 ${count} 张 · 左右滑动查看`,
+	};
+}
+
+/**
+ * Turn a styled <img> into one slide of the image carousel: a full share of the
  * article width keeps every slide the same size whatever its aspect ratio, and
  * the vertical margin is what separates the window from the surrounding text.
+ *
+ * `scroll-snap-align:center` is what the container's `scroll-snap-type` snaps
+ * to; with a full-width slide, start and center land on the same offset and
+ * center survives a container padding the theme may add.
+ *
+ * `vertical-align:middle` centres the current picture in the window, whose
+ * height is that of the tallest slide — so a landscape shot in a run of
+ * portraits sits in the middle of the frame instead of hugging its top edge.
+ * With one aspect ratio throughout (the usual case) the two are identical.
  */
-export function toImageSliderSlide(style: string, marginY: string, gapAfter: boolean): string {
-	const gap = gapAfter ? `${IMAGE_SLIDER_GAP}px` : '0';
+export function toImageSliderSlide(style: string, marginY: string): string {
 	const slide = [
 		'display:inline-block',
 		`width:${IMAGE_SLIDER_SLIDE_WIDTH}%`,
 		`max-width:${IMAGE_SLIDER_SLIDE_WIDTH}%`,
 		'height:auto',
-		'vertical-align:top',
-		`margin:${marginY} ${gap} ${marginY} 0`,
+		'vertical-align:middle',
+		'scroll-snap-align:center',
+		`margin:${marginY} 0`,
 	].join(';');
 	return style ? `${style};${slide}` : slide;
 }

@@ -1,10 +1,12 @@
-// image-slider.ts — the "图片滑动窗" (horizontal image window)
+// image-slider.ts — the "图片轮播" (image carousel)
 //
 // In a note, a run of images that are only separated by single line breaks (no
 // blank line) renders as *one paragraph* holding several <img>. Stacked inside
 // a paragraph they read cramped, so when the theme turns the image window on,
-// such a run is moved into a horizontally scrollable <section>: the images stay
-// one row with a fixed slide width, and the reader swipes through them.
+// such a run is moved into its own <section>: the images become slides of a
+// carousel, each one article width wide, and the reader swipes from one picture
+// to the next (the scrolling/snapping itself is pure CSS — see
+// buildImageSliderStyle).
 //
 // A blank line between two images makes them separate paragraphs, which is what
 // separates one window from the next (and keeps a lone image a lone image).
@@ -13,7 +15,7 @@
 // its parent, and a run is the set of adjacent image slots of one parent.
 // "Adjacent" tolerates what the markdown renderer leaves between two images:
 // whitespace and <br>. A captioned image is never part of a window — the
-// renderer emits its <figcaption> next to the <img>, which a scroller would
+// renderer emits its <figcaption> next to the <img>, which a carousel would
 // strand.
 
 /** Elements that may host the new <section> directly (hoisting stops there). */
@@ -43,6 +45,12 @@ export interface ImageSliderSlide {
 	/** The <img> itself, or its inline wrapper (e.g. an <a> around a link). */
 	node: ChildNode;
 	img: HTMLImageElement;
+}
+
+/** The line printed under a carousel (see buildImageSliderHint). */
+export interface ImageSliderHint {
+	style: string;
+	text: string;
 }
 
 /** True when a node between two images does not break the run. */
@@ -121,14 +129,23 @@ function pruneEmptyWrappers(start: Element | null): void {
 }
 
 /**
- * Move one run into a new <section> carrying `containerStyle`. The section
- * replaces the paragraph when that paragraph held nothing but the run;
- * otherwise it is hoisted out to the nearest block host, because a <section>
- * nested inside a <p> is not valid HTML and WeChat's editor would rewrite it.
+ * Move one run into a new <section> carrying `containerStyle`, and put the
+ * hint line right after it. The section replaces the paragraph when that
+ * paragraph held nothing but the run; otherwise it is hoisted out to the
+ * nearest block host, because a <section> nested inside a <p> is not valid HTML
+ * and WeChat's editor would rewrite it.
+ *
+ * The hint is a sibling, never a child: inside the carousel it would be one
+ * more slide to scroll past, and on the last page it would sit in the middle of
+ * the frame.
  *
  * Every slide's own style must already be on the slide node.
  */
-export function wrapImageSlider(run: ImageSliderSlide[], containerStyle: string): void {
+export function wrapImageSlider(
+	run: ImageSliderSlide[],
+	containerStyle: string,
+	hint?: ImageSliderHint,
+): void {
 	if (run.length < 2) return;
 	const firstParent = run[0].node.parentElement;
 	if (!firstParent) return;
@@ -156,4 +173,11 @@ export function wrapImageSlider(run: ImageSliderSlide[], containerStyle: string)
 	}
 
 	for (const slide of run) section.appendChild(slide.node);
+
+	if (hint) {
+		const line = createEl('section');
+		line.setAttribute('style', hint.style);
+		line.textContent = hint.text;
+		section.parentNode?.insertBefore(line, section.nextSibling);
+	}
 }
