@@ -12,6 +12,11 @@
   <img src="https://img.shields.io/badge/Obsidian-%E2%89%A51.6.6-blueviolet" alt="obsidian version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
 </p>
+<p align="center">
+  <img src="assets/readme-banner.png" alt="WeWrite 2.0 —— 在 Obsidian 中写作，一键渲染为公众号排版，推送到微信草稿箱" width="800">
+</p>
+
+<sub>WeWrite 是社区插件，与 Obsidian / Dynalist Inc. 无隶属或代表关系；文中出现的产品名称与标志归各自权利人所有。</sub>
 
 ---
 

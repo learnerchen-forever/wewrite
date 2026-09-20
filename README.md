@@ -10,6 +10,11 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
 </p>
 
+<sub>WeWrite is a community plugin. It is not affiliated with or representative of Obsidian / Dynalist Inc. All product names and logos are the property of their respective owners.</sub>
+
+<p align="center">
+  <img src="assets/readme-banner.png" alt="WeWrite 2.0 — write in Obsidian, render to WeChat format, publish to your WeChat Official Account drafts" width="800">
+</p>
 ---
 
 ## Why WeWrite 2.0
