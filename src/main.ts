@@ -17,7 +17,14 @@ import { registerWewriteIcons } from './core/icon-registry';
 import { EDITOR_MENU_COMMANDS, EDITOR_MENU_GROUP_HEADS, commandLabelKey, getCommandEntry, type EditorMenuCommandId } from './core/command-catalog';
 import { detectLegacySettings, migrateLegacyToV2, cleanupLegacyData } from './utils/migration';
 import { ThemeLoader } from './styles/theme-loader';
-import { ThemeDownloader } from './styles/theme-downloader';
+import { ThemeFallbackTemplates } from './styles/theme-fallback';
+import {
+  ThemeSyncService,
+  type ThemeApplyResult,
+  type ThemeCheckResult,
+} from './styles/theme-sync';
+import type { ThemeChange } from './styles/theme-index';
+import { ThemeUpdateModal } from './views/theme-update-modal';
 import { WeChatApiManager } from './publisher/api-manager';
 import { MaterialManager } from './media/material-manager';
 import { MediaRegistry } from './media/media-registry';
@@ -48,7 +55,7 @@ import { getWeWriteSubPath, WEWRITE_SUBDIRS } from './core/interfaces';
 import { ensureFolderExists } from './utils/vault-helpers';
 import { createLogger, redact } from './utils/logger';
 import { editorHighlightExtension } from './utils/editor-highlight';
-import { initI18n, disposeI18n, t } from './i18n';
+import { initI18n, disposeI18n, t, getCurrentLanguage } from './i18n';
 import { SyncEngine } from './sync/engine';
 import { SyncScheduler } from './sync/scheduler';
 import { WhatsNewModal } from './views/whats-new-modal';
@@ -61,6 +68,23 @@ const log = createLogger('Main');
  * a second or two; showing release notes on top of that reads as noise.
  */
 const WHATS_NEW_DELAY_MS = 1200;
+
+/**
+ * Delay before the startup theme check runs.
+ *
+ * Later than the release notes on purpose: both dialogs are startup noise, and
+ * the theme reminder is the less urgent of the two. The check is a single
+ * conditional GET, so the wait costs nothing but keeps the two from stacking.
+ */
+const THEME_CHECK_DELAY_MS = 4000;
+
+/**
+ * How long the "theme updates available" notice stays clickable.
+ *
+ * Long enough to be noticed and acted on, short enough that ignoring it makes
+ * it go away — settings keeps the entry point, so nothing is lost by missing it.
+ */
+const THEME_NOTICE_DURATION_MS = 20000;
 
 /**
  * Longest CJK run the synonym lookup will accept from the cursor position.
@@ -113,6 +137,8 @@ export default class WeWritePlugin extends Plugin {
   settingsManager!: SettingsManager;
   settings!: WeWriteSettings;
   themeLoader!: ThemeLoader;
+  /** Compares the packaged themes against the vault's copies. */
+  themeSync!: ThemeSyncService;
   apiManager!: WeChatApiManager;
   materialManager!: MaterialManager;
   mediaRegistry!: MediaRegistry;
@@ -127,6 +153,9 @@ export default class WeWritePlugin extends Plugin {
   private whatsNewTimer: number | null = null;
   /** The release-notes dialog is a once-per-session event. */
   private whatsNewHandled = false;
+  /** The theme-update reminder is likewise once per session. */
+  private themeCheckTimer: number | null = null;
+  private themeCheckRan = false;
   syncEngine!: SyncEngine;
   syncScheduler!: SyncScheduler;
   private syncRibbonEl?: HTMLElement;
@@ -197,7 +226,12 @@ export default class WeWritePlugin extends Plugin {
     // duplicated YAML keys (invalid frontmatter). Rewrite the malformed ones so
     // they parse cleanly and stop producing console warnings; never create new
     // templates here. Run before scanning so the first scan sees valid files.
-    await new ThemeDownloader(this.app).repairFallbackTemplates(themesPath);
+    await new ThemeFallbackTemplates(this.app).repairBuiltinTemplates(themesPath);
+
+    // Theme updates: compare the published index against the copies in this
+    // vault. Constructed eagerly because the settings tab asks it for state,
+    // but it touches the network only when told to.
+    this.themeSync = this.createThemeSyncService();
 
     await this.themeLoader.scanThemes();
     this.themeLoader.startWatching();
@@ -251,6 +285,16 @@ export default class WeWritePlugin extends Plugin {
         this.whatsNewTimer = null;
         this.maybeShowWhatsNew();
       }, WHATS_NEW_DELAY_MS);
+      // Theme updates can ship without a plugin release, so nothing else will
+      // ever tell the user about them. Deferred further than the release notes
+      // so the two dialogs never compete, and skipped entirely when the user
+      // turned the check off.
+      if (this.settings.themeAutoCheck) {
+        this.themeCheckTimer = window.setTimeout(() => {
+          this.themeCheckTimer = null;
+          void this.checkThemeUpdatesOnStartup();
+        }, THEME_CHECK_DELAY_MS);
+      }
     });
 
     // Hook vault file deletion to clean up registry
@@ -349,6 +393,7 @@ export default class WeWritePlugin extends Plugin {
     // Clear all pending timers
     if (this.saveTimer !== null) { window.clearTimeout(this.saveTimer); this.saveTimer = null; }
     if (this.whatsNewTimer !== null) { window.clearTimeout(this.whatsNewTimer); this.whatsNewTimer = null; }
+    if (this.themeCheckTimer !== null) { window.clearTimeout(this.themeCheckTimer); this.themeCheckTimer = null; }
     if (this.fileChangeDebounceTimer) { window.clearTimeout(this.fileChangeDebounceTimer); this.fileChangeDebounceTimer = null; }
     if (this.visibilityTimer) { window.clearTimeout(this.visibilityTimer); this.visibilityTimer = null; }
 
@@ -409,6 +454,9 @@ export default class WeWritePlugin extends Plugin {
   async updateThemesDirectory(): Promise<void> {
     const newPath = getWeWriteSubPath(this.settings.wewriteFolder, WEWRITE_SUBDIRS.customizedThemes);
     this.themeLoader.setDirectory(newPath);
+    // The sync service reads and writes through the same folder — keeping its
+    // own copy of the path would compare the wrong directory after a change.
+    this.refreshThemeSyncService();
     await this.themeLoader.scanThemes();
     log.info('theme directory updated', { path: newPath });
   }
@@ -1329,6 +1377,183 @@ export default class WeWritePlugin extends Plugin {
     if (this.settings.whatsNewLastSeenVersion === version) return;
     this.settingsManager.updateSettings({ whatsNewLastSeenVersion: version });
     void this.saveSettings();
+  }
+
+  // ── Packaged theme updates ──
+  //
+  // Themes ship from the repository, not from a plugin build, so a theme can
+  // change or be added without a release — which means no update mechanism
+  // would ever mention it. This is that mechanism: a cheap comparison at
+  // startup, a settings entry point for checking on demand, and a dialog that
+  // downloads exactly what the user picks and says plainly what it replaces.
+
+  /** Folder the packaged themes are installed into. */
+  themeDirectory(): string {
+    return getWeWriteSubPath(this.settings.wewriteFolder, WEWRITE_SUBDIRS.customizedThemes);
+  }
+
+  /**
+   * Wire the sync service to the vault.
+   *
+   * The vault calls are passed in rather than reached for, which keeps the
+   * comparison rules testable without an Obsidian runtime: the service only
+   * needs to read a note, write a note, and hand back the updated state.
+   */
+  private createThemeSyncService(): ThemeSyncService {
+    const themesDir = this.themeDirectory();
+    return new ThemeSyncService({
+      states: this.settings.themeSyncStates,
+      readLocal: async (file) => {
+        const target = this.app.vault.getAbstractFileByPath(`${themesDir}/${file}`);
+        if (!(target instanceof TFile)) return null;
+        try {
+          return await this.app.vault.read(target);
+        } catch (err) {
+          log.warn('failed to read theme note', { file, err: String(err) });
+          return null;
+        }
+      },
+      writeLocal: async (file, content) => {
+        const path = `${themesDir}/${file}`;
+        await ensureFolderExists(this.app, themesDir);
+        const target = this.app.vault.getAbstractFileByPath(path);
+        if (target instanceof TFile) {
+          // Overwrite in place — writing to a fresh file name is what used to
+          // leave duplicate themes behind.
+          await this.app.vault.modify(target, content);
+        } else {
+          await this.app.vault.create(path, content);
+        }
+      },
+      persist: async (states) => {
+        this.settingsManager.updateSettings({ themeSyncStates: states });
+        await this.saveSettings();
+      },
+    });
+  }
+
+  /** Keep the service pointed at the current themes folder. */
+  private refreshThemeSyncService(): void {
+    if (!this.themeSync) return;
+    this.themeSync = this.createThemeSyncService();
+  }
+
+  /**
+   * Startup check: compare and, when something is actually different, offer to
+   * show the dialog. Silent on every other outcome — an unreachable mirror is
+   * the normal state behind a firewall, not something to interrupt a startup
+   * for, and an unchanged index is the common case.
+   */
+  private async checkThemeUpdatesOnStartup(): Promise<void> {
+    if (this.themeCheckRan) return;
+    this.themeCheckRan = true;
+
+    const outcome = await this.themeSync.check();
+    if (!outcome.ok) {
+      log.debug('startup theme check: no mirror reachable');
+      return;
+    }
+
+    await this.recordThemeCheck();
+    const result = outcome.result;
+    if (result.pending === 0) return;
+
+    // One reminder per published revision: restarting Obsidian five times
+    // without updating must not produce five notices. The fingerprint covers
+    // only what is downloadable, so editing a description upstream does not
+    // re-trigger it.
+    if (this.settings.themeNotifiedFingerprint === result.fingerprint) return;
+    this.settingsManager.updateSettings({ themeNotifiedFingerprint: result.fingerprint });
+    void this.saveSettings();
+
+    this.showThemeUpdateNotice(result);
+  }
+
+  private showThemeUpdateNotice(result: ThemeCheckResult): void {
+    const notice = new Notice('', THEME_NOTICE_DURATION_MS);
+    const el = this.noticeElement(notice);
+    if (!el) return;
+    el.addClass('wewrite-theme-update-notice');
+    el.createDiv({
+      cls: 'wewrite-theme-update-notice-text',
+      text: t('notice.theme_updates_available', { count: result.pending }),
+    });
+    const button = el.createEl('button', {
+      cls: 'mod-cta wewrite-theme-update-notice-button',
+      text: t('notice.theme_updates_view'),
+    });
+    button.addEventListener('click', () => {
+      notice.hide();
+      this.openThemeUpdateModal(result);
+    });
+  }
+
+  /**
+   * The element a Notice renders its content into.
+   *
+   * `messageEl` is the current API (Obsidian 1.8.7+) and `noticeEl` the one
+   * older builds expose — the plugin supports 1.6.6, so both are needed. They
+   * are read through a plain record because naming the deprecated member
+   * directly trips the project's no-deprecated lint rule, and this is the one
+   * place where the deprecated name is genuinely the only fallback.
+   */
+  private noticeElement(notice: Notice): HTMLElement | null {
+    const fields = notice as unknown as Record<string, HTMLElement | undefined>;
+    return fields.messageEl ?? fields.noticeEl ?? null;
+  }
+
+  /**
+   * Settings entry point: open the dialog, which runs the comparison itself.
+   * (The startup result is deliberately not reused here — a user who clicks
+   * "check now" is asking for a fresh answer.)
+   */
+  openThemeUpdateModal(initial?: ThemeCheckResult): void {
+    new ThemeUpdateModal(this.app, {
+      initial,
+      getLanguage: () => getCurrentLanguage(),
+      check: async () => {
+        const outcome = await this.themeSync.check();
+        if (outcome.ok) await this.recordThemeCheck();
+        return outcome;
+      },
+      apply: (changes) => this.applyThemeUpdates(changes),
+    }).open();
+  }
+
+  /** Download the selected themes, then refresh the theme list. */
+  private async applyThemeUpdates(changes: readonly ThemeChange[]): Promise<ThemeApplyResult> {
+    const result = await this.themeSync.apply(changes);
+    await this.themeLoader.scanThemes();
+    this.notifyThemeApplyResult(result);
+    return result;
+  }
+
+  private notifyThemeApplyResult(result: ThemeApplyResult): void {
+    const count = result.created + result.overwritten;
+    if (count > 0) {
+      new Notice(t('notice.theme_updated', { count }));
+    }
+    if (result.failed.length > 0) {
+      new Notice(t('notice.theme_update_failed', { count: result.failed.length }));
+    }
+    if (result.mismatched.length > 0) {
+      // Downloaded content did not match the published fingerprint — most
+      // often a stale CDN edge. The notes are on disk and the real fingerprint
+      // was recorded, so the next check simply reports them again.
+      new Notice(t('notice.theme_update_mismatch', { count: result.mismatched.length }));
+    }
+  }
+
+  /** Record when the check last succeeded, for the settings tab's status line. */
+  private async recordThemeCheck(): Promise<void> {
+    this.settingsManager.updateSettings({ themeLastCheckAt: new Date().toISOString() });
+    await this.saveSettings();
+  }
+
+  /** Install the built-in templates — the offline floor when nothing is reachable. */
+  async installBuiltinTemplates(): Promise<void> {
+    await new ThemeFallbackTemplates(this.app).installBuiltinTemplates(this.themeDirectory());
+    await this.themeLoader.scanThemes();
   }
 
   private async openThemeWizard(): Promise<void> {

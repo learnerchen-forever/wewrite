@@ -66,6 +66,27 @@ export function bootJsdom(): Harness {
     this.appendChild(this.ownerDocument.createTextNode(text));
   };
 
+  // Obsidian also gives every element createEl/createDiv/createSpan/… The
+  // globals installed by jest-setup.js already build the element; these just
+  // append it to the receiver when no explicit parent was asked for, which is
+  // what the real implementation does.
+  const createChild =
+    (fixedTag?: string) =>
+    function (this: HTMLElement, tagOrInfo?: unknown, infoOrCb?: unknown, cb?: unknown): HTMLElement {
+      const build = (globalThis as unknown as {
+        createEl: (tag: string, o?: unknown, cb?: unknown) => HTMLElement;
+      }).createEl;
+      const tag = fixedTag ?? String(tagOrInfo);
+      const info = (fixedTag ? tagOrInfo : infoOrCb) as Record<string, unknown> | undefined;
+      const callback = (fixedTag ? infoOrCb : cb) as ((el: HTMLElement) => void) | undefined;
+      const el = build(tag, info, callback);
+      if (!info?.parent) this.appendChild(el);
+      return el;
+    };
+  proto.createEl = createChild();
+  proto.createDiv = createChild('div');
+  proto.createSpan = createChild('span');
+
   const container = doc.querySelector('.settings-pane') as HTMLElement;
   const header = doc.querySelector('.settings-header') as HTMLElement;
 

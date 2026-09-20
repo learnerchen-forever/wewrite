@@ -841,15 +841,7 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
     // ── Custom Styles ──
     const stylesBody = this.addCollapsibleSection(containerEl, t('settings.custom_styles'), 'palette');
-    const stylesDirPath = getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.customizedThemes);
-
-    new Setting(stylesBody).setName(t('settings.download_templates')).setDesc(t('settings.download_templates_desc')).addButton((btn) =>
-      buttonWithIcon(btn, 'download', t('settings.download_button')).onClick(async () => {
-        const { ThemeDownloader } = await import('../styles/theme-downloader');
-        const downloader = new ThemeDownloader(this.app);
-        await downloader.downloadThemes(stylesDirPath);
-      }),
-    );
+    this.renderThemeUpdateSettings(stylesBody);
 
     // ── Debug ──
     const debugBody = this.addCollapsibleSection(containerEl, t('settings.debug'), 'bug');
@@ -2067,22 +2059,96 @@ export class WeWriteSettingTab extends PluginSettingTab {
 
   private getCustomStylesDefinitions(): WeWriteSettingDef[] {
     const settings = this.plugin.settingsManager.getSettings();
-    const stylesDirPath = getWeWriteSubPath(settings.wewriteFolder, WEWRITE_SUBDIRS.customizedThemes);
     return [
       {
-        name: t('settings.download_templates'),
-        desc: t('settings.download_templates_desc'),
+        name: t('settings.theme_updates'),
+        desc: this.themeUpdateDesc(settings),
         render: (setting) => {
           setting.addButton((btn) =>
-            buttonWithIcon(btn, 'download', t('settings.download_button')).onClick(async () => {
-              const { ThemeDownloader } = await import('../styles/theme-downloader');
-              const downloader = new ThemeDownloader(this.app);
-              await downloader.downloadThemes(stylesDirPath);
+            buttonWithIcon(btn, 'download', t('settings.theme_check_button')).onClick(() => {
+              this.plugin.openThemeUpdateModal();
             }),
           );
         },
       },
+      {
+        name: t('settings.theme_auto_check'),
+        desc: t('settings.theme_auto_check_desc'),
+        render: (setting) => {
+          setting.settingEl.addClass('wewrite-toggle-row');
+          setting
+            .addToggle((toggle) =>
+              toggle.setValue(settings.themeAutoCheck).onChange(async (v) => {
+                this.plugin.settingsManager.updateSettings({ themeAutoCheck: v });
+                await this.plugin.saveSettings();
+              }),
+            )
+            .addExtraButton((btn) =>
+              btn
+                .setIcon('wewrite-new-theme')
+                .setTooltip(t('settings.theme_builtin_templates'))
+                .onClick(() => void this.plugin.installBuiltinTemplates()),
+            );
+        },
+      },
     ];
+  }
+
+  /**
+   * Legacy `renderTab()` path for the theme-update rows.
+   *
+   * Obsidian 1.13+ renders the definition list above instead; a setting added
+   * to only one of the two paths is invisible to half the users.
+   */
+  private renderThemeUpdateSettings(containerEl: HTMLElement): void {
+    const settings = this.plugin.settingsManager.getSettings();
+
+    new Setting(containerEl)
+      .setName(t('settings.theme_updates'))
+      .setDesc(this.themeUpdateDesc(settings))
+      .addButton((btn) =>
+        buttonWithIcon(btn, 'download', t('settings.theme_check_button')).onClick(() => {
+          this.plugin.openThemeUpdateModal();
+        }),
+      );
+
+    const autoRow = new Setting(containerEl)
+      .setName(t('settings.theme_auto_check'))
+      .setDesc(t('settings.theme_auto_check_desc'));
+    autoRow.settingEl.addClass('wewrite-toggle-row');
+    autoRow
+      .addToggle((toggle) =>
+        toggle.setValue(settings.themeAutoCheck).onChange(async (v) => {
+          this.plugin.settingsManager.updateSettings({ themeAutoCheck: v });
+          await this.plugin.saveSettings();
+        }),
+      )
+      .addExtraButton((btn) =>
+        btn
+          .setIcon('wewrite-new-theme')
+          .setTooltip(t('settings.theme_builtin_templates'))
+          .onClick(() => void this.plugin.installBuiltinTemplates()),
+      );
+  }
+
+  /**
+   * The theme-update row doubles as the status line: "when did we last look,
+   * and was there anything" is exactly what someone opening this page wants to
+   * know before deciding whether to click.
+   */
+  private themeUpdateDesc(settings: WeWriteSettings): string {
+    const base = t('settings.theme_updates_desc');
+    if (!settings.themeLastCheckAt) return `${base} ${t('settings.theme_last_check_never')}`;
+    const when = this.formatThemeCheckTime(settings.themeLastCheckAt);
+    return `${base} ${t('settings.theme_last_check', { time: when })}`;
+  }
+
+  /** Local, minute-precision timestamp — a full ISO string is noise here. */
+  private formatThemeCheckTime(iso: string): string {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
   private getDebugDefinitions(): WeWriteSettingDef[] {

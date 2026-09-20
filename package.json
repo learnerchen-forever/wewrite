@@ -17,6 +17,8 @@
     "changelog:preview": "node tools/changelog.js preview",
     "changelog:sync": "node tools/changelog.js sync",
     "changelog:check": "node tools/changelog.js check",
+    "themes:scan": "node tools/scan-themes.mjs",
+    "themes:check": "node tools/scan-themes.mjs --check",
     "check:bundle": "node tools/check-bundle.mjs main.js src"
   },
   "dependencies": {

@@ -80,6 +80,17 @@ export function hasTranslation(key: string): boolean {
   return translations[key] !== undefined || enData[key] !== undefined;
 }
 
+/**
+ * The active UI language code ('en', 'zh-CN', …).
+ *
+ * Exposed for content that ships *outside* the translation files but still has
+ * a per-language variant — published theme descriptions, for instance, which
+ * come from the remote index rather than from `en.json`.
+ */
+export function getCurrentLanguage(): string {
+  return currentLang;
+}
+
 /** Register a language-change callback. Returns unsubscribe function. */
 export function onLanguageChange(cb: () => void): () => void {
   changeListeners.push(cb);

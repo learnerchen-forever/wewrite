@@ -168,7 +168,13 @@ export class PluginSettingTab {
 }
 
 export class Setting {
-  constructor(container: HTMLElement) {}
+  /** Kept so lazily created control rows land inside the caller's container. */
+  private readonly containerEl: HTMLElement;
+  private buttonRow: HTMLElement | null = null;
+
+  constructor(container: HTMLElement) {
+    this.containerEl = container;
+  }
   setName(name: string): Setting { return this; }
   setDesc(desc: string): Setting { return this; }
   setTooltip(tooltip: string): Setting { return this; }
@@ -176,8 +182,36 @@ export class Setting {
   addTextArea(cb: (text: TextAreaComponent) => unknown): Setting { return this; }
   addDropdown(cb: (dropdown: DropdownComponent) => unknown): Setting { return this; }
   addToggle(cb: (toggle: ToggleComponent) => unknown): Setting { return this; }
-  addButton(cb: (button: ButtonComponent) => unknown): Setting { return this; }
   addExtraButton(cb: (button: ExtraButtonComponent) => unknown): Setting { return this; }
+  /**
+   * Unlike the other add* helpers this one *invokes* its callback and appends
+   * the button to the container, so modals that build their action row out of
+   * Setting buttons render in the DOM — the overwrite-confirmation dialog is
+   * exactly such a case, and a preview of it without its buttons would hide
+   * the thing being reviewed. The button row is created lazily: a Setting with
+   * no buttons (most of them) must not grow an extra empty element.
+   */
+  addButton(cb: (button: ButtonComponent) => unknown): Setting {
+    if (!this.buttonRow) {
+      this.buttonRow = document.createElement('div');
+      this.buttonRow.className = 'setting-command-buttons';
+      this.buttonRow.style.display = 'flex';
+      this.buttonRow.style.gap = '8px';
+      this.buttonRow.style.justifyContent = 'flex-end';
+      this.buttonRow.style.marginTop = '12px';
+      this.containerEl.appendChild(this.buttonRow);
+    }
+    const buttonEl = document.createElement('button');
+    const button: ButtonComponent = {
+      setButtonText(text: string): ButtonComponent { buttonEl.textContent = text; return button; },
+      setIcon(_icon: string): ButtonComponent { return button; },
+      setWarning(): ButtonComponent { buttonEl.classList.add('mod-warning'); return button; },
+      onClick(callback: () => unknown): ButtonComponent { buttonEl.addEventListener('click', () => callback()); return button; },
+      buttonEl,
+    };
+    cb(button);
+    return this;
+  }
 }
 
 export interface TextComponent {
@@ -212,6 +246,7 @@ export interface ToggleComponent {
 export interface ButtonComponent {
   setButtonText(text: string): ButtonComponent;
   setIcon(icon: string): ButtonComponent;
+  setWarning(): ButtonComponent;
   onClick(callback: () => unknown): ButtonComponent;
   buttonEl: HTMLButtonElement;
 }

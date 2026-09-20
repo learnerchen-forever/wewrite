@@ -63,6 +63,19 @@ const AIImageGenAccountSchema = z.object({
   defaultSize: z.string().catch(''),
 }).transform(migrateLegacyImageAccount);
 
+/**
+ * Download baseline for one packaged theme. Every field is `.catch('')`: a
+ * partially written record must never invalidate the whole settings object —
+ * a missing baseline only downgrades that one theme's comparison to
+ * "differs, reason unknown", which is a usable answer.
+ */
+const ThemeFileStateSchema = z.object({
+  hash: z.string().catch(''),
+  updated: z.string().catch(''),
+  downloadedAt: z.string().catch(''),
+  source: z.string().catch(''),
+});
+
 export const WeWriteSettingsSchema = z.object({
   version: z.string().catch('1.1.0'),
   ipAddress: z.string().catch(''),
@@ -98,6 +111,14 @@ export const WeWriteSettingsSchema = z.object({
   // ── Release notes ──
   whatsNewLastSeenVersion: z.string().catch(''),
   showWhatsNewOnUpdate: z.boolean().catch(true),
+  // ── Packaged theme updates ──
+  // Keep in sync with DEFAULT_SETTINGS.themeAutoCheck (true): checking is a
+  // read-only comparison and never downloads anything on its own, so opting in
+  // by default is safe — a corrupted settings file must land on the same value.
+  themeSyncStates: z.record(ThemeFileStateSchema).catch({}),
+  themeAutoCheck: z.boolean().catch(true),
+  themeLastCheckAt: z.string().catch(''),
+  themeNotifiedFingerprint: z.string().catch(''),
   // ── Last-used selections ──
   // No default: absent until the user picks a theme or a device size.
   // Both fields existed on the interface and were written at runtime, but were

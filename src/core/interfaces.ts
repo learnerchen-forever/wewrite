@@ -154,7 +154,43 @@ export interface WeWriteSettings {
   whatsNewLastSeenVersion: string;
   /** Open the "What's New" dialog automatically after an update. */
   showWhatsNewOnUpdate: boolean;
+  // ── Packaged theme updates ──
+  /**
+   * What was downloaded for each packaged theme, keyed by file name.
+   *
+   * Lives in the plugin's data (not in the vault) because it is bookkeeping
+   * about *this* install: it records the fingerprint written at download time,
+   * which is the only way to tell "the user edited this note" apart from "the
+   * published theme moved on". When the entry is missing the comparison
+   * degrades to "differs, reason unknown" rather than guessing.
+   */
+  themeSyncStates: ThemeSyncStateMap;
+  /** Check for packaged theme updates once after startup. */
+  themeAutoCheck: boolean;
+  /** ISO timestamp of the last successful check — shown in the settings tab. */
+  themeLastCheckAt: string;
+  /**
+   * Identity of the published index the user was last reminded about, so the
+   * same revision does not pop a notice on every single startup.
+   */
+  themeNotifiedFingerprint: string;
 }
+
+/** Baseline recorded for one packaged theme at download time. */
+export interface ThemeFileState {
+  /** Content hash of what was written — the baseline for "did the user edit it". */
+  hash: string;
+  /** `updated` from the published index at download time. */
+  updated: string;
+  /** ISO timestamp of the download. */
+  downloadedAt: string;
+  /** Mirror that served it ('github' | 'gitee'). */
+  source: string;
+}
+
+/** Downloaded-theme baselines keyed by file name. */
+export type ThemeSyncStateMap = Record<string, ThemeFileState>;
+
 
 // ── Import / Export Types ──
 
@@ -299,6 +335,11 @@ export const DEFAULT_SETTINGS: WeWriteSettings = {
   // ── Release notes ──
   whatsNewLastSeenVersion: '',
   showWhatsNewOnUpdate: true,
+  // ── Packaged theme updates ──
+  themeSyncStates: {},
+  themeAutoCheck: true,
+  themeLastCheckAt: '',
+  themeNotifiedFingerprint: '',
 };
 
 // ── WeWrite Directory Layout ──
