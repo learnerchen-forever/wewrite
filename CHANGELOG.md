@@ -8,6 +8,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This file is the single source of truth for release notes: the GitHub Release body and the
 in-plugin **What's New** dialog are both generated from it by `npm run changelog`.
 
+## [2.0.22](https://github.com/learnerchen-forever/wewrite/releases/tag/2.0.22) - 2026-09-20
+
+### ✨ Features
+- **themes**: The image window is a carousel now: each picture fills the frame on its own and a swipe turns to the next one, instead of a strip of pictures you had to drag sideways to see. The turning is done with `scroll-snap`, so it survives publishing — WeChat runs no scripts in an article — and a mixed run of portrait and landscape pictures centres the current one in the frame. The switch and its parameter are unchanged.
+- **ui**: The WeWrite entry that heads the editor context menu is the solid silhouette of the 2.0 brand mark now, so it reads as the head of the group it tops rather than as one more command in the list. The carving inside the mark — the slit through the nib and the dot beside it — is left out on purpose: at 16-24px those lines average into grey and the glyph goes muddy.
+- **themes**: Themes update on their own now: on startup the plugin compares the published themes with the copies in your vault, tells you when a theme changed or a new one appeared — no plugin update required — and lets you pick exactly which ones to download. The dialog says so plainly, and a second screen lists every note that would be overwritten, flagging the ones you edited yourself.
+
+### 🐛 Fixes
+- **themes**: The image carousel now keeps the platform scrollbar and prints a small line beneath it — how many pictures it holds and that they are swiped — because with the bar hidden the carousel looked like a single picture that refused to move: a mouse wheel does not turn it, only a touch drag or a horizontal wheel does.
+- **themes**: Table column widths now come from what the cells actually hold, not only from the first row and the first column: a short value — `¥199/年`, `Discontinued`, `Coming Soon` — stays on one line in any column instead of folding after a slash or between two words, while long text still wraps. Each table is then measured as a whole, and if holding every short value on one line would make it needlessly wide the widest values give it up first, so a table keeps one layout at every screen width and a narrow screen scrolls it rather than squeezing the columns.
+
 ## [2.0.21](https://github.com/learnerchen-forever/wewrite/releases/tag/2.0.21) - 2026-09-18
 
 ### ✨ Features
