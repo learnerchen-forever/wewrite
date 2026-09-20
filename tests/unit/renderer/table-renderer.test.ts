@@ -262,6 +262,88 @@ describe('applyTableLayout — cell wrapping', () => {
 		// The policy is appended last, so its declarations win.
 		expect(th.trimEnd().endsWith('word-break:normal;overflow-wrap:normal;white-space:nowrap;')).toBe(true);
 	});
+
+	it('pins a short value in any column, not only the first one', () => {
+		// The reference pricing table. Its folding values sit in the middle
+		// columns (Price / Status / Note), which the first-row-or-first-column
+		// rule can never reach — "¥199/年" broke after the solidus and
+		// "Discontinued" split into two lines.
+		const doc = renderLaidOut(
+			'<table><thead><tr><th>Product</th><th>Price</th><th>Status</th><th>Note</th></tr></thead><tbody>' +
+			'<tr><td>WeWrite Pro</td><td>¥199/年</td><td>✅ Available</td><td>Best seller</td></tr>' +
+			'<tr><td>WeWrite Trial</td><td>¥49/月</td><td>❌ Discontinued</td><td>See free tier</td></tr>' +
+			'<tr><td>Enterprise</td><td>联系我们</td><td>⏳ Coming Soon</td><td>Contact sales</td></tr>' +
+			'</tbody></table>',
+			{ 'blocks.table.decoration': 'gray' },
+		);
+		const cells = Array.from(doc.querySelectorAll('th, td'));
+		expect(cells).toHaveLength(16);
+		// Every value here is a short label: keeping all of them on one line
+		// costs ~25em, well inside the table budget, so none of them folds and
+		// the table keeps one layout at every screen width (it scrolls instead).
+		for (const cell of cells) {
+			expect(styleOf(cell)).toContain('white-space:nowrap');
+		}
+	});
+
+	it('still wraps a long cell sitting in a middle column', () => {
+		const doc = renderLaidOut(
+			'<table><tbody><tr><td>序号</td>' +
+			'<td>这是一段较长的正文说明文字，应当允许自动换行因为一行放不下</td>' +
+			'<td>备注</td></tr></tbody></table>',
+			{ 'blocks.table.decoration': 'gray' },
+		);
+		const cells = doc.querySelectorAll('td');
+		expect(styleOf(cells[0])).toContain('white-space:nowrap');
+		expect(styleOf(cells[1])).toContain('white-space:normal');
+		expect(styleOf(cells[2])).toContain('white-space:nowrap');
+	});
+
+	it('never pins a cell that carries its own line break', () => {
+		// The author already chose where this cell folds; nowrap would undo it.
+		const doc = renderLaidOut(
+			'<table><tbody><tr><td>名称</td><td>第一行<br>第二行</td></tr></tbody></table>',
+		);
+		const cells = doc.querySelectorAll('td');
+		expect(styleOf(cells[0])).toContain('white-space:nowrap');
+		expect(styleOf(cells[1])).toContain('white-space:normal');
+	});
+
+	it('never pins a cell holding a picture — its width is not text', () => {
+		// Pinning this cell would size the column to the image's own resolution,
+		// which neither the em estimate nor the budget can see.
+		const doc = renderLaidOut(
+			'<table><tbody><tr><td>截图</td>' +
+			'<td><img src="big.png" width="800"> 说明</td>' +
+			'<td><code>inline</code> 徽标</td></tr></tbody></table>',
+		);
+		const cells = doc.querySelectorAll('td');
+		expect(styleOf(cells[0])).toContain('white-space:nowrap');
+		expect(styleOf(cells[1])).toContain('white-space:normal');
+		// Inline markup is still text: `code` does not disqualify a cell.
+		expect(styleOf(cells[2])).toContain('white-space:nowrap');
+	});
+
+	it('evaluates the whole table: the widest values give up nowrap first', () => {
+		// Six columns; every header is a 3em anchor (18em in total). The body
+		// values are 12/11/10/9/8 em — keeping all of them would pin the table at
+		// 3+3+12+11+10+9+8 = 56em, past the 48em budget. Narrowest first means
+		// 8+9+10+11 em are affordable (44em total) and the 12em value — the one
+		// that costs the most and reads best when wrapped — is the one that folds.
+		const long = '一二三四五六七八九十一二'; // exactly 12 CJK characters = 12em
+		const doc = renderLaidOut(
+			'<table><thead><tr><th>一二三</th><th>一二三</th><th>一二三</th>' +
+			'<th>一二三</th><th>一二三</th><th>一二三</th></tr></thead><tbody><tr>' +
+			`<td>甲</td><td>${long}</td><td>${long.slice(0, 11)}</td>` +
+			`<td>${long.slice(0, 10)}</td><td>${long.slice(0, 9)}</td><td>${long.slice(0, 8)}</td>` +
+			'</tr></tbody></table>',
+		);
+		const cells = doc.querySelectorAll('tbody td');
+		expect(styleOf(cells[1])).toContain('white-space:normal'); // 12em
+		for (const idx of [0, 2, 3, 4, 5]) {
+			expect(styleOf(cells[idx])).toContain('white-space:nowrap');
+		}
+	});
 });
 
 describe('renderTablePreview', () => {

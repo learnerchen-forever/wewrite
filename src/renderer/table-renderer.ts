@@ -70,45 +70,168 @@ const TABLE_WIDTH_CSS = 'width:fit-content;margin-left:auto;margin-right:auto';
  *                           `word-wrap:break-word`, which is what split "Callout"
  *                           into "Cal/lou/t" when a table was squeezed to fit
  *                           the article width.
- *  - white-space            nowrap on a short header / first-column cell so the
- *                           column takes its natural width and the cell does not
- *                           fold; normal everywhere else so long content still
- *                           wraps instead of forcing the table onto one line.
+ *  - white-space            nowrap on a cell whose text is short enough to be a
+ *                           width anchor, so the column takes its natural width
+ *                           and the value stays on one line; normal otherwise, so
+ *                           long content still wraps instead of forcing the table
+ *                           onto one line.
  */
 const CELL_BREAK_CSS = 'word-break:normal;overflow-wrap:normal;';
 const CELL_WRAP_CSS = `${CELL_BREAK_CSS}white-space:normal;`;
 const CELL_NOWRAP_CSS = `${CELL_BREAK_CSS}white-space:nowrap;`;
 
 /**
- * Widest header text still kept on one line, in em (≈ CJK characters, since a
+ * Widest single cell still kept on one line, in em (≈ CJK characters, since a
  * CJK glyph is one em wide and a Latin glyph about half of one).
  *
- * This is the "basic rule" that decides whether a cell is allowed to define its
- * column width: a short label ("序号", "特性", "Callout") is a fixed point that
- * the table can be laid out around, while a long sentence must wrap or it would
- * drag the whole table (and the reader's scrollbar) with it. 8em ≈ 8 CJK
- * characters ≈ 16 Latin characters at the table's default 14–16px font.
+ * A short value is a fixed point the table can be laid out around: "¥199/年",
+ * "Discontinued", "Coming Soon" and "Limited features" have no good fold — the
+ * browser would break them after the solidus or between two words and the
+ * column would read as broken. A long sentence, on the other hand, must wrap or
+ * it would drag the whole table (and the reader's scrollbar) with it.
+ *
+ * 12em ≈ 12 CJK characters ≈ 24 Latin ones at the table's default 14–16px font.
  */
-const NOWRAP_MAX_EM = 8;
+const CELL_NOWRAP_MAX_EM = 12;
+
+/**
+ * Widest a table may become by holding cells on one line, in em.
+ *
+ * The per-cell cap alone is not enough: a six-column table of 12em cells would
+ * pin itself ~72em wide, i.e. four phone screens of horizontal scrolling. So
+ * once every candidate column width is known the *whole* table is evaluated,
+ * and the widest cells give up their nowrap until it fits this budget — the
+ * narrow cells (the ones that read as broken when they fold) keep their single
+ * line, the widest ones wrap like any other paragraph.
+ *
+ * 48em ≈ 2 phone-widths of article text: roomy enough for the reference tables
+ * shipped with the built-in themes, short enough to still swipe through.
+ */
+const TABLE_NOWRAP_BUDGET_EM = 48;
 
 const CJK_RE = /[\u2E80-\u303F\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6]/;
+/**
+ * Symbols that render about one em wide rather than half: arrows, dingbats
+ * (✅ ❌ ⚠), misc technical (⏳ ⏰), enclosed alphanumerics, stars, emoji.
+ * Without them "⏳ Coming Soon" is under-counted by ~1em and a status column
+ * ends up pinning a width it does not have.
+ */
+const WIDE_RE = /[\u2190-\u21FF\u2300-\u23FF\u2460-\u24FF\u25A0-\u27BF\u2B00-\u2BFF\u{1F000}-\u{1FAFF}]/u;
 
-/** Rough display width of a string in em — CJK counts 1, whitespace 0.3, rest 0.5. */
+/** Rough display width of a string in em — CJK/emoji 1, whitespace 0.3, rest 0.5. */
 function estimateEm(text: string): number {
 	let em = 0;
 	for (const ch of text) {
-		if (CJK_RE.test(ch)) em += 1;
+		if (CJK_RE.test(ch) || WIDE_RE.test(ch)) em += 1;
 		else if (/\s/.test(ch)) em += 0.3;
 		else em += 0.5;
 	}
 	return em;
 }
 
-/** True when a cell's text is short enough to keep on a single line. */
-function isShortLabel(cell: Element): boolean {
+/**
+ * What disqualifies a cell from pinning its column:
+ *
+ *  - an explicit line break or a block child — the author already decided where
+ *    that cell folds, and nowrap would silently undo the decision;
+ *  - replaced content (an image, an embed, a rendered formula) — it has no text
+ *    width to estimate, and pinning the cell would size the whole column to the
+ *    picture's own resolution, which the width budget cannot see either.
+ *
+ * Only cells holding text we can measure get to define a column.
+ */
+const UNMEASURABLE = [
+	'br', 'p', 'div', 'section', 'ul', 'ol', 'li', 'blockquote', 'pre', 'table', 'hr',
+	'img', 'svg', 'picture', 'video', 'iframe', 'mjx-container',
+].join(',');
+
+/**
+ * The width (in em) a cell needs to stay on one line, or null when the cell
+ * must be free to wrap: empty, wider than the cap, or unmeasurable.
+ */
+function nowrapWidthEm(cell: Element): number | null {
 	const text = (cell.textContent || '').replace(/\s+/g, ' ').trim();
-	if (!text) return false;
-	return estimateEm(text) <= NOWRAP_MAX_EM;
+	if (!text) return null;
+	if (cell.querySelector(UNMEASURABLE)) return null;
+	const em = estimateEm(text);
+	return em <= CELL_NOWRAP_MAX_EM ? em : null;
+}
+
+/** Zero-based column of a cell inside its row, counting the preceding colspans. */
+function columnIndexOf(cell: Element): number {
+	const row = cell.parentElement;
+	if (!row) return 0;
+	let col = 0;
+	for (const sibling of Array.from(row.children)) {
+		if (sibling === cell) break;
+		if (sibling.tagName === 'TH' || sibling.tagName === 'TD') {
+			col += Math.max(1, Number(sibling.getAttribute('colspan')) || 1);
+		}
+	}
+	return col;
+}
+
+interface WidthCandidate {
+	cell: Element;
+	em: number;
+	col: number;
+}
+
+/**
+ * Which cells of one table keep their text on a single line. Two tiers:
+ *
+ *  - **anchors** — every header cell plus the first cell of each row. These are
+ *    the table's outline, so a short label there always pins its column; this is
+ *    the original "size by the first row / first column" rule, unchanged.
+ *  - **opportunists** — every other cell under the cap. They pin their column
+ *    too, but only while the table's total stays inside TABLE_NOWRAP_BUDGET_EM,
+ *    and narrowest first: that way the budget buys the largest number of
+ *    single-line cells, and the values that do fold are the long ones, which
+ *    wrap gracefully.
+ */
+function planNowrapCells(el: Element): Set<Element> {
+	const anchors = new Set<Element>();
+	for (const cell of Array.from(el.querySelectorAll('th'))) anchors.add(cell);
+	for (const row of Array.from(el.querySelectorAll('tr'))) {
+		const first = row.querySelector('th, td');
+		if (first) anchors.add(first);
+	}
+
+	const pinned: WidthCandidate[] = [];
+	const optional: WidthCandidate[] = [];
+	el.querySelectorAll('th, td').forEach((cell) => {
+		const em = nowrapWidthEm(cell);
+		if (em === null) return;
+		const entry: WidthCandidate = { cell, em, col: columnIndexOf(cell) };
+		(anchors.has(cell) ? pinned : optional).push(entry);
+	});
+
+	// The widths the anchors already fix, per column. An opportunist in one of
+	// those columns is free — the column is that wide anyway.
+	const columns = new Map<number, number>();
+	let total = 0;
+	for (const { em, col } of pinned) {
+		const prev = columns.get(col) ?? 0;
+		if (em > prev) {
+			columns.set(col, em);
+			total += em - prev;
+		}
+	}
+
+	const nowrap = new Set<Element>(pinned.map((entry) => entry.cell));
+	optional.sort((a, b) => a.em - b.em);
+	for (const { cell, em, col } of optional) {
+		const prev = columns.get(col) ?? 0;
+		if (em <= prev) {
+			nowrap.add(cell);
+			continue;
+		}
+		if (total - prev + em > TABLE_NOWRAP_BUDGET_EM) continue;
+		columns.set(col, em);
+		total += em - prev;
+		nowrap.add(cell);
+	}
+	return nowrap;
 }
 
 /**
@@ -119,18 +242,9 @@ function isShortLabel(cell: Element): boolean {
 export function applyTableLayout(doc: Document): void {
 	for (const el of Array.from(doc.querySelectorAll('table'))) {
 		appendStyle(el, TABLE_WIDTH_CSS);
-
-		// First cell of each row — the row header / label column. Header cells
-		// (<th>) are columns headers/row headers, so both may pin their column.
-		const pinning = new Set<Element>();
-		for (const cell of Array.from(el.querySelectorAll('th'))) pinning.add(cell);
-		for (const row of Array.from(el.querySelectorAll('tr'))) {
-			const first = row.querySelector('th, td');
-			if (first) pinning.add(first);
-		}
-
+		const nowrap = planNowrapCells(el);
 		el.querySelectorAll('th, td').forEach((cell) => {
-			appendStyle(cell, pinning.has(cell) && isShortLabel(cell) ? CELL_NOWRAP_CSS : CELL_WRAP_CSS);
+			appendStyle(cell, nowrap.has(cell) ? CELL_NOWRAP_CSS : CELL_WRAP_CSS);
 		});
 	}
 }
