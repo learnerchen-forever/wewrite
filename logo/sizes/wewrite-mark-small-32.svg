@@ -1,0 +1,4 @@
+<!-- WeWrite 品牌图标（16–24px 专有图形） -->
+<!-- 母题：一记笔锋写成的 W —— 起笔厚、谷底收细、中峰抬起成笔尖 -->
+<!-- 小尺寸只用外形表达：内部刻线在这个尺寸下会糊成灰，见 logo/index.html -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32" role="img" aria-label="WeWrite"><title>WeWrite</title><path fill="currentColor" d="M2 5.4 L7.56 20.56 L12 11.56 L16.44 20.56 L22 5.4 L18.64 4.42 L16.25 16.62 L12 3.44 L7.75 16.62 L5.36 4.42 Z"/></svg>

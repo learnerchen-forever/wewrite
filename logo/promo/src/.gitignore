@@ -1,0 +1,2 @@
+# 渲染中间件（Chrome 截图的临时 html/png），不是产物
+.tmp/

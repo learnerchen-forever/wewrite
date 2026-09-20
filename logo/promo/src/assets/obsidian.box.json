@@ -1,0 +1,25 @@
+{
+ "source": "assets/obsidian-gradient.svg（Obsidian 官方 logo 原文件，量测脚本 tools/measure-svg.mjs）",
+ "viewBox": [
+  0,
+  0,
+  512,
+  512
+ ],
+ "canvas": [
+  1024,
+  1024
+ ],
+ "box": [
+  57.75,
+  0.25,
+  454.25,
+  511.75
+ ],
+ "size": [
+  396.5,
+  511.5
+ ],
+ "aspect": 0.7752,
+ "coverage": 0.5007
+}
