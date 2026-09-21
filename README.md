@@ -15,6 +15,7 @@
 <p align="center">
   <img src="assets/readme-banner.png" alt="WeWrite 2.0 — write in Obsidian, render to WeChat format, publish to your WeChat Official Account drafts" width="800">
 </p>
+
 ---
 
 ## Why WeWrite 2.0
