@@ -1,7 +1,0 @@
-<!-- WeWrite 校对命令图标（E1 · 放大镜 + 勾） -->
-<!-- 母题：笔与行 —— 镜内那枚勾的右臂是左臂两倍长，方向不对称才读得出是勾 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<circle cx="10.6" cy="10.6" r="7.2"/>
-	<path d="M15.8 15.8 21.4 21.4"/>
-	<path d="M7 10.8 9.6 13.4 14.4 7.6"/>
-</svg>

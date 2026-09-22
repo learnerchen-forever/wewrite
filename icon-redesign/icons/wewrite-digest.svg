@@ -1,8 +1,0 @@
-<!-- WeWrite 摘要标签图标（B2 · 折角文档 + 两行摘要） -->
-<!-- 母题：笔与行 —— 摘要行短一截收笔，折角指向右上方，与副本页区分 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<path d="M14.5 3H6.4A1.9 1.9 0 0 0 4.5 4.9v14.2A1.9 1.9 0 0 0 6.4 21h11.2a1.9 1.9 0 0 0 1.9-1.9V8.3z"/>
-	<path d="M14.5 3v5.3h5"/>
-	<path d="M8.2 12.6h7.8" stroke-width="1.5"/>
-	<path d="M8.2 16.4h5.2" stroke-width="1.5"/>
-</svg>

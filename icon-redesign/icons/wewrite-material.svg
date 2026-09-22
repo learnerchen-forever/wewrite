@@ -1,8 +1,0 @@
-<!-- WeWrite 素材库图标（A4 · 两屉素材柜） -->
-<!-- 母题：笔与行 —— 抽屉的横向分隔与拉手共用一个中轴，稳定、可数、不歧义 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<rect x="3.4" y="3.8" width="17.2" height="16.4" rx="2"/>
-	<path d="M3.4 12h17.2"/>
-	<path d="M10.6 7.9h2.8"/>
-	<path d="M10.6 16.1h2.8"/>
-</svg>

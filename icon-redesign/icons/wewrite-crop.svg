@@ -1,6 +1,0 @@
-<!-- WeWrite 封面裁剪图标（B9 · 裁剪框：两个 L 形角标） -->
-<!-- 母题：笔与行 —— 两个 L 镜像对称，四端等长，笔画不外溢 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<path d="M6 2.5v13a2 2 0 0 0 2 2h13.5"/>
-	<path d="M18 21.5v-13a2 2 0 0 0-2-2H2.5"/>
-</svg>

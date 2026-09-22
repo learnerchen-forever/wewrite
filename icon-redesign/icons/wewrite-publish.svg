@@ -1,9 +1,0 @@
-<!-- WeWrite 发布按钮图标（A5 · 文章向上送出） -->
-<!-- 母题：笔与行 —— 箭头向上飞出，卡片末行收笔，方向与内容一眼可读 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<path d="M12 2.6v7"/>
-	<path d="m8.4 6 3.6-3.4L15.6 6"/>
-	<rect x="3.6" y="11.6" width="16.8" height="9.6" rx="2"/>
-	<path d="M6.8 15h10.4" stroke-width="1.5"/>
-	<path d="M6.8 18.2h5.8" stroke-width="1.5"/>
-</svg>

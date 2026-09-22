@@ -1,9 +1,0 @@
-<!-- WeWrite 封面合成图标（B10 · 两块汇入一块） -->
-<!-- 母题：笔与行 —— 两条斜线从上方与下方汇入右侧结果框的左上、左下角 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<rect x="2.6" y="3" width="8.4" height="5.8" rx="1.4"/>
-	<rect x="2.6" y="15.2" width="8.4" height="5.8" rx="1.4"/>
-	<rect x="15.4" y="8.6" width="6.8" height="6.8" rx="1.6"/>
-	<path d="M11 5.9 15.4 8.7"/>
-	<path d="M11 18.1 15.4 15.3"/>
-</svg>

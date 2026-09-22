@@ -1,8 +1,0 @@
-<!-- WeWrite 主题编辑器图标（A3 · 调色盘） -->
-<!-- 母题：笔与行 —— 不改隐喻，只整理笔画重量，让它在 16px 仍是一块调色盘 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<path d="M12 3a9 9 0 1 0 0 18c1.6 0 2.5-1 2.5-2.3 0-.6-.2-1-.5-1.4-.4-.4-.6-.8-.6-1.2 0-1 .7-1.7 1.7-1.7h2.3c2 0 3.6-1.6 3.6-3.6C21.4 6.9 17.3 3 12 3z"/>
-	<circle cx="7.6" cy="10.6" r="1.15"/>
-	<circle cx="11.9" cy="7.6" r="1.15"/>
-	<circle cx="15.8" cy="10.9" r="1.15"/>
-</svg>

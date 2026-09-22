@@ -1,9 +1,0 @@
-<!-- WeWrite 多选模式按钮图标（D1 · 清单 + 勾选） -->
-<!-- 母题：笔与行 —— 三条条目共右边界，末条收笔短一截 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<path d="m3.2 6.6 1.4 1.4 3-3.4"/>
-	<path d="m3.2 12.6 1.4 1.4 3-3.4"/>
-	<path d="M12 7h8.8"/>
-	<path d="M12 13h8.8"/>
-	<path d="M12 19h5.6"/>
-</svg>

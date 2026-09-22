@@ -1,9 +1,0 @@
-<!-- WeWrite 复制 HTML 按钮图标（A6 · 双层文档：源页 + 副本页） -->
-<!-- 母题：笔与行 —— 副本页三行字收在同一个左边界，末行短一截 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<rect x="4.5" y="3" width="10.5" height="13.5" rx="1.6"/>
-	<rect x="9" y="7.5" width="10.5" height="13.5" rx="1.6"/>
-	<path d="M12 11.2h4.5" stroke-width="1.5"/>
-	<path d="M12 14.6h4.5" stroke-width="1.5"/>
-	<path d="M12 18h2.6" stroke-width="1.5"/>
-</svg>

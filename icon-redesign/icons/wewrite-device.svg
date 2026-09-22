@@ -1,9 +1,0 @@
-<!-- WeWrite 屏幕模拟选择标签图标（B6 · 手机 + 屏幕预览内容） -->
-<!-- 母题：笔与行 —— 屏内三行字共左边界，末行短一截，读作一屏正文 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<rect x="5.5" y="2.5" width="13" height="19" rx="2.6"/>
-	<path d="M8.6 7.8h6.8" stroke-width="1.5"/>
-	<path d="M8.6 11.4h6.8" stroke-width="1.5"/>
-	<path d="M8.6 15h3.8" stroke-width="1.5"/>
-	<path d="M10.6 18.8h2.8"/>
-</svg>

@@ -1,7 +1,0 @@
-<!-- WeWrite 折叠编辑器按钮图标（C3 · 面板 + 收起箭头） -->
-<!-- 母题：笔与行 —— 分隔线上下留白一致，箭头指向被收起的那一栏 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<rect x="3" y="3.6" width="18" height="16.8" rx="2"/>
-	<path d="M9.2 3.6v16.8"/>
-	<path d="m15.6 9.4-3.2 3.2 3.2 3.2"/>
-</svg>

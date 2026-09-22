@@ -1,7 +1,0 @@
-<!-- WeWrite 封面标签图标（B3 · 横版封面：2.2:1 的扁画框） -->
-<!-- 母题：笔与行 —— 框内一条山脊压在下三分之一，右上方留白给太阳 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<rect x="2.5" y="7" width="19" height="9" rx="1.8"/>
-	<circle cx="17.6" cy="10.2" r="1.1"/>
-	<path d="M5 14.8 8.2 11.6 10.8 14.2 13.4 11.4 15 13"/>
-</svg>

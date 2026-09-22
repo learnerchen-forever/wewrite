@@ -1,8 +1,0 @@
-<!-- WeWrite 预览缩放图标（B7 · 放大镜 + 加号） -->
-<!-- 母题：笔与行 —— 手柄延长线穿过圆心，加号横竖等长 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<circle cx="10.8" cy="10.8" r="7.2"/>
-	<path d="m16 16 5 5"/>
-	<path d="M10.8 7.8v6"/>
-	<path d="M7.8 10.8h6"/>
-</svg>

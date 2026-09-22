@@ -1,8 +1,0 @@
-<!-- WeWrite 图表生成命令图标（E6 · 流程图：两节点 + 折线箭头） -->
-<!-- 母题：笔与行 —— 折角半径与节点圆角一致，箭头尖与节点保持一个描边宽的距离 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	<rect x="3" y="3.4" width="9" height="5.6" rx="1.6"/>
-	<rect x="12" y="15" width="9" height="5.6" rx="1.6"/>
-	<path d="M7.5 9v5.1a1.9 1.9 0 0 0 1.9 1.9h1.9"/>
-	<path d="M9.3 13.8 11.3 16 9.3 18.2"/>
-</svg>
