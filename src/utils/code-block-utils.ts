@@ -13,6 +13,7 @@ import {
 } from '../core/code-theme-library';
 import { setTrustedHtml } from './trusted-html';
 import { ARTICLE_INLINE_STYLE } from '../renderer/article-inline-styles';
+import type { CodePaddingPx } from '../renderer/theme-resolver';
 
 export interface CodeBlockRenderOptions {
 	/** Code theme (token colors + background/foreground). Defaults to oneDark. */
@@ -25,6 +26,9 @@ export interface CodeBlockRenderOptions {
 	fontSize?: number;
 	/** True = soft-wrap (keeps plain spaces); false = no wrap + scroll (spaces become &nbsp;). */
 	wrap?: boolean;
+	/** The block's padding, in px (`ThemeResolver.resolveCodePadding()`). In no-wrap
+	 *  mode the horizontal sides are applied to the <code> instead of the body. */
+	padding?: CodePaddingPx;
 }
 
 function defaultOptions(): Required<CodeBlockRenderOptions> {
@@ -34,6 +38,7 @@ function defaultOptions(): Required<CodeBlockRenderOptions> {
 		fontFamily: FONT_FAMILIES['monospace'],
 		fontSize: 14,
 		wrap: false,
+		padding: { top: 10, right: 16, bottom: 10, left: 16 },
 	};
 }
 
@@ -60,6 +65,45 @@ export function processCodeBlocksInPlace(
 			`font-family:${opts.fontFamily}`,
 			`font-size:${opts.fontSize}px`,
 			'line-height:1.6',
+			// Deliberately duplicated with the code body <section> (see
+			// getCodeBlockBodyStyle), for three independent reasons:
+			//
+			// 1. `nowrap`, never `pre`. WeChat's editor rewrites the token `pre`
+			//    to `pre-wrap` on every element carrying it, so `pre` cannot be
+			//    used at all; `nowrap` is the value the editor leaves alone.
+			// 2. The block is sized to its longest line. If the editor rewrites
+			//    this declaration too, a box that is already as wide as its
+			//    content still has nothing to wrap — the hedge does not depend on
+			//    guessing the editor's rule. It has to sit on the <code> rather
+			//    than on the body: the body is the scroll container, and the
+			//    outer box is `overflow:hidden`, so widening the body would clip
+			//    long lines instead of scrolling them.
+			// 3. The horizontal padding lives here, not on the body. A scroll
+			//    container's inline-end padding is not reliably part of its
+			//    scrollable overflow (Chrome counts it, WebKit/X5 do not), so
+			//    leaving it on the body makes a long line end flush against the
+			//    box's right edge. On the content the gap travels with the text,
+			//    on every engine, and stays symmetrical with the left inset.
+			// 4. `min-width` repeats the same intent, because the published
+			//    article page pins every element inside `.rich_media_content` to
+			//    `max-width:100%!important; box-sizing:border-box!important`.
+			//    A stylesheet `!important` beats any inline declaration, so
+			//    `width:max-content` gets clamped to the column width and the
+			//    padding is swallowed with it (the text then overflows straight
+			//    through the gutter). `min-width` is untouched by that rule and
+			//    wins over `max-width` whenever it is larger (CSS 2.1 §10.4), so
+			//    the box keeps its intrinsic width. Measured on the live article:
+			//    34/34 long blocks had a ~0px gap before, 0/36 after.
+			...(opts.wrap
+				? ['white-space:pre-wrap']
+				: [
+					'white-space:nowrap',
+					'display:block',
+					'width:max-content',
+					'min-width:max-content',
+					`padding-left:${opts.padding.left}px`,
+					`padding-right:${opts.padding.right}px`,
+				]),
 		].join(';');
 		const existing = el.getAttribute('style') || '';
 		el.setAttribute('style', existing ? `${existing};${baseStyle}` : baseStyle);

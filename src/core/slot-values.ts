@@ -225,7 +225,7 @@ export function getCodePaddingValues(): Record<string, SlotValue> {
 // ── code.wrap ──
 export function getCodeWrapValues(): Record<string, SlotValue> {
 	return {
-		nowrap: sv('nowrap', 'modifier.code.wrap.nowrap', 'modifier.code.wrap.nowrap_desc', 'white-space:pre;overflow-x:auto'),
+		nowrap: sv('nowrap', 'modifier.code.wrap.nowrap', 'modifier.code.wrap.nowrap_desc', 'white-space:nowrap;overflow-x:auto'),
 		wrap: sv('wrap', 'modifier.code.wrap.wrap', 'modifier.code.wrap.wrap_desc', 'white-space:pre-wrap;word-wrap:break-word'),
 	};
 }

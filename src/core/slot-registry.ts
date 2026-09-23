@@ -56,7 +56,11 @@ export function getSlotRegistry(): SlotRegistry {
 				},
 			},
 			pageMargin: {
-				id: 'pageMargin', name: t('modifier.article.pageMargin_label'), defaultValue: 'standard',
+				// 'none' is the default: the article root's padding stacks on top
+				// of WeChat's own 20px gutter (--appmsgPageGap), so 0 extra is
+				// what makes a published article read like a native one. See
+				// DEFAULT_PRESET.margin.
+				id: 'pageMargin', name: t('modifier.article.pageMargin_label'), defaultValue: 'none',
 				values: toList(getArticlePageMarginValues()), allowCustom: true,
 				slider: {
 					min: 0, max: 48, step: 2, unit: 'px',

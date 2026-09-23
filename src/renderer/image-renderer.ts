@@ -174,10 +174,20 @@ export function buildImageStyle(params: Record<string, string>, extra: ImageExtr
 	const marginTop = params.marginTop || extra.marginY || DEFAULT_IMAGE_MARGIN_Y;
 	const marginBottom = params.marginBottom || extra.marginY || DEFAULT_IMAGE_MARGIN_Y;
 	const display = params.display === 'inline' ? 'inline' : 'block';
-	if (params.maxWidth) parts.push(`max-width:${params.maxWidth}`);
-	if (extra.width) {
-		parts.push(`width:${extra.width}px`);
-	} else if (display === 'block') {
+	// An explicit per-image size (`![[pic|400]]`, or the width field in the
+	// preview's context menu) is emitted as a **cap** — `max-width:<px>` — with
+	// `width:100%`, never as a bare `width:<px>`. The WeChat editor rewrites
+	// every image's `width` to the column width with `!important` when it opens
+	// the draft, so a bare width publishes as a full-column picture; `max-width`
+	// is a different property and rides through (measured: the editor keeps our
+	// declaration order and rewrites only `width`/`height` against our own
+	// `data-original-style` — docs/bug-fix/2026-09-22-codeblock-autowrap.md).
+	// The pair renders identically to the old `width:<px>` + `max-width:100%`:
+	// `width:100%` fills the column and the cap trims it back, so a column
+	// narrower than the request clamps instead of overflowing.
+	const widthCap = extra.width ? `${extra.width}px` : params.maxWidth;
+	if (widthCap) parts.push(`max-width:${widthCap}`);
+	if (extra.width || display === 'block') {
 		// No size asked for → fill the reading column. `width:100%` (rather than
 		// leaving the width to `max-width:100%` alone) is what guarantees a
 		// full-width image whatever the picture's aspect ratio: with only a

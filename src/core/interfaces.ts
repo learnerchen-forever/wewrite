@@ -359,6 +359,11 @@ export interface ThemePreset {
   name: string;
   /** i18n key for the display name (built-in presets; resolved lazily). */
   nameKey?: string;
+  /**
+   * Extra padding (px) on the article root section, uniform on all sides.
+   * Stacks on the host's own gutter — WeChat pads the published body by 20px
+   * on each side — so the meaningful default is 0.
+   */
   margin: number;
   background: string;
   fontFamily: string;

@@ -92,7 +92,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'palette.accent': '#0366d6',
 			'typography.baseSize': 16,
 			'typography.lineHeight': 1.82,
-			'article.pageMargin': 'standard',
+			'article.pageMargin': 'none',
 			'blocks.code.theme': 'githubLight',
 			'blocks.code.titleBar': 'lightDots',
 			// A code-heavy theme wants the least possible chrome everywhere else:
@@ -123,7 +123,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'palette.accent': '#07c160',
 			'typography.baseSize': 16,
 			'typography.lineHeight': 1.8,
-			'article.pageMargin': 'standard',
+			'article.pageMargin': 'none',
 			'blocks.code.theme': 'oneDark',
 			'blocks.code.titleBar': 'darkDots',
 			// The platform-native look: no heading ornament, no divider, plain
@@ -155,7 +155,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'typography.letterSpacing': 1,
 			'typography.paragraphGap': 18,
 			'article.background': 'warm',
-			'article.pageMargin': 'comfortable',
+			'article.pageMargin': 'compact',
 			'blocks.code.theme': 'warmPaper',
 			'blocks.code.titleBar': 'none',
 			// Serif long-form: a centred opening heading, a tinted block for the
@@ -201,7 +201,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'typography.paragraphGap': 18,
 			'article.background': 'warm',
 			'article.backgroundPattern': 'paper',
-			'article.pageMargin': 'comfortable',
+			'article.pageMargin': 'compact',
 			'blocks.code.theme': 'warmPaper',
 			'blocks.code.titleBar': 'none',
 			// Ruled-paper essay: shadowed section headings, a framed quote, a
@@ -241,7 +241,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'typography.lineHeight': 1.8,
 			'article.background': 'white',
 			'article.backgroundPattern': 'grid',
-			'article.pageMargin': 'standard',
+			'article.pageMargin': 'none',
 			'blocks.code.theme': 'githubLight',
 			'blocks.code.titleBar': 'lightDots',
 			// Product documentation: numbered, underlined headings; jade list
@@ -274,7 +274,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'typography.lineHeight': 1.9,
 			'typography.letterSpacing': 1.5,
 			'typography.paragraphGap': 18,
-			'article.pageMargin': 'comfortable',
+			'article.pageMargin': 'compact',
 			'blocks.code.theme': 'slateDark',
 			'blocks.code.titleBar': 'darkDots',
 			// Editorial column: the numbering *is* the heading ornament, the
@@ -314,7 +314,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'typography.baseSize': 16,
 			'typography.lineHeight': 1.8,
 			'article.background': 'cool',
-			'article.pageMargin': 'standard',
+			'article.pageMargin': 'none',
 			'blocks.code.theme': 'githubLight',
 			'blocks.code.titleBar': 'lightDots',
 			// Image-led posts: centred image cards, icon lists, a frosted quote.
@@ -346,7 +346,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'typography.lineHeight': 1.8,
 			'article.background': 'white',
 			'article.backgroundPattern': 'dotGrid',
-			'article.pageMargin': 'standard',
+			'article.pageMargin': 'none',
 			'blocks.code.theme': 'oneDark',
 			'blocks.code.titleBar': 'darkDots',
 			// Campaign posts: coloured pills, a gradient banner for h1, an aurora
@@ -380,7 +380,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'typography.baseSize': 16,
 			'typography.lineHeight': 1.85,
 			'article.background': 'warm',
-			'article.pageMargin': 'comfortable',
+			'article.pageMargin': 'compact',
 			'blocks.code.theme': 'warmPaper',
 			'blocks.code.titleBar': 'none',
 			// Lifestyle writing: a curtain heading for h2, pull quotes, amber
@@ -420,7 +420,7 @@ const PRESET_DEFS: PresetDef[] = [
 			'typography.baseSize': 16,
 			'typography.lineHeight': 1.8,
 			'article.background': 'dark',
-			'article.pageMargin': 'standard',
+			'article.pageMargin': 'none',
 			'blocks.code.theme': 'slateDark',
 			'blocks.code.titleBar': 'darkDots',
 			// Night reading. `article.background: dark` is what flips the body

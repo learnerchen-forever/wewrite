@@ -55,7 +55,10 @@ describe('image decoration style builders', () => {
 
 	it('supports per-image width/height/align overrides', () => {
 		const style = buildImageStyle(params, { width: 400, height: 300, align: 'left' });
-		expect(style).toContain('width:400px');
+		// The width is a cap + fill, not a bare `width:400px` — see the
+		// decision-A block below for why the encoding changed.
+		expect(style).toContain('max-width:400px');
+		expect(style).toContain('width:100%');
 		expect(style).toContain('height:300px');
 		expect(style).not.toContain('height:auto');
 		expect(style).toContain(`margin:${DEFAULT_IMAGE_MARGIN_Y} auto ${DEFAULT_IMAGE_MARGIN_Y} 0`);
@@ -103,13 +106,23 @@ function renderImage(
 
 /**
  * Decision A (2026-09-18, signed off by the user): an explicit `|宽x高|` is a
- * request for exactly that pixel box. `max-width:100%` is always emitted, so on
- * a column narrower than the request the width is clamped while the height stays
- * as asked — a `|1200x800|` on a 343px column renders at ratio 0.43 and looks
- * like a vertical bar. That is the documented behaviour of
- * `docs/superpowers/specs/2026-06-22-embed-image-params-design.md`, kept because
- * the alternative (`height:auto` whenever a height is given) would make a
- * deliberate `|200x200|` square impossible.
+ * request for exactly that pixel box, capped on the width so a narrow column
+ * clamps while the height stays as asked — a `|1200x800|` on a 343px column
+ * renders at ratio 0.43 and looks like a vertical bar. That is the documented
+ * behaviour of `docs/superpowers/specs/2026-06-22-embed-image-params-design.md`,
+ * kept because the alternative (`height:auto` whenever a height is given) would
+ * make a deliberate `|200x200|` square impossible.
+ *
+ * 2026-09-22 — the **encoding** changed, the decision did not. The width is now
+ * written as `max-width:<px>` + `width:100%` instead of `width:<px>` +
+ * `max-width:100%`, because the WeChat editor rewrites every image's `width` to
+ * the column width with `!important` when it opens the draft, so a `|400|` used
+ * to publish as a full-column picture (evidence:
+ * docs/bug-fix/2026-09-22-codeblock-autowrap.md). `max-width` is a different
+ * property and rides through untouched. The two encodings are equivalent:
+ * `width:100%` fills the reading column and the cap trims it back, so a column
+ * narrower than the request still clamps rather than overflowing, and the
+ * height keeps behaving exactly as before.
  *
  * These assertions exist to stop a later, well-meaning "fix" from changing the
  * `|宽x高|` contract without a decision. If you are here because they fail,
@@ -118,20 +131,23 @@ function renderImage(
 describe('explicit |宽x高| keeps the requested pixel box (decision A)', () => {
 	const decoParams = { maxWidth: '100%', display: 'block', align: 'center', radius: '8px' };
 
-	it('emits both px values and still caps the width at the column', () => {
+	it('carries the requested width as the cap and keeps the height verbatim', () => {
 		const style = buildImageStyle(decoParams, { width: 1200, height: 800 });
-		expect(style).toContain('width:1200px');
+		expect(style).toContain('max-width:1200px');
+		// The fill that makes the cap mean "the requested box, clamped".
+		expect(style).toContain('width:100%');
 		expect(style).toContain('height:800px');
-		// The cap is what protects narrow screens from a horizontal overflow.
-		expect(style).toContain('max-width:100%');
 		expect(style).not.toContain('height:auto');
+		// The requested size must not also appear as a bare width — the editor
+		// would overwrite exactly that declaration.
+		expect(style.split(';')).not.toContain('width:1200px');
 	});
 
 	it('keeps the deliberate square a |200x200| asks for', () => {
 		// The capability decision A protects: this is *meant* to be a square even
 		// though the source picture is not.
 		const style = buildImageStyle(decoParams, { width: 200, height: 200 });
-		expect(style).toContain('width:200px');
+		expect(style).toContain('max-width:200px');
 		expect(style).toContain('height:200px');
 	});
 
@@ -139,16 +155,18 @@ describe('explicit |宽x高| keeps the requested pixel box (decision A)', () => 
 		const html = renderImage({ imageConfig: { decoration: 'lightShadow' } }, undefined, [
 			{ imageKey: 'a.png', width: 1200, height: 800 },
 		]);
-		expect(html).toContain('width:1200px');
+		expect(html).toContain('max-width:1200px');
 		expect(html).toContain('height:800px');
-		expect(html).toContain('max-width:100%');
+		expect(html).toContain('width:100%');
+		expect(html.split(';')).not.toContain('width:1200px');
 	});
 
 	it('keeps the pixel box through the pipeline (v3 path)', () => {
 		const html = renderImage({}, undefined, [{ imageKey: 'a.png', width: 1200, height: 800 }]);
-		expect(html).toContain('width:1200px');
+		expect(html).toContain('max-width:1200px');
 		expect(html).toContain('height:800px');
-		expect(html).toContain('max-width:100%');
+		expect(html).toContain('width:100%');
+		expect(html.split(';')).not.toContain('width:1200px');
 		// The v3 branch swaps its default `height:auto` out for the asked height.
 		expect(html).not.toContain('height:auto');
 	});
@@ -159,7 +177,7 @@ describe('explicit |宽x高| keeps the requested pixel box (decision A)', () => 
 		const html = renderImage({ imageConfig: { decoration: 'lightShadow' } });
 		expect(html).toContain('width:100%');
 		expect(html).toContain('height:auto');
-		expect(html).not.toContain('width:1200px');
+		expect(html).not.toContain('max-width:1200px');
 	});
 });
 

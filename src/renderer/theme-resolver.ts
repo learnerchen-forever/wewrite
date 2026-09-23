@@ -22,7 +22,12 @@ import { escapeHtmlAttr } from './shared';
 
 export const DEFAULT_PRESET: ThemePreset = {
 	name: 'default',
-	margin: 16,
+	// 0, not 16: this padding is *extra* on top of the host's own gutter.
+	// WeChat's article container (#page-content) already pads the body by
+	// 20px on each side (--appmsgPageGap, measured on a 390px mobile
+	// viewport), so a nonzero root padding stacks — 16px meant 36px of real
+	// margin on a phone. Keep 0 and let the platform own the gutter.
+	margin: 0,
 	background: '#ffffff',
 	sectionBg: '#ffffff',
 	fontFamily: 'inherit',
@@ -130,16 +135,62 @@ function joinStyles(...css: string[]): string {
 	return css.filter(Boolean).join(';');
 }
 
-/** Mac traffic-light dots used in the code title bar. */
+/** The four code-block paddings, in px. */
+export interface CodePaddingPx {
+	top: number;
+	right: number;
+	bottom: number;
+	left: number;
+}
+
+/**
+ * Expand a CSS `padding` shorthand (px values only) into four sides.
+ *
+ * Used to find out how much horizontal room a code block reserves, because in
+ * no-wrap mode that room has to be re-emitted on the *content* instead of on
+ * the scroll container — see `getCodeBlockBodyStyle`.
+ *
+ * A declaration that is not px-denominated (`em`, `%`, `calc()`) leaves the
+ * fallback for that side untouched rather than guessing. Later declarations
+ * win, matching CSS.
+ */
+export function expandPaddingPx(css: string, fallback: CodePaddingPx): CodePaddingPx {
+	const out: CodePaddingPx = { ...fallback };
+	for (const decl of css.split(';').map((d) => d.trim()).filter(Boolean)) {
+		const m = /^padding(-top|-right|-bottom|-left)?\s*:\s*(.+)$/i.exec(decl);
+		if (!m) continue;
+		const nums = m[2].trim().split(/\s+/).map((tok) => (/^(\d+(?:\.\d+)?)px$/.exec(tok) || [])[1]);
+		if (nums.some((n) => n === undefined) || nums.length === 0 || nums.length > 4) continue;
+		const n = nums.map(Number);
+		const side = m[1]?.slice(1).toLowerCase();
+		if (side === 'top') out.top = n[0];
+		else if (side === 'right') out.right = n[0];
+		else if (side === 'bottom') out.bottom = n[0];
+		else if (side === 'left') out.left = n[0];
+		else if (n.length === 1) { out.top = out.right = out.bottom = out.left = n[0]; }
+		else if (n.length === 2) { out.top = out.bottom = n[0]; out.right = out.left = n[1]; }
+		else if (n.length === 3) { out.top = n[0]; out.right = out.left = n[1]; out.bottom = n[2]; }
+		else { out.top = n[0]; out.right = n[1]; out.bottom = n[2]; out.left = n[3]; }
+	}
+	return out;
+}
+
+/** Mac traffic-light dots used in the code title bar.
+ *
+ *  Each dot carries a `&nbsp;`. WeChat's editor drops inline elements that hold
+ *  no content at all, and it does so bottom-up: the three empty dots go first,
+ *  which empties their row, which empties the bar — the whole title bar
+ *  disappears from the published article. One text node per dot stops the
+ *  cascade (a non-breaking space paints nothing inside a 12px box). */
 const CODE_TITLE_BAR_DOTS: Record<string, string> = {
 	lightDots:
-		'<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ed6c60"></span>'
-		+ '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#f7c151"></span>'
-		+ '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#64c856"></span>',
+		'<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ed6c60">&nbsp;</span>'
+		+ '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#f7c151">&nbsp;</span>'
+		+ '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#64c856">&nbsp;</span>',
 	darkDots:
-		'<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f56"></span>'
-		+ '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ffbd2e"></span>'
-		+ '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#27c93f"></span>',
+		'<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f56">&nbsp;</span>'
+		+ '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ffbd2e">&nbsp;</span>'
+		+ '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#27c93f">&nbsp;</span>',
 };
 
 // ── ThemeResolver ──
@@ -345,6 +396,24 @@ export class ThemeResolver {
 		return this.resolveSlotValueId('blocks.code', 'languageTag') === 'show';
 	}
 
+	/**
+	 * The code block's padding, from the `blocks.code.padding` slot (the single
+	 * source of truth — the base style below is only a fallback for a registry
+	 * that lost the slot). In no-wrap mode the horizontal sides are re-emitted
+	 * on the `<code>`: see `getCodeBlockBodyStyle`.
+	 */
+	resolveCodePadding(): CodePaddingPx {
+		const fallback: CodePaddingPx = {
+			top: this.preset.code?.paddingTop ?? 10,
+			right: 16,
+			bottom: this.preset.code?.paddingBottom ?? 10,
+			left: 16,
+		};
+		const slot = getSlotRegistry()['blocks.code']?.padding;
+		const value = slot?.values.find((v) => v.id === this.resolveSlotValueId('blocks.code', 'padding'));
+		return expandPaddingPx(value?.css || '', fallback);
+	}
+
 	private resolveCornerRadius(): number {
 		const slot = getSlotRegistry()['blocks.code']?.corner;
 		const value = slot?.values.find((v) => v.id === this.resolveSlotValueId('blocks.code', 'corner'));
@@ -374,8 +443,8 @@ export class ThemeResolver {
 
 	/**
 	 * Code-block outer box: a zero-padding container that owns the background,
-	 * corner radius, shadow and vertical spacing. Padding lives on the <pre> (see
-	 * getCodeBlockPreStyle), so a title bar can sit flush against the box's
+	 * corner radius, shadow and vertical spacing. Padding lives on the body
+	 * (see getCodeBlockBodyStyle), so a title bar can sit flush against the box's
 	 * top/left/right edges instead of being inset by the code padding.
 	 */
 	getCodeBlockBoxStyle(): string {
@@ -399,25 +468,43 @@ export class ThemeResolver {
 		);
 	}
 
-	/** Code-block <pre>: typography, padding and scroll/wrap behavior only.
+	/** Code-block body: typography, padding and scroll/wrap behavior only.
 	 *  Kept separate from getCodeBlockBoxStyle so the outer box never adds
-	 *  padding around the title bar. */
-	getCodeBlockPreStyle(): string {
-		const p = this.preset;
-		const theme = this.resolveCodeTheme();
-		const pt = p.code?.paddingTop ?? 10;
-		const pb = p.code?.paddingBottom ?? 10;
+	 *  padding around the title bar.
+	 *
+	 *  The body element is a <section>, never a <pre>: a <pre> host made the
+	 *  editor normalize the whitespace *inside* it (the &nbsp; indentation came
+	 *  back as plain spaces). The editor also rewrites the white-space *value*
+	 *  `pre` to `pre-wrap` on whatever element carries it, so the no-wrap value
+	 *  is `nowrap`. See docs/bug-fix/2026-09-22-codeblock-autowrap.md.
+	 *
+	 *  The body is also the horizontal scroll container — and a scroll
+	 *  container's inline-end padding is not reliably part of its scrollable
+	 *  overflow (Chrome counts it, WebKit/X5 do not). So in no-wrap mode the
+	 *  horizontal sides are left to the *content*: the <code> carries them (see
+	 *  the nowrap branch of processCodeBlocksInPlace). Otherwise a long line
+	 *  ends flush against the box's right edge as soon as the reader scrolls
+	 *  all the way, which is what the padding slot is supposed to prevent. */
+	getCodeBlockBodyStyle(): string {
 		const wrap = this.resolveCodeWrap();
+		const pad = this.resolveCodePadding();
+		const theme = this.resolveCodeTheme();
 		const base = [
 			`font-family: ${this.resolveCodeFontFamily()}`,
 			`font-size: ${this.resolveCodeFontSize()}px`,
-			`padding: ${pt}px 16px ${pb}px 16px`,
+			`padding: ${pad.top}px ${pad.right}px ${pad.bottom}px ${pad.left}px`,
 			'overflow-x: auto',
 			'line-height: 1.6',
-			wrap ? 'white-space: pre-wrap; word-wrap: break-word' : 'white-space: pre',
+			// `nowrap`, not `pre`: WeChat's editor rewrites the token `pre` to
+			// `pre-wrap` on every element that carries it. See the note above.
+			wrap ? 'white-space: pre-wrap; word-wrap: break-word' : 'white-space: nowrap',
 			`color: ${theme.fg}`,
 		].join(';');
-		return joinStyles(base, this.resolveSlotCSS('blocks.code'));
+		// No-wrap: zero the horizontal sides here. Emitted after the slot CSS so
+		// it also beats the padding slot's shorthand; the same two numbers are
+		// re-emitted on the <code> by processCodeBlocksInPlace.
+		const horizontal = wrap ? '' : `padding: ${pad.top}px 0 ${pad.bottom}px`;
+		return joinStyles(base, this.resolveSlotCSS('blocks.code'), horizontal);
 	}
 
 	/** Build heading style using slot system. Eight slots: font, color, weight, align, size, border, background, prefix. */
@@ -510,7 +597,9 @@ export class ThemeResolver {
 					`padding: ${pt}px 16px ${pb}px 16px`,
 					'overflow-x: auto',
 					'line-height: 1.6',
-					wrap ? 'white-space: pre-wrap; word-wrap: break-word' : 'white-space: pre',
+					// Same reason as getCodeBlockBodyStyle(): `pre` is rewritten
+					// to `pre-wrap` by the WeChat editor wherever it appears.
+					wrap ? 'white-space: pre-wrap; word-wrap: break-word' : 'white-space: nowrap',
 					`margin-bottom: ${pgap}px`,
 				].join(';');
 				return joinStyles(base, shadowCss, slotCss);

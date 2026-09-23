@@ -1454,6 +1454,11 @@ body .wewrite-auto-expand .setting-item.wewrite-test-row:not(.mod-toggle):not(.s
   line-height: 1.75;
   color: #333;
   word-break: break-word;
+  /* Simulate WeChat's own article gutter (#page-content pads the published
+     body 20px on each side, 20px top / 40px bottom). The article root's
+     own page margin is now 0 by default — it stacks ON TOP of this gutter —
+     so without this padding the phone preview would read edge-to-edge. */
+  padding: 20px 20px 40px;
 }
 
 /* ── Image carousel: a slim scrollbar, not a hidden one ──

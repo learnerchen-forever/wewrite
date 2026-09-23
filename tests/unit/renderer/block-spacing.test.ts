@@ -197,11 +197,15 @@ describe('image width — full width unless a size is given', () => {
 		expect(style).toContain('height:auto');
 	});
 
-	it('keeps an explicit width and never forces 100% on it', () => {
+	it('encodes an explicit width as a cap the WeChat editor cannot rewrite', () => {
 		const style = buildImageStyle({ maxWidth: '100%' }, { width: 320 });
-		expect(style).toContain('width:320px');
-		// `max-width:100%` is fine; a hard `width:100%` would override the size.
-		expect(style.split(';')).not.toContain('width:100%');
+		// The editor rewrites every image's `width` to the column width with
+		// `!important`; `max-width` is a different property and survives.
+		expect(style).toContain('max-width:320px');
+		// `width:100%` does not override the size — the cap trims it back — and
+		// it is what lets a column narrower than 320px clamp instead of overflow.
+		expect(style).toContain('width:100%');
+		expect(style.split(';')).not.toContain('width:320px');
 	});
 
 	it('does not force full width on an inline-display decoration', () => {

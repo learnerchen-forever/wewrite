@@ -1,87 +1,87 @@
 {
   "schema": 2,
   "hashAlgorithm": "fnv1a64",
-  "generated": "2026-09-20T09:43:44Z",
+  "generated": "2026-09-22T14:39:05Z",
   "themes": [
     {
       "name": "晨曦蓝调",
       "file": "001-晨曦蓝调.md",
       "description": "晨光微亮的蓝色基调，浅底配深蓝强调，标题轻底色块、引用为经典色条，适合技术文章与日常工作记录。",
       "descriptionEn": "A bright morning-blue palette on white, with light-bg headings and a classic accent bar on quotes — calm enough for technical writing and daily notes.",
-      "updated": "2026-09-18",
-      "hash": "631b328fc3a668ce"
+      "updated": "2026-09-22",
+      "hash": "0cd3dab77bbc6f1b"
     },
     {
       "name": "青竹雅韵",
       "file": "002-青竹雅韵.md",
       "description": "竹青主色配叶片点缀，二级标题带对称叶形，引用为渐隐描边，整体清润雅致。",
       "descriptionEn": "Bamboo green with paired leaf marks on H2 headings and a soft gradient quote edge — fresh and literary without being loud.",
-      "updated": "2026-09-18",
-      "hash": "93b16f250667a834"
+      "updated": "2026-09-22",
+      "hash": "4ef53732c71aafab"
     },
     {
       "name": "落日熔金",
       "file": "003-落日熔金.md",
       "description": "暖橙配衬线字与宽行距，标题为药丸三角、引用双层套框，晚霞般浓郁，适合散文与长文。",
       "descriptionEn": "Warm orange, serif type and generous spacing; pill-triangle headings and double-framed quotes give long essays a sunset warmth.",
-      "updated": "2026-09-18",
-      "hash": "e9873412712a9b6d"
+      "updated": "2026-09-22",
+      "hash": "8624d0d79176b0c2"
     },
     {
       "name": "星河夜航",
       "file": "004-星河夜航.md",
       "description": "暗色底加细点网格，蓝色星辉贯穿标题、引用与提示块，配深色代码窗，适合夜间阅读的长文。",
       "descriptionEn": "A dark dot-grid page with blue starlight running through headings, quotes and callouts, plus a dark code window — built for night reading.",
-      "updated": "2026-09-18",
-      "hash": "615a21e8ed98d1d1"
+      "updated": "2026-09-22",
+      "hash": "f5094b39983cc062"
     },
     {
       "name": "雨过天青",
       "file": "005-雨过天青.md",
       "description": "雨后天青的冷调蓝，衬线正文，一级标题下划块、二级标题浅底，引用为玻璃卡片，清透克制。",
       "descriptionEn": "Rain-washed cool blue with serif text: an underlined H1, light-bg H2 and glass-card quotes — clear and restrained.",
-      "updated": "2026-09-18",
-      "hash": "c2ed655222cda94a"
+      "updated": "2026-09-22",
+      "hash": "439117b0992234ef"
     },
     {
       "name": "素笺工笔",
       "file": "006-素笺工笔.md",
       "description": "近乎无色的素笺，灰墨衬线字与宽字距，标题四角钉、引用双边线，留白充裕，最接近纸面工笔。",
       "descriptionEn": "Almost colourless paper: grey ink, wide letter-spacing, corner-nailed headings and double-edged quotes — the closest to fine-line print.",
-      "updated": "2026-09-18",
-      "hash": "7bd5378d71d81371"
+      "updated": "2026-09-22",
+      "hash": "b4b9f8a52dfd00d6"
     },
     {
       "name": "鎏金古典",
       "file": "007-鎏金古典.md",
       "description": "纸纹暖底配鎏金衬线，标题为匾额、引用为古典色条、图片加墨框，端庄复古。",
       "descriptionEn": "Gold on textured warm paper: plaque headings, classic accent-bar quotes and ink-framed images — formal and old-fashioned in the best way.",
-      "updated": "2026-09-18",
-      "hash": "35c1ed7440417b3f"
+      "updated": "2026-09-22",
+      "hash": "7151a12a220f4072"
     },
     {
       "name": "樱粉温柔",
       "file": "008-樱粉温柔.md",
       "description": "樱粉主色配暖色点格底，圆润药丸标题与四角钉引用，暗色代码窗，柔和而不腻。",
       "descriptionEn": "Cherry pink on a warm dot-grid page, with rounded pill headings, corner-nailed quotes and a dark code window.",
-      "updated": "2026-09-18",
-      "hash": "9c2da952c74c1c99"
+      "updated": "2026-09-22",
+      "hash": "83855adc6f2339f8"
     },
     {
       "name": "深海静谧",
       "file": "009-深海静谧.md",
       "description": "深海青蓝的冷调，渐变圆角标题与玻璃质感引用，蓝色带分隔线，安静沉稳。",
       "descriptionEn": "Deep-sea teal with rounded gradient headings, glass-card quotes and a sky-band divider — quiet and steady.",
-      "updated": "2026-09-18",
-      "hash": "db7cd04672e31c5f"
+      "updated": "2026-09-22",
+      "hash": "fb8f71bc84a2cde6"
     },
     {
       "name": "麦浪秋色",
       "file": "010-麦浪秋色.md",
       "description": "麦黄与琥珀的秋色，纸纹底配衬线字，标题为垂帘、引用特大引号、图片配纸质说明，丰收气息。",
       "descriptionEn": "Harvest gold and amber on paper texture: curtain headings, oversized quote marks and paper-captioned images.",
-      "updated": "2026-09-18",
-      "hash": "762fcefd75deab3f"
+      "updated": "2026-09-22",
+      "hash": "390cd04ff2750a42"
     }
   ]
 }

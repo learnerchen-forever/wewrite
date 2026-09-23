@@ -22,7 +22,7 @@ describe('Article slots (v3)', () => {
     expect(article.backgroundPattern.defaultValue).toBe('none');
     expect(article.backgroundPattern.allowCustom).toBe(true);
     expect(article.backgroundPattern.codeEditor?.example).toContain('background-image');
-    expect(article.pageMargin.defaultValue).toBe('standard');
+    expect(article.pageMargin.defaultValue).toBe('none');
     expect(article.pageMargin.slider?.max).toBe(48);
     expect(article.pageMargin.slider?.css(20)).toBe('padding:20px');
     expect(article.borderRadius.slider?.min).toBe(0);
@@ -31,11 +31,11 @@ describe('Article slots (v3)', () => {
     expect(article.frameBorder.customColor).toBe(true);
   });
 
-  it('resolves defaults: transparent background, 16px uniform padding, no radius', () => {
+  it('resolves defaults: transparent background, 0px page margin (WeChat adds its own 20px), no radius', () => {
     const resolver = new ThemeResolver({ ...DEFAULT_PRESET });
     const css = resolver.resolveSlotCSS('article');
     expect(css).toContain('background:transparent');
-    expect(css).toContain('padding:16px');
+    expect(css).toContain('padding:0');
     expect(css).toContain('border-radius:0');
     expect(css).toContain('border:none');
   });

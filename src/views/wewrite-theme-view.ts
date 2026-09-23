@@ -3656,7 +3656,9 @@ export class WeWriteThemeView extends ItemView {
 	private renderNumericSlider(container: HTMLElement, elementPath: string, slotId: string, slot: Slot): void {
 		const opts = slot.slider!;
 		const currentValue = this.modifierConfig[elementPath]?.[slotId] || slot.defaultValue;
-		const fallback = slotId === 'pageMargin' ? 16 : 0;
+		// The default page margin is 0 — the article root's padding stacks on
+		// WeChat's own 20px gutter, so 'none' is the sensible starting point.
+		const fallback = 0;
 		const current = this.articleSliderNumber(slotId, currentValue, fallback);
 
 		const row = container.createDiv();
@@ -3855,6 +3857,7 @@ export class WeWriteThemeView extends ItemView {
 				fontFamily: resolver.resolveCodeFontFamily(),
 				fontSize: resolver.resolveCodeFontSize(),
 				wrap: resolver.resolveCodeWrap(),
+				padding: resolver.resolveCodePadding(),
 			});
 			// Convert MathJax CHTML formulas to self-contained SVG so inline
 			// and block math display in the preview (same pipeline as publish).

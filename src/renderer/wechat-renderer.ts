@@ -354,40 +354,6 @@ export class WechatRenderer {
     // (inline code / links / strong / em / inline-math) style them.
     const inlineHandled = renderInlineElements(doc, r);
 
-    // Code blocks: wrap <pre> in a styled <section> for container appearance.
-    // The section is a zero-padding box (background/radius/shadow); the <pre>
-    // owns the padding, so a title bar inserted above it sits flush against
-    // the box's top/left/right edges instead of being inset by code padding.
-    doc.querySelectorAll('pre').forEach((el) => {
-      // Mermaid diagrams are not code blocks: Obsidian wraps the SVG in
-      // <pre class="mermaid">. Keep them transparent and unwrapped so the
-      // diagram colors come from the Mermaid themer, not the code theme.
-      // The theme's `media.mermaid.marginY` supplies their vertical spacing.
-      const isMermaidPre = (el.classList?.contains('mermaid') ?? false) || el.querySelector('svg') !== null;
-      if (isMermaidPre) {
-        el.setAttribute('style', ARTICLE_INLINE_STYLE.mermaidPre +
-          `;margin:${resolveBlockMarginY(r.getPreset(), 'mermaid', DEFAULT_BLOCK_MARGIN_Y)} 0`);
-        return;
-      }
-      const section = createEl('section');
-      section.setAttribute('style', r.getCodeBlockBoxStyle());
-      el.parentNode?.insertBefore(section, el);
-      // Neutralize the UA default <pre> margin; the pre carries the code
-      // typography + padding and scrolls horizontally inside the rounded box.
-      const preStyle = (el.getAttribute('style') || '').trim();
-      const codeStyle = r.getCodeBlockPreStyle();
-      el.setAttribute('style', preStyle ? `${preStyle};${codeStyle};margin:0` : `${codeStyle};margin:0`);
-      section.appendChild(el);
-      // Title bar — Mac-style dots + right-aligned language label
-      const codeEl = el.querySelector('code');
-      const language = codeEl ? getCodeLanguageFromClassList(Array.from(codeEl.classList)) : null;
-      const titleBarHtml = r.buildCodeTitleBarHtml(language);
-      if (titleBarHtml) {
-        const prependEl = createSpan();
-        setTrustedHtml(prependEl, titleBarHtml);
-        section.insertBefore(prependEl, el);
-      }
-    });
     // Inline code only — block code (<pre><code>) is handled by
     // processCodeBlocksInPlace() which preserves Obsidian's syntax highlighting
     if (!inlineHandled) {
@@ -497,14 +463,20 @@ export class WechatRenderer {
         // `display:inline-block` is what lets the top/bottom margin apply at
         // all — a plain inline image ignores vertical margins, which is how
         // images used to end up flush against the text around them.
-        imgStyle = `max-width:100%;height:auto;border-radius:${borderRadius}px;vertical-align:middle;display:inline-block;margin:${marginY} 0`;
+        const baseImgStyle = `height:auto;border-radius:${borderRadius}px;vertical-align:middle;display:inline-block;margin:${marginY} 0`;
         if (params.width) {
-          imgStyle += `;width:${params.width}px`;
-        } else if (isLoneImage(img)) {
-          // No size asked for → fill the reading column (same rule as the
-          // decoration path above). Only when the image has the container to
-          // itself: several images in one paragraph are a row, not a stack.
-          imgStyle += ';width:100%';
+          // Explicit size → a cap plus `width:100%`, same reason as
+          // buildImageStyle: the editor rewrites `width` on every image but
+          // leaves `max-width` alone.
+          imgStyle = `max-width:${params.width}px;${baseImgStyle};width:100%`;
+        } else {
+          imgStyle = `max-width:100%;${baseImgStyle}`;
+          if (isLoneImage(img)) {
+            // No size asked for → fill the reading column (same rule as the
+            // decoration path above). Only when the image has the container to
+            // itself: several images in one paragraph are a row, not a stack.
+            imgStyle += ';width:100%';
+          }
         }
         if (params.height) {
           imgStyle += `;height:${params.height}px`;
@@ -793,6 +765,65 @@ export class WechatRenderer {
         cur + ';width:100%;height:auto;vertical-align:middle;margin-bottom:3px');
 
       svg.setAttribute('data-wewrite-no-prescan', '');
+    });
+
+    // Code blocks — LAST, because it is the pass that removes the <pre>: both
+    // inline-element passes above recognise block code as `code` inside a
+    // `pre`, so unwrapping it earlier would hand the block to them and the code
+    // would come out wearing the inline-chip style.
+    //
+    // The box is a zero-padding container (background/radius/shadow/clipping);
+    // the body <section> owns the padding, so a title bar inserted above it sits
+    // flush against the box's top/left/right edges instead of being inset by
+    // code padding.
+    //
+    // The body is a <section>, NOT a <pre>. A <pre> host made the editor treat
+    // the block as preformatted content and normalize the whitespace *inside*
+    // it (`&nbsp;` indentation came back as plain spaces). Separately, the
+    // editor rewrites the white-space *value* `pre` to `pre-wrap` on whatever
+    // element carries it — that part is element-independent and is handled by
+    // emitting `nowrap` instead (see getCodeBlockBodyStyle). See
+    // docs/bug-fix/2026-09-22-codeblock-autowrap.md.
+    doc.querySelectorAll('pre').forEach((el) => {
+      // Mermaid diagrams are not code blocks: Obsidian wraps the SVG in
+      // <pre class="mermaid">. Keep them transparent and unwrapped so the
+      // diagram colors come from the Mermaid themer, not the code theme.
+      // The theme's `media.mermaid.marginY` supplies their vertical spacing.
+      const isMermaidPre = (el.classList?.contains('mermaid') ?? false) || el.querySelector('svg') !== null;
+      if (isMermaidPre) {
+        el.setAttribute('style', ARTICLE_INLINE_STYLE.mermaidPre +
+          `;margin:${resolveBlockMarginY(r.getPreset(), 'mermaid', DEFAULT_BLOCK_MARGIN_Y)} 0`);
+        return;
+      }
+      // Language is read before the <pre> is discarded — WeChat's sanitizer
+      // strips class attributes, so it cannot be recovered later.
+      const codeEl = el.querySelector('code');
+      const language = codeEl ? getCodeLanguageFromClassList(Array.from(codeEl.classList)) : null;
+
+      const box = createEl('section');
+      box.setAttribute('style', r.getCodeBlockBoxStyle());
+
+      // Title bar — Mac-style dots + right-aligned language label
+      const titleBarHtml = r.buildCodeTitleBarHtml(language);
+      if (titleBarHtml) {
+        const prependEl = createSpan();
+        setTrustedHtml(prependEl, titleBarHtml);
+        box.appendChild(prependEl);
+      }
+
+      // Code body — carries the typography, padding and scroll behavior the
+      // <pre> used to own. Any inline style the host (Obsidian or a plugin) put
+      // on the <pre> is carried over first, so the theme still wins.
+      const body = createEl('section');
+      const preStyle = (el.getAttribute('style') || '').trim();
+      const codeStyle = r.getCodeBlockBodyStyle();
+      body.setAttribute('style', preStyle ? `${preStyle};${codeStyle};margin:0` : `${codeStyle};margin:0`);
+      if (codeEl) body.appendChild(codeEl);
+      else while (el.firstChild) body.appendChild(el.firstChild);
+      box.appendChild(body);
+
+      el.parentNode?.insertBefore(box, el);
+      el.remove();
     });
 
     // Remove script, style, iframe tags

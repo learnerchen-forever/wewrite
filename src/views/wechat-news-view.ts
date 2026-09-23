@@ -20,6 +20,7 @@ import { guessMimeType, extractMimeType } from '../media/image-validator';
 import { compactBlockWhitespace } from '../renderer/wechat-cleaner';
 import { waitForCalloutPlugins, processCalloutsAndAdmonitions } from '../utils/callout-processor';
 import { processCodeBlocksInPlace } from '../utils/code-block-utils';
+import { appendArticleWatermark } from '../utils/article-watermark';
 import { sanitizeSvgElement } from '../renderer/wechat-svg-sanitizer';
 import { applySvgFallback, MAX_CONTENT_BYTES, type FallbackResult } from '../media/svg-fallback';
 import { prescanSvgs, prescanImages } from '../media/content-prescan';
@@ -1373,6 +1374,7 @@ export class WeChatNewsView extends ItemView {
         fontFamily: codeResolver.resolveCodeFontFamily(),
         fontSize: codeResolver.resolveCodeFontSize(),
         wrap: codeResolver.resolveCodeWrap(),
+        padding: codeResolver.resolveCodePadding(),
       });
 
       // Convert MathJax CHTML formulas to SVG so they survive WeChat
@@ -1457,8 +1459,11 @@ export class WeChatNewsView extends ItemView {
 
       // Optional WeWrite watermark — appended at the bottom-right of News
       // renderings when the setting is enabled (preview, copy and publish all
-      // share this.renderedHtml).
-      this.renderedHtml = this.appendArticleWatermark(this.renderedHtml);
+      // share this.renderedHtml). The fragment lives in utils/article-watermark
+      // so its host element (`<section>`, never `<div>`) is covered by a test.
+      if (this.plugin.settingsManager.getSettings().articleWatermark) {
+        this.renderedHtml = appendArticleWatermark(this.renderedHtml);
+      }
 
       // Content size indicator in Article Settings label
       const contentKb = (fallback.finalByteLength / 1024).toFixed(1);
@@ -1538,24 +1543,6 @@ export class WeChatNewsView extends ItemView {
         void this.renderContent();
       }
     }
-  }
-
-  /**
-   * Append the optional WeWrite watermark at the very end of the article,
-   * aligned to the bottom-right. The watermark sits inside the article's
-   * root <section> wrapper so it inherits the article background and is
-   * included in preview, copy and publish output.
-   */
-  private appendArticleWatermark(html: string): string {
-    if (!this.plugin.settingsManager.getSettings().articleWatermark) return html;
-    const watermark =
-      '<div style="text-align:right;margin-top:20px;padding-bottom:4px;">' +
-      '<span style="color:#b0b0b0;font-style:italic;font-size:12px;line-height:1.6;">' +
-      'published by wewrite@obsidian' +
-      '</span></div>';
-    const idx = html.lastIndexOf('</section>');
-    if (idx === -1) return html + watermark;
-    return html.slice(0, idx) + watermark + html.slice(idx);
   }
 
   /** Wait for Obsidian async plugins to finish rendering (callouts, mermaid, SVGs). */
