@@ -1,0 +1,199 @@
+name: Sync Release to Gitee
+
+# Mirrors every GitHub Release onto the Gitee mirror repository
+# (https://gitee.com/northern_bank/wewrite). GitHub is the source of truth;
+# this workflow only ever *writes* to Gitee and never deletes a ref there.
+#
+# --- Why `workflow_run` and not `release: published`? ----------------------
+# release.yml publishes the Release through softprops/action-gh-release using
+# the repository's own GITHUB_TOKEN. GitHub deliberately suppresses every event
+# raised by that token — `release`, `push`, everything — so that a workflow
+# cannot trigger itself forever. Only `workflow_dispatch` and
+# `repository_dispatch` escape the rule. A `release: [published]` trigger would
+# therefore look correct and silently never run.
+#
+# `workflow_run` is a system-level event: it fires when the upstream *run*
+# finishes, so it needs no PAT and no edit to release.yml. Requiring a PAT here
+# would mean rotating a second credential just to get a notification.
+#
+# --- Why a second workflow file at all? ------------------------------------
+# Keeping the Gitee mirror out of release.yml means a Gitee outage, a bad token
+# or a rejected push can never fail, delay or re-run a GitHub release. The
+# release job has already finished by the time this job is even queued.
+on:
+  workflow_run:
+    # Must match the `name:` of the release workflow exactly — a rename there
+    # silently disables the mirror.
+    workflows: ["Smart Release"]
+    types: [completed]
+  # Manual escape hatch: backfill an older tag, or re-run after fixing a token
+  # without waiting for the next release.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to mirror (defaults to the version in manifest.json)'
+        required: false
+        type: string
+
+# Queue instead of cancelling: two releases in quick succession must both land
+# on Gitee in order.
+concurrency:
+  group: sync-gitee
+  cancel-in-progress: false
+
+# Reading the GitHub Release and its assets is all this needs.
+permissions:
+  contents: read
+
+jobs:
+  gitee:
+    name: Mirror release to Gitee
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Deliberately not gated on `conclusion == 'success'`: a run that failed
+    # *before* creating the Release still reaches the "does the Release exist?"
+    # gate below and exits early, while a run that failed for an unrelated
+    # reason *after* publishing is still worth mirroring.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.workflow_run.event == 'push'
+    env:
+      # Edit these two lines if the mirror ever moves.
+      GITEE_OWNER: northern_bank
+      GITEE_REPO: wewrite
+      ASSETS_DIR: ${{ runner.temp }}/gitee-assets
+      RELEASE_JSON: ${{ runner.temp }}/github-release.json
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          # Pinned to the default branch on purpose. `workflow_run` also carries
+          # the upstream commit, and checking *that* out would run this job with
+          # the tooling as it was at release time — i.e. without
+          # tools/sync-gitee.mjs on the very first release after this lands.
+          # An empty value falls back to the event default, so this cannot hard-
+          # fail if the field ever disappears.
+          ref: ${{ github.event.repository.default_branch }}
+          # 0 fetches every branch and tag, which is what the mirror push needs.
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          # tools/sync-gitee.mjs relies on the global fetch/FormData/Blob, i.e.
+          # Node 18+. Pinned so a runner image change cannot surprise us.
+          node-version: 22.x
+
+      - name: Resolve the tag to mirror
+        id: resolve
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          # An empty dispatch input falls back to whatever manifest.json
+          # declares — the same field release.yml keys the release off.
+          TAG="${INPUT_TAG:-$(jq -r .version manifest.json)}"
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Mirroring tag $TAG"
+
+      # The gate that makes this workflow safe to fire on no-op release runs:
+      # release.yml runs a second time when a changelog fragment lands after a
+      # version bump, and that run skips because the tag already exists. Those
+      # runs are successful but have nothing new; here they simply exit.
+      - name: Check the GitHub Release exists
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.resolve.outputs.TAG }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No GitHub Release for $TAG — nothing to mirror."
+          fi
+
+      # Reading the release *body* from GitHub rather than regenerating it is
+      # what guarantees the Gitee page shows the same notes as the GitHub page
+      # (and as the plugin's "What's New" dialog).
+      - name: Read the GitHub release metadata
+        if: steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.resolve.outputs.TAG }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json name,body,tagName,isPrerelease > "$RELEASE_JSON"
+          node -e '
+            const release = require(process.env.RELEASE_JSON);
+            console.log(`Release "${release.name}" — ${(release.body || "").length} chars of notes, prerelease: ${release.isPrerelease}`);
+          '
+
+      - name: Download the release assets
+        if: steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.resolve.outputs.TAG }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$ASSETS_DIR"
+          # A tag whose assets are not all present still deserves its release
+          # page on Gitee, so a partial download is a warning, not a failure.
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --dir "$ASSETS_DIR" \
+            --pattern main.js --pattern manifest.json --pattern styles.css \
+            || echo "::warning::Some release assets are missing; mirroring the notes only."
+          ls -l "$ASSETS_DIR"
+
+      - name: Push branches and tags to Gitee
+        if: steps.gate.outputs.run == 'true'
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.TAG }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GITEE_TOKEN:-}" ]; then
+            echo "::error::The GITEE_TOKEN secret is not set on this repository."
+            exit 1
+          fi
+
+          # Keep the token out of .git/config and out of `git push` output: the
+          # credential-store helper matches by host, so the remote URL stays
+          # clean and quotable in logs.
+          git config --local credential.helper store
+          printf 'https://%s:%s@gitee.com\n' "$GITEE_OWNER" "$GITEE_TOKEN" > "$HOME/.git-credentials"
+          chmod 600 "$HOME/.git-credentials"
+
+          git remote add gitee "https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}.git"
+          git fetch --tags --force origin
+
+          # `--prune` is intentionally omitted: a failed or mistaken push must
+          # never delete a ref that exists on Gitee. Stale refs are harmless.
+          # The `+` is required — a mirror has to converge on rewritten history.
+          git symbolic-ref -d refs/remotes/origin/HEAD >/dev/null 2>&1 || true
+          git push gitee \
+            "+refs/remotes/origin/*:refs/heads/*" \
+            "+refs/tags/*:refs/tags/*"
+
+          # `target_commitish` accepts a branch name or a commit SHA, not a tag
+          # name, so resolve the tag to a SHA and hand that to the API. Written
+          # with an explicit `refs/tags/` prefix so a branch that happens to
+          # share the tag's name can never win. Non-fatal: the tag is already
+          # pushed, so Gitee attaches the release to it by tag_name anyway.
+          if git rev-parse --verify "refs/tags/${TAG}^{commit}" > "$RUNNER_TEMP/target-sha.txt" 2>/dev/null; then
+            echo "Tag $TAG -> $(cat "$RUNNER_TEMP/target-sha.txt")"
+          else
+            rm -f "$RUNNER_TEMP/target-sha.txt"
+            echo "::warning::Cannot resolve $TAG to a commit; creating the release without target_commitish."
+          fi
+
+      - name: Create or update the Gitee release
+        if: steps.gate.outputs.run == 'true'
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.TAG }}
+          TARGET_COMMITISH_FILE: ${{ runner.temp }}/target-sha.txt
+        run: node tools/sync-gitee.mjs
