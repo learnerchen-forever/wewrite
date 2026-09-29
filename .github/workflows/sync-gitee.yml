@@ -61,8 +61,15 @@ jobs:
       # Edit these two lines if the mirror ever moves.
       GITEE_OWNER: northern_bank
       GITEE_REPO: wewrite
-      ASSETS_DIR: ${{ runner.temp }}/gitee-assets
-      RELEASE_JSON: ${{ runner.temp }}/github-release.json
+      # NOTE: these must not use `${{ runner.temp }}`. The context availability
+      # table allows only github, needs, strategy, matrix, vars, secrets and
+      # inputs in a *job-level* env — `runner` is step-level only. Naming it
+      # here makes GitHub reject the whole file, which shows up as a run called
+      # ".github/workflows/sync-gitee.yml" with zero jobs and no error text.
+      # `github` is allowed, so the scratch files live inside the checkout.
+      ASSETS_DIR: ${{ github.workspace }}/.gitee-sync/assets
+      RELEASE_JSON: ${{ github.workspace }}/.gitee-sync/release.json
+      TARGET_COMMITISH_FILE: ${{ github.workspace }}/.gitee-sync/target-sha.txt
 
     steps:
       - name: Checkout code
@@ -91,6 +98,7 @@ jobs:
           INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
+          mkdir -p "$ASSETS_DIR"
           # An empty dispatch input falls back to whatever manifest.json
           # declares — the same field release.yml keys the release off.
           TAG="${INPUT_TAG:-$(jq -r .version manifest.json)}"
@@ -139,7 +147,6 @@ jobs:
           TAG: ${{ steps.resolve.outputs.TAG }}
         run: |
           set -euo pipefail
-          mkdir -p "$ASSETS_DIR"
           # A tag whose assets are not all present still deserves its release
           # page on Gitee, so a partial download is a warning, not a failure.
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
@@ -183,10 +190,10 @@ jobs:
           # with an explicit `refs/tags/` prefix so a branch that happens to
           # share the tag's name can never win. Non-fatal: the tag is already
           # pushed, so Gitee attaches the release to it by tag_name anyway.
-          if git rev-parse --verify "refs/tags/${TAG}^{commit}" > "$RUNNER_TEMP/target-sha.txt" 2>/dev/null; then
-            echo "Tag $TAG -> $(cat "$RUNNER_TEMP/target-sha.txt")"
+          if git rev-parse --verify "refs/tags/${TAG}^{commit}" > "$TARGET_COMMITISH_FILE" 2>/dev/null; then
+            echo "Tag $TAG -> $(cat "$TARGET_COMMITISH_FILE")"
           else
-            rm -f "$RUNNER_TEMP/target-sha.txt"
+            rm -f "$TARGET_COMMITISH_FILE"
             echo "::warning::Cannot resolve $TAG to a commit; creating the release without target_commitish."
           fi
 
@@ -195,5 +202,4 @@ jobs:
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           TAG: ${{ steps.resolve.outputs.TAG }}
-          TARGET_COMMITISH_FILE: ${{ runner.temp }}/target-sha.txt
         run: node tools/sync-gitee.mjs
