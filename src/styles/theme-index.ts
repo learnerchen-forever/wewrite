@@ -15,9 +15,11 @@
 //   description   — one line describing the theme's character (zh)
 //   descriptionEn — the same in English (optional; falls back to `description`)
 //   hash          — content fingerprint (see `themeContentHash`)
+//   author        — who contributed the theme (optional; shown in the dialog)
 //
 // Old clients read only `name` and `file`, so the extra fields are additive and
-// safe to publish before every user has updated.
+// safe to publish before every user has updated. `file` itself is validated by
+// `isSafeThemeFileName` before an entry is accepted — see that function.
 
 import { fnv1a64HexUtf8 } from '../utils/fingerprint';
 import type { ThemeFileState, ThemeSyncStateMap } from '../core/interfaces';
@@ -37,6 +39,8 @@ export interface RemoteThemeEntry {
   name: string;
   /** File name inside `themes/`, e.g. `001-晨曦蓝调.md`. */
   file: string;
+  /** Who contributed the theme, when the author claimed it. */
+  author?: string;
   /** One-line description in Chinese (the authoring language of the notes). */
   description?: string;
   /** One-line description in English; falls back to `description`. */
@@ -109,6 +113,43 @@ export function themeContentHash(content: string): string {
   return fnv1a64HexUtf8(normalized.replace(/\r\n?/g, '\n'));
 }
 
+// ── File-name safety ──
+
+/** Longest accepted theme file name — every shipped one is far below this. */
+const MAX_THEME_FILE_NAME = 120;
+
+/**
+ * Is `file` a plain file name that may be written inside the themes folder?
+ *
+ * The index arrives over the network and `file` is concatenated straight into
+ * a vault path (`${themesDir}/${file}`) by the downloader, so this is a trust
+ * boundary rather than a convenience field. Without the check an entry such as
+ * `../../../.obsidian/plugins/wewrite/main.js` resolves to a path *inside the
+ * vault* — the vault adapter will happily overwrite files there — and "update
+ * the packaged themes" turns into arbitrary code replacement with the user's
+ * own click as the approval.
+ *
+ * The rule is an allow-list shape rather than a block-list of known-bad
+ * sequences: one flat segment, ending in `.md`, with no separator, no control
+ * character, no leading dot (which would hide it from the file explorer) and
+ * none of the characters Windows refuses in a file name (`:<>"|?*` — `:` also
+ * opens an NTFS alternate data stream). Entries that fail are dropped by the
+ * parser, so comparison, dialog and download all see the same safe set
+ * instead of each having to remember to ask.
+ */
+export function isSafeThemeFileName(file: string): boolean {
+  if (file.length === 0 || file.length > MAX_THEME_FILE_NAME) return false;
+  if (!file.endsWith('.md')) return false;
+  if (file.startsWith('.')) return false;
+  if (file.includes('/') || file.includes('\\')) return false;
+  for (let i = 0; i < file.length; i++) {
+    const code = file.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f) return false;
+  }
+  if (/[<>:"|?*]/.test(file)) return false;
+  return true;
+}
+
 // ── Index parsing ──
 
 function asString(value: unknown): string | undefined {
@@ -119,10 +160,11 @@ function normalizeEntry(raw: unknown): RemoteThemeEntry | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
   const file = asString(o.file);
-  if (!file || !file.endsWith('.md')) return null;
+  if (!file || !isSafeThemeFileName(file)) return null;
   return {
     file,
     name: asString(o.name) ?? file.replace(/\.md$/, ''),
+    author: asString(o.author),
     description: asString(o.description),
     descriptionEn: asString(o.descriptionEn),
     updated: asString(o.updated),

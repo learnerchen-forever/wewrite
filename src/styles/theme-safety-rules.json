@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "script-tag",
+      "pattern": "<\\s*/?\\s*script\\b",
+      "flags": "i"
+    },
+    {
+      "id": "event-handler",
+      "pattern": "\\son[a-z]{3,}\\s*=",
+      "flags": "i"
+    },
+    {
+      "id": "script-url",
+      "pattern": "(?:javascript|vbscript)\\s*:",
+      "flags": "i"
+    },
+    {
+      "id": "html-data-url",
+      "pattern": "data\\s*:\\s*text/html",
+      "flags": "i"
+    },
+    {
+      "id": "active-element",
+      "pattern": "<\\s*(?:iframe|frame|frameset|object|embed|applet|base|meta|link|style)\\b",
+      "flags": "i"
+    },
+    {
+      "id": "css-expression",
+      "pattern": "(?:expression\\s*\\(|behavior\\s*:|-moz-binding)",
+      "flags": "i"
+    },
+    {
+      "id": "at-import",
+      "pattern": "@import",
+      "flags": "i"
+    }
+  ]
+}

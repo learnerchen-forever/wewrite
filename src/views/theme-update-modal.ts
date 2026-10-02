@@ -13,7 +13,7 @@
 // A row is never pre-checked when checking it would discard content the user
 // might care about (see classifyThemeChange).
 
-import { App, Setting, setIcon } from 'obsidian';
+import { App, Notice, Setting, setIcon } from 'obsidian';
 import { WeWriteModal } from '../utils/modal-drag';
 import { t } from '../i18n';
 import { createLogger } from '../utils/logger';
@@ -221,6 +221,14 @@ export class ThemeUpdateModal extends WeWriteModal {
     const head = main.createDiv({ cls: 'wewrite-theme-update-row-head' });
     head.createSpan({ cls: 'wewrite-theme-update-name', text: entry.name });
     head.createSpan({ cls: `wewrite-theme-update-badge ${label.cls}`, text: t(label.key) });
+    // Attribution sits last: it is the least urgent thing in the row and the
+    // first to be clipped when the dialog is narrow.
+    if (entry.author) {
+      head.createSpan({
+        cls: 'wewrite-theme-update-author',
+        text: t('themeSync.by_author', { author: entry.author }),
+      });
+    }
 
     const description = this.description(entry);
     if (description) {
@@ -333,13 +341,39 @@ export class ThemeUpdateModal extends WeWriteModal {
         created: result.created,
         overwritten: result.overwritten,
         failed: result.failed.length,
+        rejected: result.rejected.length,
       });
+      this.reportPartial(result);
       this.close();
     } catch (err) {
       log.warn('theme update failed', { err: String(err) });
       this.renderUnreachable();
     } finally {
       this.busy = false;
+    }
+  }
+
+  /**
+   * Say out loud what did not arrive.
+   *
+   * Without this the dialog simply closes, which reads as "everything
+   * downloaded". A refused theme is not a network problem — it is the safety
+   * gate in `theme-sync.ts` declining to write something — so the two get
+   * different sentences, each naming the files involved.
+   */
+  private reportPartial(result: ThemeApplyResult): void {
+    if (result.failed.length > 0) {
+      new Notice(
+        t('themeSync.apply_failed', { count: result.failed.length, files: result.failed.join(', ') }),
+      );
+    }
+    if (result.rejected.length > 0) {
+      new Notice(
+        t('themeSync.apply_rejected', {
+          count: result.rejected.length,
+          files: result.rejected.map((item) => item.file).join(', '),
+        }),
+      );
     }
   }
 }

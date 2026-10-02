@@ -22,6 +22,7 @@ import {
 import {
   classifyThemeChange,
   countUpdatable,
+  isSafeThemeFileName,
   normalizeThemeIndex,
   sortThemeChanges,
   themeContentHash,
@@ -32,6 +33,7 @@ import {
   type ThemeIndex,
   type ThemeSyncStateMap,
 } from './theme-index';
+import { inspectThemeNote } from './theme-safety';
 
 const log = createLogger('Styles');
 
@@ -58,6 +60,16 @@ export type ThemeCheckOutcome =
   | { ok: true; result: ThemeCheckResult }
   | { ok: false; reason: 'unreachable' };
 
+/** Why a downloaded theme was refused instead of written. */
+export type ThemeRejectionReason = 'unsafe-name' | 'unsafe-content';
+
+export interface ThemeRejection {
+  file: string;
+  reason: ThemeRejectionReason;
+  /** Rule ids that fired — empty for `unsafe-name`. */
+  rules: string[];
+}
+
 export interface ThemeApplyResult {
   /** Notes that did not exist before. */
   created: number;
@@ -72,6 +84,13 @@ export interface ThemeApplyResult {
    * silently claiming success.
    */
   mismatched: string[];
+  /**
+   * Notes that were downloaded but deliberately NOT written, because the file
+   * name or the custom values failed the safety gate (`theme-safety.ts`).
+   * Kept apart from `failed`: "the mirror is down, try later" and "this theme
+   * is carrying something it should not" need different words in the dialog.
+   */
+  rejected: ThemeRejection[];
 }
 
 export interface ThemeSyncDeps {
@@ -143,7 +162,7 @@ export class ThemeSyncService {
     if (!Array.isArray(listing)) return null;
 
     const files = (listing as ApiDirEntry[])
-      .filter((e) => typeof e?.name === 'string' && e.name.endsWith('.md'))
+      .filter((e) => typeof e?.name === 'string' && isSafeThemeFileName(e.name))
       .map((e) => ({ name: e.name.replace(/\.md$/, ''), file: e.name }));
     if (files.length === 0) return null;
 
@@ -196,9 +215,15 @@ export class ThemeSyncService {
    * Existing notes are **replaced**, not renamed: the previous behaviour of
    * writing to a fresh name was what produced duplicate themes. The dialog
    * makes the overwrite explicit before this runs.
+   *
+   * Every note passes the safety gate first (`isSafeThemeFileName` for the
+   * path, `inspectThemeNote` for the custom values); a note that fails is
+   * reported in `rejected` and nothing is written. This is the last place
+   * where "content from the network" and "a file in the vault" are still
+   * different things.
    */
   async apply(changes: readonly ThemeChange[], preferredRemoteId?: string): Promise<ThemeApplyResult> {
-    const result: ThemeApplyResult = { created: 0, overwritten: 0, failed: [], mismatched: [] };
+    const result: ThemeApplyResult = { created: 0, overwritten: 0, failed: [], mismatched: [], rejected: [] };
     if (changes.length === 0) return result;
 
     const preferred = preferredRemoteId ?? this.preferredRemoteId ?? undefined;
@@ -206,10 +231,35 @@ export class ThemeSyncService {
 
     for (const change of changes) {
       const entry = change.entry;
+
+      // The index parser already drops unsafe file names, so getting here means
+      // the entry was built by hand. Re-checking is nearly free and the cost of
+      // being wrong is a write outside the themes folder.
+      if (!isSafeThemeFileName(entry.file)) {
+        result.rejected.push({ file: entry.file, reason: 'unsafe-name', rules: [] });
+        log.warn('refusing a theme whose file name escapes the themes folder', { file: entry.file });
+        continue;
+      }
+
       const fetched = await this.fetchThemeFile(entry, preferred);
       if (!fetched) {
         result.failed.push(entry.file);
         log.warn('theme download failed on every mirror', { file: entry.file });
+        continue;
+      }
+
+      // The one part of a theme that can carry active content is the custom
+      // value payloads. Checked before the write, and before the fingerprint is
+      // recorded, so a refused theme is not left looking "up to date".
+      const issues = inspectThemeNote(fetched.content);
+      if (issues.length > 0) {
+        const rules = issues.map((issue) => issue.rule);
+        result.rejected.push({ file: entry.file, reason: 'unsafe-content', rules });
+        log.warn('refusing a theme with active content in its custom values', {
+          file: entry.file,
+          rules,
+          samples: issues.map((issue) => issue.sample),
+        });
         continue;
       }
 
@@ -261,6 +311,7 @@ export class ThemeSyncService {
       overwritten: result.overwritten,
       failed: result.failed.length,
       mismatched: result.mismatched.length,
+      rejected: result.rejected.length,
     });
     return result;
   }

@@ -4855,6 +4855,16 @@ select.wewrite-font-select {
   font-weight: var(--font-semibold, 600);
   font-size: var(--font-ui-medium, 14px);
 }
+/* Attribution line: quieter than the name, and the first thing clipped when the
+   row runs out of room — the name and the status badge outrank it. */
+.wewrite-theme-update-author {
+  font-size: var(--font-ui-smaller, 12px);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
 .wewrite-theme-update-badge {
   font-size: var(--font-ui-smaller, 12px);
   padding: 0 6px;
