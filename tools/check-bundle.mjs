@@ -1,18 +1,29 @@
 #!/usr/bin/env node
 /**
- * tools/check-bundle.mjs — iOS 15.7 load gate.
+ * tools/check-bundle.mjs — plugin load gate.
  *
- * CLAUDE.md bans syntax that makes iOS 15.7 Safari throw a SyntaxError while
- * parsing the plugin, because that stops the entire plugin from loading.
- * esbuild targets ES2020 but does NOT transpile any of it away:
+ * A bundle that throws while it is being evaluated never registers its plugin,
+ * and Obsidian reports it as "Plugin failure: wewrite <Error>". Two classes of
+ * hazard are checked, both of which only appear in the *built* bundle:
  *
- *   regex lookbehind     /(?<=x)y/  (?<!x)y
- *   class static blocks  class X { static { … } }
+ * 1. iOS 15.7 SyntaxError (from CLAUDE.md). esbuild targets ES2020 but does
+ *    NOT transpile any of this away:
  *
- * A plain `grep '(?<' main.js` cannot be the gate: dependencies build
- * lookbehind patterns from *strings* at runtime — `new RegExp("(?<!\\n)")`,
- * inside try/catch with a safe fallback — and those are not parse-time syntax.
- * Reporting them would leave the gate permanently red.
+ *      regex lookbehind     /(?<=x)y/  (?<!x)y
+ *      class static blocks  class X { static { … } }
+ *
+ *    A plain `grep '(?<' main.js` cannot be the gate: dependencies build
+ *    lookbehind patterns from *strings* at runtime — `new RegExp("(?<!\\n)")`,
+ *    inside try/catch with a safe fallback — and those are not parse-time
+ *    syntax. Reporting them would leave the gate permanently red.
+ *
+ * 2. A call into the host's global `MathJax`. Obsidian 1.14 renders math with
+ *    MathJax 4, whose global has a `loader` config object but no `preLoad()`,
+ *    so a dependency that calls `MathJax.loader.preLoad(...)` (mathjax-full
+ *    3.2.1 does, guarded only by `MathJax.loader`) throws on load. The plugin
+ *    is meant to be self-contained here: mathjax-full is bundled and its
+ *    converter is built from `mathjax.document()`, never from the host global.
+ *    esbuild.config.mjs strips the call; this rule keeps it stripped.
  *
  * So this script strips comments and literals first, then looks for what the
  * parser would actually see. Stripping is deliberately conservative:
@@ -24,6 +35,9 @@
  *
  * That bias means the worst case is a *false positive* (a human reads the
  * reported snippet), never a silent loss of sync that hides a real hazard.
+ * Stripping strings is what makes the MathJax rule survivable: the plugin has
+ * plenty of "MathJax" prose in its UI strings and error messages, and none of
+ * it is code.
  *
  * Usage:
  *   node tools/check-bundle.mjs                # checks main.js
@@ -171,6 +185,13 @@ const CHECKS = [
     pattern: /\bstatic\s*\{/g,
     why: 'iOS 15.7 cannot parse it — move the initialiser into a function called after the class',
   },
+  {
+    name: 'call into the host MathJax global',
+    pattern: /MathJax\.loader\.preLoad\b/g,
+    why:
+      'Obsidian 1.14 ships MathJax 4, whose global loader has no preLoad() — ' +
+      'the call throws while the bundle loads. Strip it in esbuild.config.mjs instead.',
+  },
 ];
 
 const segments = process.argv.slice(2);
@@ -203,8 +224,10 @@ for (const full of files) {
 }
 
 if (failed) {
-  console.error('\ncheck-bundle: FAILED — this build would not load on iOS 15.x.');
+  console.error('\ncheck-bundle: FAILED — this build would throw while loading.');
   process.exit(1);
 }
 
-console.log(`check-bundle: OK — ${files.length} file(s), no lookbehind or class static blocks.`);
+console.log(
+  `check-bundle: OK — ${files.length} file(s), no lookbehind, class static blocks or host MathJax calls.`,
+);

@@ -8,6 +8,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This file is the single source of truth for release notes: the GitHub Release body and the
 in-plugin **What's New** dialog are both generated from it by `npm run changelog`.
 
+## [2.0.24](https://github.com/learnerchen-forever/wewrite/releases/tag/2.0.24) - 2026-10-10
+
+### ✨ Features
+- **themes**: Downloadable themes now credit their author in the update dialog.
+
+### 🐛 Fixes
+- **editor**: The plugin loads again on Obsidian 1.14 when a note is open: the bundle no longer ships its own copy of Obsidian's CodeMirror, so the editor range highlight used by AI proofreading registers cleanly instead of failing the whole plugin with "Unrecognized extension value in extension set".
+- **math**: The plugin loads again on Obsidian 1.14, which ships MathJax 4: bundled math rendering no longer calls into the host's `MathJax` global.
+- **themes**: A downloaded theme is now checked before anything is written: a note whose file name would escape the themes folder, or whose custom decorations carry active content, is refused by name instead of closing the dialog as if it had downloaded.
+
 ## [2.0.23](https://github.com/learnerchen-forever/wewrite/releases/tag/2.0.23) - 2026-09-23
 
 ### 🐛 Fixes
