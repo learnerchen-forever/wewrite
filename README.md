@@ -146,6 +146,7 @@ Or install manually:
 - [Tutorial 4: Covers & Images](tutorials/04-cover-and-images.md)
 - [Tutorial 5: Materials & Image Posts](tutorials/05-materials-and-newspic.md)
 - [Tutorial 6: Multi-Device Sync & Settings](tutorials/06-sync-and-settings.md)
+- [Tutorial 7: Official Account API Auth & IP Allowlist](tutorials/07-api-auth-and-ip-whitelist.md)
 
 > The tutorials are currently written in Chinese. The [Chinese README](README_zh.md) has the full feature overview in Chinese.
 
@@ -160,6 +161,7 @@ Or install manually:
 
 A complete rewrite: mobile-first architecture, Obsidian's native rendering with a zero-CSS inline styling pipeline, a theme-note system with 100+ decorations, the AI writing assistant (proofread / synonyms / translate / Mermaid / formulas / image / summary), a unified FNV1a-64 asset fingerprint database, the three-zone cover editor, image posts, WebDAV multi-device sync, encrypted API key storage, settings import/export, and automatic v1.x migration.
 
+- 2026.10.10 — Release 2.0.24: the plugin loads again on Obsidian 1.14, which ships MathJax 4 and a newer CodeMirror. The bundle no longer calls the host's `MathJax` global, and no longer carries its own copy of Obsidian's CodeMirror — that second copy is what made the plugin fail to load whenever a note was open. A downloaded theme is now checked before anything is written, and downloadable themes credit their author.
 - 2026.09.18 — Release 2.0.21:
   - The 38 icons are redrawn as one family, on the same 24 grid and stroke as Obsidian's own. Six places that borrowed an Obsidian icon to mean a WeWrite action now use the WeWrite one.
   - The ten built-in themes are rebuilt on the same theme system as the downloadable ones. Themes also gain one **vertical spacing** value per block family, plus an **Image Window** switch.

@@ -148,6 +148,7 @@
 - [教程 4：封面与图片](tutorials/04-cover-and-images.md)
 - [教程 5：素材管理与图片消息](tutorials/05-materials-and-newspic.md)
 - [教程 6：多端同步与设置](tutorials/06-sync-and-settings.md)
+- [教程 7：公众号 API 鉴权与 IP 白名单](tutorials/07-api-auth-and-ip-whitelist.md)
 
 > 教程目前为中文；英文功能总览见 [README.md](README.md)。
 
@@ -162,6 +163,7 @@
 
 一次全面重构：移动优先架构、Obsidian 原生渲染 + 零 CSS 内联样式管线、主题笔记系统 + 100+ 装饰项、AI 写作助手（校对/同义词/翻译/Mermaid/公式/文生图/摘要）、统一 FNV1a-64 素材指纹库、三区封面编辑器、图片消息、WebDAV 多端同步、API Key 加密存储、设置导入/导出、v1.x 自动迁移。
 
+- 2026.10.10 — 发布 2.0.24：插件在 Obsidian 1.14 上恢复加载 —— 该版本内置了 MathJax 4 与更新的 CodeMirror。打包产物不再调用宿主的 `MathJax` 全局，也不再自带一份 Obsidian 的 CodeMirror；正是这第二份副本导致打开笔记时插件整体加载失败。下载主题现在会先校验再写入，并会标注作者。
 - 2026.09.18 — 发布 2.0.21：
   - 38 枚图标按同一套 24 网格和笔画重绘成一个家族；6 处原本借用 Obsidian 图标表达 WeWrite 动作的地方，改用自绘图标。
   - 10 个内置主题重建在与可下载主题同一套系统上；主题新增每类元素的**垂直间距**和**图片滑动窗**开关。
